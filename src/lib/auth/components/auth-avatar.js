@@ -160,8 +160,7 @@ class AuthAvatar extends HTMLElement {
     }
   }
 
-  handleClick() {
-    const user = authService.getCurrentUser();
+  async handleClick() {
     const authController = document.querySelector('auth-controller');
     const authContent = document.querySelector('auth-content');
 
@@ -170,11 +169,16 @@ class AuthAvatar extends HTMLElement {
       return;
     }
 
+    // Ensure slot components (especially <user-profile>) are upgraded before
+    // we toggle .active on them or call methods like showPanel(). Otherwise
+    // the slot may render visible but empty — only the profile head/tabs
+    // show, with no form fields underneath.
+    await authController.loadAuthComponents();
+
+    const user = authService.getCurrentUser();
     if (user) {
-      // Show profile for logged in user
       authContent.showUserProfile();
     } else {
-      // Show login form for non-authenticated user
       authContent.showAuthForms();
     }
 
