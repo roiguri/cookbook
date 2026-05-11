@@ -1,3 +1,5 @@
+import { addBreadcrumb, captureError, captureMessage } from '../../js/services/logger.js';
+
 export class AppRouter {
   constructor() {
     this.routes = new Map();
@@ -66,6 +68,7 @@ export class AppRouter {
         }
       } catch (error) {
         console.error(`Error in navigation guard ${name}:`, error);
+        captureError(error, { service: 'router', op: 'navigationGuard', guard: name });
         // Continue checking other guards on error
       }
     }
@@ -90,6 +93,13 @@ export class AppRouter {
         return false;
       }
     }
+
+    addBreadcrumb({
+      category: 'navigation',
+      message: `navigate ${normalizedPath}`,
+      level: 'info',
+      data: { from: this.currentRoute, to: normalizedPath, replace: !!options.replace },
+    });
 
     this.currentRoute = routePath;
 
@@ -188,6 +198,7 @@ export class AppRouter {
         handler(params);
       } catch (error) {
         console.error(`Error executing route handler for ${path}:`, error);
+        captureError(error, { service: 'router', op: 'executeRoute', page: path });
         this.handleError(error, path);
       }
     } else {
@@ -230,6 +241,11 @@ export class AppRouter {
 
   handleNotFound(path) {
     console.warn(`Route not found: ${path}`);
+    captureMessage(`Route not found: ${path}`, 'warning', {
+      service: 'router',
+      op: 'handleNotFound',
+      page: path,
+    });
 
     if (this.routes.has('/404')) {
       this.currentRoute = '/404';
@@ -238,6 +254,11 @@ export class AppRouter {
       if (path === this.defaultRoute) {
         console.error(
           `Infinite redirect loop detected. Default route ${this.defaultRoute} is missing.`,
+        );
+        captureMessage(
+          `Infinite redirect loop: default route ${this.defaultRoute} is missing`,
+          'error',
+          { service: 'router', op: 'handleNotFound' },
         );
         return;
       }
@@ -248,6 +269,7 @@ export class AppRouter {
 
   handleError(error, path) {
     console.error(`Router error for path ${path}:`, error);
+    captureError(error, { service: 'router', op: 'handleError', page: path });
 
     if (this.routes.has('/error')) {
       this.currentRoute = '/error';

@@ -12,6 +12,7 @@ import './styles/main.css';
 // Register Service Worker for PWA functionality
 import './js/sw-register.js';
 
+import { initLogger, captureError } from './js/services/logger.js';
 import { initFirebase } from './js/services/_firebase/firebase-service.js';
 import firebaseConfig from './js/config/firebase-config.js';
 import authService from './js/services/auth/auth-service.js';
@@ -28,6 +29,9 @@ document.addEventListener('DOMContentLoaded', initializeSPA);
  * Sets up Firebase, preloads essential components, and starts the router.
  */
 async function initializeSPA() {
+  // Initialize logger first so Firebase init errors below are captured.
+  initLogger();
+
   try {
     initFirebase(firebaseConfig);
 
@@ -73,6 +77,7 @@ async function initializeSPA() {
     router.initialize();
   } catch (error) {
     console.error('Failed to initialize SPA:', error);
+    captureError(error, { service: 'spa-init', level: 'fatal' });
     showInitializationError(error);
   }
 }

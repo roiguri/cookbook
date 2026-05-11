@@ -27,6 +27,7 @@
  */
 
 import authService from '../../js/services/auth/auth-service.js';
+import { setUser as setLoggerUser } from '../../js/services/logger.js';
 import '../utilities/modal/modal.js';
 
 class AuthController extends HTMLElement {
@@ -70,6 +71,8 @@ class AuthController extends HTMLElement {
       this.currentUser = state.user;
 
       if (state.user) {
+        const role = state.isManager ? 'manager' : state.isApproved ? 'approved' : 'user';
+        setLoggerUser({ id: state.user.uid, role });
         this.updateNavigation(state.user, {
           isManager: state.isManager,
           isApproved: state.isApproved,
@@ -81,6 +84,7 @@ class AuthController extends HTMLElement {
           isApproved: state.isApproved,
         });
       } else {
+        setLoggerUser(null);
         this.updateNavigation(null);
         this.dispatchAuthStateChanged({
           user: null,

@@ -11,6 +11,7 @@ import {
 } from 'firebase/storage';
 // 2. Internal modules/services
 import { getStorageInstance } from './firebase-service.js';
+import { captureError } from '../logger.js';
 import { LRUCache } from '../../utils/lru-cache.js';
 
 const urlCache = new LRUCache(500);
@@ -35,6 +36,13 @@ export class StorageService {
       return url;
     } catch (error) {
       console.error('Error uploading file:', error);
+      captureError(error, {
+        service: 'storage',
+        op: 'uploadFile',
+        path,
+        size: file?.size,
+        type: file?.type,
+      });
       throw new Error('Failed to upload file');
     }
   }
@@ -57,6 +65,7 @@ export class StorageService {
       return url;
     } catch (error) {
       console.error('Error getting file URL:', error);
+      captureError(error, { service: 'storage', op: 'getFileUrl', path });
       throw new Error('Failed to get file URL');
     }
   }
@@ -74,6 +83,7 @@ export class StorageService {
       urlCache.delete(path);
     } catch (error) {
       console.error('Error deleting file:', error);
+      captureError(error, { service: 'storage', op: 'deleteFile', path });
       throw new Error('Failed to delete file');
     }
   }
@@ -94,6 +104,7 @@ export class StorageService {
       };
     } catch (error) {
       console.error('Error listing files:', error);
+      captureError(error, { service: 'storage', op: 'listFiles', path });
       throw new Error('Failed to list files');
     }
   }
@@ -110,6 +121,7 @@ export class StorageService {
       return await getMetadata(storageRef);
     } catch (error) {
       console.error('Error getting file metadata:', error);
+      captureError(error, { service: 'storage', op: 'getMetadata', path });
       throw new Error('Failed to get file metadata');
     }
   }

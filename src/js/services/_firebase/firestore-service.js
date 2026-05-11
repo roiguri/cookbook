@@ -16,6 +16,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { getFirestoreInstance } from './firebase-service.js';
+import { captureError } from '../logger.js';
 
 /**
  * FirestoreService - Centralized Firestore Database Manager
@@ -50,6 +51,12 @@ export class FirestoreService {
       return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
     } catch (error) {
       console.error('Error fetching document:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'getDocument',
+        collection: collectionName,
+        docId: id,
+      });
       throw new Error('Failed to fetch document');
     }
   }
@@ -84,6 +91,12 @@ export class FirestoreService {
       return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
     } catch (error) {
       console.error('Error querying documents:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'queryDocuments',
+        collection: collectionName,
+        queryParams,
+      });
       throw new Error('Failed to query documents');
     }
   }
@@ -112,6 +125,12 @@ export class FirestoreService {
       await setDoc(docRef, data);
     } catch (error) {
       console.error('Error setting document:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'setDocument',
+        collection: collectionName,
+        docId: id,
+      });
       throw new Error('Failed to set document');
     }
   }
@@ -130,6 +149,11 @@ export class FirestoreService {
       return docRef.id;
     } catch (error) {
       console.error('Error adding document:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'addDocument',
+        collection: collectionName,
+      });
       throw new Error('Failed to add document');
     }
   }
@@ -148,6 +172,12 @@ export class FirestoreService {
       await updateDoc(docRef, data);
     } catch (error) {
       console.error('Error updating document:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'updateDocument',
+        collection: collectionName,
+        docId: id,
+      });
       throw new Error('Failed to update document');
     }
   }
@@ -165,6 +195,12 @@ export class FirestoreService {
       await deleteDoc(docRef);
     } catch (error) {
       console.error('Error deleting document:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'deleteDocument',
+        collection: collectionName,
+        docId: id,
+      });
       throw new Error('Failed to delete document');
     }
   }
@@ -191,6 +227,11 @@ export class FirestoreService {
       await batch.commit();
     } catch (error) {
       console.error('Error performing batch write:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'batchWrite',
+        opCount: operations?.length,
+      });
       throw new Error('Failed to perform batch write');
     }
   }
