@@ -1,5 +1,4 @@
-import { getFirestoreInstance } from '../../../js/services/firebase-service.js';
-import { doc, getDoc } from 'firebase/firestore';
+import { RecipeService } from '../../../js/services/recipe-service.js';
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { showErrorModal, logError } from '../../../js/utils/error-handler.js';
 import { validateRecipeForm } from '../../../js/utils/form/form-validation-utils.js';
@@ -391,29 +390,23 @@ class RecipeFormComponent extends HTMLElement {
 
   async setRecipeData(recipeId) {
     try {
-      const db = getFirestoreInstance();
-      const docSnap = await getDoc(doc(db, 'recipes', recipeId));
+      const data = await RecipeService.get(recipeId);
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+      if (data) {
         this.recipeData = data;
         await this.populateFromData(data, recipeId);
-
-        // Re-collect from the form so the dirty-state baseline matches
-        // the shape produced by subsequent captures (Firestore-raw and
-        // form-collected shapes diverge — e.g. source:'existing' on
-        // images, instruction string normalization).
-        setTimeout(() => {
-          this.collectFormData();
-          this.enableFormProtection(this.recipeData);
-        }, 500);
       } else {
         console.warn('No such document!');
-        setTimeout(() => {
-          this.collectFormData();
-          this.enableFormProtection(this.recipeData);
-        }, 500);
       }
+
+      // Re-collect from the form so the dirty-state baseline matches
+      // the shape produced by subsequent captures (Firestore-raw and
+      // form-collected shapes diverge — e.g. source:'existing' on
+      // images, instruction string normalization).
+      setTimeout(() => {
+        this.collectFormData();
+        this.enableFormProtection(this.recipeData);
+      }, 500);
     } catch (error) {
       console.error('Error fetching recipe:', error);
       setTimeout(() => {
@@ -665,21 +658,6 @@ class RecipeFormComponent extends HTMLElement {
 
   setDisabled(isDisabled) {
     setFormDisabledState(this.shadowRoot, isDisabled);
-  }
-
-  /**
-   * Public API: Upload pending media instructions
-   * Delegates to the media-instructions-editor component without exposing internal structure
-   * @param {string} recipeId - Recipe ID for storage path
-   * @param {string} userId - User ID for metadata
-   * @returns {Promise<Array>} Array of uploaded media metadata objects
-   */
-  async uploadPendingMediaInstructions(recipeId, userId) {
-    const mediaEditor = this.shadowRoot.getElementById('media-instructions-editor');
-    if (!mediaEditor || typeof mediaEditor.uploadPendingFiles !== 'function') {
-      return [];
-    }
-    return await mediaEditor.uploadPendingFiles(recipeId, userId);
   }
 
   /**
