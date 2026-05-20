@@ -1,9 +1,6 @@
 import authService from '../../js/services/auth-service.js';
 import { firestoreService } from '../../js/services/firestore-service.js';
-import {
-  getRecipeById,
-  scaleIngredientSections,
-} from '../../js/utils/recipes/recipe-data-utils.js';
+import { getRecipeById } from '../../js/utils/recipes/recipe-data-utils.js';
 import {
   formatIngredientAmount,
   scaleIngredients,
@@ -394,11 +391,7 @@ export default {
 
         let scaledIngredients;
         if (recipe.ingredientSections) {
-          scaledIngredients = scaleIngredientSections(
-            originalIngredients,
-            recipe.servings,
-            servings,
-          );
+          scaledIngredients = scaleIngredients(originalIngredients, recipe.servings, servings);
           scaledIngredients.forEach((section, sIndex) => {
             let sectionHasItems = false;
             let sectionText = '';
@@ -663,7 +656,7 @@ export default {
 
       let scaledIngredients;
       if (recipe.ingredientSections) {
-        scaledIngredients = scaleIngredientSections(originalIngredients, recipe.servings, servings);
+        scaledIngredients = scaleIngredients(originalIngredients, recipe.servings, servings);
         scaledIngredients.forEach((section) => {
           section.items.forEach((item) => {
             allIngredients.push({ ...item, recipeName: recipe.name });
@@ -725,11 +718,7 @@ export default {
 
         let scaledIngredients;
         if (recipe.ingredientSections) {
-          scaledIngredients = scaleIngredientSections(
-            originalIngredients,
-            recipe.servings,
-            servings,
-          );
+          scaledIngredients = scaleIngredients(originalIngredients, recipe.servings, servings);
         } else {
           scaledIngredients = scaleIngredients(originalIngredients, recipe.servings, servings);
         }
@@ -805,11 +794,7 @@ export default {
 
         let scaledIngredients;
         if (recipe.ingredientSections) {
-          scaledIngredients = scaleIngredientSections(
-            originalIngredients,
-            recipe.servings,
-            servings,
-          );
+          scaledIngredients = scaleIngredients(originalIngredients, recipe.servings, servings);
         } else {
           scaledIngredients = scaleIngredients(originalIngredients, recipe.servings, servings);
         }

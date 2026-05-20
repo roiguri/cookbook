@@ -25,8 +25,6 @@
  *       Fetch recipes for display in cards (with filters/options).
  *   - getRecipeById(recipeId):
  *       Fetch a single complete recipe by ID.
- *   - scaleIngredientSections(ingredientSections, originalServings, newServings):
- *       Scale ingredient sections for different serving sizes.
  *   - extractIngredientNamesFromSections(ingredientSections):
  *       Extract ingredient names from sectioned ingredient format.
  */
@@ -140,34 +138,6 @@ function sanitizeIngredientSections(rawSections) {
         : [],
     }))
     .filter((section) => section.items.length > 0); // Remove sections with no valid items
-}
-
-/**
- * Scales ingredient sections for different serving sizes
- * @param {Array<IngredientSection>} ingredientSections - Original ingredient sections
- * @param {number} originalServings - Original recipe serving count
- * @param {number} newServings - New desired serving count
- * @returns {Array<IngredientSection>} Scaled ingredient sections
- */
-export function scaleIngredientSections(ingredientSections, originalServings, newServings) {
-  if (
-    !Array.isArray(ingredientSections) ||
-    !originalServings ||
-    !newServings ||
-    originalServings <= 0
-  ) {
-    return ingredientSections;
-  }
-
-  const factor = newServings / originalServings;
-  return ingredientSections.map((section) => ({
-    ...section,
-    items: section.items.map((item) => {
-      const n = parseAmount(item.amount);
-      if (n === null) return item;
-      return { ...item, amount: n * factor };
-    }),
-  }));
 }
 
 /**

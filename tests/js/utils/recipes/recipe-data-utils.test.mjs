@@ -24,7 +24,6 @@ let calculateTotalTime,
   validateRecipeData,
   getRecipesForCards,
   getRecipeById,
-  scaleIngredientSections,
   extractIngredientNamesFromSections;
 
 describe('recipe-data-utils', () => {
@@ -41,7 +40,6 @@ describe('recipe-data-utils', () => {
     validateRecipeData = utils.validateRecipeData;
     getRecipesForCards = utils.getRecipesForCards;
     getRecipeById = utils.getRecipeById;
-    scaleIngredientSections = utils.scaleIngredientSections;
     extractIngredientNamesFromSections = utils.extractIngredientNamesFromSections;
     mockQueryDocuments.mockReset();
     mockGetDocument.mockReset();
@@ -585,42 +583,6 @@ describe('recipe-data-utils', () => {
       expect(formatted.ingredientSections).toHaveLength(2);
       expect(formatted.ingredientSections[0].title).toBe('Valid Section');
       expect(formatted.ingredientSections[1].title).toBe('Good Section');
-    });
-  });
-
-  describe('scaleIngredientSections', () => {
-    it('scales ingredient sections correctly', () => {
-      const sections = [
-        {
-          title: 'Dry Ingredients',
-          items: [
-            { amount: '2', unit: 'cups', item: 'flour' },
-            { amount: '1', unit: 'tbsp', item: 'sugar' },
-          ],
-        },
-      ];
-      const scaled = scaleIngredientSections(sections, 2, 4);
-      expect(scaled[0].items[0].amount).toBe(4);
-      expect(scaled[0].items[1].amount).toBe(2);
-      expect(scaled[0].title).toBe('Dry Ingredients');
-    });
-
-    it('handles non-numeric amounts gracefully', () => {
-      const sections = [
-        {
-          title: 'Seasonings',
-          items: [{ amount: 'to taste', unit: '', item: 'salt' }],
-        },
-      ];
-      const scaled = scaleIngredientSections(sections, 2, 4);
-      expect(scaled[0].items[0].amount).toBe('to taste');
-    });
-
-    it('returns original if invalid parameters', () => {
-      const sections = [{ title: 'Test', items: [] }];
-      expect(scaleIngredientSections(sections, 0, 4)).toBe(sections);
-      expect(scaleIngredientSections(sections, null, 4)).toBe(sections);
-      expect(scaleIngredientSections(null, 2, 4)).toBe(null);
     });
   });
 

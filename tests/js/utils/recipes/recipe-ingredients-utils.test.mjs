@@ -188,6 +188,46 @@ describe('recipe-ingredients-utils', () => {
       const scaled = scaleIngredients(ingredients, 2, 4);
       expect(scaled[0].amount).toBe('to taste');
     });
+
+    describe('sectioned shape (Array<{title, items[]}>)', () => {
+      it('scales each section item', () => {
+        const sections = [
+          {
+            title: 'Dry Ingredients',
+            items: [
+              { amount: '2', unit: 'cups', item: 'flour' },
+              { amount: '1', unit: 'tbsp', item: 'sugar' },
+            ],
+          },
+        ];
+        const scaled = scaleIngredients(sections, 2, 4);
+        expect(scaled[0].items[0].amount).toBe(4);
+        expect(scaled[0].items[1].amount).toBe(2);
+        expect(scaled[0].title).toBe('Dry Ingredients');
+      });
+      it('preserves non-numeric amounts inside sections', () => {
+        const sections = [
+          { title: 'Seasonings', items: [{ amount: 'to taste', unit: '', item: 'salt' }] },
+        ];
+        const scaled = scaleIngredients(sections, 2, 4);
+        expect(scaled[0].items[0].amount).toBe('to taste');
+      });
+      it('returns original on invalid params', () => {
+        const sections = [{ title: 'Test', items: [] }];
+        expect(scaleIngredients(sections, 0, 4)).toBe(sections);
+        expect(scaleIngredients(sections, null, 4)).toBe(sections);
+      });
+    });
+
+    describe('form-wrapper shape ({sections: [...]})', () => {
+      it('scales items inside the sections wrapper', () => {
+        const wrapped = {
+          sections: [{ title: 'A', items: [{ amount: 0.5, unit: 'cup', item: 'a' }] }],
+        };
+        const scaled = scaleIngredients(wrapped, 2, 6); // ×3
+        expect(scaled.sections[0].items[0].amount).toBe(1.5);
+      });
+    });
   });
 
   describe('formatIngredientAmount', () => {
