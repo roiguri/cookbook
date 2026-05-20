@@ -21,8 +21,6 @@
  *       Format a number for display in ingredient lists.
  *   - extractIngredientNames(ingredientsArray):
  *       Extract a plain list of ingredient names from an array.
- *   - validateIngredient(ingredient):
- *       Validate the structure and content of an ingredient object.
  *   - createEmptyIngredient():
  *       Create a blank ingredient object.
  *
@@ -292,25 +290,6 @@ export function formatIngredientAmount(value) {
 export function extractIngredientNames(ingredientsArray) {
   if (!Array.isArray(ingredientsArray)) return [];
   return ingredientsArray.map((ing) => ing.item).filter(Boolean);
-}
-
-/**
- * Validates ingredient structure. Amount must parse to a positive number
- * (accepts number or legacy string; tighten to numeric-only post-migration #202).
- * @param {Ingredient} ingredient
- * @returns {boolean}
- */
-export function validateIngredient(ingredient) {
-  if (!ingredient || typeof ingredient !== 'object') return false;
-  const amount = parseAmount(ingredient.amount);
-  return (
-    amount !== null &&
-    amount > 0 &&
-    typeof ingredient.unit === 'string' &&
-    ingredient.unit.trim() !== '' &&
-    typeof ingredient.item === 'string' &&
-    ingredient.item.trim() !== ''
-  );
 }
 
 /**

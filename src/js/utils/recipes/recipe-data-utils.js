@@ -30,7 +30,7 @@
  */
 
 import { FirestoreService } from '../../services/firestore-service.js';
-import { parseAmount, validateIngredient } from './recipe-ingredients-utils.js';
+import { parseAmount } from './recipe-ingredients-utils.js';
 import { removeAllRecipeImages } from './recipe-image-utils.js';
 import { removeAllMediaInstructions } from './recipe-media-utils.js';
 
@@ -97,23 +97,6 @@ export const CATEGORY_ICONS = {
   beverages: '🥤',
   else: '🍽️',
 };
-
-/**
- * Validates an ingredient section object structure
- * @param {Object} section - IngredientSection object to validate
- * @returns {boolean} Whether the section has valid structure
- */
-function validateIngredientSection(section) {
-  return (
-    section &&
-    typeof section === 'object' &&
-    typeof section.title === 'string' &&
-    section.title.trim() &&
-    Array.isArray(section.items) &&
-    section.items.length > 0 &&
-    section.items.every((item) => validateIngredient(item))
-  );
-}
 
 /**
  * Sanitizes ingredient sections data for safe storage and display

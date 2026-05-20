@@ -3,7 +3,6 @@ import { jest } from '@jest/globals';
 let scaleIngredients,
   formatIngredientAmount,
   extractIngredientNames,
-  validateIngredient,
   createEmptyIngredient,
   parseAmount,
   formatAmount,
@@ -18,7 +17,6 @@ describe('recipe-ingredients-utils', () => {
     scaleIngredients = utils.scaleIngredients;
     formatIngredientAmount = utils.formatIngredientAmount;
     extractIngredientNames = utils.extractIngredientNames;
-    validateIngredient = utils.validateIngredient;
     createEmptyIngredient = utils.createEmptyIngredient;
     parseAmount = utils.parseAmount;
     formatAmount = utils.formatAmount;
@@ -264,23 +262,6 @@ describe('recipe-ingredients-utils', () => {
         { amount: '2', unit: 'tbsp', item: 'sugar' },
       ];
       expect(extractIngredientNames(ingredients)).toEqual(['sugar']);
-    });
-  });
-
-  describe('validateIngredient', () => {
-    it('returns true for numeric or legacy-string amounts', () => {
-      expect(validateIngredient({ amount: 1, unit: 'cup', item: 'flour' })).toBe(true);
-      expect(validateIngredient({ amount: 0.5, unit: 'cup', item: 'flour' })).toBe(true);
-      expect(validateIngredient({ amount: '1/2', unit: 'cup', item: 'flour' })).toBe(true);
-    });
-    it('returns false for missing/empty/zero/non-numeric amount or fields', () => {
-      expect(validateIngredient({ amount: '', unit: 'cup', item: 'flour' })).toBe(false);
-      expect(validateIngredient({ amount: 0, unit: 'cup', item: 'flour' })).toBe(false);
-      expect(validateIngredient({ amount: 'to taste', unit: 'cup', item: 'x' })).toBe(false);
-      expect(validateIngredient({ amount: 1, unit: '', item: 'flour' })).toBe(false);
-      expect(validateIngredient({ amount: 1, unit: 'cup', item: '' })).toBe(false);
-      expect(validateIngredient({})).toBe(false);
-      expect(validateIngredient(null)).toBe(false);
     });
   });
 
