@@ -149,3 +149,18 @@ firebase deploy                            # deploy everything
 ```
 
 Rules files: `firestore.rules`, `storage.rules`. Functions source: `functions/`.
+
+---
+
+## Further Reading
+
+Deeper references — consult these before making non-trivial changes:
+
+- `docs/architecture/spa-core.md` — router, page manager, page module contract.
+- `docs/architecture/components.md` — Web Components conventions, dynamic imports, custom events.
+- `docs/architecture/services.md` — Firebase service wrappers, caching/dedup patterns, role enforcement.
+- `docs/architecture/design-system.md` — canonical token reference (colours, type, z-index, icons).
+- `docs/lessons/performance.md`, `docs/lessons/accessibility.md`, `docs/lessons/security.md` — patterns and pitfalls discovered while building.
+- `docs/operations/firebase-image-optimization.md` — image pipeline configuration.
+- `docs/code-review-2026-05.md` — open code-review findings (P0–P4) not yet resolved.
+- `docs/archive/` — superseded/historical documents kept for reference.

@@ -12,7 +12,7 @@ A Hebrew recipe sharing application built to preserve and share family culinary 
 
 My Cook Book is a Progressive Web Application (PWA) that allows users to browse, search, and contribute family recipes. It features a robust role-based system where authorized users can propose new recipes, and managers can review and approve them.
 
-The application is built as a Single Page Application (SPA) using a custom-built hash router and leverages the Firebase ecosystem for a serverless backend experience.
+The application is built as a Single Page Application (SPA) using a custom-built History API router and leverages the Firebase ecosystem for a serverless backend experience.
 
 ## ✨ Key Features
 
@@ -23,14 +23,13 @@ The application is built as a Single Page Application (SPA) using a custom-built
   - **Contributors:** Can propose new recipes and upload images.
   - **Managers:** dedicated dashboard to review, approve, or edit pending recipes.
 - **Responsive Design:** A mobile-first interface that looks great on all devices.
-- **Custom Router:** A lightweight, hash-based client-side router built from scratch.
+- **Custom Router:** A lightweight client-side router built from scratch on the History API.
 
 ## 🛠 Tech Stack & Architecture
 
 This project was built to demonstrate a strong grasp of core web technologies:
 
 - **Frontend:**
-
   - **Vanilla JavaScript (ES6+):** Core logic and state management.
   - **Web Components:** Encapsulated UI components using Shadow DOM for style isolation.
   - **Custom SPA Router:** Handles navigation and dynamic view rendering without page reloads.
@@ -38,13 +37,21 @@ This project was built to demonstrate a strong grasp of core web technologies:
   - **Vite:** Modern build tool for fast development and optimized production assets.
 
 - **Backend (Firebase):**
-
   - **Cloud Firestore:** NoSQL database for real-time data syncing.
   - **Firebase Authentication:** Secure user identity management.
   - **Cloud Storage:** Scalable storage for user-uploaded recipe images.
 
 - **Testing:**
   - **Jest:** Unit testing for core utilities and services.
+  - **Playwright:** End-to-end and visual regression tests.
+
+## 📚 Documentation
+
+- [`CLAUDE.md`](./CLAUDE.md) — developer & agent guide: commands, conventions, repo conventions.
+- [`docs/architecture/`](./docs/architecture/) — deeper references for the [SPA core](./docs/architecture/spa-core.md), [component system](./docs/architecture/components.md), [services / Firebase layer](./docs/architecture/services.md), and [design system](./docs/architecture/design-system.md).
+- [`docs/lessons/`](./docs/lessons/) — patterns and pitfalls discovered while building: [performance](./docs/lessons/performance.md), [accessibility](./docs/lessons/accessibility.md), [security](./docs/lessons/security.md).
+- [`docs/operations/firebase-image-optimization.md`](./docs/operations/firebase-image-optimization.md) — image pipeline configuration and bulk-reprocessing notes.
+- [`CHANGELOG.md`](./CHANGELOG.md) — versioned change log.
 
 ## 🚀 Live Demo
 

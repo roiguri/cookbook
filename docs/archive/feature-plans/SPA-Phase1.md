@@ -447,12 +447,10 @@ router.registerRoute('/', () => router.navigate('#/home')); // Default route
 ### Technical Risks
 
 1. **Component Compatibility**: Existing components may not work in SPA context
-
    - **Mitigation**: Test each component individually as it's integrated
    - **Fallback**: Keep original pages as backup during development
 
 2. **Performance Issues**: Large JavaScript bundles
-
    - **Mitigation**: Use dynamic imports for page modules
    - **Monitoring**: Track bundle sizes during development
 
@@ -463,7 +461,6 @@ router.registerRoute('/', () => router.navigate('#/home')); // Default route
 ### Development Risks
 
 1. **Scope Creep**: Trying to migrate too much at once
-
    - **Mitigation**: Stick strictly to defined steps and success metrics
    - **Review**: Regular checkpoints to ensure step completion
 

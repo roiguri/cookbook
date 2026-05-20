@@ -1,4 +1,6 @@
-# Sentinel Journal
+# Security Lessons
+
+Vulnerabilities found and the patterns we adopted to prevent them. Dated entries; newest practices win when guidance conflicts.
 
 ## 2025-10-18 - DOM XSS in Recipe Component
 

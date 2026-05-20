@@ -1,4 +1,6 @@
-# Palette's Journal
+# Accessibility Lessons
+
+A11y patterns discovered while building interactive components. Dated entries; newest practices win when guidance conflicts.
 
 ## 2025-10-18 - Keyboard Accessible Cards
 
