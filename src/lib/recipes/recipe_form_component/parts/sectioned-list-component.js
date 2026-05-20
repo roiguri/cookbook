@@ -619,6 +619,7 @@ export class SectionedListComponent extends DynamicListComponent {
     }
 
     // Validate individual fields for populated items (ingredients/instructions)
+    const failedFields = new Set();
     this.sections.forEach((section, sectionIndex) => {
       section.items.forEach((item, itemIndex) => {
         if (this.isItemPopulated(item)) {
@@ -626,12 +627,17 @@ export class SectionedListComponent extends DynamicListComponent {
           if (Object.keys(itemErrors).length > 0) {
             Object.keys(itemErrors).forEach((field) => {
               errors[`sections[${sectionIndex}].items[${itemIndex}].${field}`] = true;
+              failedFields.add(field);
             });
             isValid = false;
           }
         }
       });
     });
+    if (failedFields.size > 0) {
+      const message = this.buildItemErrorMessage(Array.from(failedFields));
+      if (message) errors.invalidItem = message;
+    }
 
     return { isValid, errors };
   }
@@ -661,18 +667,23 @@ export class SectionedListComponent extends DynamicListComponent {
       isValid = false;
     } else {
       // Validate only populated items - check for missing fields in partially filled ingredients
+      const failedFields = new Set();
       allItems.forEach((item, index) => {
         if (this.isItemPopulated(item)) {
           const itemErrors = this.validateItemFields(item);
           if (Object.keys(itemErrors).length > 0) {
             Object.keys(itemErrors).forEach((field) => {
               errors[`items[${index}].${field}`] = true;
+              failedFields.add(field);
             });
-            errors.noIngredients = 'חובה למלא לפחות מרכיב אחד.';
             isValid = false;
           }
         }
       });
+      if (failedFields.size > 0) {
+        const message = this.buildItemErrorMessage(Array.from(failedFields));
+        if (message) errors.invalidItem = message;
+      }
     }
 
     return { isValid, errors };
@@ -685,6 +696,17 @@ export class SectionedListComponent extends DynamicListComponent {
    */
   validateItemFields(_item) {
     return {};
+  }
+
+  /**
+   * Optional: subclasses return a specific Hebrew banner string for the set of
+   * fields that failed across populated items (e.g. "כמות לא תקינה…"). Default
+   * returns null, in which case the form falls back to its generic banner.
+   * @param {string[]} _failedFields
+   * @returns {string|null}
+   */
+  buildItemErrorMessage(_failedFields) {
+    return null;
   }
 
   // Abstract methods to be implemented by subclasses

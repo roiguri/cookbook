@@ -120,6 +120,25 @@ class RecipeIngredientsList extends SectionedListComponent {
     return errors;
   }
 
+  /**
+   * Ingredient-specific banner message for partially-filled rows.
+   * @param {string[]} failedFields
+   * @returns {string}
+   */
+  buildItemErrorMessage(failedFields) {
+    const fields = new Set(failedFields);
+    if (fields.size === 1 && fields.has('amount')) {
+      return 'יש להזין כמות מספרית תקינה (לדוגמה: 1, 1/2, 2.5).';
+    }
+    if (fields.size === 1 && fields.has('unit')) {
+      return 'חובה למלא יחידת מידה לכל מרכיב.';
+    }
+    if (fields.size === 1 && fields.has('item')) {
+      return 'חובה למלא שם פריט לכל מרכיב.';
+    }
+    return 'חובה להשלים את כל שדות המרכיב (כמות, יחידה ופריט).';
+  }
+
   setValidationState(errors) {
     // Clear all existing error states including section name inputs
     this.shadowRoot.querySelectorAll('.recipe-form__input--invalid').forEach((input) => {

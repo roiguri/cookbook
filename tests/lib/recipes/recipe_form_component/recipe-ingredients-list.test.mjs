@@ -100,4 +100,21 @@ describe('RecipeIngredientsList — numeric amount (Phase 5)', () => {
       expect(el.validateItemFields({ amount: 1, unit: 'כוס', item: '' }).item).toBe(true);
     });
   });
+
+  describe('buildItemErrorMessage — banner text per failed field', () => {
+    it('amount only → amount-specific message', () => {
+      expect(makeEl().buildItemErrorMessage(['amount'])).toMatch(/כמות מספרית/);
+    });
+    it('unit only → unit-specific message', () => {
+      expect(makeEl().buildItemErrorMessage(['unit'])).toMatch(/יחידת מידה/);
+    });
+    it('item only → item-specific message', () => {
+      expect(makeEl().buildItemErrorMessage(['item'])).toMatch(/שם פריט/);
+    });
+    it('multiple fields → generic "all fields" message', () => {
+      expect(makeEl().buildItemErrorMessage(['amount', 'unit'])).toMatch(
+        /כמות, יחידה ופריט|שדות המרכיב/,
+      );
+    });
+  });
 });
