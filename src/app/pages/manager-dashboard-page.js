@@ -226,11 +226,22 @@ export default {
   },
 
   initializeDashboard() {
-    this.loadUserList();
-    this.loadAllRecipes();
-    this.loadPendingRecipes();
-    this.loadPendingImages();
-    this.loadFailedUrls();
+    // Capture the first-load promises so waitForReady() can hold the page
+    // spinner up until the sections have populated. Promise.allSettled keeps a
+    // single failed section from stranding the loading overlay.
+    this._dataReadyPromise = Promise.allSettled([
+      this.loadUserList(),
+      this.loadAllRecipes(),
+      this.loadPendingRecipes(),
+      this.loadPendingImages(),
+      this.loadFailedUrls(),
+    ]);
+  },
+
+  async waitForReady() {
+    if (this._dataReadyPromise) {
+      await this._dataReadyPromise;
+    }
   },
 
   /**
