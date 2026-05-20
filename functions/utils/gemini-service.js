@@ -489,7 +489,7 @@ Return the recipe data as a valid JSON object with this structure:
   "difficulty": "קלה" | "בינונית" | "קשה",
   "category": "appetizers" | "main-courses" | "side-dishes" | "soups-stews" | "salads" | "desserts" | "breakfast-brunch" | "breads-pastries" | "snacks" | "beverages",
   "mainIngredient": "main ingredient in Hebrew",
-  "ingredients": [{"item": "name", "amount": "amount", "unit": "unit"}] OR null if using sections,
+  "ingredients": [{"item": "name", "amount": 0.5, "unit": "unit"}] OR null if using sections,
   "ingredientSections": [{"title": "section name", "items": [...]}] OR null if using flat list,
   "instructions": ["step 1", "step 2"] OR null if using stages,
   "stages": [{"title": "stage name", "instructions": [...]}] OR null if using flat list,

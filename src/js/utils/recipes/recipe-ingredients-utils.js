@@ -33,7 +33,9 @@
 /**
  * @typedef {Object} Ingredient
  * @property {number|null} amount - Canonical numeric quantity (e.g. 1, 0.5, 2.5); `null`
- *   when unknown. Legacy string amounts still tolerated on read during rollout (#202).
+ *   when unknown. parseAmount/formatIngredientAmount intentionally tolerate string
+ *   inputs (form text parsing + defensive display) — that's the design boundary,
+ *   not a rollout scaffold.
  * @property {string} unit - The unit of measurement (e.g. "cup", "tbsp", "g")
  * @property {string} item - The name of the ingredient (e.g. "flour", "sugar")
  */
