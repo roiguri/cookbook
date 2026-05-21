@@ -1,7 +1,6 @@
 import { AppConfig } from '../../js/config/app-config.js';
 import authService from '../../js/services/auth-service.js';
 import { firestoreService } from '../../js/services/firestore-service.js';
-import { arrayUnion, serverTimestamp } from 'firebase/firestore';
 import '../../styles/pages/recipe-detail-spa.css';
 
 export default {
