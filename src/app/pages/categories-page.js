@@ -149,7 +149,6 @@ export default {
     try {
       await Promise.all([
         import('../../lib/recipes/recipe-card/recipe-card.js'),
-        import('../../lib/search/search-service/search-service.js'),
         import('../../lib/collections/unified-recipe-filter/unified-recipe-filter.js'),
         import('../../lib/collections/recipe-grid/recipe-presentation-grid.js'),
       ]);
