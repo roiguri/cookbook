@@ -2,115 +2,73 @@
 
 ## Context
 
-The codebase currently mixes "services" and "utils" inconsistently. Some domains have a single service that owns all access (`notification-service`); others have logic split between a service file and several utility files (`recipes`); others have no service at all and pages call `FirestoreService` directly (`users`, `failed_url_extractions`).
+The codebase mixed "services" and "utils" inconsistently. Some domains had a single service that owned all access (`notification-service`); others had logic split between a service file and several utility files (`recipes`); others had no service at all and pages called `FirestoreService` directly (`users`, `failed_url_extractions`).
 
 This umbrella refactor consolidates everything around **one service per domain entity** as the only public access point, with utilities reserved for pure stateless helpers (formatting, validation, display). It only merges to `development` when every domain is on the new convention and an ESLint rule enforces it.
 
 **Umbrella branch:** `refactor/service-layer` (off `development`).
+**Tracking issue:** #211.
 
 ## Convention
 
-1. **One service per domain entity** — static class in `src/js/services/<entity>-service.js`. Public methods are the only API.
+1. **One service per domain entity** — static class under `src/js/services/<domain>/`. Public methods are the only API.
 2. **Services own all data access** for their domain — Firestore reads/writes, Storage uploads/downloads, cross-collection joins.
 3. **Utilities are pure helpers** — formatting, validation, display helpers, ID generators. No I/O. Live in `src/js/utils/`.
-4. **Only services may import `FirestoreService` / `StorageService`.** Enforced by ESLint in Phase 6.
+4. **Only services may import `FirestoreService` / `StorageService`.** Enforced by ESLint in Phase 6. Low-level wrappers live under `src/js/services/_firebase/`.
 5. **Pages and lib components import services**, not utilities or low-level wrappers, for any data operation.
+6. **One owner per Firestore doc.** Field-scoped services (FavoritesService, NotificationService) delegate doc reads/writes to the owning domain service (UserService).
+
+## Final-state directory layout
+
+```
+src/js/services/
+├── _firebase/                          # internal infrastructure (services-only imports)
+│   ├── firestore.js
+│   ├── storage.js
+│   └── client.js
+├── auth/
+│   └── auth-service.js                 # Firebase Auth state only — no user-doc access
+├── users/
+│   ├── user-service.js                 # owns users/{uid} reads/writes
+│   ├── favorites-service.js            # delegates doc access → UserService
+│   └── notification-service.js         # delegates doc access → UserService; FCM SDK direct
+├── recipes/
+│   ├── recipe-service.js               # doc CRUD only
+│   ├── recipe-image-service.js         # setPrimaryImage, replaceImage (PR-H), image lifecycle
+│   └── recipe-image-proposal-service.js
+├── meals/
+│   └── active-meal-service.js          # includes subscribe() real-time listener
+└── admin/
+    └── failed-url-extraction-service.js
+
+src/js/utils/
+├── common-utils.js
+├── error-handler.js
+├── filter-utils.js
+└── recipes/
+    ├── recipe-data-utils.js            # pure formatters, validators, CATEGORY_MAP
+    ├── recipe-ingredients-utils.js     # pure parsers, scaling
+    └── (display URL helpers — exempt from ESLint rule, tracked in #215)
+```
 
 ---
 
-## Phase 1 — Recipes
+## Phase 1 — Recipes ✅ MOSTLY DONE
 
-### PR-A — Recipe service API ✅ MERGED (#197)
-
-**Goal achieved:** `RecipeService` + `RecipeImageProposalService` exist as the only public entry points, with full tests.
-
-- `src/js/services/recipe-service.js` — `get`, `list`, `generateId`, `create`, `update` (PATCH semantics), `setPrimaryImage`, `delete`
-- `src/js/services/recipe-image-proposal-service.js` — `propose`, `approve`, `reject`, `listPending`
-- 23 new tests
-
-### PR-B — Form submit migration 🔵 (#198, awaiting merge)
-
-**Goal:** All recipe creation & editing goes through `RecipeService.create` / `.update`; the recipe form fetches via `RecipeService.get`.
-
-**Files:** `propose_recipe_component.js`, `edit_recipe_component.js`, `recipe_form_component.js`, `media-instructions-editor.js`.
-
-### PR-C — Delete migration
-
-**Goal:** All recipe deletion goes through `RecipeService.delete`. The legacy `deleteRecipe` export is removed.
-
-**Today (verified):**
-
-- `src/app/pages/manager-dashboard-page.js:5,442` — imports & calls `deleteRecipe(recipeId)` from utils
-- `src/lib/recipes/recipe_preview_modal/recipe_preview_modal.js:51,273` — imports & calls `deleteRecipe(recipeId)` for "reject pending recipe"
-- `src/js/utils/recipes/recipe-data-utils.js:417,435` — the legacy `deleteRecipe` function itself
-
-**Change:** both call sites → `RecipeService.delete(recipeId)`; remove the legacy function + its dead imports.
-
-**Done when:** `grep -rn "deleteRecipe\b" src/` returns only `manager-dashboard-page.js`'s own page method (unrelated naming). `grep -rn "deleteDocument('recipes'" src/` returns only the `RecipeService.delete` implementation.
-
-### PR-D — Image proposal / approval migration
-
-**Goal:** Pending-image lifecycle goes through `RecipeImageProposalService`; cross-recipe `setPrimaryImage` goes through `RecipeService.setPrimaryImage`.
-
-**Today (verified):**
-
-- `image-proposal-modal.js:27,186` — `addPendingImages` import + call
-- `image-approval-multi.js:39,40,472,524,565,624` — `approvePendingImageById` / `rejectPendingImageById` imports + 4 call sites
-- `image-approval-multi.js:482,489,576,583` — `setPrimaryImage(recipe.id, ...)` (4 calls, the Firestore-writing variant)
-
-> Note: `image-handler.js:496,558` has a LOCAL `setPrimaryImage(imageId)` instance method — different concern, not a bypass.
-
-**Change:** modal → `RecipeImageProposalService.propose`; multi → `.approve` / `.reject` and `RecipeService.setPrimaryImage`.
-
-**Done when:** `grep -rn "addPendingImages\|approvePendingImageById\|rejectPendingImageById" src/` returns only the service modules + `recipe-image-utils.js`. `grep -rn "setPrimaryImage(this.recipe" src/` returns nothing.
-
-### PR-E — Search bypasses migration
-
-**Goal:** No component outside the service layer issues `FirestoreService.queryDocuments('recipes', ...)` for search/dropdown purposes.
-
-**Today (verified):**
-
-- `src/lib/recipes/recipe_form_component/parts/recipe-related-field.js:189` — edit form's related-recipe search
-- `src/lib/search/header-search-bar/header-search-bar.js:163` — global header search
-
-**Change:** both → `RecipeService.list({ where: [['approved','==',true]] })`.
-
-> **`search-service.js:153`** also queries recipes; deferred separately because the aliveness of this component is unresolved (pre-existing `TODO: extract`, possibly superseded by `unified-recipe-filter`). Will be addressed when the aliveness check happens.
-
-**Done when:** `grep -rn "queryDocuments('recipes'" src/` returns only the manager dashboard sites (PR-G territory), home/categories (PR-G), `ai-image-enhancer.js` (PR-H), and `search-service.js` (deferred).
-
-### PR-F — Self-heal migration
-
-**Goal:** No component outside the service layer issues `FirestoreService.updateDocument('recipes', ...)` for narrow patches.
-
-**Today (verified):**
-
-- `src/lib/recipes/recipe_component/recipe_component.js:1274` — relatedRecipes self-heal (fire-and-forget stale-ID prune)
-
-**Change:** → `RecipeService.update(recipeId, { changes: { relatedRecipes } })` — the PATCH semantics in `RecipeService.update` make this safe; only `relatedRecipes` is touched.
-
-**Done when:** `grep -rn "updateDocument('recipes'" src/` returns only `recipe_preview_modal.js:268` (the narrow `{approved: true}` toggle, borderline-OK) and `ai-image-enhance-modal.js:445` (PR-H territory).
-
-### PR-G — Page list-queries + dead-import cleanup
-
-**Goal:** All recipe list/grid pages use `RecipeService.list`. No dead Firestore SDK imports remain in pages.
-
-**Today (verified):**
-
-- `src/app/pages/home-page.js:56` — home feed
-- `src/app/pages/categories-page.js:217` — categories grid
-- `src/app/pages/manager-dashboard-page.js:323` — all-recipes list (manager)
-- `src/app/pages/manager-dashboard-page.js:486` — pending-recipes list
-- `src/app/pages/manager-dashboard-page.js:597` — pending-images-recipes list
-- `src/app/pages/recipe-detail-page.js:4` — dead `import { arrayUnion, serverTimestamp } from 'firebase/firestore'`
-
-**Change:** all 5 query sites → `RecipeService.list(queryParams)`; remove the dead import.
-
-**Done when:** `grep -rn "queryDocuments('recipes'" src/` returns only `ai-image-enhancer.js` (PR-H) and `search-service.js` (deferred). `grep -n "firebase/firestore" src/app/pages/recipe-detail-page.js` returns nothing.
+| Step                                                                  | Status                     | Notes                                             |
+| --------------------------------------------------------------------- | -------------------------- | ------------------------------------------------- |
+| **PR-A** — `RecipeService` + `RecipeImageProposalService` API + tests | ✅ Merged (#197)           | 23 tests; PATCH semantics on `update`             |
+| **PR-B** — Form submit migration (4 focused commits)                  | ✅ Merged                  | propose / edit / dead-code / setRecipeData        |
+| **PR-C** — Delete migration (3 focused commits)                       | ✅ Merged                  | preview-modal / dashboard / legacy export removed |
+| **PR-D** — Image proposal/approval (2 focused commits)                | ✅ Merged                  | proposal-modal / approval-multi + setPrimaryImage |
+| **PR-E** — Search bypasses                                            | ✅ Merged (#212)           | recipe-related-field + header-search-bar          |
+| **PR-F** — Self-heal migration                                        | ✅ Merged (#213)           | recipe_component relatedRecipes via PATCH         |
+| **PR-G** — Page list-queries + dead-import cleanup                    | ✅ Merged (#214)           | home + categories + dashboard ×3 + recipe-detail  |
+| **PR-H** — AI image enhance + introduce `RecipeImageService`          | ⬜ Planned, design pending | Holds Phase 1 closer                              |
 
 ### PR-H — AI image enhance flow (design pending)
 
-**Goal:** AI image enhance reads/writes recipes through the service layer, including the "overwrite existing image file" semantic.
+**Goal:** AI image enhance reads/writes recipes through the service layer. Introduces `RecipeImageService` and migrates `setPrimaryImage` into it.
 
 **Today (verified):**
 
@@ -119,19 +77,36 @@ This umbrella refactor consolidates everything around **one service per domain e
 - `ai-image-enhance-modal.js:423` — `StorageService.uploadFile(enhancedBlob, originalPath)` — overwrite the existing image's file
 - `ai-image-enhance-modal.js:445` — `FirestoreService.updateDocument('recipes', id, { images })` — set `aiEnhanced` flag
 
-**Blocking question:** the image-API verb. Needs its own planning session before code (per-image patch vs `replaceImage` verb vs a dedicated `RecipeImageService`).
+**Design questions:**
 
-**Done when:** all four call sites above route through service methods; `grep -rn "FirestoreService\|StorageService" src/lib/media/ai-image-enhancer/` returns nothing.
+- Verb shape — `RecipeImageService.replaceImage(recipeId, imageId, blob, { keepOriginalBackup, fieldUpdates })` vs. per-image patch (`updateImage`).
+- How to model the `_original.<ext>` AI-enhance backup vs. the Storage resize extension's auto-generated `_original` files (different lifecycles, both currently named `_original`).
+- `aiEnhanced` flag bookkeeping — implicit (service handles it) or explicit (caller passes in `fieldUpdates`)?
+
+---
+
+## Phase 0 — Services directory restructure (do before PR-H and Phase 2-5)
+
+**Goal:** Move existing services into by-domain folders. No behavior change.
+
+**Files moved:**
+
+- `firestore-service.js`, `storage-service.js`, `firebase-service.js` → `_firebase/`
+- `auth-service.js` → `auth/`
+- `favorites-service.js`, `notification-service.js` → `users/`
+- `recipe-service.js`, `recipe-image-proposal-service.js` → `recipes/`
+
+**Imports across `src/` updated.** One focused sub-PR.
 
 ---
 
 ## Phase 2 — Users
 
-**Goal:** `UserService` is the only public entry point for the `users` collection.
+**Goal:** `UserService` is the only public entry point for the `users` collection. Field-scoped services delegate to it.
 
-**Today (verified):**
+**Today (verified bypass sites):**
 
-- `src/lib/search/search-service/search-service.js:137` — `getDocument('users', ...)` for favorites
+- `src/lib/search/search-service/search-service.js:137` — RESOLVED (file deleted in #216)
 - `src/app/pages/manager-dashboard-page.js:84` — manager auth check
 - `src/app/pages/manager-dashboard-page.js:241` — list all users
 - `src/app/pages/manager-dashboard-page.js:306` — `updateDocument('users', uid, { role })`
@@ -140,28 +115,20 @@ This umbrella refactor consolidates everything around **one service per domain e
 - `src/js/services/favorites-service.js:42, 76, 100` — internal favorites service
 - `notification-service.js` — uses raw SDK on `users/{uid}.fcmTokens`
 
-**Likely split:**
+**Sub-PRs:**
 
 - **PR-I** — `UserService` API + tests
-- **PR-J1** — manager admin + documents-page user-role checks
-- **PR-J2** — `favorites-service.js` and `filter_modal.js` route through `UserService`
-- **PR-J3** — `notification-service.js` doc-level access via `UserService`
+- **PR-J1** — Manager admin + documents-page user-role checks
+- **PR-J2** — `favorites-service.js` delegates user-doc access through `UserService`. `filter_modal.js` also migrates.
+- **PR-J3** — `notification-service.js` delegates user-doc access through `UserService` (FCM SDK direct stays).
 
-**Done when:** `grep -rn "Document('users'" src/` returns only `src/js/services/user-service.js`.
+**Done when:** `grep -rn "Document('users'" src/` returns only `src/js/services/users/user-service.js`.
 
 ---
 
-## Phase 3 — Favorites leak fix
+## ~~Phase 3 — Favorites leak fix~~ ✅ RESOLVED
 
-**Goal:** `search-service.js` reads favorites through `FavoritesService`, not via direct `users` collection access.
-
-**Today:** `src/lib/search/search-service/search-service.js:137-138` — reads `userDoc.favorites` directly.
-
-**Change:** add `FavoritesService.getFavorites(userId)` if needed; route search-service through it.
-
-**Done when:** `grep -rn "userDoc?.favorites\|userDoc.favorites" src/lib/` returns nothing.
-
-> **Sequencing:** Folds into Phase 2 PR-J2 if done after that PR. Same line change either way.
+The favorites leak only existed in `search-service.js`, which was deleted in #216 (dead code, never instantiated). No work needed.
 
 ---
 
@@ -171,19 +138,19 @@ This umbrella refactor consolidates everything around **one service per domain e
 
 **Today (verified):**
 
-- `src/app/pages/my-meal-page.js:8,73,80` — raw `firebase/firestore` SDK with `onSnapshot` listener
-- `src/app/pages/my-meal-page.js:156,183,204,211,257,334,514,547` — 8 dynamic imports of `ActiveMealUtils`
-- `src/app/pages/recipe-detail-page.js:136,138` — `ActiveMealUtils.addToMeal`
-- Plus `recipe-card.js` per earlier survey
+- `src/app/pages/my-meal-page.js:8, 73, 80` — raw `firebase/firestore` SDK with `onSnapshot` listener on `active_meals/{uid}`
+- `src/app/pages/my-meal-page.js:156, 183, 204, 211, 257, 334, 514, 547` — 8 dynamic imports of `ActiveMealUtils`
+- `src/app/pages/recipe-detail-page.js:136, 138` — `ActiveMealUtils.addToMeal`
+- Plus possibly `recipe-card.js`
 
-**Split:**
+**Sub-PRs:**
 
-- **PR-L** — `ActiveMealService` with `subscribe(uid, callback) → unsubscribe` + CRUD; tests cover listener semantics.
-- **PR-M** — migrate all callers; delete `active-meal-utils.js`.
+- **PR-L** — `ActiveMealService` API with `subscribe(uid, callback) → unsubscribe` + CRUD methods replicating `ActiveMealUtils`. Tests cover listener semantics carefully.
+- **PR-M** — Migrate all callers; delete `active-meal-utils.js`.
 
-**Risk:** the real-time listener is load-bearing for the my-meal page. Must preserve exact event semantics.
+**Risk:** the listener is load-bearing for `/my-meal` UI. Must preserve exact event semantics.
 
-**Done when:** `grep -rn "onSnapshot\|active-meal-utils\|ActiveMealUtils" src/` returns only `src/js/services/active-meal-service.js`. `active-meal-utils.js` doesn't exist.
+**Done when:** `grep -rn "onSnapshot\|active-meal-utils\|ActiveMealUtils" src/` returns only `src/js/services/meals/active-meal-service.js`. `active-meal-utils.js` doesn't exist.
 
 ---
 
@@ -196,7 +163,7 @@ This umbrella refactor consolidates everything around **one service per domain e
 - `src/app/pages/manager-dashboard-page.js:718` — `queryDocuments('failed_url_extractions', ...)`
 - `src/app/pages/manager-dashboard-page.js:879` — `deleteDocument('failed_url_extractions', id)`
 
-**Done when:** `grep -rn "'failed_url_extractions'" src/` returns only `src/js/services/failed-url-extraction-service.js`.
+**Done when:** `grep -rn "'failed_url_extractions'" src/` returns only `src/js/services/admin/failed-url-extraction-service.js`.
 
 ---
 
@@ -204,7 +171,10 @@ This umbrella refactor consolidates everything around **one service per domain e
 
 **Goal:** ESLint blocks `FirestoreService` / `StorageService` imports outside `src/js/services/**`.
 
-Resolve any remaining flagged files. Decide the `getOptimizedImageUrl` display-helper question — either exempt as a display URL helper, or move into a service.
+Plus:
+
+- Split write-side of `recipe-image-utils.js`, `recipe-media-utils.js`, `recipe-data-utils.js` into the appropriate services (write helpers move into services; pure helpers stay in utils).
+- Decide on the display-helper exemption per #215.
 
 **Done when:** `npm run lint` passes with the new rule active.
 
@@ -217,12 +187,13 @@ Resolve any remaining flagged files. Decide the `getOptimizedImageUrl` display-h
 - `npm run lint && npm run format -- --check && npm test && npm run build` green on umbrella.
 - Manual walkthrough: home, categories, recipe detail, propose, edit, delete, image propose, image approve/reject (manager), AI enhance, my-meal real-time, failed-URL listing, user admin, favorites, global header search.
 
-Open one merge PR `refactor/service-layer` → `development`. Pre-commit gate runs. Merge.
+Open one merge PR `refactor/service-layer` → `development` with `Fixes #211`. Merge.
 
 ---
 
 ## Deferred (separate umbrellas / issues — NOT in this work)
 
-1. **Form contract (issue #194)** — open. Its own umbrella. Touches 7+ components + replaces 4 utility files. Independent of service layer.
-2. **search-service aliveness check** — broader question of whether `search-service.js` should be migrated or retired (possibly superseded by `unified-recipe-filter`). Deserves its own investigation; the favorites-leak fix in Phase 3 is the only piece pulled into this umbrella.
-3. **Splitting `recipe-data-utils.js` / `recipe-image-utils.js` / `recipe-media-utils.js`** along service-vs-helper lines — opportunistic cleanup; not required for the convention to hold.
+1. **Form contract (#194)** — open. Its own umbrella. Touches 7+ components + replaces 4 utility files. Independent of service layer.
+2. **Form dirty-detection bug (#209)** — media reorder / set-primary don't flag dirty. Folds into #194 territory.
+3. **Media editor destructive delete + reset (#210)** — destructive on delete; reset doesn't restore.
+4. **Display-helper exemption decision (#215)** — keep exempt, move into a service, or refactor URL helpers entirely.
