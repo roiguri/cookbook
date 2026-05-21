@@ -35,12 +35,9 @@
  * @fires images-rejected - When images are rejected
  */
 
-import {
-  approvePendingImageById,
-  rejectPendingImageById,
-  getOptimizedImageUrl,
-  setPrimaryImage,
-} from '../../../js/utils/recipes/recipe-image-utils.js';
+import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeService } from '../../../js/services/recipe-service.js';
+import { RecipeImageProposalService } from '../../../js/services/recipe-image-proposal-service.js';
 
 class ImageApprovalMulti extends HTMLElement {
   constructor() {
@@ -469,7 +466,7 @@ class ImageApprovalMulti extends HTMLElement {
       const pendingToApprovedIds = new Map();
 
       for (const pendingImageId of this.selectedImageIds) {
-        const newImageId = await approvePendingImageById(this.recipe.id, pendingImageId);
+        const newImageId = await RecipeImageProposalService.approve(this.recipe.id, pendingImageId);
         pendingToApprovedIds.set(pendingImageId, newImageId);
       }
 
@@ -479,14 +476,14 @@ class ImageApprovalMulti extends HTMLElement {
       if (this.primaryImageId) {
         const newPrimaryId = pendingToApprovedIds.get(this.primaryImageId);
         if (newPrimaryId) {
-          await setPrimaryImage(this.recipe.id, newPrimaryId);
+          await RecipeService.setPrimaryImage(this.recipe.id, newPrimaryId);
           console.log('Primary image set to admin selection:', newPrimaryId);
         }
       } else if (!recipeHadImages) {
         const firstPendingId = Array.from(this.selectedImageIds)[0];
         const firstNewId = pendingToApprovedIds.get(firstPendingId);
         if (firstNewId) {
-          await setPrimaryImage(this.recipe.id, firstNewId);
+          await RecipeService.setPrimaryImage(this.recipe.id, firstNewId);
           console.log('First image set as primary (recipe had no images):', firstNewId);
         }
       } else {
@@ -521,7 +518,7 @@ class ImageApprovalMulti extends HTMLElement {
 
     try {
       for (const imageId of this.selectedImageIds) {
-        await rejectPendingImageById(this.recipe.id, imageId);
+        await RecipeImageProposalService.reject(this.recipe.id, imageId);
       }
 
       this.dispatchEvent(
@@ -562,7 +559,7 @@ class ImageApprovalMulti extends HTMLElement {
       const pendingToApprovedIds = new Map();
 
       for (const pendingImageId of visibleImageIds) {
-        const newImageId = await approvePendingImageById(this.recipe.id, pendingImageId);
+        const newImageId = await RecipeImageProposalService.approve(this.recipe.id, pendingImageId);
         pendingToApprovedIds.set(pendingImageId, newImageId);
       }
 
@@ -573,14 +570,14 @@ class ImageApprovalMulti extends HTMLElement {
         // Admin explicitly selected a primary - honor their choice
         const newPrimaryId = pendingToApprovedIds.get(this.primaryImageId);
         if (newPrimaryId) {
-          await setPrimaryImage(this.recipe.id, newPrimaryId);
+          await RecipeService.setPrimaryImage(this.recipe.id, newPrimaryId);
           console.log('Primary image set to admin selection:', newPrimaryId);
         }
       } else if (!recipeHadImages) {
         const firstPendingId = visibleImageIds[0];
         const firstNewId = pendingToApprovedIds.get(firstPendingId);
         if (firstNewId) {
-          await setPrimaryImage(this.recipe.id, firstNewId);
+          await RecipeService.setPrimaryImage(this.recipe.id, firstNewId);
           console.log('First image set as primary (recipe had no images):', firstNewId);
         }
       } else {
@@ -621,7 +618,7 @@ class ImageApprovalMulti extends HTMLElement {
 
     try {
       for (const imageId of visibleImageIds) {
-        await rejectPendingImageById(this.recipe.id, imageId);
+        await RecipeImageProposalService.reject(this.recipe.id, imageId);
       }
 
       this.dispatchEvent(
