@@ -1,5 +1,5 @@
 import authService from '../../js/services/auth-service.js';
-import { FirestoreService } from '../../js/services/firestore-service.js';
+import { RecipeService } from '../../js/services/recipe-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { FilterUtils } from '../../js/utils/filter-utils.js';
 import { getLocalizedCategoryName } from '../../js/utils/recipes/recipe-data-utils.js';
@@ -214,7 +214,7 @@ export default {
         queryParams.where.push(['category', '==', this.currentCategory]);
       }
 
-      this.allRecipes = await FirestoreService.queryDocuments('recipes', queryParams);
+      this.allRecipes = await RecipeService.list(queryParams);
 
       let filteredRecipes = [...this.allRecipes];
 

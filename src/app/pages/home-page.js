@@ -1,4 +1,4 @@
-import { FirestoreService } from '../../js/services/firestore-service.js';
+import { RecipeService } from '../../js/services/recipe-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import '../../styles/pages/home-spa.css';
 
@@ -53,7 +53,7 @@ export default {
         orderBy: ['creationTime', 'desc'],
         limit: 4,
       };
-      const recipes = await FirestoreService.queryDocuments('recipes', queryParams);
+      const recipes = await RecipeService.list(queryParams);
 
       if (!recipes.length) return;
 

@@ -321,7 +321,7 @@ export default {
     const filterSelect = document.getElementById('recipe-filter');
 
     try {
-      const recipes = await FirestoreService.queryDocuments('recipes', {
+      const recipes = await RecipeService.list({
         where: [['approved', '==', true]],
       });
       this.allRecipes = recipes;
@@ -484,7 +484,7 @@ export default {
     const noPendingMessage = pendingRecipeSection.querySelector('.no-pending-message');
 
     try {
-      const pendingRecipes = await FirestoreService.queryDocuments('recipes', {
+      const pendingRecipes = await RecipeService.list({
         where: [['approved', '==', false]],
       });
       const recipeItems = pendingRecipes.map((recipe) => ({
@@ -595,7 +595,7 @@ export default {
       //    where: [['pendingImages', '!=', []], ['approved', '==', true]]
       // See: https://firebase.google.com/docs/firestore/query-data/indexing
 
-      const allPendingRecipes = await FirestoreService.queryDocuments('recipes', {
+      const allPendingRecipes = await RecipeService.list({
         where: [['pendingImages', '!=', []]],
       });
 
