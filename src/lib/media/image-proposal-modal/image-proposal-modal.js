@@ -24,7 +24,7 @@
  */
 import authService from '../../../js/services/auth-service.js';
 import { getRecipeById } from '../../../js/utils/recipes/recipe-data-utils.js';
-import { addPendingImages } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageProposalService } from '../../../js/services/recipe-image-proposal-service.js';
 
 class ImageProposalModal extends HTMLElement {
   constructor() {
@@ -183,7 +183,7 @@ class ImageProposalModal extends HTMLElement {
       const recipe = await getRecipeById(this.recipeId);
       if (!recipe) throw new Error('Recipe not found');
       const files = images.map((img) => img.file);
-      const pendingImages = await addPendingImages(
+      const pendingImages = await RecipeImageProposalService.propose(
         this.recipeId,
         files,
         recipe.category,
