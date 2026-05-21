@@ -48,7 +48,7 @@
  * - This component relies on the `custom-modal` and `recipe-component` components.
  */
 import { FirestoreService } from '../../../js/services/firestore-service.js';
-import { deleteRecipe } from '../../../js/utils/recipes/recipe-data-utils.js';
+import { RecipeService } from '../../../js/services/recipe-service.js';
 
 import '../recipe_component/recipe_component.js';
 import '../../utilities/modal/modal.js';
@@ -270,7 +270,7 @@ class RecipePreviewModal extends HTMLElement {
 
   async handleRecipeRejection(recipeId) {
     try {
-      await deleteRecipe(recipeId);
+      await RecipeService.delete(recipeId);
     } catch (error) {
       console.error('Error in handleRecipeRejection:', error);
       throw new Error('Failed to reject recipe: ' + error.message);
