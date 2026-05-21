@@ -760,6 +760,44 @@ class MediaInstructionsEditor extends HTMLElement {
   }
 
   /**
+   * Sync editor state with the result of an external upload (RecipeService).
+   * Replaces pending entries at the recorded position with their uploaded
+   * metadata so a subsequent save won't re-upload them. Failed positions
+   * remain pending and their errors are surfaced to the user.
+   *
+   * @param {{ uploaded: Array<{position:number, metadata:Object}>, failed: Array<{position:number, error:string, originalItem?:Object}> }} uploadResults
+   */
+  applyUploadResults(uploadResults) {
+    if (!uploadResults) return;
+    const { uploaded = [], failed = [] } = uploadResults;
+
+    for (const { position, metadata } of uploaded) {
+      const item = this.mediaItems[position];
+      if (!item) continue;
+      if (item.preview && item.file) {
+        URL.revokeObjectURL(item.preview);
+      }
+      this.mediaItems[position] = {
+        ...metadata,
+        caption: item.caption ?? metadata.caption ?? '',
+      };
+    }
+
+    this.mediaItems.forEach((item, index) => {
+      item.order = index;
+    });
+
+    for (const { originalItem, error } of failed) {
+      const name = originalItem?.file?.name || 'media';
+      this.errors.push(`${name}: ${error}`);
+    }
+
+    this.emitChange();
+    this.renderMediaList();
+    this.renderErrors();
+  }
+
+  /**
    * Clears all media instructions and pending files
    * Used when resetting the form
    */

@@ -1,13 +1,6 @@
 // edit-recipe-component.js
-import { FirestoreService } from '../../../js/services/firestore-service.js';
-import { StorageService } from '../../../js/services/storage-service.js';
+import { RecipeService } from '../../../js/services/recipe-service.js';
 import authService from '../../../js/services/auth-service.js';
-import {
-  getImageStoragePath,
-  uploadAndBuildImageMetadata,
-  migrateImageToCategory,
-  deleteImageFiles,
-} from '../../../js/utils/recipes/recipe-image-utils.js';
 
 import '../../modals/message-modal/message-modal.js';
 import '../../utilities/loading-spinner/loading-spinner.js';
@@ -51,127 +44,45 @@ class EditRecipeComponent extends HTMLElement {
     const spinner = this.shadowRoot.querySelector('loading-spinner');
     try {
       spinner.setAttribute('active', '');
-      const originalRecipe = await FirestoreService.getDocument('recipes', this.recipeId);
-      const categoryChanged = originalRecipe.category !== recipeData.category;
+      const user = authService.getCurrentUser();
+      const uploadedBy = user?.uid || 'anonymous';
 
-      if (Array.isArray(recipeData.toDelete)) {
-        for (const img of recipeData.toDelete) {
-          if (img.full) await deleteImageFiles(img).catch(() => {});
-        }
-      }
+      const {
+        images: formImages = [],
+        toDelete: imagesToDelete = [],
+        mediaInstructions: _m,
+        ...changes
+      } = recipeData;
 
-      const newImages = [];
-      for (const img of recipeData.images) {
-        if (img.source === 'new' && img.file) {
-          const meta = await uploadAndBuildImageMetadata({
-            recipeId: this.recipeId,
-            category: recipeData.category,
-            file: img.file,
-            isPrimary: img.isPrimary,
-            uploadedBy: img.uploadedBy,
-          });
-          newImages.push(meta);
-        } else if (img.source === 'existing') {
-          // Spread all persistent fields (e.g. aiEnhanced) and drop transient
-          // form-internal ones. Filter undefined values since Firestore is not
-          // configured with ignoreUndefinedProperties.
-          const { source: _s, file: _f, preview: _p, ...rest } = img;
-          let existingImage = Object.fromEntries(
-            Object.entries(rest).filter(([, v]) => v !== undefined),
-          );
+      const mediaItemsOrdered = this.formComponent?.getAllMediaInOrder?.() || [];
 
-          if (categoryChanged) {
-            try {
-              existingImage = await migrateImageToCategory(
-                existingImage,
-                this.recipeId,
-                originalRecipe.category,
-                recipeData.category,
-              );
-            } catch (error) {
-              console.error(`Failed to migrate image ${img.id}:`, error);
-              this.showWarningMessage(
-                `אזהרה: לא ניתן להעביר תמונה ${img.id} לתיקיית קטגוריה חדשה. התמונה תישאר בתיקייה הישנה.`,
-              );
-            }
-          }
-
-          newImages.push(existingImage);
-        }
-      }
-
-      const mediaInstructions = [];
-      const formComponent = this.formComponent;
-
-      const allMediaInOrder = formComponent?.getAllMediaInOrder() || [];
-      let uploadedMediaMap = new Map();
-      let failedCount = 0;
-      let successCount = 0;
-
-      if (formComponent && typeof formComponent.uploadPendingMediaInstructions === 'function') {
-        const user = authService.getCurrentUser();
-        const pendingCount = allMediaInOrder.filter((item) => item.file).length;
-
-        const uploadedMedia = await formComponent.uploadPendingMediaInstructions(
-          this.recipeId,
-          user?.uid || 'anonymous',
-        );
-
-        if (uploadedMedia && Array.isArray(uploadedMedia)) {
-          successCount = uploadedMedia.length;
-          uploadedMedia.forEach((media) => {
-            uploadedMediaMap.set(media.order, media);
-          });
-
-          // Detect partial failure
-          if (pendingCount > 0 && uploadedMedia.length < pendingCount) {
-            failedCount = pendingCount - uploadedMedia.length;
-            console.warn(`${failedCount} of ${pendingCount} media file(s) failed to upload`);
-          }
-        }
-      }
-
-      // Now process all media in unified array order (preserves UI reordering)
-      let finalOrder = 0;
-      for (const item of allMediaInOrder) {
-        if (item.file) {
-          // This is a pending file - use uploaded metadata from map
-          const uploaded = uploadedMediaMap.get(item.position);
-          if (uploaded) {
-            uploaded.order = finalOrder; // Assign sequential order
-            mediaInstructions.push(uploaded);
-            finalOrder++;
-          } else {
-            console.warn(
-              `Media at position ${item.position} failed to upload, will be excluded from save`,
-            );
-          }
-        } else {
-          // Existing media - keep it with updated order
-          const existingMedia = { ...item, order: finalOrder };
-          delete existingMedia.position; // Remove temporary position field
-          mediaInstructions.push(existingMedia);
-          finalOrder++;
-        }
-      }
-
-      const { images, toDelete, mediaInstructions: _, ...rest } = recipeData;
-
-      // Manager edits are trusted and should not require re-approval.
-      // - If saving an already approved recipe, it stays approved.
-      // - If saving a pending recipe, it is auto-approved.
-      await FirestoreService.updateDocument('recipes', this.recipeId, {
-        ...rest,
+      // Manager edits are trusted; auto-approve so pending recipes
+      // become approved after a save.
+      const { mediaUploadResults, migrationWarnings } = await RecipeService.update(this.recipeId, {
+        changes,
+        images: formImages,
+        imagesToDelete,
+        mediaItemsOrdered,
+        uploadedBy,
         approved: true,
-        images: newImages,
-        mediaInstructions: mediaInstructions,
       });
 
-      if (failedCount > 0) {
+      const mediaEditor = this.formComponent?.shadowRoot?.getElementById(
+        'media-instructions-editor',
+      );
+      mediaEditor?.applyUploadResults?.(mediaUploadResults);
+
+      for (const warning of migrationWarnings) {
+        this.showWarningMessage(
+          `אזהרה: לא ניתן להעביר תמונה ${warning.imageId} לתיקיית קטגוריה חדשה. התמונה תישאר בתיקייה הישנה.`,
+        );
+      }
+
+      if (mediaUploadResults.failedCount > 0) {
         this.showWarningMessage(
           `המתכון עודכן בהצלחה!\n\n` +
-            `${successCount} קבצי מדיה הועלו בהצלחה.\n` +
-            `${failedCount} קבצי מדיה נכשלו בהעלאה.\n\n` +
+            `${mediaUploadResults.successCount} קבצי מדיה הועלו בהצלחה.\n` +
+            `${mediaUploadResults.failedCount} קבצי מדיה נכשלו בהעלאה.\n\n` +
             `הקבצים שנכשלו עדיין נראים בעורך. תוכל לנסות להעלות אותם שוב על ידי לחיצה על "עדכן מתכון".`,
         );
       } else {
@@ -180,22 +91,16 @@ class EditRecipeComponent extends HTMLElement {
       spinner.removeAttribute('active');
 
       // Dispatch recipe-updated event for dashboard refresh
-      const event = new CustomEvent('recipe-updated', {
+      const updatedEvent = new CustomEvent('recipe-updated', {
         detail: { recipeId: this.recipeId },
         bubbles: true,
         composed: true,
       });
-      this.dispatchEvent(event);
+      this.dispatchEvent(updatedEvent);
     } catch (error) {
       spinner.removeAttribute('active');
       this.showErrorMessage(`שגיאה בעדכון המתכון: ${error}`);
     }
-  }
-
-  async updateRecipeInFirestore(recipeId, recipeData) {
-    // Remove the imageFile property before saving to Firestore
-    const { imageFile, ...recipeDataWithoutImage } = recipeData;
-    await FirestoreService.updateDocument('recipes', recipeId, recipeDataWithoutImage);
   }
 
   showSuccessMessage(message) {
@@ -221,7 +126,7 @@ class EditRecipeComponent extends HTMLElement {
     editRecipeModal.show(message);
   }
 
-  showErrorMessage(message, error) {
+  showErrorMessage(message) {
     const editRecipeModal = this.shadowRoot.querySelector('message-modal');
     editRecipeModal.show(message);
   }
