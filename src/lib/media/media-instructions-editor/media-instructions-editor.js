@@ -14,14 +14,9 @@
  *   media-data='[]'
  *   recipe-id="recipe-123">
  * </media-instructions-editor>
- *
- * // To upload pending files, call:
- * const editor = document.querySelector('media-instructions-editor');
- * const uploadedMedia = await editor.uploadPendingFiles(recipeId, userId);
  */
 
 import {
-  uploadMediaInstructionFile,
   deleteMediaInstructionFile,
   validateMediaFile,
   getMediaInstructionUrl,
@@ -655,64 +650,6 @@ class MediaInstructionsEditor extends HTMLElement {
   showError(message) {
     this.errors = [message];
     this.renderErrors();
-  }
-
-  // --- Pending Files Management ---
-
-  /**
-   * Upload all pending files to Firebase Storage
-   * @param {string} recipeId - The recipe ID for storage paths
-   * @param {string} userId - The user ID performing the upload
-   * @returns {Promise<Array>} Array of uploaded media metadata objects
-   */
-  async uploadPendingFiles(recipeId, userId) {
-    // Get pending items from unified array
-    const pendingItems = this.mediaItems.filter((item) => item.file);
-
-    if (!recipeId || !userId || pendingItems.length === 0) {
-      return [];
-    }
-
-    this.setUploading(true);
-
-    const uploadedMedia = [];
-
-    // Upload each pending item and preserve its position in unified array
-    for (const pending of pendingItems) {
-      try {
-        // Capture the item's position BEFORE uploading
-        const originalIndex = this.mediaItems.indexOf(pending);
-
-        const metadata = await uploadMediaInstructionFile(pending.file, recipeId, userId);
-        metadata.caption = pending.caption || '';
-        // Set order based on position in unified array (not just existing count)
-        metadata.order = originalIndex;
-        uploadedMedia.push(metadata);
-
-        // Replace pending item with uploaded metadata at the same position
-        this.mediaItems[originalIndex] = metadata;
-
-        // Clean up blob URL
-        if (pending.preview) {
-          URL.revokeObjectURL(pending.preview);
-        }
-      } catch (error) {
-        console.error('Error uploading pending file:', error);
-        this.errors.push(`${pending.file.name}: ${error.message}`);
-      }
-    }
-
-    // Update order for all items based on current positions in unified array
-    this.mediaItems.forEach((item, index) => {
-      item.order = index;
-    });
-
-    this.setUploading(false);
-    this.emitChange();
-    this.renderMediaList();
-    this.renderErrors();
-
-    return uploadedMedia;
   }
 
   // --- Communication with Parent ---
