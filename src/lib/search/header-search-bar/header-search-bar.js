@@ -1,4 +1,4 @@
-import { FirestoreService } from '../../../js/services/firestore-service.js';
+import { RecipeService } from '../../../js/services/recipe-service.js';
 import { FilterUtils } from '../../../js/utils/filter-utils.js';
 import { showToast } from '../../notifications/toast-notification/toast-notification.js';
 import { debounce } from '../../../js/utils/common-utils.js';
@@ -159,8 +159,8 @@ class HeaderSearchBar extends HTMLElement {
     if (!searchText.trim()) return;
 
     try {
-      // Load all approved recipes from Firestore
-      const recipes = await FirestoreService.queryDocuments('recipes', {
+      // Load all approved recipes
+      const recipes = await RecipeService.list({
         where: [['approved', '==', true]],
       });
 

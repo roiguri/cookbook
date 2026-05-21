@@ -1,4 +1,4 @@
-import { FirestoreService } from '../../../../js/services/firestore-service.js';
+import { RecipeService } from '../../../../js/services/recipe-service.js';
 import {
   getRecipeById,
   getLocalizedCategoryName,
@@ -186,7 +186,7 @@ class RecipeRelatedField extends HTMLElement {
     const searchTerms = term.toLowerCase().trim().split(/\s+/);
 
     try {
-      const results = await FirestoreService.queryDocuments('recipes', {
+      const results = await RecipeService.list({
         where: [['approved', '==', true]],
       });
 
