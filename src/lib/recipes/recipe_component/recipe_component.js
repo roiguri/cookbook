@@ -1,7 +1,7 @@
 import { icons } from '../../../js/icons.js';
 import authService from '../../../js/services/auth-service.js';
 import { AppConfig } from '../../../js/config/app-config.js';
-import { FirestoreService } from '../../../js/services/firestore-service.js';
+import { RecipeService } from '../../../js/services/recipe-service.js';
 import {
   getRecipeById,
   getLocalizedCategoryName,
@@ -1268,11 +1268,13 @@ class RecipeComponent extends HTMLElement {
     const fetched = await Promise.all(ids.map((id) => getRecipeById(id)));
     const valid = fetched.filter((r) => r && r.approved);
 
-    // Self-heal: remove stale IDs from Firestore (fire-and-forget)
+    // Self-heal: prune stale IDs from the recipe doc (fire-and-forget).
+    // RecipeService.update has PATCH semantics — only `changes` are written,
+    // so images / mediaInstructions / approved are left alone.
     const validIds = valid.map((r) => r.id);
     if (validIds.length !== ids.length && this.recipeId) {
-      FirestoreService.updateDocument('recipes', this.recipeId, {
-        relatedRecipes: validIds,
+      RecipeService.update(this.recipeId, {
+        changes: { relatedRecipes: validIds },
       }).catch(() => {});
     }
 
