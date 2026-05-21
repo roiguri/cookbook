@@ -1,8 +1,9 @@
 import { FirestoreService } from '../../js/services/firestore-service.js';
+import { RecipeService } from '../../js/services/recipe-service.js';
 import authService from '../../js/services/auth-service.js';
 import notificationService from '../../js/services/notification-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
-import { CATEGORY_MAP, deleteRecipe } from '../../js/utils/recipes/recipe-data-utils.js';
+import { CATEGORY_MAP } from '../../js/utils/recipes/recipe-data-utils.js';
 import { debounce } from '../../js/utils/common-utils.js';
 import {
   DashboardRefreshManager,
@@ -438,7 +439,7 @@ export default {
   async deleteRecipe(recipeId) {
     try {
       this.toggleLoading(true);
-      await deleteRecipe(recipeId);
+      await RecipeService.delete(recipeId);
       this.showSuccessMessage('המתכון נמחק בהצלחה');
       this.refreshManager.refreshRecipes();
     } catch (error) {
