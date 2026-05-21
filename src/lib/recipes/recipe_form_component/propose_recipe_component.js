@@ -14,11 +14,7 @@
  *
  */
 
-import { FirestoreService } from '../../../js/services/firestore-service.js';
-import {
-  uploadAndBuildImageMetadata,
-  deleteImageFiles,
-} from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeService } from '../../../js/services/recipe-service.js';
 import { Timestamp } from 'firebase/firestore';
 import authService from '../../../js/services/auth-service.js';
 import { logError, getErrorMessage } from '../../../js/utils/error-handler.js';
@@ -46,7 +42,7 @@ class ProposeRecipeComponent extends HTMLElement {
   render() {
     this.shadowRoot.innerHTML = `
       <style>
-        
+
       </style>
       <loading-spinner overlay>
         <div class="propose-recipe-container">
@@ -59,99 +55,43 @@ class ProposeRecipeComponent extends HTMLElement {
   async handleRecipeData(event) {
     const recipeData = event.detail.recipeData;
     const spinner = this.shadowRoot.querySelector('loading-spinner');
-    let uploadedFilesToCleanup = [];
     try {
       spinner.setAttribute('active', '');
       const user = authService.getCurrentUser();
-      const imagesToUpload = recipeData.images || [];
-      const recipeDataForFirestore = { ...recipeData };
-      delete recipeDataForFirestore.images;
-      delete recipeDataForFirestore.mediaInstructions;
-      delete recipeDataForFirestore.toDelete;
-      recipeDataForFirestore.creationTime = Timestamp.now();
-      recipeDataForFirestore.userId = user?.uid || 'anonymous';
-      recipeDataForFirestore.approved = false;
-
-      Object.keys(recipeDataForFirestore).forEach((key) => {
-        const value = recipeDataForFirestore[key];
-        if (value === undefined) {
-          delete recipeDataForFirestore[key];
-        } else if (Array.isArray(value)) {
-          recipeDataForFirestore[key] = value.filter((item) => item !== undefined);
-        }
-      });
-
-      // Generate ID before uploading so we can use it for storage paths
-      const recipeId = FirestoreService.generateId('recipes');
-
-      // Upload images if provided
-      if (imagesToUpload.length > 0) {
-        const imageUploadResults = await this.uploadRecipeImages(
-          recipeId,
-          imagesToUpload,
-          recipeDataForFirestore.category,
-          user?.uid || 'anonymous',
-        );
-        recipeDataForFirestore.images = imageUploadResults;
-        recipeDataForFirestore.allowImageSuggestions = true;
-        uploadedFilesToCleanup.push(...imageUploadResults);
-      }
-
-      // Upload pending media instructions if any
+      const uploadedBy = user?.uid || 'anonymous';
       const formComponent = this.shadowRoot.querySelector('recipe-form-component');
-      let hasPartialFailure = false;
-      let successCount = 0;
-      let failedCount = 0;
 
-      if (formComponent && typeof formComponent.uploadPendingMediaInstructions === 'function') {
-        const allMedia = formComponent.getAllMediaInOrder();
-        const pendingCount = allMedia.filter((item) => item.file).length;
+      const {
+        images: formImages,
+        mediaInstructions: _m,
+        toDelete: _td,
+        ...baseFields
+      } = recipeData;
+      const imagesToUpload = (formImages || []).map(({ file, isPrimary }) => ({ file, isPrimary }));
 
-        if (pendingCount > 0) {
-          const uploadedMedia = await formComponent.uploadPendingMediaInstructions(
-            recipeId,
-            user?.uid || 'anonymous',
-          );
+      const recipeDataForFirestore = {
+        ...baseFields,
+        creationTime: Timestamp.now(),
+        userId: uploadedBy,
+        approved: false,
+      };
 
-          if (uploadedMedia && uploadedMedia.length > 0) {
-            successCount = uploadedMedia.length;
-            recipeDataForFirestore.mediaInstructions = uploadedMedia;
-            uploadedFilesToCleanup.push(...uploadedMedia);
+      const mediaItemsOrdered = formComponent?.getAllMediaInOrder?.() || [];
 
-            // Detect partial failure
-            if (uploadedMedia.length < pendingCount) {
-              hasPartialFailure = true;
-              failedCount = pendingCount - uploadedMedia.length;
-              console.warn(`${failedCount} of ${pendingCount} media file(s) failed to upload`);
-            }
-          } else {
-            // If there were pending files but none uploaded, count as failure
-            hasPartialFailure = true;
-            failedCount = pendingCount;
-            console.warn(`All ${pendingCount} media file(s) failed to upload`);
-          }
-        }
-      }
-
-      // Add recipe to Firestore — race against a timeout because Firestore buffers writes
-      // when offline instead of rejecting, which would leave the spinner frozen forever
-      await Promise.race([
-        FirestoreService.setDocument('recipes', recipeId, recipeDataForFirestore),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error('אין חיבור לאינטרנט. אנא בדוק את החיבור ונסה שוב.')),
-            15000,
-          ),
-        ),
-      ]);
+      const { mediaUploadResults } = await RecipeService.create({
+        recipeData: recipeDataForFirestore,
+        imagesToUpload,
+        mediaItemsOrdered,
+        uploadedBy,
+      });
 
       this.clearForm();
 
-      if (hasPartialFailure) {
+      if (mediaUploadResults.failedCount > 0) {
         showToast(
           `המתכון נשלח בהצלחה!\n\n` +
-            `${successCount} קבצי מדיה הועלו בהצלחה.\n` +
-            `${failedCount} קבצי מדיה נכשלו.\n\n` +
+            `${mediaUploadResults.successCount} קבצי מדיה הועלו בהצלחה.\n` +
+            `${mediaUploadResults.failedCount} קבצי מדיה נכשלו.\n\n` +
             `ניתן לראות את המתכון בלוח הבקרה ולערוך אותו כדי לנסות שוב.`,
           'warn',
           0,
@@ -164,33 +104,8 @@ class ProposeRecipeComponent extends HTMLElement {
         new CustomEvent('recipe-proposed-success', { bubbles: true, composed: true }),
       );
     } catch (error) {
-      // Cleanup any successfully uploaded files to avoid orphans
-      if (uploadedFilesToCleanup.length > 0) {
-        uploadedFilesToCleanup.forEach((img) => {
-          deleteImageFiles(img).catch((e) => console.warn('Failed to cleanup file on error:', e));
-        });
-      }
       spinner.removeAttribute('active');
       this.showErrorMessage(error);
-    }
-  }
-
-  async uploadRecipeImages(recipeId, images, category, uploader) {
-    try {
-      // Upload all images in parallel for better performance
-      const uploadPromises = images.map(({ file, isPrimary }) =>
-        uploadAndBuildImageMetadata({
-          recipeId,
-          category,
-          file,
-          isPrimary,
-          uploadedBy: uploader,
-        }),
-      );
-      return await Promise.all(uploadPromises);
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      throw error;
     }
   }
 
