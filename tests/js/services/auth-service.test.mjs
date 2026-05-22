@@ -36,8 +36,8 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.resetModules();
-    firebaseService = await import('src/js/services/firebase-service.js');
-    ({ AuthService } = await import('src/js/services/auth-service.js'));
+    firebaseService = await import('src/js/services/_firebase/firebase-service.js');
+    ({ AuthService } = await import('src/js/services/auth/auth-service.js'));
 
     // Dynamically import the Firebase Auth mocks
     ({

@@ -36,8 +36,8 @@
  */
 
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
-import { RecipeService } from '../../../js/services/recipe-service.js';
-import { RecipeImageProposalService } from '../../../js/services/recipe-image-proposal-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeImageProposalService } from '../../../js/services/recipes/recipe-image-proposal-service.js';
 
 class ImageApprovalMulti extends HTMLElement {
   constructor() {

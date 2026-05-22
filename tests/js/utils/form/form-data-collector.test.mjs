@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 
 // Mock auth service
 const mockGetCurrentUser = jest.fn();
-jest.unstable_mockModule('src/js/services/auth-service.js', () => ({
+jest.unstable_mockModule('src/js/services/auth/auth-service.js', () => ({
   default: {
     getCurrentUser: mockGetCurrentUser,
   },

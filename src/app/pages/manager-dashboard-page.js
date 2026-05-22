@@ -1,7 +1,7 @@
-import { FirestoreService } from '../../js/services/firestore-service.js';
-import { RecipeService } from '../../js/services/recipe-service.js';
-import authService from '../../js/services/auth-service.js';
-import notificationService from '../../js/services/notification-service.js';
+import { FirestoreService } from '../../js/services/_firebase/firestore-service.js';
+import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import authService from '../../js/services/auth/auth-service.js';
+import notificationService from '../../js/services/users/notification-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { CATEGORY_MAP } from '../../js/utils/recipes/recipe-data-utils.js';
 import { debounce } from '../../js/utils/common-utils.js';

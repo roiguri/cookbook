@@ -1,4 +1,4 @@
-import { RecipeService } from '../../../js/services/recipe-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { showErrorModal, logError } from '../../../js/utils/error-handler.js';
 import { validateRecipeForm } from '../../../js/utils/form/form-validation-utils.js';
@@ -18,7 +18,7 @@ import './parts/recipe-related-field.js';
 import '../../media/media-instructions-editor/media-instructions-editor.js';
 import '../recipe_import_modal/recipe_import_modal.js';
 import { mapExtractedDataToForm } from '../../../js/utils/recipe-extractor-utils.js';
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 
 import styles from './recipe_form_component.css?inline';
 import baseButtonStyles from '../../../styles/components/base_button.css?inline';

@@ -12,9 +12,9 @@ import './styles/main.css';
 // Register Service Worker for PWA functionality
 import './js/sw-register.js';
 
-import { initFirebase } from './js/services/firebase-service.js';
+import { initFirebase } from './js/services/_firebase/firebase-service.js';
 import firebaseConfig from './js/config/firebase-config.js';
-import authService from './js/services/auth-service.js';
+import authService from './js/services/auth/auth-service.js';
 
 // Import SPA core
 import { AppRouter } from './app/core/router.js';

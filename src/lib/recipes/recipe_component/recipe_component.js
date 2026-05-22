@@ -1,7 +1,7 @@
 import { icons } from '../../../js/icons.js';
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../../js/config/app-config.js';
-import { RecipeService } from '../../../js/services/recipe-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import {
   getRecipeById,
   getLocalizedCategoryName,

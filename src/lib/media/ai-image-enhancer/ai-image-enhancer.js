@@ -11,7 +11,7 @@
  * recipe's image list without a full reload.
  */
 
-import { FirestoreService } from '../../../js/services/firestore-service.js';
+import { FirestoreService } from '../../../js/services/_firebase/firestore-service.js';
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 
 class AiImageEnhancer extends HTMLElement {

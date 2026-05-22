@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 // Mock FirestoreService
-jest.unstable_mockModule('src/js/services/firestore-service.js', () => ({
+jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: {
     getDocument: jest.fn(),
     batchWrite: jest.fn(),
@@ -25,7 +25,7 @@ let arrayUnion, arrayRemove, serverTimestamp, deleteField;
 describe('ActiveMealUtils', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
-    ({ FirestoreService } = await import('src/js/services/firestore-service.js'));
+    ({ FirestoreService } = await import('src/js/services/_firebase/firestore-service.js'));
     ({ ActiveMealUtils } = await import('src/js/utils/active-meal-utils.js'));
     ({ arrayUnion, arrayRemove, serverTimestamp, deleteField } = await import(
       'firebase/firestore'

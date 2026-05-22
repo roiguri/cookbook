@@ -8,7 +8,7 @@ test.describe('Auth Avatar Visuals', () => {
   test('renders signed-out state correctly', async ({ page }) => {
     // Mock Authentication Service
     await page.evaluate(async () => {
-      const authServiceModule = await import('/src/js/services/auth-service.js');
+      const authServiceModule = await import('/src/js/services/auth/auth-service.js');
       const authService = authServiceModule.default;
 
       authService.getCurrentUser = () => null;
@@ -27,7 +27,7 @@ test.describe('Auth Avatar Visuals', () => {
 
   test('renders signed-in state with initials', async ({ page }) => {
     await page.evaluate(async () => {
-      const authServiceModule = await import('/src/js/services/auth-service.js');
+      const authServiceModule = await import('/src/js/services/auth/auth-service.js');
       const authService = authServiceModule.default;
 
       const mockUser = {
@@ -81,7 +81,7 @@ test.describe('Auth Avatar Visuals', () => {
 
   test('opens auth modal when clicked (signed out)', async ({ page }) => {
     await page.evaluate(async () => {
-      const authServiceModule = await import('/src/js/services/auth-service.js');
+      const authServiceModule = await import('/src/js/services/auth/auth-service.js');
       const authService = authServiceModule.default;
       authService.getCurrentUser = () => null;
 

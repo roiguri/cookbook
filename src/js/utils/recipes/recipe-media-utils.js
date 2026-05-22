@@ -29,7 +29,7 @@
  */
 
 // --- Imports ---
-import { StorageService } from '../../services/storage-service.js';
+import { StorageService } from '../../services/_firebase/storage-service.js';
 
 // --- Constants ---
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];

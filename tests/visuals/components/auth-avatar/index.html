@@ -13,7 +13,7 @@
     <script type="module" src="/src/lib/auth/components/auth-content.js"></script>
     <!-- Expose singletons for test access via the same Vite-transformed module instance -->
     <script type="module">
-      import authService from '/src/js/services/auth-service.js';
+      import authService from '/src/js/services/auth/auth-service.js';
       window.__authService = authService;
     </script>
   </head>

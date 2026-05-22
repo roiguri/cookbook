@@ -1,4 +1,4 @@
-import { RecipeService } from '../../../../js/services/recipe-service.js';
+import { RecipeService } from '../../../../js/services/recipes/recipe-service.js';
 import {
   getRecipeById,
   getLocalizedCategoryName,

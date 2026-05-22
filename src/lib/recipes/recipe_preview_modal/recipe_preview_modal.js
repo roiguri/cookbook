@@ -47,8 +47,8 @@
  * Dependencies:
  * - This component relies on the `custom-modal` and `recipe-component` components.
  */
-import { FirestoreService } from '../../../js/services/firestore-service.js';
-import { RecipeService } from '../../../js/services/recipe-service.js';
+import { FirestoreService } from '../../../js/services/_firebase/firestore-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 
 import '../recipe_component/recipe_component.js';
 import '../../utilities/modal/modal.js';

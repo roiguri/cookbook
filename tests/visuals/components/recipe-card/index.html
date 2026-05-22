@@ -25,8 +25,8 @@
     <script type="module" src="/src/lib/recipes/recipe-card/recipe-card.js"></script>
     <!-- Expose singletons for test access via the same Vite-transformed module instance -->
     <script type="module">
-      import authService from '/src/js/services/auth-service.js';
-      import favoritesService from '/src/js/services/favorites-service.js';
+      import authService from '/src/js/services/auth/auth-service.js';
+      import favoritesService from '/src/js/services/users/favorites-service.js';
       window.__authService = authService;
       window.__favoritesService = favoritesService;
     </script>

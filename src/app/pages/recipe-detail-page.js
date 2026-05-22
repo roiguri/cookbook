@@ -1,6 +1,6 @@
 import { AppConfig } from '../../js/config/app-config.js';
-import authService from '../../js/services/auth-service.js';
-import { firestoreService } from '../../js/services/firestore-service.js';
+import authService from '../../js/services/auth/auth-service.js';
+import { firestoreService } from '../../js/services/_firebase/firestore-service.js';
 import '../../styles/pages/recipe-detail-spa.css';
 
 export default {

@@ -1,12 +1,12 @@
-import authService from '../../js/services/auth-service.js';
-import { firestoreService } from '../../js/services/firestore-service.js';
+import authService from '../../js/services/auth/auth-service.js';
+import { firestoreService } from '../../js/services/_firebase/firestore-service.js';
 import { getRecipeById } from '../../js/utils/recipes/recipe-data-utils.js';
 import {
   formatIngredientAmount,
   scaleIngredients,
 } from '../../js/utils/recipes/recipe-ingredients-utils.js';
 import { onSnapshot, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getFirestoreInstance } from '../../js/services/firebase-service.js';
+import { getFirestoreInstance } from '../../js/services/_firebase/firebase-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import '../../lib/modals/confirmation_modal/confirmation_modal.js';

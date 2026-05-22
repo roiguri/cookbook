@@ -55,8 +55,8 @@
  */
 
 // --- Imports ---
-import { StorageService } from '../../services/storage-service.js';
-import { FirestoreService } from '../../services/firestore-service.js';
+import { StorageService } from '../../services/_firebase/storage-service.js';
+import { FirestoreService } from '../../services/_firebase/firestore-service.js';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB

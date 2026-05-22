@@ -1,17 +1,17 @@
-// src/js/services/recipe-service.js
+// src/js/services/recipes/recipe-service.js
 
-import { FirestoreService } from './firestore-service.js';
+import { FirestoreService } from '../_firebase/firestore-service.js';
 import {
   uploadAndBuildImageMetadata,
   deleteImageFiles,
   migrateImageToCategory,
   removeAllRecipeImages,
   setPrimaryImage as setPrimaryImageInternal,
-} from '../utils/recipes/recipe-image-utils.js';
+} from '../../utils/recipes/recipe-image-utils.js';
 import {
   uploadMediaInstructionFile,
   removeAllMediaInstructions,
-} from '../utils/recipes/recipe-media-utils.js';
+} from '../../utils/recipes/recipe-media-utils.js';
 
 /**
  * RecipeService — Recipe-Aware Service Layer

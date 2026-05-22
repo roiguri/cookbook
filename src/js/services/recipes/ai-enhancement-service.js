@@ -1,5 +1,5 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getFirebaseApp } from './firebase-service.js';
+import { getFirebaseApp } from '../_firebase/firebase-service.js';
 
 /**
  * Calls the `enhanceFoodImage` Cloud Function.

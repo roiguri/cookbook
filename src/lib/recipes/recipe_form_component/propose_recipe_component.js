@@ -14,9 +14,9 @@
  *
  */
 
-import { RecipeService } from '../../../js/services/recipe-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { Timestamp } from 'firebase/firestore';
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 import { logError, getErrorMessage } from '../../../js/utils/error-handler.js';
 import { showToast } from '../../notifications/toast-notification/toast-notification.js';
 
