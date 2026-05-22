@@ -1,5 +1,6 @@
 import { FirestoreService } from '../../js/services/_firebase/firestore-service.js';
 import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import { UserService } from '../../js/services/users/user-service.js';
 import authService from '../../js/services/auth/auth-service.js';
 import notificationService from '../../js/services/users/notification-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
@@ -82,7 +83,7 @@ export default {
 
   async checkManagerStatus(user) {
     try {
-      const userDoc = await FirestoreService.getDocument('users', user.uid);
+      const userDoc = await UserService.get(user.uid);
       if (userDoc) {
         return userDoc.role === 'manager';
       }
@@ -239,7 +240,7 @@ export default {
     const userList = document.getElementById('user-list');
     userList.setItems([]); // Clear existing items first
     try {
-      const users = await FirestoreService.queryDocuments('users');
+      const users = await UserService.list();
       const userItems = users.map((user) => ({
         header: this.createHeader(user.email),
         content: this.createContent(user),
@@ -304,7 +305,7 @@ export default {
 
   async updateUserRole(userId, newRole) {
     try {
-      await FirestoreService.updateDocument('users', userId, { role: newRole });
+      await UserService.update(userId, { role: newRole });
       this.showSuccessMessage('תפקיד המשתמש עודכן בהצלחה');
     } catch (error) {
       this.handleError(error);
