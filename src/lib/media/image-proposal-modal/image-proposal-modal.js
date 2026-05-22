@@ -22,9 +22,9 @@
  * const modal = document.querySelector('image-proposal-modal');
  * modal.openForRecipe('recipe-123');
  */
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 import { getRecipeById } from '../../../js/utils/recipes/recipe-data-utils.js';
-import { RecipeImageProposalService } from '../../../js/services/recipe-image-proposal-service.js';
+import { RecipeImageProposalService } from '../../../js/services/recipes/recipe-image-proposal-service.js';
 
 class ImageProposalModal extends HTMLElement {
   constructor() {

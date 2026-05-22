@@ -19,7 +19,7 @@ beforeEach(async () => {
   jest.resetModules();
   Object.values(imageUtilMocks).forEach((m) => m.mockReset());
   ({ RecipeImageProposalService } = await import(
-    'src/js/services/recipe-image-proposal-service.js'
+    'src/js/services/recipes/recipe-image-proposal-service.js'
   ));
 });
 

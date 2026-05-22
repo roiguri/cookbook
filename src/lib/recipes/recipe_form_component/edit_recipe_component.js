@@ -1,6 +1,6 @@
 // edit-recipe-component.js
-import { RecipeService } from '../../../js/services/recipe-service.js';
-import authService from '../../../js/services/auth-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 
 import '../../modals/message-modal/message-modal.js';
 import '../../utilities/loading-spinner/loading-spinner.js';

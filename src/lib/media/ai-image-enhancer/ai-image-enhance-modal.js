@@ -10,9 +10,9 @@
  * on a successful save.
  */
 
-import { enhanceFoodImage } from '../../../js/services/ai-enhancement-service.js';
-import { FirestoreService } from '../../../js/services/firestore-service.js';
-import { StorageService } from '../../../js/services/storage-service.js';
+import { enhanceFoodImage } from '../../../js/services/recipes/ai-enhancement-service.js';
+import { FirestoreService } from '../../../js/services/_firebase/firestore-service.js';
+import { StorageService } from '../../../js/services/_firebase/storage-service.js';
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';

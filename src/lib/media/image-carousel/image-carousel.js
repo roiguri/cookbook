@@ -1,5 +1,5 @@
 import { icons } from '../../../js/icons.js';
-import { StorageService } from '../../../js/services/storage-service.js';
+import { StorageService } from '../../../js/services/_firebase/storage-service.js';
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 
 class ImageCarousel extends HTMLElement {

@@ -18,7 +18,7 @@ const uploadFileMock = jest.fn();
 const getFileUrlMock = jest.fn();
 const deleteFileMock = jest.fn();
 
-jest.unstable_mockModule('src/js/services/storage-service.js', () => ({
+jest.unstable_mockModule('src/js/services/_firebase/storage-service.js', () => ({
   StorageService: {
     uploadFile: uploadFileMock,
     getFileUrl: getFileUrlMock,

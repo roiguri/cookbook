@@ -46,7 +46,7 @@ const mockUser = {
 };
 
 // Mock Dependencies
-jest.unstable_mockModule('src/js/services/favorites-service.js', () => ({
+jest.unstable_mockModule('src/js/services/users/favorites-service.js', () => ({
   default: {
     getUserFavorites: jest.fn(() => Promise.resolve(['recipe-123'])),
     addFavorite: jest.fn(() => Promise.resolve()),
@@ -54,7 +54,7 @@ jest.unstable_mockModule('src/js/services/favorites-service.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('src/js/services/auth-service.js', () => ({
+jest.unstable_mockModule('src/js/services/auth/auth-service.js', () => ({
   default: {
     getCurrentUser: jest.fn(() => mockUser),
   },

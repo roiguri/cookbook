@@ -1,5 +1,5 @@
-import { FirestoreService } from '../../js/services/firestore-service.js';
-import authService from '../../js/services/auth-service.js';
+import { FirestoreService } from '../../js/services/_firebase/firestore-service.js';
+import authService from '../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import '../../styles/pages/documents-spa.css';
 

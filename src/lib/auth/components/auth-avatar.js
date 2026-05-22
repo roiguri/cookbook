@@ -8,7 +8,7 @@
  */
 
 import { icons } from '../../../js/icons.js';
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 import './auth-content.js';
 
 class AuthAvatar extends HTMLElement {

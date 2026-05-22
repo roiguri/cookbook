@@ -27,11 +27,11 @@ describe('FavoritesService', () => {
     arrayRemoveMock = jest.fn((id) => ({ type: 'arrayRemove', value: id }));
 
     // Mock dependencies using unstable_mockModule (required for ESM)
-    jest.unstable_mockModule('../../../src/js/services/auth-service.js', () => ({
+    jest.unstable_mockModule('../../../src/js/services/auth/auth-service.js', () => ({
       default: authServiceMock,
     }));
 
-    jest.unstable_mockModule('../../../src/js/services/firestore-service.js', () => ({
+    jest.unstable_mockModule('../../../src/js/services/_firebase/firestore-service.js', () => ({
       FirestoreService: firestoreServiceMock,
     }));
 
@@ -41,7 +41,7 @@ describe('FavoritesService', () => {
     }));
 
     // Dynamically import the service under test
-    const module = await import('../../../src/js/services/favorites-service.js');
+    const module = await import('../../../src/js/services/users/favorites-service.js');
     favoritesService = module.default;
   });
 

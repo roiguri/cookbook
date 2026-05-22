@@ -1,4 +1,4 @@
-import { FirestoreService } from '../services/firestore-service.js';
+import { FirestoreService } from '../services/_firebase/firestore-service.js';
 import { arrayUnion, arrayRemove, serverTimestamp, deleteField } from 'firebase/firestore';
 
 /**

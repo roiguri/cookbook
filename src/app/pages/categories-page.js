@@ -1,10 +1,10 @@
-import authService from '../../js/services/auth-service.js';
-import { RecipeService } from '../../js/services/recipe-service.js';
+import authService from '../../js/services/auth/auth-service.js';
+import { RecipeService } from '../../js/services/recipes/recipe-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { FilterUtils } from '../../js/utils/filter-utils.js';
 import { getLocalizedCategoryName } from '../../js/utils/recipes/recipe-data-utils.js';
 import { getErrorMessage, logError } from '../../js/utils/error-handler.js';
-import favoritesService from '../../js/services/favorites-service.js';
+import favoritesService from '../../js/services/users/favorites-service.js';
 import '../../styles/pages/categories-spa.css';
 
 // TODO: implement recipe-per-page change on screen resize

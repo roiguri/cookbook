@@ -29,7 +29,7 @@ const mediaUtilMocks = {
   removeAllMediaInstructions: jest.fn(() => Promise.resolve({ success: 0, failed: 0, errors: [] })),
 };
 
-jest.unstable_mockModule('src/js/services/firestore-service.js', () => ({
+jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: firestoreMocks,
 }));
 jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => imageUtilMocks);
@@ -52,7 +52,7 @@ beforeEach(async () => {
     Promise.resolve({ success: 0, failed: 0, errors: [] }),
   );
 
-  ({ RecipeService } = await import('src/js/services/recipe-service.js'));
+  ({ RecipeService } = await import('src/js/services/recipes/recipe-service.js'));
 });
 
 describe('RecipeService', () => {

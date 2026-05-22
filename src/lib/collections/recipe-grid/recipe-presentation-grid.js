@@ -34,7 +34,7 @@
  * - Grid transition animations
  * - Configurable recipes per page
  */
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 import { initLazyLoading } from '../../../js/utils/lazy-loading.js';
 import { RECIPE_PRESENTATION_GRID_CONFIG } from './recipe-presentation-grid-config.js';
 import { RECIPE_PRESENTATION_GRID_STYLES } from './recipe-presentation-grid-styles.js';

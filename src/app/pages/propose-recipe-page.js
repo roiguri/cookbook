@@ -1,4 +1,4 @@
-import authService from '../../js/services/auth-service.js';
+import authService from '../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import { collectRecipeFormData } from '../../js/utils/form/form-data-collector.js';

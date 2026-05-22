@@ -7,7 +7,7 @@ import '../../../common/mocks/firebase-service.mock.js';
 // Inline FirestoreService mock for this test file
 export const mockQueryDocuments = jest.fn();
 export const mockGetDocument = jest.fn();
-jest.unstable_mockModule('src/js/services/firestore-service.js', () => ({
+jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: {
     queryDocuments: mockQueryDocuments,
     getDocument: mockGetDocument,

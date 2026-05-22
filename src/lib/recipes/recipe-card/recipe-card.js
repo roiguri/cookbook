@@ -34,8 +34,8 @@
  * - Consistent dimensions to prevent layout shifts
  */
 import { icons } from '../../../js/icons.js';
-import authService from '../../../js/services/auth-service.js';
-import favoritesService from '../../../js/services/favorites-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
+import favoritesService from '../../../js/services/users/favorites-service.js';
 import {
   getLocalizedCategoryName,
   formatCookingTime,

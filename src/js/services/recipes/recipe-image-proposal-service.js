@@ -1,11 +1,11 @@
-// src/js/services/recipe-image-proposal-service.js
+// src/js/services/recipes/recipe-image-proposal-service.js
 
 import {
   addPendingImages,
   approvePendingImageById,
   rejectPendingImageById,
   getPendingImages,
-} from '../utils/recipes/recipe-image-utils.js';
+} from '../../utils/recipes/recipe-image-utils.js';
 
 /**
  * RecipeImageProposalService — Image Proposal & Moderation

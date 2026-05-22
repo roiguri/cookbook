@@ -5,8 +5,8 @@
  */
 
 import { arrayUnion, arrayRemove } from 'firebase/firestore';
-import authService from './auth-service.js';
-import { FirestoreService } from './firestore-service.js';
+import authService from '../auth/auth-service.js';
+import { FirestoreService } from '../_firebase/firestore-service.js';
 
 class FavoritesService {
   constructor() {

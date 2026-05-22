@@ -29,7 +29,7 @@
  *       Extract ingredient names from sectioned ingredient format.
  */
 
-import { FirestoreService } from '../../services/firestore-service.js';
+import { FirestoreService } from '../../services/_firebase/firestore-service.js';
 import { parseAmount } from './recipe-ingredients-utils.js';
 
 /**

@@ -1,8 +1,8 @@
 import './auth-content.js';
 import '../../modals/confirmation_modal/confirmation_modal.js';
 import { getDownloadURL } from 'firebase/storage';
-import { StorageService } from '../../../js/services/storage-service.js';
-import authService from '../../../js/services/auth-service.js';
+import { StorageService } from '../../../js/services/_firebase/storage-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 
 let avatarCache = null;
 

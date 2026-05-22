@@ -19,9 +19,9 @@
  *   - unregisterCurrentDevice(uid): Removes this device's token from the user's doc.
  *       Called on sign-out.
  */
-import { getFirebaseApp } from './firebase-service.js';
+import { getFirebaseApp } from '../_firebase/firebase-service.js';
 import { doc, updateDoc, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
-import { getFirestoreInstance } from './firebase-service.js';
+import { getFirestoreInstance } from '../_firebase/firebase-service.js';
 
 const SW_PATH = '/firebase-messaging-sw.js';
 const TOKEN_CACHE_KEY = 'mcb_fcm_token_v1';

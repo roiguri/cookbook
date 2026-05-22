@@ -26,7 +26,7 @@
  *   - waitForAuth(timeout): Waits for authentication to initialize, returns authenticated user or null.
  *   - getCurrentAvatarUrl(): Returns the current user's avatar URL.
  */
-import { getAuthInstance, getFirestoreInstance } from './firebase-service.js';
+import { getAuthInstance, getFirestoreInstance } from '../_firebase/firebase-service.js';
 import { serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import {
   browserLocalPersistence,
@@ -318,7 +318,7 @@ class AuthService {
       // this an optional dependency — non-notification code paths never load it.
       if (this._currentUser) {
         try {
-          const { default: notificationService } = await import('./notification-service.js');
+          const { default: notificationService } = await import('../users/notification-service.js');
           await notificationService.unregisterCurrentDevice(this._currentUser.uid);
         } catch (error) {
           console.warn('Failed to unregister push token on logout:', error);
