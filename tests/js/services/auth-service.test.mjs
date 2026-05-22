@@ -374,9 +374,13 @@ describe('AuthService', () => {
       const userCredential = { user: mockUser };
       signInWithPopup.mockResolvedValue(userCredential);
 
-      // User exists in Firestore
+      // User exists in Firestore. The mock must shape a complete docSnap
+      // since the read goes through FirestoreService.getDocument, which
+      // calls docSnap.data() and reads docSnap.id.
       getDoc.mockResolvedValue({
         exists: () => true,
+        data: () => ({ role: 'user' }),
+        id: mockUser.uid,
       });
 
       await authService.loginWithGoogle();
