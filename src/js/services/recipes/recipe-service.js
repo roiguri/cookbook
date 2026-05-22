@@ -6,7 +6,6 @@ import {
   deleteImageFiles,
   migrateImageToCategory,
   removeAllRecipeImages,
-  setPrimaryImage as setPrimaryImageInternal,
 } from '../../utils/recipes/recipe-image-utils.js';
 import {
   uploadMediaInstructionFile,
@@ -358,17 +357,6 @@ export class RecipeService {
     await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, docPayload);
 
     return { mediaUploadResults, migrationWarnings };
-  }
-
-  /**
-   * Mark a single image on a recipe as the primary one. Clears `isPrimary`
-   * on the rest. Throws if the recipe has no images.
-   * @param {string} recipeId
-   * @param {string} imageId
-   * @returns {Promise<void>}
-   */
-  static async setPrimaryImage(recipeId, imageId) {
-    return await setPrimaryImageInternal(recipeId, imageId);
   }
 
   /**

@@ -11,7 +11,7 @@
  * recipe's image list without a full reload.
  */
 
-import { FirestoreService } from '../../../js/services/_firebase/firestore-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 
 class AiImageEnhancer extends HTMLElement {
@@ -66,7 +66,7 @@ class AiImageEnhancer extends HTMLElement {
 
   async _loadRecipes() {
     try {
-      const all = await FirestoreService.queryDocuments('recipes', {
+      const all = await RecipeService.list({
         where: [['approved', '==', true]],
       });
       this._recipes = all
@@ -91,7 +91,7 @@ class AiImageEnhancer extends HTMLElement {
 
   async _refreshRecipe(recipeId) {
     try {
-      const fresh = await FirestoreService.getDocument('recipes', recipeId);
+      const fresh = await RecipeService.get(recipeId);
       if (!fresh) return;
       const idx = this._recipes.findIndex((r) => r.id === recipeId);
       if (idx !== -1) this._recipes[idx] = fresh;
