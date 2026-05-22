@@ -1,8 +1,7 @@
 import './auth-content.js';
 import '../../modals/confirmation_modal/confirmation_modal.js';
-import { getDownloadURL } from 'firebase/storage';
-import { StorageService } from '../../../js/services/_firebase/storage-service.js';
 import authService from '../../../js/services/auth/auth-service.js';
+import { UserService } from '../../../js/services/users/user-service.js';
 
 let avatarCache = null;
 
@@ -383,8 +382,7 @@ class UserProfile extends HTMLElement {
       }
 
       if (!avatarCache) {
-        const list = await StorageService.listFiles('Avatars');
-        avatarCache = await Promise.all(list.items.map((ref) => getDownloadURL(ref)));
+        avatarCache = await UserService.listAvatarOptions();
       }
 
       const results = await Promise.all(

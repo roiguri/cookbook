@@ -1,6 +1,5 @@
 import { icons } from '../../../js/icons.js';
-import { StorageService } from '../../../js/services/_firebase/storage-service.js';
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { getImageUrl, getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 
 class ImageCarousel extends HTMLElement {
   constructor() {
@@ -87,7 +86,7 @@ class ImageCarousel extends HTMLElement {
           }
         } else if (typeof image === 'string' && image.startsWith('img/recipes/')) {
           try {
-            src = await StorageService.getFileUrl(image);
+            src = await getImageUrl(image);
           } catch (error) {
             console.error('Error loading Firebase image path:', error);
           }
