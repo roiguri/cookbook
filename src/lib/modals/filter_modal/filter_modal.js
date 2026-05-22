@@ -55,7 +55,7 @@
  */
 
 import authService from '../../../js/services/auth/auth-service.js';
-import { FirestoreService } from '../../../js/services/_firebase/firestore-service.js';
+import favoritesService from '../../../js/services/users/favorites-service.js';
 import { FilterUtils } from '../../../js/utils/filter-utils.js';
 
 class RecipeFilterComponent extends HTMLElement {
@@ -685,23 +685,6 @@ class RecipeFilterComponent extends HTMLElement {
     this.updateUI();
   }
 
-  // Load user's favorite recipe IDs from Firestore
-  async loadUserFavorites() {
-    const user = authService.getCurrentUser();
-    if (!user) {
-      this.favoriteRecipeIds = [];
-      return;
-    }
-
-    try {
-      const userDoc = await FirestoreService.getDocument('users', user.uid);
-      this.favoriteRecipeIds = userDoc?.favorites || [];
-    } catch (error) {
-      console.error('Error loading user favorites:', error);
-      this.favoriteRecipeIds = [];
-    }
-  }
-
   handleFilterChange() {
     this.updateFilterState();
     // Use debouncing to prevent too many rapid updates
@@ -712,7 +695,7 @@ class RecipeFilterComponent extends HTMLElement {
     this._filterChangeTimeout = setTimeout(async () => {
       // If favorites filter is enabled, ensure we have favorites data
       if (this.filters.favoritesOnly && this.favoriteRecipeIds.length === 0) {
-        await this.loadUserFavorites();
+        this.favoriteRecipeIds = await favoritesService.getUserFavorites();
       }
       this.updateCounter();
     }, 300); // 300ms debounce
@@ -863,7 +846,7 @@ class RecipeFilterComponent extends HTMLElement {
   async open() {
     // If favorites filter is enabled, ensure we have favorites data
     if (this.filters.favoritesOnly) {
-      await this.loadUserFavorites();
+      this.favoriteRecipeIds = await favoritesService.getUserFavorites();
       this.updateUI(); // Update counter after loading favorites
     }
 

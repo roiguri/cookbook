@@ -4,9 +4,8 @@
  * Centralized service for managing user favorites with caching
  */
 
-import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import authService from '../auth/auth-service.js';
-import { FirestoreService } from '../_firebase/firestore-service.js';
+import { UserService } from './user-service.js';
 
 class FavoritesService {
   constructor() {
@@ -39,7 +38,7 @@ class FavoritesService {
 
     this._fetchPromise = (async () => {
       try {
-        const userDoc = await FirestoreService.getDocument('users', user.uid);
+        const userDoc = await UserService.get(user.uid);
         const favoriteRecipeIds = userDoc?.favorites || [];
 
         this.cache = {
@@ -73,9 +72,7 @@ class FavoritesService {
       // Optimistic update
       this.updateCache(recipeId, true);
 
-      await FirestoreService.updateDocument('users', user.uid, {
-        favorites: arrayUnion(recipeId),
-      });
+      await UserService.addToArrayField(user.uid, 'favorites', recipeId);
     } catch (error) {
       console.error('Error adding favorite:', error);
       // Revert cache on error
@@ -97,9 +94,7 @@ class FavoritesService {
       // Optimistic update
       this.updateCache(recipeId, false);
 
-      await FirestoreService.updateDocument('users', user.uid, {
-        favorites: arrayRemove(recipeId),
-      });
+      await UserService.removeFromArrayField(user.uid, 'favorites', recipeId);
     } catch (error) {
       console.error('Error removing favorite:', error);
       // Revert cache on error
