@@ -47,7 +47,6 @@
  * Dependencies:
  * - This component relies on the `custom-modal` and `recipe-component` components.
  */
-import { FirestoreService } from '../../../js/services/_firebase/firestore-service.js';
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 
 import '../recipe_component/recipe_component.js';
@@ -265,7 +264,7 @@ class RecipePreviewModal extends HTMLElement {
   }
 
   async handleRecipeApproval(recipeId) {
-    await FirestoreService.updateDocument('recipes', recipeId, { approved: true });
+    await RecipeService.update(recipeId, { approved: true });
   }
 
   async handleRecipeRejection(recipeId) {
