@@ -22,7 +22,7 @@ The umbrella's premise has always been "services own all data access." Shipping 
 - `npm run lint` passes with the strict `no-restricted-imports` rule (no exemptions, no `eslint-disable` overrides).
 - `grep -r "FirestoreService\|StorageService\|firebase/firestore\|firebase/storage\|firebase/auth" src/ --include="*.js"` shows imports only inside `src/js/services/**`.
 - `src/js/utils/recipes/recipe-image-utils.js`, `recipe-media-utils.js`, `recipe-data-utils.js` contain only pure helpers (no `await`, no service/SDK imports).
-- Every public service method is defined exactly once across the service layer (audit script in PR-Q0).
+- PR-Q0 audit findings (in this plan) verified by inspection: every cross-service name duplicate is either a legitimate CRUD primitive across domains or a domain-typed wrapper over a `_firebase/*` service. No accidental cross-service duplicates remain.
 - `gh issue close 215` (the read-helper exemption question is moot).
 - Full smoke walkthrough passes (list at the end of this plan).
 
@@ -65,16 +65,13 @@ Ship as one commit, merge into umbrella, then proceed.
 
 ---
 
-### PR-Q0 — Service de-duplication audit + canonical-home decisions
+### PR-Q0 — Service de-duplication audit (one-time, findings documented)
 
-A small, surgical PR that hardens the dedupe goal before the bigger moves.
+PR-Q0 is a planning/documentation step, not a code change. Done once at the start of the umbrella completion to lock down the dedupe scope. No script is committed — the audit was a one-shot inspection. Real layering enforcement is the ESLint `no-restricted-imports` rule in PR-O2.
 
-**Audit step:**
+**Method used:** grep over `src/js/services/**/*.js` for `static [async] methodName(` declarations, grouped by name. Manual inspection of each multi-site name to classify legitimate vs. accidental.
 
-- Enumerate every public static method across `src/js/services/**`.
-- Identify duplicates by name across services, AND service methods that are thin wrappers over a utils export (the `setPrimaryImage` shape).
-
-**Known going in (verified by reading the service files):**
+**Utils ↔ service pass-throughs (eliminated in Q1a/b/c):**
 
 | Service method                           | Status today                                         | Resolution PR                             |
 | ---------------------------------------- | ---------------------------------------------------- | ----------------------------------------- |
@@ -84,16 +81,19 @@ A small, surgical PR that hardens the dedupe goal before the bigger moves.
 | `RecipeImageProposalService.reject`      | thin pass-through to utils `rejectPendingImageById`  | PR-Q1b (inline)                           |
 | `RecipeImageProposalService.listPending` | thin pass-through to utils `getPendingImages`        | PR-Q1b (inline)                           |
 
-**Cross-service duplicates today: none.** Confirmed by inspecting all public static methods across `RecipeService`, `RecipeImageService`, `RecipeImageProposalService`. The five rows above are utils ↔ service pass-throughs, not service ↔ service duplicates.
+**Cross-service name duplicates (all legitimate — kept as-is):**
 
-**Add to plan from audit:**
+| Name                                        | Services                                                                                                               | Why it's OK                                                            |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `get`, `list`, `create`, `update`, `delete` | `UserService`, `RecipeService`, `FailedUrlExtractionService`                                                           | CRUD primitives — each owns a different collection.                    |
+| `generateId`                                | `FirestoreService` (generic, takes collection arg) + `RecipeService` (domain-typed wrapper that pre-fills `'recipes'`) | Layered: domain service → low-level wrapper service. Expected pattern. |
 
-- Any other duplicates surfaced go into either PR-Q0 (if simple) or are inlined as additional moves in PR-Q1a/b/c.
+**Zero accidental cross-service duplicates of the same operation.** The 5 utils↔service rows are the only real duplication to fix, and they're already assigned to Q1a/b/c.
 
 **Acceptance:**
 
-- A single-method audit script (e.g. `scripts/audit-service-methods.sh`) committed for use in PR-O2's CI guard. The script prints every public service method; CI assertion: every name appears once. (Or: bake the assertion directly into the ESLint rule via `no-restricted-syntax` patterns — TBD in PR.)
-- Audit findings folded into PR-Q1a/b/c scope where applicable.
+- Audit performed; findings (above) documented in this plan.
+- No code change required in PR-Q0; the dedupe goal is met by completing Q1a/b/c.
 
 ---
 
