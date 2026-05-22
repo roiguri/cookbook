@@ -21,7 +21,6 @@ const imageUtilMocks = {
   deleteImageFiles: jest.fn(() => Promise.resolve()),
   migrateImageToCategory: jest.fn(),
   removeAllRecipeImages: jest.fn(() => Promise.resolve()),
-  setPrimaryImage: jest.fn(() => Promise.resolve()),
 };
 
 const mediaUtilMocks = {
@@ -46,7 +45,6 @@ beforeEach(async () => {
   Object.values(imageUtilMocks).forEach((m) => m.mockReset?.());
   imageUtilMocks.deleteImageFiles.mockImplementation(() => Promise.resolve());
   imageUtilMocks.removeAllRecipeImages.mockImplementation(() => Promise.resolve());
-  imageUtilMocks.setPrimaryImage.mockImplementation(() => Promise.resolve());
   Object.values(mediaUtilMocks).forEach((m) => m.mockReset?.());
   mediaUtilMocks.removeAllMediaInstructions.mockImplementation(() =>
     Promise.resolve({ success: 0, failed: 0, errors: [] }),
@@ -341,13 +339,6 @@ describe('RecipeService', () => {
       });
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
       expect(payload.approved).toBe(false);
-    });
-  });
-
-  describe('setPrimaryImage', () => {
-    it('delegates to the image util', async () => {
-      await RecipeService.setPrimaryImage('recipe-x', 'img-1');
-      expect(imageUtilMocks.setPrimaryImage).toHaveBeenCalledWith('recipe-x', 'img-1');
     });
   });
 
