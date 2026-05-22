@@ -40,6 +40,12 @@ describe('FavoritesService', () => {
       arrayRemove: arrayRemoveMock,
     }));
 
+    // UserService (transitive dep) now imports StorageService for
+    // listAvatarOptions. Mock the wrapper so the SDK chain doesn't load.
+    jest.unstable_mockModule('../../../src/js/services/_firebase/storage-service.js', () => ({
+      StorageService: { listFiles: jest.fn(), getFileUrl: jest.fn() },
+    }));
+
     // Dynamically import the service under test
     const module = await import('../../../src/js/services/users/favorites-service.js');
     favoritesService = module.default;

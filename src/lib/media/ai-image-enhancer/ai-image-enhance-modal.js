@@ -12,8 +12,7 @@
 
 import { enhanceFoodImage } from '../../../js/services/recipes/ai-enhancement-service.js';
 import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
-import { StorageService } from '../../../js/services/_firebase/storage-service.js';
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { getImageUrl, getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';
 
@@ -337,7 +336,7 @@ class AiImageEnhanceModal extends HTMLElement {
     this._setStatus('שולח לשיפור בעזרת AI...');
 
     try {
-      const downloadUrl = await StorageService.getFileUrl(this._image.full);
+      const downloadUrl = await getImageUrl(this._image.full);
       const response = await fetch(downloadUrl);
       if (!response.ok) throw new Error(`Failed to fetch image (${response.status})`);
       const sourceBlob = await response.blob();

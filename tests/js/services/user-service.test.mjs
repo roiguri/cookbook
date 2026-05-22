@@ -14,13 +14,23 @@ const firestoreMocks = {
   deleteDocument: jest.fn(),
 };
 
+const storageMocks = {
+  listFiles: jest.fn(),
+  getFileUrl: jest.fn(),
+};
+
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: firestoreMocks,
+}));
+
+jest.unstable_mockModule('src/js/services/_firebase/storage-service.js', () => ({
+  StorageService: storageMocks,
 }));
 
 beforeEach(async () => {
   jest.resetModules();
   Object.values(firestoreMocks).forEach((m) => m.mockReset());
+  Object.values(storageMocks).forEach((m) => m.mockReset());
 
   ({ UserService } = await import('src/js/services/users/user-service.js'));
   ({ arrayUnion, arrayRemove } = await import('firebase/firestore'));
@@ -142,6 +152,36 @@ describe('UserService', () => {
       await expect(UserService.removeFromArrayField('u1', '', 'x')).rejects.toThrow(
         'field is required',
       );
+    });
+  });
+
+  describe('listAvatarOptions', () => {
+    it('lists Avatars/ files and resolves each to a download URL', async () => {
+      storageMocks.listFiles.mockResolvedValue({
+        items: [{ fullPath: 'Avatars/a.png' }, { fullPath: 'Avatars/b.png' }],
+        prefixes: [],
+      });
+      storageMocks.getFileUrl.mockImplementation((path) => Promise.resolve(`https://cdn/${path}`));
+
+      const urls = await UserService.listAvatarOptions();
+
+      expect(storageMocks.listFiles).toHaveBeenCalledWith('Avatars');
+      expect(storageMocks.getFileUrl.mock.calls.map((c) => c[0])).toEqual([
+        'Avatars/a.png',
+        'Avatars/b.png',
+      ]);
+      expect(urls).toEqual(['https://cdn/Avatars/a.png', 'https://cdn/Avatars/b.png']);
+    });
+
+    it('returns an empty array when no avatars are present', async () => {
+      storageMocks.listFiles.mockResolvedValue({ items: [], prefixes: [] });
+      expect(await UserService.listAvatarOptions()).toEqual([]);
+      expect(storageMocks.getFileUrl).not.toHaveBeenCalled();
+    });
+
+    it('propagates errors from StorageService.listFiles', async () => {
+      storageMocks.listFiles.mockRejectedValue(new Error('list-boom'));
+      await expect(UserService.listAvatarOptions()).rejects.toThrow('list-boom');
     });
   });
 });

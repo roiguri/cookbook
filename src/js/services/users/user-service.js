@@ -2,8 +2,10 @@
 
 import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
+import { StorageService } from '../_firebase/storage-service.js';
 
 const USERS_COLLECTION = 'users';
+const AVATAR_OPTIONS_PATH = 'Avatars';
 
 /**
  * UserService — The Single Owner of `users/{uid}`
@@ -25,6 +27,7 @@ const USERS_COLLECTION = 'users';
  *   - delete(uid)
  *   - addToArrayField(uid, field, value)
  *   - removeFromArrayField(uid, field, value)
+ *   - listAvatarOptions()
  *
  * The array helpers wrap Firestore's `arrayUnion` / `arrayRemove`
  * sentinels so domain services never need to import
@@ -132,6 +135,18 @@ export class UserService {
     return await FirestoreService.updateDocument(USERS_COLLECTION, uid, {
       [field]: arrayRemove(value),
     });
+  }
+
+  /**
+   * List the stock avatar options users can pick from the profile UI.
+   * Each entry is a resolved download URL. Static fixtures stored under
+   * the `Avatars/` Storage prefix.
+   *
+   * @returns {Promise<string[]>}
+   */
+  static async listAvatarOptions() {
+    const list = await StorageService.listFiles(AVATAR_OPTIONS_PATH);
+    return Promise.all(list.items.map((ref) => StorageService.getFileUrl(ref.fullPath)));
   }
 }
 

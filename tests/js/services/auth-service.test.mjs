@@ -5,6 +5,7 @@ import { jest } from '@jest/globals';
 import '../../common/mocks/firebase-service.mock.js';
 import '../../common/mocks/firebase-auth.mock.js';
 import '../../common/mocks/firebase-firestore.mock.js';
+import '../../common/mocks/firebase-storage.mock.js';
 import '../../common/mocks/document.mock.js';
 import { mockDocRef } from '../../common/mocks/firebase-firestore.mock.js';
 
