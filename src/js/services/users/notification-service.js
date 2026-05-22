@@ -20,8 +20,8 @@
  *       Called on sign-out.
  */
 import { getFirebaseApp } from '../_firebase/firebase-service.js';
-import { doc, updateDoc, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
-import { getFirestoreInstance } from '../_firebase/firebase-service.js';
+import { Timestamp } from 'firebase/firestore';
+import { UserService } from './user-service.js';
 
 const SW_PATH = '/firebase-messaging-sw.js';
 const TOKEN_CACHE_KEY = 'mcb_fcm_token_v1';
@@ -191,15 +191,13 @@ class NotificationService {
     const token = this._currentToken || localStorage.getItem(TOKEN_CACHE_KEY);
     if (!token || !uid) return;
     try {
-      const db = getFirestoreInstance();
-      const userRef = doc(db, 'users', uid);
       // We don't know the full token object shape on the server, so we remove
       // any entry with this token by writing back all-but-this-token. Cheaper:
-      // store the canonical entry locally and arrayRemove that exact object.
-      // We do the latter using the cached entry shape.
+      // store the canonical entry locally and remove that exact object via
+      // UserService (which wraps arrayRemove).
       const cachedEntry = this._readCachedEntry();
       if (cachedEntry) {
-        await updateDoc(userRef, { fcmTokens: arrayRemove(cachedEntry) });
+        await UserService.removeFromArrayField(uid, 'fcmTokens', cachedEntry);
       }
       // Best-effort: also delete the token from FCM itself.
       try {
@@ -218,14 +216,12 @@ class NotificationService {
   }
 
   async _storeToken(uid, token) {
-    const db = getFirestoreInstance();
-    const userRef = doc(db, 'users', uid);
     const entry = {
       token,
       ua: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : '',
       createdAt: Timestamp.now(),
     };
-    await updateDoc(userRef, { fcmTokens: arrayUnion(entry) });
+    await UserService.addToArrayField(uid, 'fcmTokens', entry);
     localStorage.setItem(`${TOKEN_CACHE_KEY}_entry`, JSON.stringify(entry));
   }
 
