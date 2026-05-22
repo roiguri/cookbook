@@ -1,12 +1,10 @@
 import authService from '../../js/services/auth/auth-service.js';
-import { firestoreService } from '../../js/services/_firebase/firestore-service.js';
+import { ActiveMealService } from '../../js/services/meals/active-meal-service.js';
 import { getRecipeById } from '../../js/utils/recipes/recipe-data-utils.js';
 import {
   formatIngredientAmount,
   scaleIngredients,
 } from '../../js/utils/recipes/recipe-ingredients-utils.js';
-import { onSnapshot, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getFirestoreInstance } from '../../js/services/_firebase/firebase-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import '../../lib/modals/confirmation_modal/confirmation_modal.js';
@@ -69,20 +67,15 @@ export default {
   },
 
   subscribeToMealData() {
-    const db = getFirestoreInstance();
-    const docRef = doc(db, 'active_meals', this.currentUser.uid);
-
     let resolveFirstSnapshot;
     this._firstDataPromise = new Promise((resolve) => {
       resolveFirstSnapshot = resolve;
     });
 
-    this.unsubscribe = onSnapshot(docRef, async (docSnap) => {
-      if (docSnap.exists()) {
-        const mealData = docSnap.data();
+    this.unsubscribe = ActiveMealService.subscribe(this.currentUser.uid, async (mealData) => {
+      if (mealData) {
         await this.updateMealState(mealData);
       } else {
-        // No active meal, create one or show empty state
         this.renderEmptyState();
       }
       resolveFirstSnapshot?.();
@@ -149,11 +142,9 @@ export default {
     }
   },
 
-  async renderTabs(recipeIds, activeId) {
+  renderTabs(recipeIds, activeId) {
     const tabList = this.container.querySelector('.kitchen-switcher');
     tabList.innerHTML = '';
-
-    const { ActiveMealUtils } = await import('../../js/utils/active-meal-utils.js');
 
     recipeIds.forEach((id) => {
       const recipe = this.state.recipes[id];
@@ -180,7 +171,7 @@ export default {
       removeBtn.className = 'remove-recipe-btn';
       removeBtn.innerHTML = icons.times;
       removeBtn.title = 'הסר מתכון';
-      removeBtn.onclick = (e) => this.handleRemoveRecipe(e, id, ActiveMealUtils);
+      removeBtn.onclick = (e) => this.handleRemoveRecipe(e, id);
 
       tabContent.appendChild(tabName);
       tabContent.appendChild(removeBtn);
@@ -201,14 +192,14 @@ export default {
       clearBtn.className = 'recipe-tab clear-all-btn';
       clearBtn.title = 'נקה הכל';
       clearBtn.innerHTML = icons.trashAlt;
-      clearBtn.onclick = () => this.handleClearMeal(ActiveMealUtils);
+      clearBtn.onclick = () => this.handleClearMeal();
       tabList.appendChild(clearBtn);
     } else {
       this.renderEmptyState();
     }
   },
 
-  async handleRemoveRecipe(e, recipeId, ActiveMealUtils) {
+  async handleRemoveRecipe(e, recipeId) {
     e.stopPropagation();
     const confirmed = await this.container
       .querySelector('#confirmation-modal')
@@ -235,16 +226,16 @@ export default {
       }
     }
 
-    await ActiveMealUtils.removeFromMeal(this.currentUser.uid, recipeId);
+    await ActiveMealService.removeFromMeal(this.currentUser.uid, recipeId);
   },
 
-  async handleClearMeal(ActiveMealUtils) {
+  async handleClearMeal() {
     const confirmed = await this.container
       .querySelector('#confirmation-modal')
       .confirm('האם לנקות את כל הארוחה? פעולה זו תסיר את כל המתכונים.');
     if (!confirmed) return;
 
-    await ActiveMealUtils.clearMeal(this.currentUser.uid);
+    await ActiveMealService.clearMeal(this.currentUser.uid);
     // UI update will happen automatically via onSnapshot
   },
 
@@ -254,8 +245,7 @@ export default {
     // Save current state is handled by event listeners on the component
 
     // Update active recipe in Firestore
-    const { ActiveMealUtils } = await import('../../js/utils/active-meal-utils.js');
-    await ActiveMealUtils.switchRecipe(this.currentUser.uid, recipeId);
+    await ActiveMealService.switchRecipe(this.currentUser.uid, recipeId);
   },
 
   renderActiveRecipe(recipeId) {
@@ -331,8 +321,7 @@ export default {
     // However, for local consistency until next snapshot, we might want to update local state if needed.
     // But since we rely on snapshot, it should be fine.
 
-    const { ActiveMealUtils } = await import('../../js/utils/active-meal-utils.js');
-    await ActiveMealUtils.updateRecipeState(this.currentUser.uid, recipeId, updates);
+    await ActiveMealService.updateRecipeState(this.currentUser.uid, recipeId, updates);
   },
 
   setupIngredientsDrawer() {
@@ -511,12 +500,11 @@ export default {
     });
 
     if (hasChanges) {
-      const { ActiveMealUtils } = await import('../../js/utils/active-meal-utils.js');
       const promises = Array.from(recipesToUpdate).map((recipeId) => {
         const unselectedArr = Array.from(this.state.unselectedIngredients).filter((k) =>
           k.startsWith(`${recipeId}-`),
         );
-        return ActiveMealUtils.updateRecipeState(this.currentUser.uid, recipeId, {
+        return ActiveMealService.updateRecipeState(this.currentUser.uid, recipeId, {
           unselectedIngredients: unselectedArr,
         });
       });
@@ -544,12 +532,11 @@ export default {
     });
 
     if (hasChanges) {
-      const { ActiveMealUtils } = await import('../../js/utils/active-meal-utils.js');
       const promises = Array.from(recipesToUpdate).map((recipeId) => {
         const unselectedArr = Array.from(this.state.unselectedIngredients).filter((k) =>
           k.startsWith(`${recipeId}-`),
         );
-        return ActiveMealUtils.updateRecipeState(this.currentUser.uid, recipeId, {
+        return ActiveMealService.updateRecipeState(this.currentUser.uid, recipeId, {
           unselectedIngredients: unselectedArr,
         });
       });
@@ -623,11 +610,10 @@ export default {
     this.renderIngredientsList();
 
     // Save state
-    const { ActiveMealUtils } = await import('../../js/utils/active-meal-utils.js');
     const unselectedArr = Array.from(this.state.unselectedIngredients).filter((k) =>
       k.startsWith(recipeId + '-'),
     );
-    await ActiveMealUtils.updateRecipeState(this.currentUser.uid, recipeId, {
+    await ActiveMealService.updateRecipeState(this.currentUser.uid, recipeId, {
       unselectedIngredients: unselectedArr,
     });
   },

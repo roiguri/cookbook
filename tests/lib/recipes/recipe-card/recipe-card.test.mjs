@@ -60,6 +60,12 @@ jest.unstable_mockModule('src/js/services/auth/auth-service.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('src/js/services/meals/active-meal-service.js', () => ({
+  ActiveMealService: {
+    addToMeal: jest.fn(() => Promise.resolve({ success: true })),
+  },
+}));
+
 jest.unstable_mockModule('src/js/utils/recipes/recipe-data-utils.js', () => ({
   getRecipeById: jest.fn(() => Promise.resolve(mockRecipeData)),
   getLocalizedCategoryName: jest.fn((cat) => cat),

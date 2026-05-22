@@ -36,6 +36,7 @@
 import { icons } from '../../../js/icons.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import favoritesService from '../../../js/services/users/favorites-service.js';
+import { ActiveMealService } from '../../../js/services/meals/active-meal-service.js';
 import {
   getLocalizedCategoryName,
   formatCookingTime,
@@ -699,11 +700,9 @@ class RecipeCard extends HTMLElement {
     if (!user) return;
 
     try {
-      const { ActiveMealUtils } = await import('../../../js/utils/active-meal-utils.js');
-
       await import('../../../lib/modals/message-modal/message-modal.js');
 
-      const result = await ActiveMealUtils.addToMeal(user.uid, this.recipeId);
+      const result = await ActiveMealService.addToMeal(user.uid, this.recipeId);
 
       let messageModal = document.querySelector('message-modal');
       if (!messageModal) {
