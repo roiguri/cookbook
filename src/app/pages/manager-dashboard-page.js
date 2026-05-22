@@ -1,4 +1,4 @@
-import { FirestoreService } from '../../js/services/_firebase/firestore-service.js';
+import { FailedUrlExtractionService } from '../../js/services/admin/failed-url-extraction-service.js';
 import { RecipeService } from '../../js/services/recipes/recipe-service.js';
 import { UserService } from '../../js/services/users/user-service.js';
 import authService from '../../js/services/auth/auth-service.js';
@@ -717,9 +717,7 @@ export default {
     const noItemsMessage = failedUrlsSection.querySelector('.no-items-message');
 
     try {
-      const failedUrls = await FirestoreService.queryDocuments('failed_url_extractions', {
-        orderBy: ['lastAttempt', 'desc'],
-      });
+      const failedUrls = await FailedUrlExtractionService.list();
 
       const items = failedUrls.map((item) => ({
         header: this.createFailedUrlHeader(item),
@@ -878,7 +876,7 @@ export default {
       async () => {
         try {
           this.toggleLoading(true);
-          await FirestoreService.deleteDocument('failed_url_extractions', id);
+          await FailedUrlExtractionService.delete(id);
           this.loadFailedUrls();
           this.showSuccess('הרשומה נמחקה בהצלחה');
         } catch (error) {
