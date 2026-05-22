@@ -1,4 +1,4 @@
-import { FirestoreService } from '../../js/services/_firebase/firestore-service.js';
+import { UserService } from '../../js/services/users/user-service.js';
 import authService from '../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import '../../styles/pages/documents-spa.css';
@@ -56,7 +56,7 @@ export default {
 
   async checkDocumentAccessStatus(user) {
     try {
-      const userDoc = await FirestoreService.getDocument('users', user.uid);
+      const userDoc = await UserService.get(user.uid);
       if (userDoc) {
         const userRole = userDoc.role;
         return userRole === 'manager' || userRole === 'approved';
