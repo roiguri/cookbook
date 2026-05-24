@@ -162,11 +162,21 @@ export class FilterUtils {
     const searchTerms = searchText.toLowerCase().trim().split(/\s+/);
 
     return recipes.filter((recipe) => {
-      const searchableText = [recipe.name, recipe.category, ...(recipe.tags || [])]
-        .join(' ')
-        .toLowerCase();
+      // ⚡ Bolt Optimization: Cache searchable string to prevent array allocation
+      // and string manipulation on every keystroke. Use defineProperty to avoid
+      // serialization side-effects.
+      if (!recipe._cachedSearchText) {
+        Object.defineProperty(recipe, '_cachedSearchText', {
+          value: [recipe.name, recipe.category, ...(recipe.tags || [])]
+            .join(' ')
+            .toLowerCase(),
+          enumerable: false,
+          configurable: true,
+          writable: true
+        });
+      }
 
-      return searchTerms.every((term) => searchableText.includes(term));
+      return searchTerms.every((term) => recipe._cachedSearchText.includes(term));
     });
   }
 }

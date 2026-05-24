@@ -40,6 +40,7 @@
 
 import { CONFIG, ATTRIBUTES, DEFAULT_CATEGORIES } from './unified-recipe-filter-config.js';
 import { styles } from './unified-recipe-filter-styles.js';
+import { FilterUtils } from '../../../js/utils/filter-utils.js';
 
 class UnifiedRecipeFilter extends HTMLElement {
   constructor() {
@@ -337,16 +338,9 @@ class UnifiedRecipeFilter extends HTMLElement {
   applyAllFilters(recipes) {
     let filteredRecipes = [...recipes];
 
-    // Apply search filter (matches original filterRecipesBySearch logic exactly)
+    // Apply search filter using shared optimized util
     if (this.state.searchQuery.trim()) {
-      const searchTerms = this.state.searchQuery.toLowerCase().trim().split(/\s+/);
-      filteredRecipes = filteredRecipes.filter((recipe) => {
-        const searchableText = [recipe.name, recipe.category, ...(recipe.tags || [])]
-          .join(' ')
-          .toLowerCase();
-
-        return searchTerms.every((term) => searchableText.includes(term));
-      });
+      filteredRecipes = FilterUtils.searchRecipes(filteredRecipes, this.state.searchQuery);
     }
 
     // Apply category filter

@@ -29,3 +29,7 @@
 **Action:** Separate truly critical shell components (like `navigation-script`) from supplemental ones (like Auth and Search). `await` only critical shell dependencies to avoid race conditions, but let supplemental ones load in parallel via non-blocking `Promise.all().catch()`.
 
 ## 2025-10-25 - [Debounce Search Inputs]\n**Learning:** Search inputs triggering filtering operations directly on every keystroke can cause performance bottlenecks. Debouncing is a simple, effective optimization.\n**Action:** Always wrap search input handlers with a debounce function (e.g., 300ms) to reduce the frequency of filtering operations and improve application responsiveness.
+## 2025-10-25 - [Filter Search Object Caching]
+
+**Learning:** Re-computing searchable string values (e.g. joining tags, categories, names, and lowercasing) for every recipe inside a loop on every debounced keystroke causes unnecessary CPU spikes and memory allocation.
+**Action:** Cache constructed strings directly on the object using `Object.defineProperty` with `enumerable: false` to avoid side effects during data serialization while speeding up subsequent filtering iterations.
