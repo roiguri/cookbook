@@ -152,7 +152,12 @@ const config = {
   testMatch: ['**/?(*.)+(spec|test).[tj]s?(x)', '**/?(*.)+(spec|test).mjs'],
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
-  testPathIgnorePatterns: ['/node_modules/', '/tests/common/mocks/', '/tests/visuals/'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/tests/common/mocks/',
+    '/tests/visuals/',
+    '<rootDir>/.claude/worktrees/',
+  ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
   // testRegex: [],
