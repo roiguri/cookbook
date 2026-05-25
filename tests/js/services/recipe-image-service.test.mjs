@@ -180,4 +180,54 @@ describe('RecipeImageService', () => {
       expect(storageMocks.uploadFile).not.toHaveBeenCalled();
     });
   });
+
+  describe('deleteFiles', () => {
+    it('throws if image.full is missing', async () => {
+      await expect(RecipeImageService.deleteFiles(null)).rejects.toThrow('image.full is required');
+      await expect(RecipeImageService.deleteFiles({})).rejects.toThrow('image.full is required');
+    });
+
+    it('deletes the full file, its WebP variants, and the _original backup with its variants', async () => {
+      await RecipeImageService.deleteFiles({ full: 'img/recipes/full/cat/rid/image.jpg' });
+
+      expect(storageMocks.deleteFile).toHaveBeenCalledWith('img/recipes/full/cat/rid/image.jpg');
+      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/image_400x400.webp',
+      );
+      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/image_1080x1080.webp',
+      );
+      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/image_original.jpg',
+      );
+      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/image_original_400x400.webp',
+      );
+      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/image_original_1080x1080.webp',
+      );
+    });
+
+    it('silently ignores errors on variant/backup deletion (best-effort)', async () => {
+      storageMocks.deleteFile
+        .mockResolvedValueOnce(undefined) // full OK
+        .mockRejectedValueOnce(new Error('not found'))
+        .mockRejectedValueOnce(new Error('not found'))
+        .mockRejectedValueOnce(new Error('not found'))
+        .mockRejectedValueOnce(new Error('not found'))
+        .mockRejectedValueOnce(new Error('not found'));
+
+      await expect(
+        RecipeImageService.deleteFiles({ full: 'img/recipes/full/cat/rid/image.jpg' }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('propagates errors from full file deletion', async () => {
+      storageMocks.deleteFile.mockRejectedValueOnce(new Error('permission denied'));
+
+      await expect(
+        RecipeImageService.deleteFiles({ full: 'img/recipes/full/cat/rid/image.jpg' }),
+      ).rejects.toThrow('permission denied');
+    });
+  });
 });

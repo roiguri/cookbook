@@ -17,9 +17,7 @@ const firestoreMocks = {
 };
 
 const imageUtilMocks = {
-  deleteImageFiles: jest.fn(() => Promise.resolve()),
   migrateImageToCategory: jest.fn(),
-  removeAllRecipeImages: jest.fn(() => Promise.resolve()),
 };
 
 const mediaUtilMocks = {
@@ -32,6 +30,7 @@ const recipeImageServiceMocks = {
   replaceFiles: jest.fn(() =>
     Promise.resolve({ backupPath: 'backup/path.jpg', backupCreated: true }),
   ),
+  deleteFiles: jest.fn(() => Promise.resolve()),
 };
 
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
@@ -52,8 +51,6 @@ beforeEach(async () => {
   Object.values(firestoreMocks).forEach((m) => m.mockReset?.());
   firestoreMocks.generateId.mockImplementation(() => 'recipe-123');
   Object.values(imageUtilMocks).forEach((m) => m.mockReset?.());
-  imageUtilMocks.deleteImageFiles.mockImplementation(() => Promise.resolve());
-  imageUtilMocks.removeAllRecipeImages.mockImplementation(() => Promise.resolve());
   Object.values(mediaUtilMocks).forEach((m) => m.mockReset?.());
   mediaUtilMocks.removeAllMediaInstructions.mockImplementation(() =>
     Promise.resolve({ success: 0, failed: 0, errors: [] }),
@@ -62,6 +59,7 @@ beforeEach(async () => {
   recipeImageServiceMocks.replaceFiles.mockImplementation(() =>
     Promise.resolve({ backupPath: 'backup/path.jpg', backupCreated: true }),
   );
+  recipeImageServiceMocks.deleteFiles.mockImplementation(() => Promise.resolve());
 
   ({ RecipeService } = await import('src/js/services/recipes/recipe-service.js'));
 });
@@ -156,7 +154,7 @@ describe('RecipeService', () => {
         }),
       ).rejects.toThrow('upload failed');
 
-      expect(imageUtilMocks.deleteImageFiles).toHaveBeenCalledWith({
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
         id: 'img-1',
         full: 'p/1.jpg',
       });
@@ -260,7 +258,7 @@ describe('RecipeService', () => {
         approved: true,
       });
 
-      expect(imageUtilMocks.deleteImageFiles).toHaveBeenCalledWith({
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
         id: 'img-rm',
         full: 'p/rm.jpg',
       });
@@ -337,7 +335,7 @@ describe('RecipeService', () => {
         }),
       ).rejects.toThrow('upload boom');
 
-      expect(imageUtilMocks.deleteImageFiles).toHaveBeenCalledWith({
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
         id: 'new-1',
         full: 'p/n1.jpg',
       });
@@ -356,22 +354,40 @@ describe('RecipeService', () => {
   });
 
   describe('delete', () => {
-    it('removes images, media, and the document', async () => {
+    it('removes approved + pending image files, media, and the document', async () => {
       firestoreMocks.getDocument.mockResolvedValue({
         id: 'recipe-x',
+        images: [
+          { id: 'a', full: 'img/recipes/full/cat/recipe-x/a.jpg' },
+          { id: 'b', full: 'img/recipes/full/cat/recipe-x/b.jpg' },
+        ],
+        pendingImages: [{ id: 'p1', full: 'img/recipes/full/cat/recipe-x/p1.jpg' }],
         mediaInstructions: [{ path: 'mp/1' }],
       });
+
       await RecipeService.delete('recipe-x');
-      expect(imageUtilMocks.removeAllRecipeImages).toHaveBeenCalledWith('recipe-x');
+
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledTimes(3);
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'a' }),
+      );
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'b' }),
+      );
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p1' }),
+      );
       expect(mediaUtilMocks.removeAllMediaInstructions).toHaveBeenCalledWith([{ path: 'mp/1' }]);
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-x');
+      // The pre-delete updateDoc({ images: [], pendingImages: [] }) is gone now.
+      expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
     });
 
     it('is idempotent when the recipe does not exist', async () => {
       firestoreMocks.getDocument.mockResolvedValue(null);
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       await RecipeService.delete('missing');
-      expect(imageUtilMocks.removeAllRecipeImages).not.toHaveBeenCalled();
+      expect(recipeImageServiceMocks.deleteFiles).not.toHaveBeenCalled();
       expect(firestoreMocks.deleteDocument).not.toHaveBeenCalled();
       warnSpy.mockRestore();
     });
@@ -381,6 +397,21 @@ describe('RecipeService', () => {
       await RecipeService.delete('recipe-y');
       expect(mediaUtilMocks.removeAllMediaInstructions).not.toHaveBeenCalled();
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-y');
+    });
+
+    it('logs but does not throw when an individual image deletion fails', async () => {
+      firestoreMocks.getDocument.mockResolvedValue({
+        id: 'recipe-z',
+        images: [{ id: 'a', full: 'img/recipes/full/cat/recipe-z/a.jpg' }],
+      });
+      recipeImageServiceMocks.deleteFiles.mockRejectedValueOnce(new Error('boom'));
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await expect(RecipeService.delete('recipe-z')).resolves.toBeUndefined();
+
+      expect(warnSpy).toHaveBeenCalled();
+      expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-z');
+      warnSpy.mockRestore();
     });
   });
 
