@@ -12,9 +12,6 @@
  *   - getImageStoragePath(recipeId, category, fileName, type): Get storage path for image.
  *   - generateImageId(): Generate a unique image ID.
  *
- * Image File Deletion:
- *   - deleteImageFiles(image): Delete all storage files for an image (full + WebP variants).
- *
  * Multi Pending Images:
  *   - addPendingImages(recipeId, files, category, uploader): Upload multiple pending images.
  *   - approvePendingImageById(recipeId, pendingImageId): Approve a specific pending image by ID.
@@ -28,7 +25,6 @@
  *   - getImageUrl(storagePath): Get the download URL for a storage path.
  *   - getOptimizedImageUrl(image, size): Get the download URL for an optimized version of an image with fallback.
  *   - getPlaceholderImageUrl(): Get the placeholder image URL.
- *   - removeAllRecipeImages(recipeId): Remove all images (approved and pending) for a recipe.
  *   - migrateImageToCategory(image, recipeId, oldCategory, newCategory): Migrate image to new category path.
  */
 
@@ -102,10 +98,16 @@ export function generateImageId() {
 /**
  * Deletes all storage files for an image: full original and WebP variants.
  * The full-size deletion propagates errors; variant deletions are best-effort.
+ *
+ * Not exported: the public API for image-file deletion is
+ * RecipeImageService.deleteFiles. This helper remains here only so the
+ * pending-image proposal flow (rejectPendingImageById) can call it without
+ * crossing layers. It moves into RecipeImageProposalService in Q2.
+ *
  * @param {Object} image - Image object with `full` path
  * @returns {Promise<void>}
  */
-export async function deleteImageFiles({ full }) {
+async function deleteImageFiles({ full }) {
   const optimized400 = full.replace(/\.[^.]+$/, '_400x400.webp');
   const optimized1080 = full.replace(/\.[^.]+$/, '_1080x1080.webp');
   const originalBackup = full.replace(/(\.[^.]+)$/, '_original$1');
@@ -213,43 +215,6 @@ export async function getPrimaryImageUrl(recipe, size = '400x400') {
     return await getOptimizedImageUrl(primary, size);
   }
   return getPlaceholderImageUrl();
-}
-
-/**
- * Removes all images (approved and pending) for a recipe
- * @param {string} recipeId
- * @returns {Promise<void>}
- */
-export async function removeAllRecipeImages(recipeId) {
-  const recipe = await getRecipeDoc(recipeId);
-  if (!recipe) {
-    console.warn('Recipe not found for image removal:', recipeId);
-    return;
-  }
-  const deletePromises = [];
-  if (recipe.images && Array.isArray(recipe.images)) {
-    recipe.images.forEach((image) => {
-      if (image.full)
-        deletePromises.push(
-          deleteImageFiles(image).catch((err) =>
-            console.warn(`Failed to delete files for image ${image.id}:`, err),
-          ),
-        );
-    });
-  }
-  if (recipe.pendingImages && Array.isArray(recipe.pendingImages)) {
-    recipe.pendingImages.forEach((image) => {
-      if (image.full)
-        deletePromises.push(
-          deleteImageFiles(image).catch((err) =>
-            console.warn(`Failed to delete files for pending image ${image.id}:`, err),
-          ),
-        );
-    });
-  }
-  await Promise.all(deletePromises);
-  // Remove images and pendingImages from Firestore
-  await updateRecipeDoc(recipeId, { images: [], pendingImages: [] });
 }
 
 // TODO: Consider migrating images to be category agnostic

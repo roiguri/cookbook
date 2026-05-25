@@ -2,11 +2,7 @@
 
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
-import {
-  deleteImageFiles,
-  migrateImageToCategory,
-  removeAllRecipeImages,
-} from '../../utils/recipes/recipe-image-utils.js';
+import { migrateImageToCategory } from '../../utils/recipes/recipe-image-utils.js';
 import {
   uploadMediaInstructionFile,
   removeAllMediaInstructions,
@@ -51,7 +47,7 @@ async function uploadImagesAtomic(recipeId, category, imagesToUpload, uploadedBy
   if (firstRejection) {
     await Promise.all(
       uploaded.map((img) =>
-        deleteImageFiles(img).catch((e) =>
+        RecipeImageService.deleteFiles(img).catch((e) =>
           console.warn('Failed to cleanup partially-uploaded image:', e),
         ),
       ),
@@ -223,7 +219,7 @@ export class RecipeService {
     } catch (error) {
       await Promise.all(
         uploadedImages.map((img) =>
-          deleteImageFiles(img).catch((e) =>
+          RecipeImageService.deleteFiles(img).catch((e) =>
             console.warn('Failed to cleanup uploaded image on error:', e),
           ),
         ),
@@ -281,7 +277,7 @@ export class RecipeService {
     if (Array.isArray(imagesToDelete)) {
       for (const img of imagesToDelete) {
         if (img && img.full) {
-          await deleteImageFiles(img).catch((e) =>
+          await RecipeImageService.deleteFiles(img).catch((e) =>
             console.warn(`Failed to delete removed image ${img.id}:`, e),
           );
         }
@@ -327,7 +323,7 @@ export class RecipeService {
       } catch (error) {
         await Promise.all(
           uploadedThisCall.map((img) =>
-            deleteImageFiles(img).catch((e) =>
+            RecipeImageService.deleteFiles(img).catch((e) =>
               console.warn('Failed to cleanup uploaded image on update error:', e),
             ),
           ),
@@ -371,7 +367,30 @@ export class RecipeService {
       return;
     }
 
-    await removeAllRecipeImages(recipeId);
+    const imageDeletes = [];
+    if (Array.isArray(recipe.images)) {
+      for (const image of recipe.images) {
+        if (image && image.full) {
+          imageDeletes.push(
+            RecipeImageService.deleteFiles(image).catch((err) =>
+              console.warn(`Failed to delete files for image ${image.id}:`, err),
+            ),
+          );
+        }
+      }
+    }
+    if (Array.isArray(recipe.pendingImages)) {
+      for (const image of recipe.pendingImages) {
+        if (image && image.full) {
+          imageDeletes.push(
+            RecipeImageService.deleteFiles(image).catch((err) =>
+              console.warn(`Failed to delete files for pending image ${image.id}:`, err),
+            ),
+          );
+        }
+      }
+    }
+    await Promise.all(imageDeletes);
 
     if (Array.isArray(recipe.mediaInstructions) && recipe.mediaInstructions.length > 0) {
       await removeAllMediaInstructions(recipe.mediaInstructions);

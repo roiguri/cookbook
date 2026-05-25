@@ -26,6 +26,7 @@ async function fileExists(path) {
  * Public API:
  *   - uploadFile(recipeId, category, file, options)
  *   - replaceFiles(recipeId, image, blob, options)
+ *   - deleteFiles(image)
  *
  * Image proposal/moderation lives in RecipeImageProposalService.
  * Primary-image selection and image-entry patches live on RecipeService.
@@ -114,6 +115,37 @@ export class RecipeImageService {
     ]);
 
     return { backupPath, backupCreated };
+  }
+
+  /**
+   * Delete all Storage files associated with an image: the full original,
+   * its `_400x400.webp` and `_1080x1080.webp` variants, the `_original`
+   * backup (if present), and the backup's own WebP variants. The full-size
+   * deletion propagates errors; variant/backup deletions are best-effort.
+   *
+   * @param {{ full: string }} image - The image entry (must have `.full`).
+   * @returns {Promise<void>}
+   */
+  static async deleteFiles(image) {
+    if (!image || !image.full) {
+      throw new Error('RecipeImageService.deleteFiles: image.full is required');
+    }
+    const { full } = image;
+    const optimized400 = full.replace(/\.[^.]+$/, '_400x400.webp');
+    const optimized1080 = full.replace(/\.[^.]+$/, '_1080x1080.webp');
+    const originalBackup = full.replace(/(\.[^.]+)$/, '_original$1');
+    // The Storage Resize extension also generates WebP variants for the
+    // `_original` backup file itself, so those need explicit cleanup too.
+    const originalOpt400 = originalBackup.replace(/\.[^.]+$/, '_400x400.webp');
+    const originalOpt1080 = originalBackup.replace(/\.[^.]+$/, '_1080x1080.webp');
+    await StorageService.deleteFile(full);
+    await Promise.all([
+      StorageService.deleteFile(optimized400).catch(() => {}),
+      StorageService.deleteFile(optimized1080).catch(() => {}),
+      StorageService.deleteFile(originalBackup).catch(() => {}),
+      StorageService.deleteFile(originalOpt400).catch(() => {}),
+      StorageService.deleteFile(originalOpt1080).catch(() => {}),
+    ]);
   }
 }
 

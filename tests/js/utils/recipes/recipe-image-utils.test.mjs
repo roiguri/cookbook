@@ -7,14 +7,12 @@ import '../../../common/mocks/firebase-service.mock.js';
 
 let validateImageFile,
   getImageStoragePath,
-  deleteImageFiles,
   getRecipeImages,
   getImageUrl,
   getPlaceholderImageUrl,
   getOptimizedImageUrl,
   getPrimaryImage,
   getPrimaryImageUrl,
-  removeAllRecipeImages,
   addPendingImages,
   approvePendingImageById,
   rejectPendingImageById,
@@ -63,14 +61,12 @@ describe('recipe-image-utils', () => {
     const utils = await import('src/js/utils/recipes/recipe-image-utils.js');
     validateImageFile = utils.validateImageFile;
     getImageStoragePath = utils.getImageStoragePath;
-    deleteImageFiles = utils.deleteImageFiles;
     getRecipeImages = utils.getRecipeImages;
     getImageUrl = utils.getImageUrl;
     getPlaceholderImageUrl = utils.getPlaceholderImageUrl;
     getOptimizedImageUrl = utils.getOptimizedImageUrl;
     getPrimaryImage = utils.getPrimaryImage;
     getPrimaryImageUrl = utils.getPrimaryImageUrl;
-    removeAllRecipeImages = utils.removeAllRecipeImages;
     addPendingImages = utils.addPendingImages;
     approvePendingImageById = utils.approvePendingImageById;
     rejectPendingImageById = utils.rejectPendingImageById;
@@ -100,30 +96,6 @@ describe('recipe-image-utils', () => {
       expect(getImageStoragePath('id1', 'cat', 'file.jpg', 'full')).toBe(
         'img/recipes/full/cat/id1/file.jpg',
       );
-    });
-  });
-
-  describe('deleteImageFiles', () => {
-    it('deletes full and WebP variants', async () => {
-      await deleteImageFiles({ full: 'img/recipes/full/cat/rid/image.jpg' });
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/image.jpg');
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/image_400x400.webp');
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/image_1080x1080.webp');
-    });
-    it('silently ignores errors on variant deletion', async () => {
-      deleteFileMock
-        .mockResolvedValueOnce(undefined) // full OK
-        .mockRejectedValueOnce(new Error('not found')) // 400 variant missing
-        .mockRejectedValueOnce(new Error('not found')); // 1080 variant missing
-      await expect(
-        deleteImageFiles({ full: 'img/recipes/full/cat/rid/image.jpg' }),
-      ).resolves.not.toThrow();
-    });
-    it('propagates errors from full file deletion', async () => {
-      deleteFileMock.mockRejectedValueOnce(new Error('permission denied'));
-      await expect(
-        deleteImageFiles({ full: 'img/recipes/full/cat/rid/image.jpg' }),
-      ).rejects.toThrow('permission denied');
     });
   });
 
@@ -240,51 +212,6 @@ describe('recipe-image-utils', () => {
       await expect(getPrimaryImageUrl({ images: [] })).resolves.toBeNull();
       await expect(getPrimaryImageUrl({})).resolves.toBeNull();
       await expect(getPrimaryImageUrl(null)).resolves.toBeNull();
-    });
-  });
-
-  describe('removeAllRecipeImages', () => {
-    it('removes all approved and pending images and updates Firestore', async () => {
-      getDocumentMock.mockResolvedValue({
-        images: [
-          { id: 'a', full: 'img/recipes/full/cat/rid/a.jpg' },
-          { id: 'b', full: 'img/recipes/full/cat/rid/b.jpg' },
-        ],
-        pendingImages: [
-          { id: 'p1', full: 'img/recipes/full/cat/rid/p1.jpg' },
-          { id: 'p2', full: 'img/recipes/full/cat/rid/p2.jpg' },
-        ],
-      });
-      updateDocumentMock.mockResolvedValue();
-      await removeAllRecipeImages('rid');
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/a.jpg');
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/a_400x400.webp');
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/b.jpg');
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/p1.jpg');
-      expect(deleteFileMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/p2.jpg');
-      expect(updateDocumentMock).toHaveBeenCalledWith('recipes', 'rid', {
-        images: [],
-        pendingImages: [],
-      });
-    });
-    it('handles missing recipe gracefully', async () => {
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      getDocumentMock.mockResolvedValue(null);
-      await expect(removeAllRecipeImages('rid')).resolves.toBeUndefined();
-      expect(deleteFileMock).not.toHaveBeenCalled();
-      expect(updateDocumentMock).not.toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith('Recipe not found for image removal:', 'rid');
-      consoleSpy.mockRestore();
-    });
-    it('handles empty images and pendingImages arrays', async () => {
-      getDocumentMock.mockResolvedValue({ images: [], pendingImages: [] });
-      updateDocumentMock.mockResolvedValue();
-      await removeAllRecipeImages('rid');
-      expect(deleteFileMock).not.toHaveBeenCalled();
-      expect(updateDocumentMock).toHaveBeenCalledWith('recipes', 'rid', {
-        images: [],
-        pendingImages: [],
-      });
     });
   });
 
