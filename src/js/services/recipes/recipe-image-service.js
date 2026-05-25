@@ -2,7 +2,6 @@
 
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { StorageService } from '../_firebase/storage-service.js';
-import { setPrimaryImage as setPrimaryImageInternal } from '../../utils/recipes/recipe-image-utils.js';
 
 const RECIPES_COLLECTION = 'recipes';
 
@@ -30,24 +29,12 @@ async function fileExists(path) {
  * inside `recipes/{id}.images[]`.
  *
  * Public API:
- *   - setPrimaryImage(recipeId, imageId)
  *   - replaceImage(recipeId, imageId, blob, options)
  *
  * Image proposal/moderation lives in RecipeImageProposalService.
+ * Primary-image selection now lives on RecipeService.
  */
 export class RecipeImageService {
-  /**
-   * Mark a single image on a recipe as the primary one. Clears `isPrimary`
-   * on the rest. Throws if the recipe has no images.
-   *
-   * @param {string} recipeId
-   * @param {string} imageId
-   * @returns {Promise<void>}
-   */
-  static async setPrimaryImage(recipeId, imageId) {
-    return await setPrimaryImageInternal(recipeId, imageId);
-  }
-
   /**
    * Replace an existing image's storage file with new bytes. Optionally
    * preserves the current image as a backup at `<path>_original.<ext>`

@@ -26,6 +26,7 @@ import {
  *   - create({ recipeData, imagesToUpload, mediaItemsOrdered, uploadedBy })
  *   - update(recipeId, { changes, images, imagesToDelete, mediaItemsOrdered, uploadedBy, approved })
  *   - delete(recipeId)
+ *   - setPrimaryImage(recipeId, imageId)
  *
  * Image proposal/moderation (the pending-images workflow) lives in
  * RecipeImageProposalService.
@@ -382,6 +383,26 @@ export class RecipeService {
     }
 
     await FirestoreService.deleteDocument(RECIPES_COLLECTION, recipeId);
+  }
+
+  /**
+   * Mark a single image on a recipe as primary; clears `isPrimary` on
+   * the rest. Throws if the recipe has no images.
+   *
+   * @param {string} recipeId
+   * @param {string} imageId
+   * @returns {Promise<void>}
+   */
+  static async setPrimaryImage(recipeId, imageId) {
+    if (!recipeId) throw new Error('RecipeService.setPrimaryImage: recipeId is required');
+    if (!imageId) throw new Error('RecipeService.setPrimaryImage: imageId is required');
+
+    const recipe = await FirestoreService.getDocument(RECIPES_COLLECTION, recipeId);
+    if (!recipe || !Array.isArray(recipe.images)) {
+      throw new Error('RecipeService.setPrimaryImage: no images to update');
+    }
+    const images = recipe.images.map((img) => ({ ...img, isPrimary: img.id === imageId }));
+    await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, { images });
   }
 }
 

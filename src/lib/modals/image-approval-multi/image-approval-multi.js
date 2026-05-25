@@ -36,7 +36,7 @@
  */
 
 import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
-import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { RecipeImageProposalService } from '../../../js/services/recipes/recipe-image-proposal-service.js';
 
 class ImageApprovalMulti extends HTMLElement {
@@ -476,14 +476,14 @@ class ImageApprovalMulti extends HTMLElement {
       if (this.primaryImageId) {
         const newPrimaryId = pendingToApprovedIds.get(this.primaryImageId);
         if (newPrimaryId) {
-          await RecipeImageService.setPrimaryImage(this.recipe.id, newPrimaryId);
+          await RecipeService.setPrimaryImage(this.recipe.id, newPrimaryId);
           console.log('Primary image set to admin selection:', newPrimaryId);
         }
       } else if (!recipeHadImages) {
         const firstPendingId = Array.from(this.selectedImageIds)[0];
         const firstNewId = pendingToApprovedIds.get(firstPendingId);
         if (firstNewId) {
-          await RecipeImageService.setPrimaryImage(this.recipe.id, firstNewId);
+          await RecipeService.setPrimaryImage(this.recipe.id, firstNewId);
           console.log('First image set as primary (recipe had no images):', firstNewId);
         }
       } else {
@@ -570,14 +570,14 @@ class ImageApprovalMulti extends HTMLElement {
         // Admin explicitly selected a primary - honor their choice
         const newPrimaryId = pendingToApprovedIds.get(this.primaryImageId);
         if (newPrimaryId) {
-          await RecipeImageService.setPrimaryImage(this.recipe.id, newPrimaryId);
+          await RecipeService.setPrimaryImage(this.recipe.id, newPrimaryId);
           console.log('Primary image set to admin selection:', newPrimaryId);
         }
       } else if (!recipeHadImages) {
         const firstPendingId = visibleImageIds[0];
         const firstNewId = pendingToApprovedIds.get(firstPendingId);
         if (firstNewId) {
-          await RecipeImageService.setPrimaryImage(this.recipe.id, firstNewId);
+          await RecipeService.setPrimaryImage(this.recipe.id, firstNewId);
           console.log('First image set as primary (recipe had no images):', firstNewId);
         }
       } else {

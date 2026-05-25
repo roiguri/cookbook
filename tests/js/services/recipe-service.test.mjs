@@ -370,4 +370,38 @@ describe('RecipeService', () => {
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-y');
     });
   });
+
+  describe('setPrimaryImage', () => {
+    it('updates isPrimary on the matching image and clears the rest', async () => {
+      firestoreMocks.getDocument.mockResolvedValue({
+        id: 'recipe-9',
+        images: [
+          { id: 'a', isPrimary: true },
+          { id: 'b', isPrimary: false },
+        ],
+      });
+      firestoreMocks.updateDocument.mockResolvedValue();
+
+      await RecipeService.setPrimaryImage('recipe-9', 'b');
+
+      expect(firestoreMocks.updateDocument).toHaveBeenCalledWith('recipes', 'recipe-9', {
+        images: [
+          { id: 'a', isPrimary: false },
+          { id: 'b', isPrimary: true },
+        ],
+      });
+    });
+
+    it('throws if the recipe has no images', async () => {
+      firestoreMocks.getDocument.mockResolvedValue({ id: 'recipe-9' });
+      await expect(RecipeService.setPrimaryImage('recipe-9', 'b')).rejects.toThrow(
+        'no images to update',
+      );
+    });
+
+    it('throws on missing recipeId / imageId', async () => {
+      await expect(RecipeService.setPrimaryImage('', 'b')).rejects.toThrow('recipeId is required');
+      await expect(RecipeService.setPrimaryImage('r', '')).rejects.toThrow('imageId is required');
+    });
+  });
 });

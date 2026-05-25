@@ -8,7 +8,6 @@ import '../../../common/mocks/firebase-service.mock.js';
 let validateImageFile,
   getImageStoragePath,
   deleteImageFiles,
-  setPrimaryImage,
   getRecipeImages,
   getImageUrl,
   getPlaceholderImageUrl,
@@ -66,7 +65,6 @@ describe('recipe-image-utils', () => {
     validateImageFile = utils.validateImageFile;
     getImageStoragePath = utils.getImageStoragePath;
     deleteImageFiles = utils.deleteImageFiles;
-    setPrimaryImage = utils.setPrimaryImage;
     getRecipeImages = utils.getRecipeImages;
     getImageUrl = utils.getImageUrl;
     getPlaceholderImageUrl = utils.getPlaceholderImageUrl;
@@ -128,24 +126,6 @@ describe('recipe-image-utils', () => {
       await expect(
         deleteImageFiles({ full: 'img/recipes/full/cat/rid/image.jpg' }),
       ).rejects.toThrow('permission denied');
-    });
-  });
-
-  describe('setPrimaryImage', () => {
-    it('sets isPrimary on correct image', async () => {
-      getDocumentMock.mockResolvedValue({ images: [{ id: 'a' }, { id: 'b' }] });
-      updateDocumentMock.mockResolvedValue();
-      await setPrimaryImage('rid', 'b');
-      expect(updateDocumentMock).toHaveBeenCalledWith('recipes', 'rid', {
-        images: [
-          { id: 'a', isPrimary: false },
-          { id: 'b', isPrimary: true },
-        ],
-      });
-    });
-    it('throws if no images', async () => {
-      getDocumentMock.mockResolvedValue({});
-      await expect(setPrimaryImage('rid', 'b')).rejects.toThrow();
     });
   });
 
