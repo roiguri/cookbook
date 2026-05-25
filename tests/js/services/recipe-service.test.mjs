@@ -16,10 +16,6 @@ const firestoreMocks = {
   generateId: jest.fn(() => 'recipe-123'),
 };
 
-const imageUtilMocks = {
-  migrateImageToCategory: jest.fn(),
-};
-
 const mediaUtilMocks = {
   uploadMediaInstructionFile: jest.fn(),
   removeAllMediaInstructions: jest.fn(() => Promise.resolve({ success: 0, failed: 0, errors: [] })),
@@ -31,6 +27,7 @@ const recipeImageServiceMocks = {
     Promise.resolve({ backupPath: 'backup/path.jpg', backupCreated: true }),
   ),
   deleteFiles: jest.fn(() => Promise.resolve()),
+  migrateFilesToCategory: jest.fn(),
 };
 
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
@@ -39,7 +36,6 @@ jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () =>
 jest.unstable_mockModule('src/js/services/recipes/recipe-image-service.js', () => ({
   RecipeImageService: recipeImageServiceMocks,
 }));
-jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => imageUtilMocks);
 jest.unstable_mockModule('src/js/utils/recipes/recipe-media-utils.js', () => mediaUtilMocks);
 
 function makeFile(name = 'a.jpg', type = 'image/jpeg') {
@@ -50,7 +46,6 @@ beforeEach(async () => {
   jest.resetModules();
   Object.values(firestoreMocks).forEach((m) => m.mockReset?.());
   firestoreMocks.generateId.mockImplementation(() => 'recipe-123');
-  Object.values(imageUtilMocks).forEach((m) => m.mockReset?.());
   Object.values(mediaUtilMocks).forEach((m) => m.mockReset?.());
   mediaUtilMocks.removeAllMediaInstructions.mockImplementation(() =>
     Promise.resolve({ success: 0, failed: 0, errors: [] }),
@@ -280,7 +275,7 @@ describe('RecipeService', () => {
     });
 
     it('migrates existing images on category change', async () => {
-      imageUtilMocks.migrateImageToCategory.mockResolvedValueOnce({
+      recipeImageServiceMocks.migrateFilesToCategory.mockResolvedValueOnce({
         id: 'img-keep',
         full: 'img/recipes/full/mains/recipe-9/keep.jpg',
       });
@@ -297,16 +292,17 @@ describe('RecipeService', () => {
         uploadedBy: 'user-1',
       });
 
-      expect(imageUtilMocks.migrateImageToCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'img-keep' }),
+      expect(recipeImageServiceMocks.migrateFilesToCategory).toHaveBeenCalledWith(
         'recipe-9',
-        'desserts',
+        expect.objectContaining({ id: 'img-keep' }),
         'mains',
       );
     });
 
     it('collects migration warnings when migration fails', async () => {
-      imageUtilMocks.migrateImageToCategory.mockRejectedValueOnce(new Error('migrate failed'));
+      recipeImageServiceMocks.migrateFilesToCategory.mockRejectedValueOnce(
+        new Error('migrate failed'),
+      );
 
       const result = await RecipeService.update('recipe-9', {
         changes: { category: 'mains' },
