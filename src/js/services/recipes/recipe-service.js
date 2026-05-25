@@ -2,7 +2,6 @@
 
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
-import { migrateImageToCategory } from '../../utils/recipes/recipe-image-utils.js';
 import {
   uploadMediaInstructionFile,
   removeAllMediaInstructions,
@@ -307,10 +306,9 @@ export class RecipeService {
             );
             if (categoryChanged) {
               try {
-                existingImage = await migrateImageToCategory(
-                  existingImage,
+                existingImage = await RecipeImageService.migrateFilesToCategory(
                   recipeId,
-                  originalRecipe.category,
+                  existingImage,
                   newCategory,
                 );
               } catch (error) {
