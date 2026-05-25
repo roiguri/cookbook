@@ -44,10 +44,8 @@ import {
   getDifficultyClass,
   getRecipeById,
 } from '../../../js/utils/recipes/recipe-data-utils.js';
-import {
-  getPrimaryImageUrl,
-  getPlaceholderImageUrl,
-} from '../../../js/utils/recipes/recipe-image-utils.js';
+import { getPlaceholderImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { initLazyLoading, lazyImageLoader } from '../../../js/utils/lazy-loading.js';
 import RECIPE_CARD_CONFIG from './recipe-card-config.js';
 import { recipeCardStyles } from './recipe-card-styles.js';
@@ -542,7 +540,7 @@ class RecipeCard extends HTMLElement {
 
   async _fetchRecipeImage() {
     try {
-      this._imageUrl = await getPrimaryImageUrl(this._recipeData, '400x400');
+      this._imageUrl = await RecipeImageService.getPrimaryUrl(this._recipeData, '400x400');
     } catch (error) {
       console.error('Error fetching recipe image:', error);
       this._imageUrl = getPlaceholderImageUrl();

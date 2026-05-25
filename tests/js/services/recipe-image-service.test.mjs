@@ -329,4 +329,86 @@ describe('RecipeImageService', () => {
       ).rejects.toThrow(/Failed to migrate image img-1/);
     });
   });
+
+  describe('getOptimizedUrl', () => {
+    it('returns the WebP variant URL when available', async () => {
+      storageMocks.getFileUrl.mockResolvedValueOnce('webp-url');
+      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
+      const result = await RecipeImageService.getOptimizedUrl(image, '400x400');
+      expect(storageMocks.getFileUrl).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/image_400x400.webp',
+      );
+      expect(result).toBe('webp-url');
+    });
+
+    it('falls back to the full file when the WebP variant is missing', async () => {
+      storageMocks.getFileUrl
+        .mockRejectedValueOnce(new Error('not found'))
+        .mockResolvedValueOnce('full-url');
+      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
+      const result = await RecipeImageService.getOptimizedUrl(image, '400x400');
+      expect(result).toBe('full-url');
+    });
+
+    it('returns null when both lookups fail', async () => {
+      storageMocks.getFileUrl.mockRejectedValue(new Error('not found'));
+      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
+      const result = await RecipeImageService.getOptimizedUrl(image, '400x400');
+      expect(result).toBeNull();
+    });
+
+    it('returns null for null image and never hits Storage', async () => {
+      expect(await RecipeImageService.getOptimizedUrl(null, '400x400')).toBeNull();
+      expect(storageMocks.getFileUrl).not.toHaveBeenCalled();
+    });
+
+    it('returns null for an image without a full path and never hits Storage', async () => {
+      expect(await RecipeImageService.getOptimizedUrl({ id: '1' }, '400x400')).toBeNull();
+      expect(storageMocks.getFileUrl).not.toHaveBeenCalled();
+    });
+
+    it('honors the size suffix in the requested variant path', async () => {
+      storageMocks.getFileUrl.mockResolvedValueOnce('webp-1080');
+      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
+      await RecipeImageService.getOptimizedUrl(image, '1080x1080');
+      expect(storageMocks.getFileUrl).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/image_1080x1080.webp',
+      );
+    });
+
+    it('returns the local preview URL when present, bypassing Storage', async () => {
+      const image = { preview: 'blob:local-preview', full: 'whatever' };
+      const result = await RecipeImageService.getOptimizedUrl(image, '400x400');
+      expect(result).toBe('blob:local-preview');
+      expect(storageMocks.getFileUrl).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getPrimaryUrl', () => {
+    it('returns the optimized URL of the explicit primary image', async () => {
+      storageMocks.getFileUrl.mockResolvedValueOnce('webp-url');
+      const recipe = {
+        images: [{ id: '1', isPrimary: true, full: 'img/recipes/full/cat/rid/img.jpg' }],
+      };
+      await expect(RecipeImageService.getPrimaryUrl(recipe)).resolves.toBe('webp-url');
+      expect(storageMocks.getFileUrl).toHaveBeenCalledWith(
+        'img/recipes/full/cat/rid/img_400x400.webp',
+      );
+    });
+
+    it('returns the optimized URL of the first image when none is marked primary', async () => {
+      storageMocks.getFileUrl.mockResolvedValueOnce('webp-url2');
+      const recipe = {
+        images: [{ id: '1', full: 'img/recipes/full/cat/rid/img2.jpg' }],
+      };
+      await expect(RecipeImageService.getPrimaryUrl(recipe)).resolves.toBe('webp-url2');
+    });
+
+    it('returns null when the recipe has no images', async () => {
+      await expect(RecipeImageService.getPrimaryUrl({ images: [] })).resolves.toBeNull();
+      await expect(RecipeImageService.getPrimaryUrl({})).resolves.toBeNull();
+      await expect(RecipeImageService.getPrimaryUrl(null)).resolves.toBeNull();
+      expect(storageMocks.getFileUrl).not.toHaveBeenCalled();
+    });
+  });
 });

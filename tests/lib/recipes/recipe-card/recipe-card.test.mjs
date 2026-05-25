@@ -75,8 +75,13 @@ jest.unstable_mockModule('src/js/utils/recipes/recipe-data-utils.js', () => ({
 }));
 
 jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => ({
-  getPrimaryImageUrl: jest.fn(() => Promise.resolve('http://example.com/img.jpg')),
   getPlaceholderImageUrl: jest.fn(() => Promise.resolve('http://example.com/placeholder.jpg')),
+}));
+
+jest.unstable_mockModule('src/js/services/recipes/recipe-image-service.js', () => ({
+  RecipeImageService: {
+    getPrimaryUrl: jest.fn(() => Promise.resolve('http://example.com/img.jpg')),
+  },
 }));
 
 jest.unstable_mockModule('src/js/utils/lazy-loading.js', () => ({
