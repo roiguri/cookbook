@@ -17,7 +17,6 @@ const firestoreMocks = {
 };
 
 const imageUtilMocks = {
-  uploadAndBuildImageMetadata: jest.fn(),
   deleteImageFiles: jest.fn(() => Promise.resolve()),
   migrateImageToCategory: jest.fn(),
   removeAllRecipeImages: jest.fn(() => Promise.resolve()),
@@ -29,6 +28,7 @@ const mediaUtilMocks = {
 };
 
 const recipeImageServiceMocks = {
+  uploadFile: jest.fn(),
   replaceFiles: jest.fn(() =>
     Promise.resolve({ backupPath: 'backup/path.jpg', backupCreated: true }),
   ),
@@ -90,7 +90,7 @@ describe('RecipeService', () => {
 
   describe('create', () => {
     it('uploads images, writes doc, returns id and media result', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata
+      recipeImageServiceMocks.uploadFile
         .mockResolvedValueOnce({ id: 'img-1', full: 'p/1.jpg' })
         .mockResolvedValueOnce({ id: 'img-2', full: 'p/2.jpg' });
       firestoreMocks.setDocument.mockResolvedValue();
@@ -113,7 +113,7 @@ describe('RecipeService', () => {
         successCount: 0,
         failedCount: 0,
       });
-      expect(imageUtilMocks.uploadAndBuildImageMetadata).toHaveBeenCalledTimes(2);
+      expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledTimes(2);
       expect(firestoreMocks.setDocument).toHaveBeenCalledWith(
         'recipes',
         'recipe-123',
@@ -141,7 +141,7 @@ describe('RecipeService', () => {
     });
 
     it('cleans up uploaded images if a later image fails', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata
+      recipeImageServiceMocks.uploadFile
         .mockResolvedValueOnce({ id: 'img-1', full: 'p/1.jpg' })
         .mockRejectedValueOnce(new Error('upload failed'));
 
@@ -244,7 +244,7 @@ describe('RecipeService', () => {
     });
 
     it('deletes removed images, uploads new ones, keeps existing', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata.mockResolvedValueOnce({
+      recipeImageServiceMocks.uploadFile.mockResolvedValueOnce({
         id: 'img-new',
         full: 'p/new.jpg',
       });
@@ -264,7 +264,7 @@ describe('RecipeService', () => {
         id: 'img-rm',
         full: 'p/rm.jpg',
       });
-      expect(imageUtilMocks.uploadAndBuildImageMetadata).toHaveBeenCalledTimes(1);
+      expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledTimes(1);
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
       expect(payload.approved).toBe(true);
       expect(payload.images.map((i) => i.id)).toEqual(['img-old', 'img-new']);
@@ -322,7 +322,7 @@ describe('RecipeService', () => {
     });
 
     it('rolls back uploaded images when an image upload throws mid-loop', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata
+      recipeImageServiceMocks.uploadFile
         .mockResolvedValueOnce({ id: 'new-1', full: 'p/n1.jpg' })
         .mockRejectedValueOnce(new Error('upload boom'));
 

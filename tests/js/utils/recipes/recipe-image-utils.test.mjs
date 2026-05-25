@@ -15,7 +15,6 @@ let validateImageFile,
   getPrimaryImage,
   getPrimaryImageUrl,
   removeAllRecipeImages,
-  uploadAndBuildImageMetadata,
   addPendingImages,
   approvePendingImageById,
   rejectPendingImageById,
@@ -72,7 +71,6 @@ describe('recipe-image-utils', () => {
     getPrimaryImage = utils.getPrimaryImage;
     getPrimaryImageUrl = utils.getPrimaryImageUrl;
     removeAllRecipeImages = utils.removeAllRecipeImages;
-    uploadAndBuildImageMetadata = utils.uploadAndBuildImageMetadata;
     addPendingImages = utils.addPendingImages;
     approvePendingImageById = utils.approvePendingImageById;
     rejectPendingImageById = utils.rejectPendingImageById;
@@ -287,42 +285,6 @@ describe('recipe-image-utils', () => {
         images: [],
         pendingImages: [],
       });
-    });
-  });
-
-  describe('uploadAndBuildImageMetadata', () => {
-    it('uploads full image and returns correct metadata', async () => {
-      uploadFileMock.mockResolvedValue('url');
-      const file = createFakeFile('test.jpg', 'image/jpeg', 1234);
-      const meta = await uploadAndBuildImageMetadata({
-        recipeId: 'rid',
-        category: 'cat',
-        file,
-        isPrimary: true,
-        uploadedBy: 'user1',
-      });
-      expect(uploadFileMock).toHaveBeenCalledTimes(1);
-      expect(meta).toHaveProperty('id');
-      expect(meta.full).toContain('img/recipes/full/cat/rid/');
-      expect(meta.fileName).toBe('primary.jpg');
-      expect(meta.isPrimary).toBe(true);
-      expect(meta.uploadedBy).toBe('user1');
-      expect(meta.access).toBe('public');
-      expect(meta.uploadTimestamp).toBeDefined();
-    });
-    it('uses a timestamped fileName for non-primary', async () => {
-      uploadFileMock.mockResolvedValue('url');
-      const file = createFakeFile('test2.jpg', 'image/jpeg', 1234);
-      const meta = await uploadAndBuildImageMetadata({
-        recipeId: 'rid',
-        category: 'cat',
-        file,
-        isPrimary: false,
-        uploadedBy: 'user2',
-      });
-      expect(meta.fileName).toMatch(/\.jpg$/);
-      expect(meta.isPrimary).toBe(false);
-      expect(meta.uploadedBy).toBe('user2');
     });
   });
 

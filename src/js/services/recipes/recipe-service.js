@@ -3,7 +3,6 @@
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
 import {
-  uploadAndBuildImageMetadata,
   deleteImageFiles,
   migrateImageToCategory,
   removeAllRecipeImages,
@@ -41,10 +40,7 @@ async function uploadImagesAtomic(recipeId, category, imagesToUpload, uploadedBy
   // rejects — Promise.all leaves us blind to which uploads actually landed.
   const settled = await Promise.allSettled(
     imagesToUpload.map(({ file, isPrimary }) =>
-      uploadAndBuildImageMetadata({
-        recipeId,
-        category,
-        file,
+      RecipeImageService.uploadFile(recipeId, category, file, {
         isPrimary: !!isPrimary,
         uploadedBy: uploadedBy || 'anonymous',
       }),
@@ -300,10 +296,7 @@ export class RecipeService {
       try {
         for (const img of images) {
           if (img.source === 'new' && img.file) {
-            const meta = await uploadAndBuildImageMetadata({
-              recipeId,
-              category: newCategory,
-              file: img.file,
+            const meta = await RecipeImageService.uploadFile(recipeId, newCategory, img.file, {
               isPrimary: !!img.isPrimary,
               uploadedBy: img.uploadedBy || uploadedBy || 'anonymous',
             });

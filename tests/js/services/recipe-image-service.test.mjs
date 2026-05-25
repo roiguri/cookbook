@@ -32,6 +32,62 @@ beforeEach(async () => {
 });
 
 describe('RecipeImageService', () => {
+  describe('uploadFile', () => {
+    function makeFile(name = 'test.jpg', type = 'image/jpeg') {
+      return new File([new Blob(['a'], { type })], name, { type });
+    }
+
+    it('uploads to category path and returns metadata with primary.jpg filename when isPrimary', async () => {
+      storageMocks.uploadFile.mockResolvedValue();
+      const file = makeFile('foo.jpg');
+
+      const meta = await RecipeImageService.uploadFile('r1', 'desserts', file, {
+        isPrimary: true,
+        uploadedBy: 'user-1',
+      });
+
+      expect(storageMocks.uploadFile).toHaveBeenCalledTimes(1);
+      const [uploadedFile, uploadedPath] = storageMocks.uploadFile.mock.calls[0];
+      expect(uploadedFile).toBe(file);
+      expect(uploadedPath).toBe('img/recipes/full/desserts/r1/primary.jpg');
+
+      expect(meta).toMatchObject({
+        full: 'img/recipes/full/desserts/r1/primary.jpg',
+        fileName: 'primary.jpg',
+        isPrimary: true,
+        uploadedBy: 'user-1',
+        access: 'public',
+      });
+      expect(typeof meta.id).toBe('string');
+      expect(meta.uploadTimestamp).toBeInstanceOf(Date);
+    });
+
+    it('uses a timestamped filename keeping the extension when not primary', async () => {
+      storageMocks.uploadFile.mockResolvedValue();
+      const file = makeFile('cake.png', 'image/png');
+
+      const meta = await RecipeImageService.uploadFile('r2', 'mains', file, {
+        isPrimary: false,
+        uploadedBy: 'user-2',
+      });
+
+      expect(meta.fileName).toMatch(/^\d+\.png$/);
+      expect(meta.full).toBe(`img/recipes/full/mains/r2/${meta.fileName}`);
+      expect(meta.isPrimary).toBe(false);
+    });
+
+    it('propagates Storage upload errors', async () => {
+      storageMocks.uploadFile.mockRejectedValue(new Error('storage down'));
+
+      await expect(
+        RecipeImageService.uploadFile('r3', 'sides', makeFile(), {
+          isPrimary: true,
+          uploadedBy: 'user-3',
+        }),
+      ).rejects.toThrow('storage down');
+    });
+  });
+
   describe('replaceFiles', () => {
     const newBlob = new Blob(['enhanced'], { type: 'image/jpeg' });
     const image = { id: 'img-1', full: 'img/recipes/full/desserts/recipe-9/img-1.jpg' };
