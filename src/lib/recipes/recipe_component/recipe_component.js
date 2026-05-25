@@ -3,7 +3,7 @@ import authService from '../../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../../js/config/app-config.js';
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import {
-  getRecipeById,
+  formatRecipeData,
   getLocalizedCategoryName,
   formatCookingTime,
 } from '../../../js/utils/recipes/recipe-data-utils.js';
@@ -883,7 +883,7 @@ class RecipeComponent extends HTMLElement {
     if (!this.recipeId) return;
 
     try {
-      const recipe = await getRecipeById(this.recipeId);
+      const recipe = formatRecipeData(await RecipeService.get(this.recipeId));
       if (recipe) {
         this.updatePageTitle(recipe.name);
         await this.setData(recipe);
@@ -1263,7 +1263,9 @@ class RecipeComponent extends HTMLElement {
       return;
     }
 
-    const fetched = await Promise.all(ids.map((id) => getRecipeById(id)));
+    const fetched = await Promise.all(
+      ids.map(async (id) => formatRecipeData(await RecipeService.get(id))),
+    );
     const valid = fetched.filter((r) => r && r.approved);
 
     // Self-heal: prune stale IDs from the recipe doc (fire-and-forget).

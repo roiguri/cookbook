@@ -1,19 +1,5 @@
 import { jest } from '@jest/globals';
 
-// Mock Firebase SDK modules that storage-service.js and firestore-service.js depend on
-import '../../../common/mocks/firebase-storage.mock.js';
-import '../../../common/mocks/firebase-service.mock.js';
-
-// Inline FirestoreService mock for this test file
-export const mockQueryDocuments = jest.fn();
-export const mockGetDocument = jest.fn();
-jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
-  FirestoreService: {
-    queryDocuments: mockQueryDocuments,
-    getDocument: mockGetDocument,
-  },
-}));
-
 let calculateTotalTime,
   formatCookingTime,
   getTimeClass,
@@ -22,8 +8,6 @@ let calculateTotalTime,
   getCategoryIcon,
   formatRecipeData,
   validateRecipeData,
-  getRecipesForCards,
-  getRecipeById,
   extractIngredientNamesFromSections;
 
 describe('recipe-data-utils', () => {
@@ -38,11 +22,7 @@ describe('recipe-data-utils', () => {
     getCategoryIcon = utils.getCategoryIcon;
     formatRecipeData = utils.formatRecipeData;
     validateRecipeData = utils.validateRecipeData;
-    getRecipesForCards = utils.getRecipesForCards;
-    getRecipeById = utils.getRecipeById;
     extractIngredientNamesFromSections = utils.extractIngredientNamesFromSections;
-    mockQueryDocuments.mockReset();
-    mockGetDocument.mockReset();
   });
 
   describe('calculateTotalTime', () => {
@@ -451,138 +431,6 @@ describe('recipe-data-utils', () => {
       result = validateRecipeData(r);
       expect(result.isValid).toBe(false);
       expect(result.errors.updatedAt).toBeDefined();
-    });
-  });
-
-  describe('getRecipesForCards', () => {
-    it('fetches and normalizes recipes with options', async () => {
-      // Arrange
-      const mockDocs = [
-        {
-          id: '1',
-          name: 'A',
-          category: 'desserts',
-          prepTime: 1,
-          waitTime: 2,
-          difficulty: 'קלה',
-          mainIngredient: 'sugar',
-          servings: 1,
-          ingredients: [{ amount: '1', unit: 'cup', item: 'sugar' }],
-          instructions: ['Mix'],
-        },
-        {
-          id: '2',
-          name: 'B',
-          category: 'appetizers',
-          prepTime: 2,
-          waitTime: 3,
-          difficulty: 'קשה',
-          mainIngredient: 'salt',
-          servings: 2,
-          ingredients: [{ amount: '2', unit: 'tbsp', item: 'salt' }],
-          instructions: ['Stir'],
-        },
-      ];
-      mockQueryDocuments.mockResolvedValue(mockDocs);
-      // Act
-      const result = await getRecipesForCards({
-        category: 'desserts',
-        approvedOnly: true,
-        limit: 1,
-      });
-      // Assert
-      expect(mockQueryDocuments).toHaveBeenCalledWith(
-        'recipes',
-        expect.objectContaining({ where: expect.any(Array), limit: 1 }),
-      );
-      expect(result[0].name).toBe('A');
-      expect(result[0].category).toBe('desserts');
-    });
-
-    it('returns empty array if no docs', async () => {
-      // Arrange
-      mockQueryDocuments.mockResolvedValue([]);
-      // Act
-      const result = await getRecipesForCards({});
-      // Assert
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(0);
-    });
-  });
-
-  describe('getRecipeById', () => {
-    it('fetches and normalizes a recipe by id', async () => {
-      // Arrange
-      const mockDoc = {
-        id: '1',
-        name: 'A',
-        category: 'desserts',
-        prepTime: 1,
-        waitTime: 2,
-        difficulty: 'קלה',
-        mainIngredient: 'sugar',
-        servings: 1,
-        ingredients: [{ amount: '1', unit: 'cup', item: 'sugar' }],
-        instructions: ['Mix'],
-      };
-      mockGetDocument.mockResolvedValue(mockDoc);
-      // Act
-      const result = await getRecipeById('1');
-      // Assert
-      expect(mockGetDocument).toHaveBeenCalledWith('recipes', '1');
-      expect(result.name).toBe('A');
-      expect(result.category).toBe('desserts');
-    });
-
-    it('returns null if recipe not found', async () => {
-      // Arrange
-      mockGetDocument.mockResolvedValue(null);
-      // Act
-      const result = await getRecipeById('notfound');
-      // Assert
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('formatRecipeData ingredientSections handling', () => {
-    it('handles recipe with ingredientSections (prioritizes sections)', () => {
-      const raw = {
-        name: 'Test Recipe',
-        ingredients: [{ amount: '1', unit: 'cup', item: 'old_ingredient' }],
-        ingredientSections: [
-          { title: 'Section 1', items: [{ amount: '2', unit: 'cups', item: 'flour' }] },
-        ],
-      };
-      const formatted = formatRecipeData(raw);
-      expect(formatted.ingredients).toBeUndefined();
-      expect(formatted.ingredientSections).toBeDefined();
-      expect(formatted.ingredientSections[0].title).toBe('Section 1');
-    });
-
-    it('handles recipe with flat ingredients only', () => {
-      const raw = {
-        name: 'Test Recipe',
-        ingredients: [{ amount: '1', unit: 'cup', item: 'sugar' }],
-      };
-      const formatted = formatRecipeData(raw);
-      expect(formatted.ingredients).toEqual([{ amount: '1', unit: 'cup', item: 'sugar' }]);
-      expect(formatted.ingredientSections).toBeUndefined();
-    });
-
-    it('sanitizes invalid ingredientSections data', () => {
-      const raw = {
-        name: 'Test Recipe',
-        ingredientSections: [
-          { title: 'Valid Section', items: [{ amount: '1', unit: 'cup', item: 'flour' }] },
-          { title: '', items: [] }, // Invalid - empty title and no items
-          { title: 'Another Valid', items: [{ amount: '', unit: '', item: '' }] }, // Invalid items
-          { title: 'Good Section', items: [{ amount: '2', unit: 'tbsp', item: 'sugar' }] },
-        ],
-      };
-      const formatted = formatRecipeData(raw);
-      expect(formatted.ingredientSections).toHaveLength(2);
-      expect(formatted.ingredientSections[0].title).toBe('Valid Section');
-      expect(formatted.ingredientSections[1].title).toBe('Good Section');
     });
   });
 

@@ -67,11 +67,17 @@ jest.unstable_mockModule('src/js/services/meals/active-meal-service.js', () => (
 }));
 
 jest.unstable_mockModule('src/js/utils/recipes/recipe-data-utils.js', () => ({
-  getRecipeById: jest.fn(() => Promise.resolve(mockRecipeData)),
+  formatRecipeData: jest.fn((doc) => doc),
   getLocalizedCategoryName: jest.fn((cat) => cat),
   formatCookingTime: jest.fn((time) => `${time} mins`),
   getTimeClass: jest.fn(() => 'quick'),
   getDifficultyClass: jest.fn(() => 'easy'),
+}));
+
+jest.unstable_mockModule('src/js/services/recipes/recipe-service.js', () => ({
+  RecipeService: {
+    get: jest.fn(() => Promise.resolve(mockRecipeData)),
+  },
 }));
 
 jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => ({
