@@ -13,7 +13,6 @@
 import { enhanceFoodImage } from '../../../js/services/recipes/ai-enhancement-service.js';
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
-import { getImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';
 
@@ -337,7 +336,7 @@ class AiImageEnhanceModal extends HTMLElement {
     this._setStatus('שולח לשיפור בעזרת AI...');
 
     try {
-      const downloadUrl = await getImageUrl(this._image.full);
+      const downloadUrl = await RecipeImageService.getFullUrl(this._image);
       const response = await fetch(downloadUrl);
       if (!response.ok) throw new Error(`Failed to fetch image (${response.status})`);
       const sourceBlob = await response.blob();

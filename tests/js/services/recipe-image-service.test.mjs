@@ -411,4 +411,30 @@ describe('RecipeImageService', () => {
       expect(storageMocks.getFileUrl).not.toHaveBeenCalled();
     });
   });
+
+  describe('getFullUrl', () => {
+    it('resolves to StorageService.getFileUrl for image.full', async () => {
+      storageMocks.getFileUrl.mockResolvedValueOnce('https://storage/full');
+      const result = await RecipeImageService.getFullUrl({
+        full: 'img/recipes/full/cat/rid/img.jpg',
+      });
+      expect(storageMocks.getFileUrl).toHaveBeenCalledWith('img/recipes/full/cat/rid/img.jpg');
+      expect(result).toBe('https://storage/full');
+    });
+
+    it('throws if image.full is missing', async () => {
+      await expect(RecipeImageService.getFullUrl(null)).rejects.toThrow('image.full is required');
+      await expect(RecipeImageService.getFullUrl({})).rejects.toThrow('image.full is required');
+      await expect(RecipeImageService.getFullUrl({ full: '' })).rejects.toThrow(
+        'image.full is required',
+      );
+    });
+
+    it('propagates Storage errors', async () => {
+      storageMocks.getFileUrl.mockRejectedValueOnce(new Error('permission denied'));
+      await expect(
+        RecipeImageService.getFullUrl({ full: 'img/recipes/full/cat/rid/img.jpg' }),
+      ).rejects.toThrow('permission denied');
+    });
+  });
 });

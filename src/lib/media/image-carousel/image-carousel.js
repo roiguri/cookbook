@@ -1,5 +1,4 @@
 import { icons } from '../../../js/icons.js';
-import { getImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 
 class ImageCarousel extends HTMLElement {
@@ -86,8 +85,10 @@ class ImageCarousel extends HTMLElement {
             console.error('Error loading optimized image:', error);
           }
         } else if (typeof image === 'string' && image.startsWith('img/recipes/')) {
+          // Legacy data: a raw Storage path. Normalize to a typed image so
+          // the service surface keeps accepting only RecipeImage-shaped input.
           try {
-            src = await getImageUrl(image);
+            src = await RecipeImageService.getFullUrl({ full: image });
           } catch (error) {
             console.error('Error loading Firebase image path:', error);
           }

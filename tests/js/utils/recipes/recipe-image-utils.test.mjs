@@ -8,7 +8,6 @@ import '../../../common/mocks/firebase-service.mock.js';
 let validateImageFile,
   getImageStoragePath,
   getRecipeImages,
-  getImageUrl,
   getPlaceholderImageUrl,
   getPrimaryImage,
   addPendingImages,
@@ -60,7 +59,6 @@ describe('recipe-image-utils', () => {
     validateImageFile = utils.validateImageFile;
     getImageStoragePath = utils.getImageStoragePath;
     getRecipeImages = utils.getRecipeImages;
-    getImageUrl = utils.getImageUrl;
     getPlaceholderImageUrl = utils.getPlaceholderImageUrl;
     getPrimaryImage = utils.getPrimaryImage;
     addPendingImages = utils.addPendingImages;
@@ -114,14 +112,6 @@ describe('recipe-image-utils', () => {
     });
     it('returns [] for no images', () => {
       expect(getRecipeImages({}, 'public')).toEqual([]);
-    });
-  });
-
-  describe('getImageUrl', () => {
-    it('calls StorageService.getFileUrl', async () => {
-      getFileUrlMock.mockResolvedValue('url');
-      expect(await getImageUrl('path')).toBe('url');
-      expect(getFileUrlMock).toHaveBeenCalledWith('path');
     });
   });
 
