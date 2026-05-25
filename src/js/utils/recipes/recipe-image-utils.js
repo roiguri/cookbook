@@ -22,7 +22,6 @@
  *   - getPendingImages(recipeId): Get all pending images for a recipe.
  *
  * Approved Images:
- *   - setPrimaryImage(recipeId, imageId): Set the primary image for a recipe.
  *   - getRecipeImages(recipe, userRole): Get accessible images for a user role.
  *   - getPrimaryImage(recipe): Get the primary image object.
  *   - getPrimaryImageUrl(recipe, size): Get the download URL for the primary image (optimized) or placeholder.
@@ -123,19 +122,6 @@ export async function deleteImageFiles({ full }) {
     StorageService.deleteFile(originalOpt400).catch(() => {}),
     StorageService.deleteFile(originalOpt1080).catch(() => {}),
   ]);
-}
-
-/**
- * Sets the primary image for a recipe
- * @param {string} recipeId
- * @param {string} imageId
- * @returns {Promise<void>}
- */
-export async function setPrimaryImage(recipeId, imageId) {
-  const recipe = await getRecipeDoc(recipeId);
-  if (!recipe || !Array.isArray(recipe.images)) throw new Error('No images to update');
-  const images = recipe.images.map((img) => ({ ...img, isPrimary: img.id === imageId }));
-  await updateRecipeDoc(recipeId, { images });
 }
 
 // --- Retrieval ---

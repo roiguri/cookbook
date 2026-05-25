@@ -18,17 +18,12 @@ const storageMocks = {
   deleteFile: jest.fn(() => Promise.resolve()),
 };
 
-const imageUtilMocks = {
-  setPrimaryImage: jest.fn(() => Promise.resolve()),
-};
-
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: firestoreMocks,
 }));
 jest.unstable_mockModule('src/js/services/_firebase/storage-service.js', () => ({
   StorageService: storageMocks,
 }));
-jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => imageUtilMocks);
 
 beforeAll(() => {
   // jsdom doesn't ship `fetch`; the service calls it during the backup-fetch path.
@@ -41,21 +36,12 @@ beforeEach(async () => {
   Object.values(firestoreMocks).forEach((m) => m.mockReset?.());
   Object.values(storageMocks).forEach((m) => m.mockReset?.());
   storageMocks.deleteFile.mockImplementation(() => Promise.resolve());
-  Object.values(imageUtilMocks).forEach((m) => m.mockReset?.());
-  imageUtilMocks.setPrimaryImage.mockImplementation(() => Promise.resolve());
   global.fetch.mockReset();
 
   ({ RecipeImageService } = await import('src/js/services/recipes/recipe-image-service.js'));
 });
 
 describe('RecipeImageService', () => {
-  describe('setPrimaryImage', () => {
-    it('delegates to the recipe-image-utils helper', async () => {
-      await RecipeImageService.setPrimaryImage('recipe-x', 'img-1');
-      expect(imageUtilMocks.setPrimaryImage).toHaveBeenCalledWith('recipe-x', 'img-1');
-    });
-  });
-
   describe('replaceImage', () => {
     const newBlob = new Blob(['enhanced'], { type: 'image/jpeg' });
 
