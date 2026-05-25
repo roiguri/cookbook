@@ -21,7 +21,6 @@
  * Approved Images:
  *   - getRecipeImages(recipe, userRole): Get accessible images for a user role.
  *   - getPrimaryImage(recipe): Get the primary image object.
- *   - getImageUrl(storagePath): Get the download URL for a storage path.
  *   - getPlaceholderImageUrl(): Get the placeholder image URL.
  */
 
@@ -139,15 +138,6 @@ export function getRecipeImages(recipe, userRole) {
   };
   const allowed = ACCESS_LEVELS[userRole] || ['public'];
   return recipe.images.filter((img) => allowed.includes(img.access));
-}
-
-/**
- * Gets the download URL for a storage path
- * @param {string} storagePath
- * @returns {Promise<string>}
- */
-export async function getImageUrl(storagePath) {
-  return await StorageService.getFileUrl(storagePath);
 }
 
 /**

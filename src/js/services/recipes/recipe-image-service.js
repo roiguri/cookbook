@@ -34,6 +34,7 @@ async function fileExists(path) {
  *   - migrateFilesToCategory(recipeId, image, newCategory)
  *   - getOptimizedUrl(image, size)
  *   - getPrimaryUrl(recipe, size)
+ *   - getFullUrl(image)
  *
  * Image proposal/moderation lives in RecipeImageProposalService.
  * Primary-image selection and image-entry patches live on RecipeService.
@@ -276,6 +277,22 @@ export class RecipeImageService {
     const primary = getPrimaryImage(recipe);
     if (!primary) return null;
     return RecipeImageService.getOptimizedUrl(primary, size);
+  }
+
+  /**
+   * Resolve the download URL for an image's full-size original file.
+   * Takes a typed image (must have `.full`) rather than a raw Storage path
+   * so the service surface stays scoped to recipe-image objects (no
+   * generic storage-URL resolver leaks into call sites).
+   *
+   * @param {{ full: string }} image
+   * @returns {Promise<string>}
+   */
+  static async getFullUrl(image) {
+    if (!image || !image.full) {
+      throw new Error('RecipeImageService.getFullUrl: image.full is required');
+    }
+    return StorageService.getFileUrl(image.full);
   }
 }
 
