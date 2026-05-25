@@ -1,6 +1,7 @@
 // src/js/services/recipes/recipe-service.js
 
 import { FirestoreService } from '../_firebase/firestore-service.js';
+import { RecipeImageService } from './recipe-image-service.js';
 import {
   uploadAndBuildImageMetadata,
   deleteImageFiles,
@@ -27,6 +28,7 @@ import {
  *   - update(recipeId, { changes, images, imagesToDelete, mediaItemsOrdered, uploadedBy, approved })
  *   - delete(recipeId)
  *   - setPrimaryImage(recipeId, imageId)
+ *   - replaceImage(recipeId, imageId, blob, options)
  *
  * Image proposal/moderation (the pending-images workflow) lives in
  * RecipeImageProposalService.
@@ -403,6 +405,67 @@ export class RecipeService {
     }
     const images = recipe.images.map((img) => ({ ...img, isPrimary: img.id === imageId }));
     await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, { images });
+  }
+
+  /**
+   * Replace the bytes of an existing image on a recipe. Delegates Storage
+   * work (backup + overwrite + variant cleanup) to
+   * `RecipeImageService.replaceFiles`. Optionally patches the matching image
+   * entry inside `recipes/{id}.images[]` with caller-supplied fields
+   * (best-effort: the patch failure does NOT roll back the Storage write,
+   * since the bytes have already changed).
+   *
+   * @param {string} recipeId
+   * @param {string} imageId
+   * @param {Blob} blob - New image bytes.
+   * @param {Object} [options]
+   * @param {boolean} [options.keepOriginalBackup=true]
+   * @param {Object} [options.fieldUpdates] - Patch merged into the matching image entry.
+   * @returns {Promise<{ backupPath: string, backupCreated: boolean }>}
+   */
+  static async replaceImage(recipeId, imageId, blob, options = {}) {
+    if (!recipeId) throw new Error('RecipeService.replaceImage: recipeId is required');
+    if (!imageId) throw new Error('RecipeService.replaceImage: imageId is required');
+    if (!blob) throw new Error('RecipeService.replaceImage: blob is required');
+
+    const { keepOriginalBackup = true, fieldUpdates } = options;
+
+    const recipe = await FirestoreService.getDocument(RECIPES_COLLECTION, recipeId);
+    if (!recipe) {
+      throw new Error(`RecipeService.replaceImage: recipe ${recipeId} not found`);
+    }
+    const images = Array.isArray(recipe.images) ? recipe.images : [];
+    const image = images.find((img) => img.id === imageId);
+    if (!image) {
+      throw new Error(
+        `RecipeService.replaceImage: image ${imageId} not found on recipe ${recipeId}`,
+      );
+    }
+
+    const result = await RecipeImageService.replaceFiles(recipeId, image, blob, {
+      keepOriginalBackup,
+    });
+
+    if (fieldUpdates && Object.keys(fieldUpdates).length > 0) {
+      try {
+        const fresh = await FirestoreService.getDocument(RECIPES_COLLECTION, recipeId);
+        if (fresh && Array.isArray(fresh.images)) {
+          const updatedImages = fresh.images.map((img) =>
+            img.id === imageId ? { ...img, ...fieldUpdates } : img,
+          );
+          await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, {
+            images: updatedImages,
+          });
+        }
+      } catch (err) {
+        console.error(
+          `RecipeService.replaceImage: fieldUpdates patch failed for image ${imageId}:`,
+          err,
+        );
+      }
+    }
+
+    return result;
   }
 }
 
