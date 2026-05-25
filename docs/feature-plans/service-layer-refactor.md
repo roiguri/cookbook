@@ -52,69 +52,45 @@ src/js/utils/
 
 Reference only — `git log refactor/service-layer` is authoritative.
 
-| PR        | Scope                                                              |
-| --------- | ------------------------------------------------------------------ |
-| #197      | PR-A: `RecipeService` + `RecipeImageProposalService` API           |
-|           | PR-B/C/D: form-submit / delete / image-proposal migrations         |
-| #212      | PR-E: search bypasses → `RecipeService.list`                       |
-| #213      | PR-F: self-heal → `RecipeService.update` PATCH                     |
-| #214      | PR-G: page list-queries                                            |
-| #216      | Dead search-service removal                                        |
-| #218      | Phase 0: services restructured into by-domain folders              |
-| #219      | PR-H: AI image enhance + `RecipeImageService` introduced           |
-| #220      | PR-I: `UserService` API                                            |
-| #222–#226 | PR-J1–J4: user-doc callers routed through `UserService`            |
-| #227      | PR-L: `ActiveMealService` API                                      |
-| #228      | PR-M: active-meal callers migrated                                 |
-| #231      | Preview-modal approval → `RecipeService`                           |
-| #232      | PR-N: `FailedUrlExtractionService`                                 |
-| #233      | PR-O1: `UserService.listAvatarOptions` + component-storage cleanup |
+| PR        | Scope                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------- |
+| #197      | PR-A: `RecipeService` + `RecipeImageProposalService` API                                                |
+|           | PR-B/C/D: form-submit / delete / image-proposal migrations                                              |
+| #212      | PR-E: search bypasses → `RecipeService.list`                                                            |
+| #213      | PR-F: self-heal → `RecipeService.update` PATCH                                                          |
+| #214      | PR-G: page list-queries                                                                                 |
+| #216      | Dead search-service removal                                                                             |
+| #218      | Phase 0: services restructured into by-domain folders                                                   |
+| #219      | PR-H: AI image enhance + `RecipeImageService` introduced                                                |
+| #220      | PR-I: `UserService` API                                                                                 |
+| #222–#226 | PR-J1–J4: user-doc callers routed through `UserService`                                                 |
+| #227      | PR-L: `ActiveMealService` API                                                                           |
+| #228      | PR-M: active-meal callers migrated                                                                      |
+| #231      | Preview-modal approval → `RecipeService`                                                                |
+| #232      | PR-N: `FailedUrlExtractionService`                                                                      |
+| #233      | PR-O1: `UserService.listAvatarOptions` + component-storage cleanup                                      |
+| #237      | Infra: jest config ignores `.claude/worktrees/` for cross-worktree test discovery                       |
+| #236      | PR-Q1a-1: `setPrimaryImage` → `RecipeService` (utils + service old method removed)                      |
+| #238      | PR-Q1a-2: `replaceImage` → `RecipeService`; `RecipeImageService.replaceFiles` (Storage-only)            |
+| #239      | PR-Q1a-3: `uploadAndBuildImageMetadata` → `RecipeImageService.uploadFile`                               |
+| #240      | PR-Q1a-4: `RecipeImageService.deleteFiles`; `removeAllRecipeImages` inlined into `RecipeService.delete` |
+| #241      | PR-Q1a-5: `migrateImageToCategory` → `RecipeImageService.migrateFilesToCategory`                        |
+
+### Q1a end state
+
+- `RecipeImageService` is **Firestore-free**; 4 Storage methods only: `uploadFile`, `replaceFiles`, `deleteFiles`, `migrateFilesToCategory`.
+- `RecipeService` owns all writes to `recipes/{id}`, including the image-entry side of `replaceImage` and `setPrimaryImage`.
+- `recipe-service.js` no longer imports anything from `recipe-image-utils.js`.
+- `recipe-image-utils.js` retains: validation, path/id helpers, a private `deleteImageFiles` helper (used by `rejectPendingImageById` until PR-Q2 inlines both), pending-image flow (PR-Q2 scope), and read helpers (PR-Q1b scope).
+
+### Naming deviations from the original plan
+
+- The original plan listed `uploadFiles(recipeId, category, file, uploadedBy, isPrimary = false)`. Shipped as **`uploadFile`** (singular) with the positional+options shape **`uploadFile(recipeId, category, file, { isPrimary, uploadedBy })`** — `uploadFile` writes exactly one file (Storage Resize extension regenerates variants async); plural would have misled. Singular matches the sibling-method shape (`replaceFiles(recipeId, image, blob, options)`).
+- `migrateFilesToCategory` shipped with signature `(recipeId, image, newCategory)` — drops the original plan's `oldCategory` parameter (was only used in an error log).
 
 ## Remaining work — image/media + ESLint enforcement
 
 All sub-PRs land directly on `refactor/service-layer`. One at a time.
-
----
-
-### PR-Q1a — Recipe-image writes leave utils; doc-owner split
-
-**Goal**: clean separation between recipe-doc ops and image-storage ops. After this PR:
-
-- `RecipeImageService` is **Firestore-free** for write ops: only Storage primitives.
-- All writes to `recipes/{id}` go through `RecipeService` (preserves "one owner per doc").
-- Five write-side functions in `recipe-image-utils.js` are gone — moved to `RecipeImageService` or replaced by `RecipeService` methods.
-
-#### `RecipeImageService` write API (no Firestore)
-
-| Method                                                                 | Purpose                          |
-| ---------------------------------------------------------------------- | -------------------------------- |
-| `uploadFiles(recipeId, category, file, uploadedBy, isPrimary = false)` | Upload + return metadata         |
-| `deleteFiles(image)`                                                   | Delete all files for one image   |
-| `migrateFilesToCategory(recipeId, image, newCategory)`                 | Move files when category changes |
-| `replaceFiles(recipeId, image, blob, options = {})`                    | Overwrite bytes + manage backup  |
-
-URL-read methods are added in PR-Q1b — keep this PR scoped to write ops only.
-
-#### `RecipeService` gains (doc-aware image ops)
-
-| Method                                                | Purpose                                                |
-| ----------------------------------------------------- | ------------------------------------------------------ |
-| `setPrimaryImage(recipeId, imageId)`                  | Pure doc update on `images[].isPrimary`                |
-| `replaceImage(recipeId, imageId, blob, options = {})` | Composes `RecipeImageService.replaceFiles` + doc patch |
-
-Individual image removal continues to flow through `RecipeService.update({ imagesToDelete })`. The "remove all images for a recipe" sweep lives inside `RecipeService.delete` — no public `deleteAllForRecipe` method.
-
-#### Caller migrations
-
-- `image-approval-multi.js`: `RecipeImageService.setPrimaryImage` → `RecipeService.setPrimaryImage` (×4)
-- `ai-image-enhance-modal.js`: `RecipeImageService.replaceImage` → `RecipeService.replaceImage` (×1)
-- `recipe-service.js`: internal calls switch from utils to `RecipeImageService.{uploadFiles, deleteFiles, migrateFilesToCategory}`
-
-#### Acceptance
-
-- 5 write exports gone from `recipe-image-utils.js`.
-- `RecipeImageService` has zero `FirestoreService.*` calls in its write surface.
-- All gates green. Smoke: propose / edit (with category change) / delete / image-approval / AI enhance.
 
 ---
 
