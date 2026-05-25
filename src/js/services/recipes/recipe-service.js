@@ -1,23 +1,18 @@
 // src/js/services/recipes/recipe-service.js
 
 import { FirestoreService } from '../_firebase/firestore-service.js';
-import {
-  uploadAndBuildImageMetadata,
-  deleteImageFiles,
-  migrateImageToCategory,
-  removeAllRecipeImages,
-} from '../../utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from './recipe-image-service.js';
 import {
   uploadMediaInstructionFile,
   removeAllMediaInstructions,
 } from '../../utils/recipes/recipe-media-utils.js';
 
 /**
- * RecipeService — Recipe-Aware Service Layer
+ * RecipeService — Recipe Document Owner
  *
- * Single entry point for all recipe owner CRUD. Internalizes image
- * upload/delete/migration and media-instruction upload so callers no longer
- * orchestrate Storage + Firestore manually.
+ * Single entry point for all recipe owner CRUD. Owns every read and
+ * write of `recipes/{id}` and composes storage-only operations from
+ * RecipeImageService when a flow needs both bytes and document state.
  *
  * Public API:
  *   - get(recipeId)
@@ -26,6 +21,8 @@ import {
  *   - create({ recipeData, imagesToUpload, mediaItemsOrdered, uploadedBy })
  *   - update(recipeId, { changes, images, imagesToDelete, mediaItemsOrdered, uploadedBy, approved })
  *   - delete(recipeId)
+ *   - setPrimaryImage(recipeId, imageId)
+ *   - replaceImage(recipeId, imageId, blob, options)
  *
  * Image proposal/moderation (the pending-images workflow) lives in
  * RecipeImageProposalService.
@@ -38,13 +35,13 @@ async function uploadImagesAtomic(recipeId, category, imagesToUpload, uploadedBy
   // rejects — Promise.all leaves us blind to which uploads actually landed.
   const settled = await Promise.allSettled(
     imagesToUpload.map(({ file, isPrimary }) =>
-      uploadAndBuildImageMetadata({
+      RecipeImageService.uploadFiles(
         recipeId,
         category,
         file,
-        isPrimary: !!isPrimary,
-        uploadedBy: uploadedBy || 'anonymous',
-      }),
+        uploadedBy || 'anonymous',
+        !!isPrimary,
+      ),
     ),
   );
   const uploaded = settled.filter((s) => s.status === 'fulfilled').map((s) => s.value);
@@ -52,7 +49,7 @@ async function uploadImagesAtomic(recipeId, category, imagesToUpload, uploadedBy
   if (firstRejection) {
     await Promise.all(
       uploaded.map((img) =>
-        deleteImageFiles(img).catch((e) =>
+        RecipeImageService.deleteFiles(img).catch((e) =>
           console.warn('Failed to cleanup partially-uploaded image:', e),
         ),
       ),
@@ -224,7 +221,7 @@ export class RecipeService {
     } catch (error) {
       await Promise.all(
         uploadedImages.map((img) =>
-          deleteImageFiles(img).catch((e) =>
+          RecipeImageService.deleteFiles(img).catch((e) =>
             console.warn('Failed to cleanup uploaded image on error:', e),
           ),
         ),
@@ -282,7 +279,7 @@ export class RecipeService {
     if (Array.isArray(imagesToDelete)) {
       for (const img of imagesToDelete) {
         if (img && img.full) {
-          await deleteImageFiles(img).catch((e) =>
+          await RecipeImageService.deleteFiles(img).catch((e) =>
             console.warn(`Failed to delete removed image ${img.id}:`, e),
           );
         }
@@ -297,13 +294,13 @@ export class RecipeService {
       try {
         for (const img of images) {
           if (img.source === 'new' && img.file) {
-            const meta = await uploadAndBuildImageMetadata({
+            const meta = await RecipeImageService.uploadFiles(
               recipeId,
-              category: newCategory,
-              file: img.file,
-              isPrimary: !!img.isPrimary,
-              uploadedBy: img.uploadedBy || uploadedBy || 'anonymous',
-            });
+              newCategory,
+              img.file,
+              img.uploadedBy || uploadedBy || 'anonymous',
+              !!img.isPrimary,
+            );
             uploadedThisCall.push(meta);
             newImages.push(meta);
           } else if (img.source === 'existing') {
@@ -315,10 +312,9 @@ export class RecipeService {
             );
             if (categoryChanged) {
               try {
-                existingImage = await migrateImageToCategory(
-                  existingImage,
+                existingImage = await RecipeImageService.migrateFilesToCategory(
                   recipeId,
-                  originalRecipe.category,
+                  existingImage,
                   newCategory,
                 );
               } catch (error) {
@@ -331,7 +327,7 @@ export class RecipeService {
       } catch (error) {
         await Promise.all(
           uploadedThisCall.map((img) =>
-            deleteImageFiles(img).catch((e) =>
+            RecipeImageService.deleteFiles(img).catch((e) =>
               console.warn('Failed to cleanup uploaded image on update error:', e),
             ),
           ),
@@ -375,13 +371,124 @@ export class RecipeService {
       return;
     }
 
-    await removeAllRecipeImages(recipeId);
+    const fileDeletions = [];
+    if (Array.isArray(recipe.images)) {
+      for (const image of recipe.images) {
+        if (image?.full) {
+          fileDeletions.push(
+            RecipeImageService.deleteFiles(image).catch((e) =>
+              console.warn(`Failed to delete files for image ${image.id}:`, e),
+            ),
+          );
+        }
+      }
+    }
+    if (Array.isArray(recipe.pendingImages)) {
+      for (const image of recipe.pendingImages) {
+        if (image?.full) {
+          fileDeletions.push(
+            RecipeImageService.deleteFiles(image).catch((e) =>
+              console.warn(`Failed to delete files for pending image ${image.id}:`, e),
+            ),
+          );
+        }
+      }
+    }
+    await Promise.all(fileDeletions);
 
     if (Array.isArray(recipe.mediaInstructions) && recipe.mediaInstructions.length > 0) {
       await removeAllMediaInstructions(recipe.mediaInstructions);
     }
 
     await FirestoreService.deleteDocument(RECIPES_COLLECTION, recipeId);
+  }
+
+  /**
+   * Mark a single image on a recipe as primary; clears `isPrimary` on
+   * the rest. Throws if the recipe has no images.
+   *
+   * @param {string} recipeId
+   * @param {string} imageId
+   * @returns {Promise<void>}
+   */
+  static async setPrimaryImage(recipeId, imageId) {
+    if (!recipeId) throw new Error('RecipeService.setPrimaryImage: recipeId is required');
+    if (!imageId) throw new Error('RecipeService.setPrimaryImage: imageId is required');
+
+    const recipe = await FirestoreService.getDocument(RECIPES_COLLECTION, recipeId);
+    if (!recipe || !Array.isArray(recipe.images)) {
+      throw new Error('RecipeService.setPrimaryImage: no images to update');
+    }
+    const images = recipe.images.map((img) => ({ ...img, isPrimary: img.id === imageId }));
+    await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, { images });
+  }
+
+  /**
+   * Replace an existing image's bytes via RecipeImageService and
+   * (optionally) patch the matching image entry on the recipe doc.
+   *
+   * Steps:
+   *   1. Look up the image entry on the recipe. Throws if recipe or
+   *      image not found.
+   *   2. Delegate the Storage work to RecipeImageService.replaceFiles
+   *      (overwrite + backup management + stale-variant cleanup).
+   *   3. If `fieldUpdates` is provided: best-effort merge into the
+   *      matching image entry. The image bytes already changed; a
+   *      metadata patch failure is logged, not thrown.
+   *
+   * @param {string} recipeId
+   * @param {string} imageId
+   * @param {Blob} blob
+   * @param {Object} [options]
+   * @param {boolean} [options.keepOriginalBackup=true]
+   * @param {Object} [options.fieldUpdates] - Patch merged into the matching image entry.
+   * @returns {Promise<{ backupPath: string, backupCreated: boolean }>}
+   */
+  static async replaceImage(recipeId, imageId, blob, options = {}) {
+    if (!recipeId) throw new Error('RecipeService.replaceImage: recipeId is required');
+    if (!imageId) throw new Error('RecipeService.replaceImage: imageId is required');
+    if (!blob) throw new Error('RecipeService.replaceImage: blob is required');
+
+    const { keepOriginalBackup = true, fieldUpdates } = options;
+
+    const recipe = await FirestoreService.getDocument(RECIPES_COLLECTION, recipeId);
+    if (!recipe) {
+      throw new Error(`RecipeService.replaceImage: recipe ${recipeId} not found`);
+    }
+    const images = Array.isArray(recipe.images) ? recipe.images : [];
+    const image = images.find((img) => img.id === imageId);
+    if (!image) {
+      throw new Error(
+        `RecipeService.replaceImage: image ${imageId} not found on recipe ${recipeId}`,
+      );
+    }
+
+    const result = await RecipeImageService.replaceFiles(recipeId, image, blob, {
+      keepOriginalBackup,
+    });
+
+    if (fieldUpdates && Object.keys(fieldUpdates).length > 0) {
+      try {
+        const fresh = await FirestoreService.getDocument(RECIPES_COLLECTION, recipeId);
+        if (fresh && Array.isArray(fresh.images)) {
+          const updatedImages = fresh.images.map((img) =>
+            img.id === imageId ? { ...img, ...fieldUpdates } : img,
+          );
+          await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, {
+            images: updatedImages,
+          });
+        }
+      } catch (err) {
+        // The image bytes have already changed; failing the whole op
+        // because a metadata patch didn't land would be misleading.
+        console.error(
+          `RecipeService.replaceImage: fieldUpdates patch failed for image ${imageId}:`,
+          err,
+        );
+      }
+    }
+
+    return result;
   }
 }
 

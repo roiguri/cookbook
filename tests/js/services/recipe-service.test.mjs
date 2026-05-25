@@ -16,11 +16,13 @@ const firestoreMocks = {
   generateId: jest.fn(() => 'recipe-123'),
 };
 
-const imageUtilMocks = {
-  uploadAndBuildImageMetadata: jest.fn(),
-  deleteImageFiles: jest.fn(() => Promise.resolve()),
-  migrateImageToCategory: jest.fn(),
-  removeAllRecipeImages: jest.fn(() => Promise.resolve()),
+const recipeImageServiceMocks = {
+  uploadFiles: jest.fn(),
+  deleteFiles: jest.fn(() => Promise.resolve()),
+  migrateFilesToCategory: jest.fn(),
+  replaceFiles: jest.fn(() =>
+    Promise.resolve({ backupPath: 'p_original.jpg', backupCreated: true }),
+  ),
 };
 
 const mediaUtilMocks = {
@@ -31,7 +33,10 @@ const mediaUtilMocks = {
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: firestoreMocks,
 }));
-jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => imageUtilMocks);
+jest.unstable_mockModule('src/js/services/recipes/recipe-image-service.js', () => ({
+  RecipeImageService: recipeImageServiceMocks,
+  recipeImageService: recipeImageServiceMocks,
+}));
 jest.unstable_mockModule('src/js/utils/recipes/recipe-media-utils.js', () => mediaUtilMocks);
 
 function makeFile(name = 'a.jpg', type = 'image/jpeg') {
@@ -42,9 +47,11 @@ beforeEach(async () => {
   jest.resetModules();
   Object.values(firestoreMocks).forEach((m) => m.mockReset?.());
   firestoreMocks.generateId.mockImplementation(() => 'recipe-123');
-  Object.values(imageUtilMocks).forEach((m) => m.mockReset?.());
-  imageUtilMocks.deleteImageFiles.mockImplementation(() => Promise.resolve());
-  imageUtilMocks.removeAllRecipeImages.mockImplementation(() => Promise.resolve());
+  Object.values(recipeImageServiceMocks).forEach((m) => m.mockReset?.());
+  recipeImageServiceMocks.deleteFiles.mockImplementation(() => Promise.resolve());
+  recipeImageServiceMocks.replaceFiles.mockImplementation(() =>
+    Promise.resolve({ backupPath: 'p_original.jpg', backupCreated: true }),
+  );
   Object.values(mediaUtilMocks).forEach((m) => m.mockReset?.());
   mediaUtilMocks.removeAllMediaInstructions.mockImplementation(() =>
     Promise.resolve({ success: 0, failed: 0, errors: [] }),
@@ -77,7 +84,7 @@ describe('RecipeService', () => {
 
   describe('create', () => {
     it('uploads images, writes doc, returns id and media result', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata
+      recipeImageServiceMocks.uploadFiles
         .mockResolvedValueOnce({ id: 'img-1', full: 'p/1.jpg' })
         .mockResolvedValueOnce({ id: 'img-2', full: 'p/2.jpg' });
       firestoreMocks.setDocument.mockResolvedValue();
@@ -100,7 +107,15 @@ describe('RecipeService', () => {
         successCount: 0,
         failedCount: 0,
       });
-      expect(imageUtilMocks.uploadAndBuildImageMetadata).toHaveBeenCalledTimes(2);
+      expect(recipeImageServiceMocks.uploadFiles).toHaveBeenCalledTimes(2);
+      expect(recipeImageServiceMocks.uploadFiles).toHaveBeenNthCalledWith(
+        1,
+        'recipe-123',
+        'desserts',
+        expect.any(File),
+        'user-1',
+        true,
+      );
       expect(firestoreMocks.setDocument).toHaveBeenCalledWith(
         'recipes',
         'recipe-123',
@@ -128,7 +143,7 @@ describe('RecipeService', () => {
     });
 
     it('cleans up uploaded images if a later image fails', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata
+      recipeImageServiceMocks.uploadFiles
         .mockResolvedValueOnce({ id: 'img-1', full: 'p/1.jpg' })
         .mockRejectedValueOnce(new Error('upload failed'));
 
@@ -143,7 +158,7 @@ describe('RecipeService', () => {
         }),
       ).rejects.toThrow('upload failed');
 
-      expect(imageUtilMocks.deleteImageFiles).toHaveBeenCalledWith({
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
         id: 'img-1',
         full: 'p/1.jpg',
       });
@@ -231,7 +246,7 @@ describe('RecipeService', () => {
     });
 
     it('deletes removed images, uploads new ones, keeps existing', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata.mockResolvedValueOnce({
+      recipeImageServiceMocks.uploadFiles.mockResolvedValueOnce({
         id: 'img-new',
         full: 'p/new.jpg',
       });
@@ -247,11 +262,11 @@ describe('RecipeService', () => {
         approved: true,
       });
 
-      expect(imageUtilMocks.deleteImageFiles).toHaveBeenCalledWith({
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
         id: 'img-rm',
         full: 'p/rm.jpg',
       });
-      expect(imageUtilMocks.uploadAndBuildImageMetadata).toHaveBeenCalledTimes(1);
+      expect(recipeImageServiceMocks.uploadFiles).toHaveBeenCalledTimes(1);
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
       expect(payload.approved).toBe(true);
       expect(payload.images.map((i) => i.id)).toEqual(['img-old', 'img-new']);
@@ -269,7 +284,7 @@ describe('RecipeService', () => {
     });
 
     it('migrates existing images on category change', async () => {
-      imageUtilMocks.migrateImageToCategory.mockResolvedValueOnce({
+      recipeImageServiceMocks.migrateFilesToCategory.mockResolvedValueOnce({
         id: 'img-keep',
         full: 'img/recipes/full/mains/recipe-9/keep.jpg',
       });
@@ -286,16 +301,17 @@ describe('RecipeService', () => {
         uploadedBy: 'user-1',
       });
 
-      expect(imageUtilMocks.migrateImageToCategory).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'img-keep' }),
+      expect(recipeImageServiceMocks.migrateFilesToCategory).toHaveBeenCalledWith(
         'recipe-9',
-        'desserts',
+        expect.objectContaining({ id: 'img-keep' }),
         'mains',
       );
     });
 
     it('collects migration warnings when migration fails', async () => {
-      imageUtilMocks.migrateImageToCategory.mockRejectedValueOnce(new Error('migrate failed'));
+      recipeImageServiceMocks.migrateFilesToCategory.mockRejectedValueOnce(
+        new Error('migrate failed'),
+      );
 
       const result = await RecipeService.update('recipe-9', {
         changes: { category: 'mains' },
@@ -309,7 +325,7 @@ describe('RecipeService', () => {
     });
 
     it('rolls back uploaded images when an image upload throws mid-loop', async () => {
-      imageUtilMocks.uploadAndBuildImageMetadata
+      recipeImageServiceMocks.uploadFiles
         .mockResolvedValueOnce({ id: 'new-1', full: 'p/n1.jpg' })
         .mockRejectedValueOnce(new Error('upload boom'));
 
@@ -324,7 +340,7 @@ describe('RecipeService', () => {
         }),
       ).rejects.toThrow('upload boom');
 
-      expect(imageUtilMocks.deleteImageFiles).toHaveBeenCalledWith({
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
         id: 'new-1',
         full: 'p/n1.jpg',
       });
@@ -343,13 +359,31 @@ describe('RecipeService', () => {
   });
 
   describe('delete', () => {
-    it('removes images, media, and the document', async () => {
+    it('deletes image files, pending image files, media, and the document', async () => {
       firestoreMocks.getDocument.mockResolvedValue({
         id: 'recipe-x',
+        images: [
+          { id: 'a', full: 'img/a.jpg' },
+          { id: 'b', full: 'img/b.jpg' },
+        ],
+        pendingImages: [{ id: 'p1', full: 'img/p1.jpg' }],
         mediaInstructions: [{ path: 'mp/1' }],
       });
+
       await RecipeService.delete('recipe-x');
-      expect(imageUtilMocks.removeAllRecipeImages).toHaveBeenCalledWith('recipe-x');
+
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
+        id: 'a',
+        full: 'img/a.jpg',
+      });
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
+        id: 'b',
+        full: 'img/b.jpg',
+      });
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
+        id: 'p1',
+        full: 'img/p1.jpg',
+      });
       expect(mediaUtilMocks.removeAllMediaInstructions).toHaveBeenCalledWith([{ path: 'mp/1' }]);
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-x');
     });
@@ -358,7 +392,7 @@ describe('RecipeService', () => {
       firestoreMocks.getDocument.mockResolvedValue(null);
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       await RecipeService.delete('missing');
-      expect(imageUtilMocks.removeAllRecipeImages).not.toHaveBeenCalled();
+      expect(recipeImageServiceMocks.deleteFiles).not.toHaveBeenCalled();
       expect(firestoreMocks.deleteDocument).not.toHaveBeenCalled();
       warnSpy.mockRestore();
     });
@@ -368,6 +402,139 @@ describe('RecipeService', () => {
       await RecipeService.delete('recipe-y');
       expect(mediaUtilMocks.removeAllMediaInstructions).not.toHaveBeenCalled();
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-y');
+    });
+  });
+
+  describe('setPrimaryImage', () => {
+    it('updates isPrimary on the matching image and clears the rest', async () => {
+      firestoreMocks.getDocument.mockResolvedValue({
+        id: 'recipe-9',
+        images: [
+          { id: 'a', isPrimary: true },
+          { id: 'b', isPrimary: false },
+        ],
+      });
+      firestoreMocks.updateDocument.mockResolvedValue();
+
+      await RecipeService.setPrimaryImage('recipe-9', 'b');
+
+      expect(firestoreMocks.updateDocument).toHaveBeenCalledWith('recipes', 'recipe-9', {
+        images: [
+          { id: 'a', isPrimary: false },
+          { id: 'b', isPrimary: true },
+        ],
+      });
+    });
+
+    it('throws if the recipe has no images', async () => {
+      firestoreMocks.getDocument.mockResolvedValue({ id: 'recipe-9' });
+      await expect(RecipeService.setPrimaryImage('recipe-9', 'b')).rejects.toThrow(
+        'no images to update',
+      );
+    });
+
+    it('throws on missing recipeId / imageId', async () => {
+      await expect(RecipeService.setPrimaryImage('', 'b')).rejects.toThrow('recipeId is required');
+      await expect(RecipeService.setPrimaryImage('r', '')).rejects.toThrow('imageId is required');
+    });
+  });
+
+  describe('replaceImage', () => {
+    const newBlob = new Blob(['enhanced'], { type: 'image/jpeg' });
+
+    function recipeWithImages() {
+      return {
+        id: 'recipe-9',
+        images: [
+          { id: 'img-1', full: 'img/recipes/full/desserts/recipe-9/img-1.jpg', isPrimary: true },
+          { id: 'img-2', full: 'img/recipes/full/desserts/recipe-9/img-2.jpg' },
+        ],
+      };
+    }
+
+    it('throws on missing recipeId / imageId / blob', async () => {
+      await expect(RecipeService.replaceImage('', 'i', newBlob)).rejects.toThrow(
+        'recipeId is required',
+      );
+      await expect(RecipeService.replaceImage('r', '', newBlob)).rejects.toThrow(
+        'imageId is required',
+      );
+      await expect(RecipeService.replaceImage('r', 'i', null)).rejects.toThrow('blob is required');
+    });
+
+    it('throws when the recipe is not found', async () => {
+      firestoreMocks.getDocument.mockResolvedValue(null);
+      await expect(RecipeService.replaceImage('missing', 'img-1', newBlob)).rejects.toThrow(
+        'recipe missing not found',
+      );
+    });
+
+    it('throws when the image id is not on the recipe', async () => {
+      firestoreMocks.getDocument.mockResolvedValue(recipeWithImages());
+      await expect(RecipeService.replaceImage('recipe-9', 'no-such-img', newBlob)).rejects.toThrow(
+        'image no-such-img not found',
+      );
+    });
+
+    it('delegates bytes to RecipeImageService.replaceFiles', async () => {
+      firestoreMocks.getDocument.mockResolvedValue(recipeWithImages());
+
+      const result = await RecipeService.replaceImage('recipe-9', 'img-1', newBlob, {
+        keepOriginalBackup: false,
+      });
+
+      expect(recipeImageServiceMocks.replaceFiles).toHaveBeenCalledWith(
+        'recipe-9',
+        expect.objectContaining({ id: 'img-1' }),
+        newBlob,
+        { keepOriginalBackup: false },
+      );
+      expect(result).toMatchObject({ backupCreated: true });
+    });
+
+    it('applies fieldUpdates to the matching image entry after replace', async () => {
+      // 1st getDocument = lookup; 2nd = fresh re-read before patch.
+      firestoreMocks.getDocument
+        .mockResolvedValueOnce(recipeWithImages())
+        .mockResolvedValueOnce(recipeWithImages());
+
+      await RecipeService.replaceImage('recipe-9', 'img-1', newBlob, {
+        fieldUpdates: { aiEnhanced: true },
+      });
+
+      const updateCall = firestoreMocks.updateDocument.mock.calls[0];
+      expect(updateCall[0]).toBe('recipes');
+      expect(updateCall[1]).toBe('recipe-9');
+      const updatedImages = updateCall[2].images;
+      expect(updatedImages.find((i) => i.id === 'img-1').aiEnhanced).toBe(true);
+      expect(updatedImages.find((i) => i.id === 'img-2').aiEnhanced).toBeUndefined();
+    });
+
+    it('skips the doc patch when fieldUpdates is empty or missing', async () => {
+      firestoreMocks.getDocument.mockResolvedValue(recipeWithImages());
+
+      await RecipeService.replaceImage('recipe-9', 'img-1', newBlob);
+      expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
+
+      await RecipeService.replaceImage('recipe-9', 'img-1', newBlob, {
+        fieldUpdates: {},
+      });
+      expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
+    });
+
+    it('treats a fieldUpdates write failure as best-effort (logs, does not throw)', async () => {
+      firestoreMocks.getDocument.mockResolvedValue(recipeWithImages());
+      firestoreMocks.updateDocument.mockRejectedValue(new Error('boom'));
+      const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(
+        RecipeService.replaceImage('recipe-9', 'img-1', newBlob, {
+          fieldUpdates: { aiEnhanced: true },
+        }),
+      ).resolves.toMatchObject({ backupCreated: true });
+
+      expect(errSpy).toHaveBeenCalled();
+      errSpy.mockRestore();
     });
   });
 });

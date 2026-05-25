@@ -11,7 +11,7 @@
  */
 
 import { enhanceFoodImage } from '../../../js/services/recipes/ai-enhancement-service.js';
-import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { getImageUrl, getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';
@@ -399,7 +399,7 @@ class AiImageEnhanceModal extends HTMLElement {
     this._setStatus('שומר את התמונה החדשה...');
 
     try {
-      const { backupPath, backupCreated } = await RecipeImageService.replaceImage(
+      const { backupPath, backupCreated } = await RecipeService.replaceImage(
         this._recipe.id,
         this._image.id,
         this._enhancedResult.blob,

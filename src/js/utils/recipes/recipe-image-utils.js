@@ -12,9 +12,6 @@
  *   - getImageStoragePath(recipeId, category, fileName, type): Get storage path for image.
  *   - generateImageId(): Generate a unique image ID.
  *
- * Image File Deletion:
- *   - deleteImageFiles(image): Delete all storage files for an image (full + WebP variants).
- *
  * Multi Pending Images:
  *   - addPendingImages(recipeId, files, category, uploader): Upload multiple pending images.
  *   - approvePendingImageById(recipeId, pendingImageId): Approve a specific pending image by ID.
@@ -22,16 +19,12 @@
  *   - getPendingImages(recipeId): Get all pending images for a recipe.
  *
  * Approved Images:
- *   - setPrimaryImage(recipeId, imageId): Set the primary image for a recipe.
  *   - getRecipeImages(recipe, userRole): Get accessible images for a user role.
  *   - getPrimaryImage(recipe): Get the primary image object.
  *   - getPrimaryImageUrl(recipe, size): Get the download URL for the primary image (optimized) or placeholder.
  *   - getImageUrl(storagePath): Get the download URL for a storage path.
  *   - getOptimizedImageUrl(image, size): Get the download URL for an optimized version of an image with fallback.
  *   - getPlaceholderImageUrl(): Get the placeholder image URL.
- *   - removeAllRecipeImages(recipeId): Remove all images (approved and pending) for a recipe.
- *   - migrateImageToCategory(image, recipeId, oldCategory, newCategory): Migrate image to new category path.
- *   - uploadAndBuildImageMetadata({ recipeId, category, file, isPrimary, uploadedBy }): Upload and return metadata for an image.
  */
 
 /**
@@ -100,19 +93,15 @@ export function generateImageId() {
   return 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-// --- Image File Deletion ---
-/**
- * Deletes all storage files for an image: full original and WebP variants.
- * The full-size deletion propagates errors; variant deletions are best-effort.
- * @param {Object} image - Image object with `full` path
- * @returns {Promise<void>}
- */
-export async function deleteImageFiles({ full }) {
+// --- Internal: Image File Deletion ---
+// Storage-only delete kept here to support the proposal helpers below
+// (rejectPendingImageById). NOT exported — public storage-side image
+// ops live on RecipeImageService.deleteFiles. Will be inlined into
+// RecipeImageProposalService along with the proposal helpers in PR-Q2.
+async function deleteImageFiles({ full }) {
   const optimized400 = full.replace(/\.[^.]+$/, '_400x400.webp');
   const optimized1080 = full.replace(/\.[^.]+$/, '_1080x1080.webp');
   const originalBackup = full.replace(/(\.[^.]+)$/, '_original$1');
-  // The Storage Resize extension also generates WebP variants for the
-  // `_original` backup file itself, so those need explicit cleanup too.
   const originalOpt400 = originalBackup.replace(/\.[^.]+$/, '_400x400.webp');
   const originalOpt1080 = originalBackup.replace(/\.[^.]+$/, '_1080x1080.webp');
   await StorageService.deleteFile(full);
@@ -123,19 +112,6 @@ export async function deleteImageFiles({ full }) {
     StorageService.deleteFile(originalOpt400).catch(() => {}),
     StorageService.deleteFile(originalOpt1080).catch(() => {}),
   ]);
-}
-
-/**
- * Sets the primary image for a recipe
- * @param {string} recipeId
- * @param {string} imageId
- * @returns {Promise<void>}
- */
-export async function setPrimaryImage(recipeId, imageId) {
-  const recipe = await getRecipeDoc(recipeId);
-  if (!recipe || !Array.isArray(recipe.images)) throw new Error('No images to update');
-  const images = recipe.images.map((img) => ({ ...img, isPrimary: img.id === imageId }));
-  await updateRecipeDoc(recipeId, { images });
 }
 
 // --- Retrieval ---
@@ -228,153 +204,6 @@ export async function getPrimaryImageUrl(recipe, size = '400x400') {
     return await getOptimizedImageUrl(primary, size);
   }
   return getPlaceholderImageUrl();
-}
-
-/**
- * Removes all images (approved and pending) for a recipe
- * @param {string} recipeId
- * @returns {Promise<void>}
- */
-export async function removeAllRecipeImages(recipeId) {
-  const recipe = await getRecipeDoc(recipeId);
-  if (!recipe) {
-    console.warn('Recipe not found for image removal:', recipeId);
-    return;
-  }
-  const deletePromises = [];
-  if (recipe.images && Array.isArray(recipe.images)) {
-    recipe.images.forEach((image) => {
-      if (image.full)
-        deletePromises.push(
-          deleteImageFiles(image).catch((err) =>
-            console.warn(`Failed to delete files for image ${image.id}:`, err),
-          ),
-        );
-    });
-  }
-  if (recipe.pendingImages && Array.isArray(recipe.pendingImages)) {
-    recipe.pendingImages.forEach((image) => {
-      if (image.full)
-        deletePromises.push(
-          deleteImageFiles(image).catch((err) =>
-            console.warn(`Failed to delete files for pending image ${image.id}:`, err),
-          ),
-        );
-    });
-  }
-  await Promise.all(deletePromises);
-  // Remove images and pendingImages from Firestore
-  await updateRecipeDoc(recipeId, { images: [], pendingImages: [] });
-}
-
-// TODO: Consider migrating images to be category agnostic
-/**
- * Migrates an image from old category path to new category path
- * @param {RecipeImage} image - Image object with old category paths
- * @param {string} recipeId
- * @param {string} oldCategory
- * @param {string} newCategory
- * @returns {Promise<RecipeImage>} Updated image object with new paths
- */
-export async function migrateImageToCategory(image, recipeId, oldCategory, newCategory) {
-  if (!image || !image.full) {
-    throw new Error('Invalid image object for migration');
-  }
-
-  try {
-    const fileName = image.full.split('/').pop();
-    const newFullPath = getImageStoragePath(recipeId, newCategory, fileName, 'full');
-
-    const fullUrl = await StorageService.getFileUrl(image.full);
-    const fullResponse = await fetch(fullUrl);
-
-    if (!fullResponse.ok) {
-      throw new Error(`Failed to fetch images: full=${fullResponse.status}`);
-    }
-
-    const fullBlob = await fullResponse.blob();
-    await StorageService.uploadFile(fullBlob, newFullPath);
-    await StorageService.deleteFile(image.full);
-
-    // The new full upload triggers the Storage Resize extension to regenerate
-    // WebP variants at the new path, so the old variants just need to be
-    // deleted. We don't conditionally check existence — deleteFile is best
-    // effort and harmless if the file is missing.
-    const oldOpt400 = image.full.replace(/\.[^.]+$/, '_400x400.webp');
-    const oldOpt1080 = image.full.replace(/\.[^.]+$/, '_1080x1080.webp');
-    await Promise.all([
-      StorageService.deleteFile(oldOpt400).catch(() => {}),
-      StorageService.deleteFile(oldOpt1080).catch(() => {}),
-    ]);
-
-    // The AI-enhancement `_original` backup is NOT auto-generated, so it must
-    // be actively copied to the new path (best effort — most images won't have
-    // one). Its WebP variants ARE auto-generated by the extension, so the old
-    // ones at the source path need explicit cleanup just like the full's.
-    const oldOriginal = image.full.replace(/(\.[^.]+)$/, '_original$1');
-    const newOriginal = newFullPath.replace(/(\.[^.]+)$/, '_original$1');
-    const oldOriginalOpt400 = oldOriginal.replace(/\.[^.]+$/, '_400x400.webp');
-    const oldOriginalOpt1080 = oldOriginal.replace(/\.[^.]+$/, '_1080x1080.webp');
-    try {
-      const url = await StorageService.getFileUrl(oldOriginal);
-      const response = await fetch(url);
-      if (response.ok) {
-        const blob = await response.blob();
-        await StorageService.uploadFile(blob, newOriginal);
-        await StorageService.deleteFile(oldOriginal).catch(() => {});
-      }
-    } catch {
-      // No `_original` backup at the old path — nothing to migrate.
-    }
-    await Promise.all([
-      StorageService.deleteFile(oldOriginalOpt400).catch(() => {}),
-      StorageService.deleteFile(oldOriginalOpt1080).catch(() => {}),
-    ]);
-
-    return {
-      ...image,
-      full: newFullPath,
-    };
-  } catch (error) {
-    console.error(
-      `Failed to migrate image ${image.id} from ${oldCategory} to ${newCategory}:`,
-      error,
-    );
-    throw new Error(`Failed to migrate image ${image.id}: ${error.message}`);
-  }
-}
-
-/**
- * Uploads a recipe image (full only) and returns metadata
- * @param {Object} params
- * @param {string} recipeId
- * @param {string} category
- * @param {File} file
- * @param {boolean} isPrimary
- * @param {string} uploadedBy
- * @returns {Promise<Object>} image metadata
- */
-export async function uploadAndBuildImageMetadata({
-  recipeId,
-  category,
-  file,
-  isPrimary,
-  uploadedBy,
-}) {
-  const fileExtension = file.name.split('.').pop();
-  const fileName = isPrimary ? 'primary.jpg' : `${Date.now()}.${fileExtension}`;
-  const fullPath = getImageStoragePath(recipeId, category, fileName, 'full');
-  await StorageService.uploadFile(file, fullPath);
-
-  return {
-    id: generateImageId(),
-    full: fullPath,
-    fileName,
-    isPrimary,
-    uploadedBy,
-    access: 'public',
-    uploadTimestamp: new Date(),
-  };
 }
 
 /**
