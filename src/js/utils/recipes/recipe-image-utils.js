@@ -30,7 +30,6 @@
  *   - getPlaceholderImageUrl(): Get the placeholder image URL.
  *   - removeAllRecipeImages(recipeId): Remove all images (approved and pending) for a recipe.
  *   - migrateImageToCategory(image, recipeId, oldCategory, newCategory): Migrate image to new category path.
- *   - uploadAndBuildImageMetadata({ recipeId, category, file, isPrimary, uploadedBy }): Upload and return metadata for an image.
  */
 
 /**
@@ -328,39 +327,6 @@ export async function migrateImageToCategory(image, recipeId, oldCategory, newCa
     );
     throw new Error(`Failed to migrate image ${image.id}: ${error.message}`);
   }
-}
-
-/**
- * Uploads a recipe image (full only) and returns metadata
- * @param {Object} params
- * @param {string} recipeId
- * @param {string} category
- * @param {File} file
- * @param {boolean} isPrimary
- * @param {string} uploadedBy
- * @returns {Promise<Object>} image metadata
- */
-export async function uploadAndBuildImageMetadata({
-  recipeId,
-  category,
-  file,
-  isPrimary,
-  uploadedBy,
-}) {
-  const fileExtension = file.name.split('.').pop();
-  const fileName = isPrimary ? 'primary.jpg' : `${Date.now()}.${fileExtension}`;
-  const fullPath = getImageStoragePath(recipeId, category, fileName, 'full');
-  await StorageService.uploadFile(file, fullPath);
-
-  return {
-    id: generateImageId(),
-    full: fullPath,
-    fileName,
-    isPrimary,
-    uploadedBy,
-    access: 'public',
-    uploadTimestamp: new Date(),
-  };
 }
 
 /**
