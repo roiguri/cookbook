@@ -1,7 +1,7 @@
 /*
  * Recipe Data Utilities
  * --------------------
- * This module provides helper functions for recipe data formatting, validation, and Firestore operations.
+ * Pure helpers for recipe data formatting and validation. No I/O.
  *
  * Exported Methods:
  *
@@ -21,15 +21,13 @@
  *       Get a localized display name for a category.
  *   - getCategoryIcon(category):
  *       Get an icon for a category.
- *   - getRecipesForCards(options):
- *       Fetch recipes for display in cards (with filters/options).
- *   - getRecipeById(recipeId):
- *       Fetch a single complete recipe by ID.
  *   - extractIngredientNamesFromSections(ingredientSections):
  *       Extract ingredient names from sectioned ingredient format.
+ *
+ * Firestore reads moved out: callers fetch via RecipeService.{get,list} and
+ * pipe through formatRecipeData(...) if they want the normalized shape.
  */
 
-import { FirestoreService } from '../../services/_firebase/firestore-service.js';
 import { parseAmount } from './recipe-ingredients-utils.js';
 
 /**
@@ -374,35 +372,4 @@ export function getLocalizedCategoryName(categoryId) {
  */
 export function getCategoryIcon(category) {
   return CATEGORY_ICONS[category] || CATEGORY_ICONS.else;
-}
-
-/**
- * Fetch recipes for display in recipe cards (lightweight version)
- * @param {Object} options - Query options (category, limit, approved only, etc.)
- * @returns {Promise<Array>} Array of recipe card data objects
- * @property {Date|string|number} [creationTime]
- */
-export async function getRecipesForCards(options = {}) {
-  const queryParams = { where: [], orderBy: ['creationTime', 'desc'] };
-  if (options.category) {
-    queryParams.where.push(['category', '==', options.category]);
-  }
-  if (options.approvedOnly) {
-    queryParams.where.push(['approved', '==', true]);
-  }
-  if (options.limit) {
-    queryParams.limit = options.limit;
-  }
-  const docs = await FirestoreService.queryDocuments('recipes', queryParams);
-  return docs.map(formatRecipeData);
-}
-
-/**
- * Fetch a single complete recipe by ID
- * @param {string} recipeId - Recipe ID
- * @returns {Promise<Object>} Complete recipe object
- */
-export async function getRecipeById(recipeId) {
-  const doc = await FirestoreService.getDocument('recipes', recipeId);
-  return doc ? formatRecipeData(doc) : null;
 }

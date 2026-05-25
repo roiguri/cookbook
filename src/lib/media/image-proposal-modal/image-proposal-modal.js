@@ -23,7 +23,8 @@
  * modal.openForRecipe('recipe-123');
  */
 import authService from '../../../js/services/auth/auth-service.js';
-import { getRecipeById } from '../../../js/utils/recipes/recipe-data-utils.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { formatRecipeData } from '../../../js/utils/recipes/recipe-data-utils.js';
 import { RecipeImageProposalService } from '../../../js/services/recipes/recipe-image-proposal-service.js';
 
 class ImageProposalModal extends HTMLElement {
@@ -180,7 +181,7 @@ class ImageProposalModal extends HTMLElement {
     try {
       const currentUser = authService.getCurrentUser();
       if (!currentUser) throw new Error('User not authenticated');
-      const recipe = await getRecipeById(this.recipeId);
+      const recipe = formatRecipeData(await RecipeService.get(this.recipeId));
       if (!recipe) throw new Error('Recipe not found');
       const files = images.map((img) => img.file);
       const pendingImages = await RecipeImageProposalService.propose(
