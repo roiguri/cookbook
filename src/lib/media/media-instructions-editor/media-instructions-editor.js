@@ -16,11 +16,8 @@
  * </media-instructions-editor>
  */
 
-import {
-  deleteMediaInstructionFile,
-  validateMediaFile,
-  getMediaInstructionUrl,
-} from '../../../js/utils/recipes/recipe-media-utils.js';
+import { validateMediaFile } from '../../../js/utils/recipes/recipe-media-utils.js';
+import { MediaInstructionService } from '../../../js/services/recipes/media-instruction-service.js';
 import '../upload-zone/upload-zone.js';
 
 const ACCEPT_MIME =
@@ -159,7 +156,7 @@ class MediaInstructionsEditor extends HTMLElement {
     try {
       // Delete from storage if it's an uploaded item (has path)
       if (item.path) {
-        await deleteMediaInstructionFile(item.path);
+        await MediaInstructionService.delete(item.path);
       }
 
       // Clean up blob URL if it's a pending file
@@ -534,7 +531,7 @@ class MediaInstructionsEditor extends HTMLElement {
               } else {
                 // Fetch Storage URL for uploaded media
                 try {
-                  previewURL = await getMediaInstructionUrl(item.path);
+                  previewURL = await MediaInstructionService.getUrl(item.path);
                 } catch (error) {
                   console.error('Error getting media URL:', error);
                   previewURL = '';

@@ -2,10 +2,7 @@
 
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
-import {
-  uploadMediaInstructionFile,
-  removeAllMediaInstructions,
-} from '../../utils/recipes/recipe-media-utils.js';
+import { MediaInstructionService } from './media-instruction-service.js';
 
 /**
  * RecipeService — Recipe-Aware Service Layer
@@ -67,7 +64,7 @@ async function uploadMediaItems(recipeId, mediaItemsOrdered, uploadedBy) {
 
   for (const { item, position } of pendingItems) {
     try {
-      const metadata = await uploadMediaInstructionFile(
+      const metadata = await MediaInstructionService.upload(
         item.file,
         recipeId,
         uploadedBy || 'anonymous',
@@ -391,7 +388,7 @@ export class RecipeService {
     await Promise.all(imageDeletes);
 
     if (Array.isArray(recipe.mediaInstructions) && recipe.mediaInstructions.length > 0) {
-      await removeAllMediaInstructions(recipe.mediaInstructions);
+      await MediaInstructionService.removeAll(recipe.mediaInstructions);
     }
 
     await FirestoreService.deleteDocument(RECIPES_COLLECTION, recipeId);
