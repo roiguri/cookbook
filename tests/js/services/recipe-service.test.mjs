@@ -28,8 +28,17 @@ const mediaUtilMocks = {
   removeAllMediaInstructions: jest.fn(() => Promise.resolve({ success: 0, failed: 0, errors: [] })),
 };
 
+const recipeImageServiceMocks = {
+  replaceFiles: jest.fn(() =>
+    Promise.resolve({ backupPath: 'backup/path.jpg', backupCreated: true }),
+  ),
+};
+
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: firestoreMocks,
+}));
+jest.unstable_mockModule('src/js/services/recipes/recipe-image-service.js', () => ({
+  RecipeImageService: recipeImageServiceMocks,
 }));
 jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => imageUtilMocks);
 jest.unstable_mockModule('src/js/utils/recipes/recipe-media-utils.js', () => mediaUtilMocks);
@@ -48,6 +57,10 @@ beforeEach(async () => {
   Object.values(mediaUtilMocks).forEach((m) => m.mockReset?.());
   mediaUtilMocks.removeAllMediaInstructions.mockImplementation(() =>
     Promise.resolve({ success: 0, failed: 0, errors: [] }),
+  );
+  Object.values(recipeImageServiceMocks).forEach((m) => m.mockReset?.());
+  recipeImageServiceMocks.replaceFiles.mockImplementation(() =>
+    Promise.resolve({ backupPath: 'backup/path.jpg', backupCreated: true }),
   );
 
   ({ RecipeService } = await import('src/js/services/recipes/recipe-service.js'));
@@ -402,6 +415,126 @@ describe('RecipeService', () => {
     it('throws on missing recipeId / imageId', async () => {
       await expect(RecipeService.setPrimaryImage('', 'b')).rejects.toThrow('recipeId is required');
       await expect(RecipeService.setPrimaryImage('r', '')).rejects.toThrow('imageId is required');
+    });
+  });
+
+  describe('replaceImage', () => {
+    const newBlob = new Blob(['enhanced'], { type: 'image/jpeg' });
+
+    function setupRecipeWithImage() {
+      firestoreMocks.getDocument.mockResolvedValue({
+        id: 'recipe-9',
+        images: [
+          { id: 'img-1', full: 'img/recipes/full/desserts/recipe-9/img-1.jpg', isPrimary: true },
+          { id: 'img-2', full: 'img/recipes/full/desserts/recipe-9/img-2.jpg' },
+        ],
+      });
+    }
+
+    it('throws on missing recipeId / imageId / blob', async () => {
+      await expect(RecipeService.replaceImage('', 'img-1', newBlob)).rejects.toThrow(
+        'recipeId is required',
+      );
+      await expect(RecipeService.replaceImage('r', '', newBlob)).rejects.toThrow(
+        'imageId is required',
+      );
+      await expect(RecipeService.replaceImage('r', 'i', null)).rejects.toThrow('blob is required');
+    });
+
+    it('throws if the recipe is not found', async () => {
+      firestoreMocks.getDocument.mockResolvedValue(null);
+      await expect(RecipeService.replaceImage('missing', 'img-1', newBlob)).rejects.toThrow(
+        'recipe missing not found',
+      );
+      expect(recipeImageServiceMocks.replaceFiles).not.toHaveBeenCalled();
+    });
+
+    it('throws if the image id is not on the recipe', async () => {
+      setupRecipeWithImage();
+      await expect(RecipeService.replaceImage('recipe-9', 'no-such-img', newBlob)).rejects.toThrow(
+        'image no-such-img not found',
+      );
+      expect(recipeImageServiceMocks.replaceFiles).not.toHaveBeenCalled();
+    });
+
+    it('delegates Storage work to RecipeImageService.replaceFiles and returns its result', async () => {
+      setupRecipeWithImage();
+      recipeImageServiceMocks.replaceFiles.mockResolvedValueOnce({
+        backupPath: 'img/recipes/full/desserts/recipe-9/img-1_original.jpg',
+        backupCreated: true,
+      });
+
+      const result = await RecipeService.replaceImage('recipe-9', 'img-1', newBlob);
+
+      expect(recipeImageServiceMocks.replaceFiles).toHaveBeenCalledWith(
+        'recipe-9',
+        expect.objectContaining({
+          id: 'img-1',
+          full: 'img/recipes/full/desserts/recipe-9/img-1.jpg',
+        }),
+        newBlob,
+        { keepOriginalBackup: true },
+      );
+      expect(result).toEqual({
+        backupPath: 'img/recipes/full/desserts/recipe-9/img-1_original.jpg',
+        backupCreated: true,
+      });
+    });
+
+    it('forwards keepOriginalBackup=false to replaceFiles', async () => {
+      setupRecipeWithImage();
+
+      await RecipeService.replaceImage('recipe-9', 'img-1', newBlob, {
+        keepOriginalBackup: false,
+      });
+
+      expect(recipeImageServiceMocks.replaceFiles).toHaveBeenCalledWith(
+        'recipe-9',
+        expect.any(Object),
+        newBlob,
+        { keepOriginalBackup: false },
+      );
+    });
+
+    it('applies fieldUpdates to the matching image entry on the recipe doc', async () => {
+      setupRecipeWithImage();
+
+      await RecipeService.replaceImage('recipe-9', 'img-1', newBlob, {
+        fieldUpdates: { aiEnhanced: true },
+      });
+
+      const updateCall = firestoreMocks.updateDocument.mock.calls[0];
+      expect(updateCall[0]).toBe('recipes');
+      expect(updateCall[1]).toBe('recipe-9');
+      const updatedImages = updateCall[2].images;
+      expect(updatedImages.find((i) => i.id === 'img-1').aiEnhanced).toBe(true);
+      expect(updatedImages.find((i) => i.id === 'img-2').aiEnhanced).toBeUndefined();
+      expect(updatedImages.find((i) => i.id === 'img-1').isPrimary).toBe(true);
+    });
+
+    it('skips the doc patch when fieldUpdates is empty or missing', async () => {
+      setupRecipeWithImage();
+
+      await RecipeService.replaceImage('recipe-9', 'img-1', newBlob);
+      expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
+
+      await RecipeService.replaceImage('recipe-9', 'img-1', newBlob, { fieldUpdates: {} });
+      expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
+    });
+
+    it('treats a fieldUpdates write failure as best-effort (logs, does not throw)', async () => {
+      setupRecipeWithImage();
+      firestoreMocks.updateDocument.mockRejectedValue(new Error('boom'));
+      const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(
+        RecipeService.replaceImage('recipe-9', 'img-1', newBlob, {
+          fieldUpdates: { aiEnhanced: true },
+        }),
+      ).resolves.toMatchObject({ backupCreated: true });
+
+      expect(errSpy).toHaveBeenCalled();
+      errSpy.mockRestore();
     });
   });
 });
