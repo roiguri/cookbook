@@ -10,9 +10,7 @@ let validateImageFile,
   getRecipeImages,
   getImageUrl,
   getPlaceholderImageUrl,
-  getOptimizedImageUrl,
   getPrimaryImage,
-  getPrimaryImageUrl,
   addPendingImages,
   approvePendingImageById,
   rejectPendingImageById,
@@ -64,9 +62,7 @@ describe('recipe-image-utils', () => {
     getRecipeImages = utils.getRecipeImages;
     getImageUrl = utils.getImageUrl;
     getPlaceholderImageUrl = utils.getPlaceholderImageUrl;
-    getOptimizedImageUrl = utils.getOptimizedImageUrl;
     getPrimaryImage = utils.getPrimaryImage;
-    getPrimaryImageUrl = utils.getPrimaryImageUrl;
     addPendingImages = utils.addPendingImages;
     approvePendingImageById = utils.approvePendingImageById;
     rejectPendingImageById = utils.rejectPendingImageById;
@@ -135,44 +131,6 @@ describe('recipe-image-utils', () => {
     });
   });
 
-  describe('getOptimizedImageUrl', () => {
-    it('returns WebP URL when optimized variant is available', async () => {
-      getFileUrlMock.mockResolvedValue('webp-url');
-      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
-      const result = await getOptimizedImageUrl(image, '400x400');
-      expect(getFileUrlMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/image_400x400.webp');
-      expect(result).toBe('webp-url');
-    });
-    it('falls back to full when WebP variant is missing', async () => {
-      getFileUrlMock
-        .mockRejectedValueOnce(new Error('not found')) // WebP fails
-        .mockResolvedValueOnce('full-url'); // full works
-      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
-      const result = await getOptimizedImageUrl(image, '400x400');
-      expect(result).toBe('full-url');
-    });
-    it('returns null when all storage lookups fail', async () => {
-      getFileUrlMock.mockRejectedValue(new Error('not found'));
-      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
-      const result = await getOptimizedImageUrl(image, '400x400');
-      expect(result).toBeNull();
-    });
-    it('returns null for null image', async () => {
-      expect(await getOptimizedImageUrl(null, '400x400')).toBeNull();
-      expect(getFileUrlMock).not.toHaveBeenCalled();
-    });
-    it('returns null for image without full path', async () => {
-      expect(await getOptimizedImageUrl({ id: '1' }, '400x400')).toBeNull();
-      expect(getFileUrlMock).not.toHaveBeenCalled();
-    });
-    it('uses provided size suffix', async () => {
-      getFileUrlMock.mockResolvedValue('webp-1080-url');
-      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
-      await getOptimizedImageUrl(image, '1080x1080');
-      expect(getFileUrlMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/image_1080x1080.webp');
-    });
-  });
-
   describe('getPrimaryImage', () => {
     it('returns the primary image if present', () => {
       const recipe = {
@@ -188,30 +146,6 @@ describe('recipe-image-utils', () => {
       expect(getPrimaryImage({ images: [] })).toBeUndefined();
       expect(getPrimaryImage({})).toBeUndefined();
       expect(getPrimaryImage(null)).toBeUndefined();
-    });
-  });
-
-  describe('getPrimaryImageUrl', () => {
-    it('returns the optimized WebP URL for the primary image', async () => {
-      getFileUrlMock.mockResolvedValue('webp-url');
-      const recipe = {
-        images: [{ id: '1', isPrimary: true, full: 'img/recipes/full/cat/rid/img.jpg' }],
-      };
-      await expect(getPrimaryImageUrl(recipe)).resolves.toBe('webp-url');
-      expect(getFileUrlMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/img_400x400.webp');
-    });
-    it('returns the optimized URL for the first image if no primary', async () => {
-      getFileUrlMock.mockResolvedValue('webp-url2');
-      const recipe = {
-        images: [{ id: '1', full: 'img/recipes/full/cat/rid/img2.jpg' }],
-      };
-      await expect(getPrimaryImageUrl(recipe)).resolves.toBe('webp-url2');
-      expect(getFileUrlMock).toHaveBeenCalledWith('img/recipes/full/cat/rid/img2_400x400.webp');
-    });
-    it('returns null if no images', async () => {
-      await expect(getPrimaryImageUrl({ images: [] })).resolves.toBeNull();
-      await expect(getPrimaryImageUrl({})).resolves.toBeNull();
-      await expect(getPrimaryImageUrl(null)).resolves.toBeNull();
     });
   });
 

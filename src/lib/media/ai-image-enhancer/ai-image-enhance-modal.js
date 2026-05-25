@@ -12,7 +12,8 @@
 
 import { enhanceFoodImage } from '../../../js/services/recipes/ai-enhancement-service.js';
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
-import { getImageUrl, getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
+import { getImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';
 
@@ -176,7 +177,7 @@ class AiImageEnhanceModal extends HTMLElement {
     if (spinner) spinner.style.display = 'flex';
 
     try {
-      const url = await getOptimizedImageUrl(this._image, '1080x1080');
+      const url = await RecipeImageService.getOptimizedUrl(this._image, '1080x1080');
       if (url) {
         img.onload = () => {
           img.style.display = 'block';

@@ -7,10 +7,8 @@ import {
   getLocalizedCategoryName,
   formatCookingTime,
 } from '../../../js/utils/recipes/recipe-data-utils.js';
-import {
-  getRecipeImages,
-  getOptimizedImageUrl,
-} from '../../../js/utils/recipes/recipe-image-utils.js';
+import { getRecipeImages } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import {
   formatIngredientAmount,
   scaleIngredients,
@@ -1018,7 +1016,7 @@ class RecipeComponent extends HTMLElement {
 
     try {
       // Get optimized download URL from util
-      const url = await getOptimizedImageUrl(image, '1080x1080');
+      const url = await RecipeImageService.getOptimizedUrl(image, '1080x1080');
 
       if (this._imageRequestId !== requestId) return;
 

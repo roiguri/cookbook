@@ -21,9 +21,7 @@
  * Approved Images:
  *   - getRecipeImages(recipe, userRole): Get accessible images for a user role.
  *   - getPrimaryImage(recipe): Get the primary image object.
- *   - getPrimaryImageUrl(recipe, size): Get the download URL for the primary image (optimized) or placeholder.
  *   - getImageUrl(storagePath): Get the download URL for a storage path.
- *   - getOptimizedImageUrl(image, size): Get the download URL for an optimized version of an image with fallback.
  *   - getPlaceholderImageUrl(): Get the placeholder image URL.
  */
 
@@ -161,37 +159,6 @@ export function getPlaceholderImageUrl() {
 }
 
 /**
- * Gets the download URL for an optimized version of an image with fallback
- * @param {RecipeImage|PendingRecipeImage} image - The image object
- * @param {string} size - Target size (e.g., '400x400', '1080x1080')
- * @returns {Promise<string>} Download URL
- */
-export async function getOptimizedImageUrl(image, size = '400x400') {
-  if (!image) return getPlaceholderImageUrl();
-
-  // 0. Use local preview if available (for form preview mode)
-  if (image.preview) return image.preview;
-
-  if (!image.full) return getPlaceholderImageUrl();
-
-  // 1. Try Optimized version (New)
-  // Extension appends suffix like _400x400.webp
-  const optimizedPath = image.full.replace(/\.[^.]+$/, `_${size}.webp`);
-
-  try {
-    return await StorageService.getFileUrl(optimizedPath);
-  } catch (error) {
-    // 2. Fallback to Full Original (Latency or Legacy)
-    try {
-      return await StorageService.getFileUrl(image.full);
-    } catch (finalError) {
-      // 3. Ultimate Fallback
-      return getPlaceholderImageUrl();
-    }
-  }
-}
-
-/**
  * Returns the primary image object for a recipe
  * @param {Object} recipe - Recipe object with images array
  * @returns {RecipeImage|undefined} The primary image object or undefined
@@ -200,20 +167,6 @@ export function getPrimaryImage(recipe) {
   if (!recipe || !Array.isArray(recipe.images) || recipe.images.length === 0) return undefined;
   const primary = recipe.images.find((img) => img.isPrimary);
   return primary || recipe.images[0];
-}
-
-/**
- * Returns the download URL for the primary image's optimized version, or the placeholder if none
- * @param {Object} recipe - Recipe object with images array
- * @param {string} size - Target size (e.g., '400x400', '1080x1080')
- * @returns {Promise<string>} Download URL for the primary image or placeholder
- */
-export async function getPrimaryImageUrl(recipe, size = '400x400') {
-  const primary = getPrimaryImage(recipe);
-  if (primary) {
-    return await getOptimizedImageUrl(primary, size);
-  }
-  return getPlaceholderImageUrl();
 }
 
 /**

@@ -35,7 +35,7 @@
  * @fires images-rejected - When images are rejected
  */
 
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { RecipeImageProposalService } from '../../../js/services/recipes/recipe-image-proposal-service.js';
 
@@ -311,7 +311,7 @@ class ImageApprovalMulti extends HTMLElement {
     // Load and add images
     for (const pendingImg of pendingImages) {
       try {
-        const previewUrl = await getOptimizedImageUrl(pendingImg, '400x400');
+        const previewUrl = await RecipeImageService.getOptimizedUrl(pendingImg, '400x400');
 
         // Add image to handler (observer will add selection controls automatically)
         imageHandler.addImage({

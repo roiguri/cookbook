@@ -1,5 +1,5 @@
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { showErrorModal, logError } from '../../../js/utils/error-handler.js';
 import { validateRecipeForm } from '../../../js/utils/form/form-validation-utils.js';
 import { collectRecipeFormData } from '../../../js/utils/form/form-data-collector.js';
@@ -507,7 +507,7 @@ class RecipeFormComponent extends HTMLElement {
 
     for (const image of images) {
       try {
-        const previewUrl = await getOptimizedImageUrl(image, '400x400');
+        const previewUrl = await RecipeImageService.getOptimizedUrl(image, '400x400');
         if (previewUrl) {
           // Spread the full image object so persistent fields (e.g. aiEnhanced)
           // survive the edit round-trip. Transient form fields are layered on top.

@@ -12,7 +12,7 @@
  */
 
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 
 class AiImageEnhancer extends HTMLElement {
   constructor() {
@@ -201,7 +201,7 @@ class AiImageEnhancer extends HTMLElement {
       tile.addEventListener('click', () => this._openModal(image));
       strip.appendChild(tile);
 
-      getOptimizedImageUrl(image, '400x400')
+      RecipeImageService.getOptimizedUrl(image, '400x400')
         .then((url) => {
           if (!url) {
             shimmer.style.display = 'none';
