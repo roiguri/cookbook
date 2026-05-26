@@ -42,9 +42,10 @@ import {
   formatCookingTime,
   getTimeClass,
   getDifficultyClass,
-  getRecipeById,
+  formatRecipeData,
 } from '../../../js/utils/recipes/recipe-data-utils.js';
 import { getPlaceholderImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { initLazyLoading, lazyImageLoader } from '../../../js/utils/lazy-loading.js';
 import RECIPE_CARD_CONFIG from './recipe-card-config.js';
@@ -527,7 +528,7 @@ class RecipeCard extends HTMLElement {
     }
     try {
       this._isLoading = true;
-      this._recipeData = await getRecipeById(this.recipeId);
+      this._recipeData = formatRecipeData(await RecipeService.get(this.recipeId));
       if (!this._recipeData) {
         throw new Error('Recipe not found');
       }

@@ -1,6 +1,7 @@
 import authService from '../../js/services/auth/auth-service.js';
 import { ActiveMealService } from '../../js/services/meals/active-meal-service.js';
-import { getRecipeById } from '../../js/utils/recipes/recipe-data-utils.js';
+import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import { formatRecipeData } from '../../js/utils/recipes/recipe-data-utils.js';
 import {
   formatIngredientAmount,
   scaleIngredients,
@@ -103,7 +104,7 @@ export default {
       await Promise.all(
         missingIds.map(async (id) => {
           try {
-            const recipe = await getRecipeById(id);
+            const recipe = formatRecipeData(await RecipeService.get(id));
             if (recipe) {
               this.state.recipes[id] = recipe;
             }

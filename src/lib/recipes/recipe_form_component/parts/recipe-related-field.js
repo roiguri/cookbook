@@ -1,6 +1,6 @@
 import { RecipeService } from '../../../../js/services/recipes/recipe-service.js';
 import {
-  getRecipeById,
+  formatRecipeData,
   getLocalizedCategoryName,
 } from '../../../../js/utils/recipes/recipe-data-utils.js';
 import styles from '../recipe_form_component.css?inline';
@@ -327,7 +327,7 @@ class RecipeRelatedField extends HTMLElement {
 
     const fetched = await Promise.all(
       ids.map(async (id) => {
-        const recipe = await getRecipeById(id);
+        const recipe = formatRecipeData(await RecipeService.get(id));
         return recipe ? { id, name: recipe.name } : null;
       }),
     );
