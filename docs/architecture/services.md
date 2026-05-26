@@ -159,31 +159,40 @@ Update paths (notably the edit form) keep the raw shape so dirty-state compariso
 
 ## Error reporting
 
-All services route caught errors through `src/js/services/logger.js`, a thin wrapper around `@sentry/browser`. App code never imports `@sentry/browser` directly — only `logger.js` does, so swapping providers is one file. The logger is a no-op unless `VITE_SENTRY_DSN` is set AND `VITE_SENTRY_ENVIRONMENT` ≠ `development`; local dev and unconfigured deploys send zero traffic.
+Services route caught errors through `src/js/services/logger.js` (a thin Sentry wrapper). The full story — Sentry init, release/environment flow, privacy, fingerprinting, performance impact, quota, verification — lives in [`observability.md`](./observability.md). This section covers only what you need when **writing service code**.
 
-### The Logger API
+### The catch rule
+
+Every `catch` block has to decide: report or not?
+
+| Catch shape                                                           | What to do                                                                                                                                             |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `} catch (e) { throw e; }` — pure rethrow                             | **Skip.** Lower layer (Firestore/Storage) already captured.                                                                                            |
+| `} catch (e) { return default; }` — swallow + default                 | **`captureError(e, ...)` before the return.** Error is invisible otherwise.                                                                            |
+| `} catch (e) { throw new Error('Failed to X'); }` — transform         | **`captureError(e, ...)` before the rethrow.** Original stack is lost otherwise.                                                                       |
+| `} catch (e) { console.error(...); throw e; }` — log + rethrow        | **`captureError(e, ...)`.** Console alone isn't visible in production.                                                                                 |
+| `} catch (e) { console.error(...); return default; }` — log + swallow | **`captureError(e, ...)`.** Same reason.                                                                                                               |
+| `} catch {` — silent, no binding                                      | If intentional (existence probe, fallback chain, best-effort cleanup), leave a `// silent: <reason>` comment. Otherwise give it a binding and capture. |
+| `.catch(() => {})` on a Promise — silent best-effort cleanup          | Same as silent. Cleanup noise (e.g. orphaned WebP variants) should not pollute Sentry — comment and skip.                                              |
+
+One report per logical failure, not per layer. Re-throw unchanged → trust the lower layer.
+
+### How to call it
 
 ```js
-import { captureError } from '../logger.js'; // adjust depth for your file
+import { captureError } from '../logger.js'; // adjust depth
 
 captureError(error, {
-  service: 'recipe', // domain tag — one per service file (see table below)
+  service: 'recipe', // domain tag (see table below)
   op: 'create', // method name
-  recipeId, // identifiers — show up as searchable context
+  recipeId, // identifiers — searchable on the issue page
   uid,
 });
 ```
 
-Also available: `captureMessage(msg, level, ctx)` for warnings without an exception (e.g. 404s in the router), and `addBreadcrumb({ category, message, data })` for trail markers leading up to an error.
-
-The wrapper applies two transforms automatically:
-
-- **Noise filter** — drops `auth/popup-closed-by-user` (user cancelled the popup), `ResizeObserver loop` (browser quirk), and `Script error.` (cross-origin) before sending. Add more in `logger.js:beforeSend` if a pattern starts flooding the inbox.
-- **Firebase fingerprinting** — `FirebaseError`s are grouped in Sentry by their `error.code` (e.g. `permission-denied`), so the same logical failure buckets into one issue regardless of stack-trace shape.
-
 ### Service-tag values
 
-Use the tag value already established in the file. If you're adding a new service, pick a kebab-case domain name and stick with it everywhere in that file.
+Pick a kebab-case domain name per file and stick with it.
 
 | File                                      | `service` tag       |
 | ----------------------------------------- | ------------------- |
@@ -199,33 +208,11 @@ Use the tag value already established in the file. If you're adding a new servic
 | (SPA core) `src/app/core/router.js`       | `router`            |
 | (SPA core) `src/app/core/page-manager.js` | `page-manager`      |
 
-### The catch rule
+When adding a new service, add a row.
 
-Every `catch` block in a service has to decide: report or not? Apply this table:
+### Don't put user input in capture context
 
-| Catch shape                                                           | What to do                                                                                                                                                       |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `} catch (e) { throw e; }` — pure rethrow                             | **Skip.** Lower layer (Firestore/Storage) already captured.                                                                                                      |
-| `} catch (e) { return default; }` — swallow + default                 | **`captureError(e, ...)` before the return.** Error is invisible otherwise.                                                                                      |
-| `} catch (e) { throw new Error('Failed to X'); }` — transform         | **`captureError(e, ...)` before the rethrow.** Original stack is lost otherwise.                                                                                 |
-| `} catch (e) { console.error(...); throw e; }` — log + rethrow        | **`captureError(e, ...)`.** Console alone isn't visible in production.                                                                                           |
-| `} catch (e) { console.error(...); return default; }` — log + swallow | **`captureError(e, ...)`.** Same reason.                                                                                                                         |
-| `} catch {` — silent, no binding                                      | If intentional (existence probe, fallback chain, best-effort cleanup), leave a `// silent: <reason>` comment. If not justifiable, give it a binding and capture. |
-| `.catch(() => {})` on a Promise — silent best-effort cleanup          | Same as silent. Cleanup noise (e.g. orphaned WebP variants) should not pollute Sentry — comment and skip.                                                        |
-
-The aim is **one report per logical failure**, not per layer. If you re-throw the same error unchanged, trust that something above will have caught it lower in the stack.
-
-### Privacy
-
-`auth-controller.js` calls `setUser({ id, role })` on every auth state change — that means Sentry gets the **Firebase UID** and the **role** (`user` / `approved` / `manager`) as a tag. **Nothing else**: no email, no displayName, no avatar URL. `sendDefaultPii: false` is set in `logger.js:initLogger` to prevent the SDK from auto-collecting IP addresses or other identifiers.
-
-When you add `captureError(error, { ...ids })`, the identifiers go into Sentry's "extra" panel — visible on the issue page, but not indexed. Don't put raw user input there (search queries, form contents, etc.) — keep it to IDs and operation names.
-
-### Initialization and environment gating
-
-`initLogger()` is called once at the top of `initializeSPA()` in `src/app.js`, **before** Firebase init, so any Firebase setup error gets reported. The four env vars relevant to runtime live in `.env.example` and are documented there; build-time env vars (`SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`) gate the `@sentry/vite-plugin` that uploads source maps — those are set in Netlify, never locally.
-
-`VITE_SENTRY_ENVIRONMENT` is split per Netlify deploy context (`production` for `main`, `staging` for staging branch) so events ship with the right `environment` tag and you can filter Issues by deploy.
+The `{ ...identifiers }` go to Sentry as searchable "extra" data. IDs and operation names only — never raw form fields, search queries, or recipe content. Privacy details in [`observability.md`](./observability.md#privacy).
 
 ## Auth state and roles
 
