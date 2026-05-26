@@ -24,12 +24,12 @@ const REGISTRY = [
 export class GameWrapper {
   static random(container, overrides = {}) {
     const pick = REGISTRY[Math.floor(Math.random() * REGISTRY.length)];
-    const wrapper = new GameWrapper(container, pick.GameClass, {
+    return new GameWrapper(container, pick.GameClass, {
       ...pick.defaultConfig,
       ...overrides,
       successMessage: pick.successMessage,
+      loadingText: pick.loadingText,
     });
-    return { wrapper, loadingText: pick.loadingText };
   }
 
   constructor(container, GameClass, config = {}) {
@@ -40,6 +40,7 @@ export class GameWrapper {
     this.startTime = null;
     this.timerInterval = null;
     this.hasStarted = false;
+    this._asyncReadyShown = false;
   }
 
   init() {
@@ -53,17 +54,41 @@ export class GameWrapper {
       onGameOver: (reason) => this.onGameOver(reason),
     });
 
+    if (this._asyncReadyShown) this._applyAsyncReady();
+
     this.game.start();
   }
 
   renderWrapper() {
+    const { asyncReady, loadingText } = this.config;
+    const statusBlock = asyncReady
+      ? `
+        <div class="game-status">
+          <div class="game-status-loading">
+            <div class="game-loading-dots">
+              <div class="game-loading-dot"></div>
+              <div class="game-loading-dot"></div>
+              <div class="game-loading-dot"></div>
+            </div>
+            <span class="game-loading-text"></span>
+          </div>
+          <div class="game-status-ready" hidden>
+            <span class="game-ready-icon">✨</span>
+            <span class="game-ready-text"></span>
+            <button class="game-ready-btn"></button>
+          </div>
+        </div>
+      `
+      : '';
+
     this.container.innerHTML = `
       <div class="game-wrapper">
+        ${statusBlock}
         <div class="game-header">
           <div class="timer">⏱️ <span id="game-timer">00:00</span></div>
         </div>
         <div class="game-content"></div>
-        
+
         <div class="game-overlay" style="display: none;">
           <div class="overlay-content">
             <div class="overlay-icon">🏆</div>
@@ -76,8 +101,34 @@ export class GameWrapper {
       </div>
     `;
 
+    if (asyncReady) {
+      const loadingTextEl = this.container.querySelector('.game-loading-text');
+      const readyTextEl = this.container.querySelector('.game-ready-text');
+      const readyBtnEl = this.container.querySelector('.game-ready-btn');
+      if (loadingTextEl) loadingTextEl.textContent = loadingText || '';
+      if (readyTextEl) readyTextEl.textContent = asyncReady.text || '';
+      if (readyBtnEl) {
+        readyBtnEl.textContent = asyncReady.button || '';
+        if (typeof asyncReady.onDismiss === 'function') {
+          readyBtnEl.onclick = () => asyncReady.onDismiss();
+        }
+      }
+    }
+
     const btn = this.container.querySelector('.overlay-btn');
     if (btn) btn.onclick = () => this.restart();
+  }
+
+  markAsyncReady() {
+    this._asyncReadyShown = true;
+    this._applyAsyncReady();
+  }
+
+  _applyAsyncReady() {
+    const loadingRow = this.container.querySelector('.game-status-loading');
+    const readyRow = this.container.querySelector('.game-status-ready');
+    if (loadingRow) loadingRow.hidden = true;
+    if (readyRow) readyRow.hidden = false;
   }
 
   startTimer() {

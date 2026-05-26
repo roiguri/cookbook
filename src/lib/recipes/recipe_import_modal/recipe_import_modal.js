@@ -88,20 +88,6 @@ class RecipeImportModal extends HTMLElement {
 
             <!-- Loading State -->
             <div id="loading-view" class="loading-container" style="display: none;">
-              <div class="loading-status-row" id="loading-status">
-                 <div class="loading-dots">
-                    <div class="loading-dot"></div>
-                    <div class="loading-dot"></div>
-                    <div class="loading-dot"></div>
-                 </div>
-                 <p id="loading-text" style="margin: 0;">מנתח את המתכון... זה עשוי לקחת מספר שניות</p>
-              </div>
-              
-              <div id="success-overlay" class="success-overlay" style="display: none;">
-                  <div class="success-badge">המתכון מוכן!</div>
-                  <button class="btn btn-primary" id="view-recipe-btn">צפה במתכון</button>
-              </div>
-
               <!-- Inline Error (Non-blocking) -->
               <div id="inline-error-container" class="inline-error" style="display: none;">
                   <span id="inline-error-text">שגיאה</span>
@@ -218,10 +204,6 @@ class RecipeImportModal extends HTMLElement {
         this.extractRecipeFromUrl();
       }
     });
-
-    // View Recipe (Success State)
-    const viewRecipeBtn = this.shadowRoot.getElementById('view-recipe-btn');
-    viewRecipeBtn.addEventListener('click', () => this.finishImport());
 
     // Try Again
     tryAgainBtn.addEventListener('click', () => this.reset());
@@ -424,7 +406,6 @@ class RecipeImportModal extends HTMLElement {
       this.shadowRoot.getElementById('loading-view').style.display = 'none';
       this.shadowRoot.getElementById('error-view').style.display = 'none';
       this.shadowRoot.getElementById('url-view').style.display = 'none';
-      this.shadowRoot.getElementById('success-overlay').style.display = 'none';
       // Reset Inline Error
       this.shadowRoot.getElementById('inline-error-container').style.display = 'none';
 
@@ -445,13 +426,6 @@ class RecipeImportModal extends HTMLElement {
         tabImage.classList.add('active');
         tabUrl.classList.remove('active');
       }
-
-      // Reset loading state internals
-      const loadingStatus = this.shadowRoot.getElementById('loading-status');
-      if (loadingStatus) loadingStatus.style.display = 'flex';
-
-      this.shadowRoot.getElementById('loading-text').textContent =
-        'זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!';
     }
   }
 
@@ -535,13 +509,16 @@ class RecipeImportModal extends HTMLElement {
 
       // Ensure inline error is hidden when starting new loading
       this.shadowRoot.getElementById('inline-error-container').style.display = 'none';
-      this.shadowRoot.getElementById('loading-status').style.display = 'flex';
 
       // Start Game Wrapper
       if (!this.gameWrapper && gameContainer) {
-        const { wrapper, loadingText } = GameWrapper.random(gameContainer);
-        this.gameWrapper = wrapper;
-        this.shadowRoot.getElementById('loading-text').textContent = loadingText;
+        this.gameWrapper = GameWrapper.random(gameContainer, {
+          asyncReady: {
+            text: 'המתכון מוכן!',
+            button: 'צפה במתכון',
+            onDismiss: () => this.finishImport(),
+          },
+        });
         this.gameWrapper.init();
       }
     } else {
@@ -563,7 +540,6 @@ class RecipeImportModal extends HTMLElement {
     // Non-blocking Inline Error Handling
     const inlineErrorContainer = this.shadowRoot.getElementById('inline-error-container');
     const inlineErrorText = this.shadowRoot.getElementById('inline-error-text');
-    const loadingStatus = this.shadowRoot.getElementById('loading-status');
     const loadingView = this.shadowRoot.getElementById('loading-view');
 
     // Determine if we're in URL or image mode
@@ -591,9 +567,7 @@ class RecipeImportModal extends HTMLElement {
       displayMessage = 'השירות אינו זמין כעת (404).';
     }
 
-    // Hide status, Show Error, KEEP GAME RUNNING
-    if (loadingStatus) loadingStatus.style.display = 'none';
-
+    // Show Error inline, KEEP GAME RUNNING
     if (inlineErrorContainer) {
       inlineErrorContainer.style.display = 'flex';
       inlineErrorText.textContent = displayMessage;
@@ -613,20 +587,7 @@ class RecipeImportModal extends HTMLElement {
 
   showSuccessState(data) {
     this.extractedData = data;
-
-    // Hide loading dots row
-    const loadingStatus = this.shadowRoot.getElementById('loading-status');
-    const loadingText = this.shadowRoot.getElementById('loading-text');
-    const successOverlay = this.shadowRoot.getElementById('success-overlay');
-
-    if (loadingStatus) loadingStatus.style.display = 'none';
-
-    // Optional: could reuse loadingText for success message, but we used overlay instead.
-    // We already have "Recipe Ready" in the badge.
-    // If we want to show text:
-    // loadingText.textContent = 'הניתוח הושלם! אתה יכול להמשיך לשחק או לצפות במתכון.';
-
-    successOverlay.style.display = 'flex';
+    this.gameWrapper?.markAsyncReady();
   }
 
   finishImport() {
