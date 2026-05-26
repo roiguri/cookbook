@@ -881,7 +881,7 @@ class AiImageEnhanceModal extends HTMLElement {
         }
       </style>
 
-      <custom-modal id="custom-modal" width="640px">
+      <custom-modal id="custom-modal" width="640px" fullscreen-mobile>
         <h2 id="modal-title" class="title"></h2>
 
         <div class="compare">

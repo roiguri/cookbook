@@ -41,7 +41,7 @@ class RecipeImportModal extends HTMLElement {
         ${styles}
         ${GAME_STYLES}
       </style>
-      <custom-modal id="import-modal" width="600px">
+      <custom-modal id="import-modal" width="600px" fullscreen-mobile>
           <div class="modal-body-content">
             <h2 class="modal-title">ייבא מתכון</h2>
 
