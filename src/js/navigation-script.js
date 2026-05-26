@@ -1,9 +1,9 @@
 import { icons } from './icons.js';
+import '../lib/utilities/app-drawer/app-drawer.js';
 
 // Module-scope DOM element references
 let navToggle = null;
 let mobileDrawer = null;
-let mobileBackdrop = null;
 
 function initializeNavigation() {
   // Cache DOM element references
@@ -25,12 +25,18 @@ function initializeNavigation() {
 function createMobileDrawer() {
   if (mobileDrawer) return;
 
-  mobileBackdrop = document.createElement('div');
-  mobileBackdrop.className = 'mobile-nav-backdrop';
-  mobileBackdrop.addEventListener('click', closeMobileDrawer);
+  mobileDrawer = document.createElement('app-drawer');
+  mobileDrawer.setAttribute('drawer-class', 'mobile-nav-drawer');
+  mobileDrawer.setAttribute('backdrop-class', 'mobile-nav-backdrop');
+  mobileDrawer.setAttribute('active-class', 'active');
+  mobileDrawer.setAttribute('position', 'end');
 
-  mobileDrawer = document.createElement('div');
-  mobileDrawer.className = 'mobile-nav-drawer';
+  mobileDrawer.addEventListener('app-drawer-open', () => {
+    if (navToggle) navToggle.classList.add('active', 'drawer-open');
+  });
+  mobileDrawer.addEventListener('app-drawer-close', () => {
+    if (navToggle) navToggle.classList.remove('active', 'drawer-open');
+  });
 
   // 1. Drawer Head
   const drawerHeader = document.createElement('div');
@@ -73,10 +79,9 @@ function createMobileDrawer() {
   drawerFoot.innerHTML = ``;
   mobileDrawer.appendChild(drawerFoot);
 
-  syncMobileDrawerNavigation();
-
-  document.body.appendChild(mobileBackdrop);
   document.body.appendChild(mobileDrawer);
+
+  syncMobileDrawerNavigation();
 
   document.addEventListener('auth-state-changed', syncMobileDrawerNavigation);
 
@@ -150,26 +155,15 @@ function syncMobileDrawerNavigation() {
 }
 
 function toggleMobileDrawer() {
-  if (!mobileDrawer || !mobileBackdrop) return;
-
-  const isActive = mobileDrawer.classList.contains('active');
-
-  if (!isActive) {
-    navToggle.classList.add('active', 'drawer-open');
-    mobileDrawer.classList.add('active');
-    mobileBackdrop.classList.add('active');
-
-    document.body.style.overflow = 'hidden';
+  if (!mobileDrawer) return;
+  if (!mobileDrawer.isOpen) {
+    mobileDrawer.open();
   }
 }
 
 function closeMobileDrawer() {
-  if (!mobileDrawer || !mobileBackdrop) return;
-
-  navToggle.classList.remove('active', 'drawer-open');
-  mobileDrawer.classList.remove('active');
-  mobileBackdrop.classList.remove('active');
-  document.body.style.overflow = '';
+  if (!mobileDrawer) return;
+  mobileDrawer.close();
 }
 
 function handleResize() {
@@ -179,18 +173,12 @@ function handleResize() {
     createMobileDrawer();
   } else if (!isMobile && mobileDrawer) {
     closeMobileDrawer();
-    if (mobileDrawer) {
-      if (mobileDrawer._navObserver) {
-        mobileDrawer._navObserver.disconnect();
-      }
-      document.removeEventListener('auth-state-changed', syncMobileDrawerNavigation);
-      mobileDrawer.remove();
-      mobileDrawer = null;
+    if (mobileDrawer._navObserver) {
+      mobileDrawer._navObserver.disconnect();
     }
-    if (mobileBackdrop) {
-      mobileBackdrop.remove();
-      mobileBackdrop = null;
-    }
+    document.removeEventListener('auth-state-changed', syncMobileDrawerNavigation);
+    mobileDrawer.remove();
+    mobileDrawer = null;
   }
 }
 
