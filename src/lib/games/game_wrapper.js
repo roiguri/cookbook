@@ -1,10 +1,12 @@
 import { CookingMemoryGame } from './memory_game.js';
 import { BurgerStackerGame } from './burger_stacker.js';
+import { PizzatronGame } from './pizzatron.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
 import burgerCss from './burger_stacker.css?inline';
+import pizzatronCss from './pizzatron.css?inline';
 
-export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}`;
+export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}\n${pizzatronCss}`;
 
 const REGISTRY = [
   {
@@ -26,6 +28,16 @@ const REGISTRY = [
     defaultConfig: { targetHeight: 5 },
     successMessage: 'כל הכבוד! ההמבוגר מוכן',
     loadingText: 'מכין את המטבח... תפוס את המרכיבים!',
+  },
+  {
+    key: 'pizza',
+    name: 'הפיצריה',
+    icon: '🍕',
+    description: 'הרכיבו פיצות לפי ההזמנה',
+    GameClass: PizzatronGame,
+    defaultConfig: { ordersToWin: 10 },
+    successMessage: 'כל הכבוד! משלוחים הושלמו',
+    loadingText: 'מחממים את התנור... תפסו הזמנות בינתיים!',
   },
 ];
 
