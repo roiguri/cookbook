@@ -271,18 +271,26 @@ class AuthController extends HTMLElement {
     }
   }
 
-  async loadAuthComponents() {
-    try {
-      await Promise.all([
-        import('./components/login-form.js'),
-        import('./components/signup-form.js'),
-        import('./components/forgot-password.js'),
-        import('./components/user-profile.js'),
-      ]);
-      this._authComponentsLoaded = true;
-    } catch (error) {
-      console.error('Failed to lazy load auth components:', error);
-    }
+  loadAuthComponents() {
+    // Cache the in-flight promise so concurrent callers share it and a
+    // resolved load is a no-op. Without this, callers that need the
+    // <user-profile> element to be upgraded before manipulating it (e.g.
+    // auth-avatar's click handler) could race against openModal's own load.
+    if (this._authComponentsPromise) return this._authComponentsPromise;
+    this._authComponentsPromise = Promise.all([
+      import('./components/login-form.js'),
+      import('./components/signup-form.js'),
+      import('./components/forgot-password.js'),
+      import('./components/user-profile.js'),
+    ])
+      .then(() => {
+        this._authComponentsLoaded = true;
+      })
+      .catch((error) => {
+        console.error('Failed to lazy load auth components:', error);
+        this._authComponentsPromise = null;
+      });
+    return this._authComponentsPromise;
   }
 
   closeModal() {
