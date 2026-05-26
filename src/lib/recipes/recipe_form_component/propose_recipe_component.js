@@ -15,7 +15,6 @@
  */
 
 import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
-import { Timestamp } from 'firebase/firestore';
 import authService from '../../../js/services/auth/auth-service.js';
 import { logError, getErrorMessage } from '../../../js/utils/error-handler.js';
 import { showToast } from '../../notifications/toast-notification/toast-notification.js';
@@ -71,7 +70,6 @@ class ProposeRecipeComponent extends HTMLElement {
 
       const recipeDataForFirestore = {
         ...baseFields,
-        creationTime: Timestamp.now(),
         userId: uploadedBy,
         approved: false,
       };

@@ -1,5 +1,6 @@
 // src/js/services/recipes/recipe-service.js
 
+import { Timestamp } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
 import { MediaInstructionService } from './media-instruction-service.js';
@@ -162,7 +163,7 @@ export class RecipeService {
    *
    * @param {Object} params
    * @param {Object} params.recipeData - Base recipe fields (no images/mediaInstructions/toDelete).
-   *                                     Caller is responsible for timestamps, userId, approved.
+   *                                     Caller sets userId + approved; creationTime is service-stamped.
    * @param {Array<{file: File, isPrimary: boolean}>} [params.imagesToUpload]
    * @param {Array<Object>} [params.mediaItemsOrdered] - Ordered media items
    *        from the editor; each entry has either `file` (pending) or
@@ -195,6 +196,7 @@ export class RecipeService {
       );
 
       const docPayload = { ...cleanedData };
+      docPayload.creationTime = Timestamp.now();
       if (uploadedImages.length > 0) {
         docPayload.images = uploadedImages;
         docPayload.allowImageSuggestions = true;
