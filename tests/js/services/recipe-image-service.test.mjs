@@ -337,6 +337,7 @@ describe('RecipeImageService', () => {
       const result = await RecipeImageService.getOptimizedUrl(image, '400x400');
       expect(storageMocks.getFileUrl).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/image_400x400.webp',
+        { quietOn404: false },
       );
       expect(result).toBe('webp-url');
     });
@@ -373,6 +374,7 @@ describe('RecipeImageService', () => {
       await RecipeImageService.getOptimizedUrl(image, '1080x1080');
       expect(storageMocks.getFileUrl).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/image_1080x1080.webp',
+        { quietOn404: false },
       );
     });
 
@@ -381,6 +383,30 @@ describe('RecipeImageService', () => {
       const result = await RecipeImageService.getOptimizedUrl(image, '400x400');
       expect(result).toBe('blob:local-preview');
       expect(storageMocks.getFileUrl).not.toHaveBeenCalled();
+    });
+
+    it('forwards quietOn404 to the optimized lookup only — fallback to full stays loud (#189)', async () => {
+      storageMocks.getFileUrl
+        .mockRejectedValueOnce(
+          Object.assign(new Error('not found'), { code: 'storage/object-not-found' }),
+        )
+        .mockResolvedValueOnce('full-url');
+      const image = { id: '1', full: 'img/recipes/full/cat/rid/image.jpg' };
+      const result = await RecipeImageService.getOptimizedUrl(image, '400x400', {
+        quietOn404: true,
+      });
+      // First call: optimized path, with quietOn404 true (silences resize-lag noise)
+      expect(storageMocks.getFileUrl).toHaveBeenNthCalledWith(
+        1,
+        'img/recipes/full/cat/rid/image_400x400.webp',
+        { quietOn404: true },
+      );
+      // Second call: fallback to full original, with NO options — a miss here is a real bug
+      expect(storageMocks.getFileUrl).toHaveBeenNthCalledWith(
+        2,
+        'img/recipes/full/cat/rid/image.jpg',
+      );
+      expect(result).toBe('full-url');
     });
   });
 
@@ -393,6 +419,7 @@ describe('RecipeImageService', () => {
       await expect(RecipeImageService.getPrimaryUrl(recipe)).resolves.toBe('webp-url');
       expect(storageMocks.getFileUrl).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/img_400x400.webp',
+        { quietOn404: false },
       );
     });
 

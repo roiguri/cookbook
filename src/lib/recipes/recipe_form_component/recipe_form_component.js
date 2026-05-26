@@ -507,7 +507,9 @@ class RecipeFormComponent extends HTMLElement {
 
     for (const image of images) {
       try {
-        const previewUrl = await RecipeImageService.getOptimizedUrl(image, '400x400');
+        const previewUrl = await RecipeImageService.getOptimizedUrl(image, '400x400', {
+          quietOn404: true,
+        });
         if (previewUrl) {
           // Spread the full image object so persistent fields (e.g. aiEnhanced)
           // survive the edit round-trip. Transient form fields are layered on top.

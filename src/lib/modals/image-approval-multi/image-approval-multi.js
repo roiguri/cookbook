@@ -311,7 +311,9 @@ class ImageApprovalMulti extends HTMLElement {
     // Load and add images
     for (const pendingImg of pendingImages) {
       try {
-        const previewUrl = await RecipeImageService.getOptimizedUrl(pendingImg, '400x400');
+        const previewUrl = await RecipeImageService.getOptimizedUrl(pendingImg, '400x400', {
+          quietOn404: true,
+        });
 
         // Add image to handler (observer will add selection controls automatically)
         imageHandler.addImage({

@@ -14,7 +14,7 @@ function makeBackupPath(fullPath) {
 
 async function fileExists(path) {
   try {
-    await StorageService.getMetadata(path);
+    await StorageService.getMetadata(path, { quietOn404: true });
     return true;
   } catch {
     // silent: existence probe — false is the expected return when file is absent
@@ -253,16 +253,23 @@ export class RecipeImageService {
    *
    * @param {{ full?: string, preview?: string } | null | undefined} image
    * @param {string} [size='400x400']
+   * @param {Object} [options]
+   * @param {boolean} [options.quietOn404=false] - Suppress Sentry/console for the
+   *   FIRST attempt (optimized variant) only. Set true in contexts that show
+   *   freshly-uploaded images (edit form, pending-image approval) where the
+   *   resize extension may not have produced the variant yet (#189). The
+   *   fallback to `image.full` always stays loud — a missing original IS a
+   *   real bug worth reporting.
    * @returns {Promise<string|null>}
    */
-  static async getOptimizedUrl(image, size = '400x400') {
+  static async getOptimizedUrl(image, size = '400x400', { quietOn404 = false } = {}) {
     if (!image) return null;
     if (image.preview) return image.preview;
     if (!image.full) return null;
 
     const optimizedPath = image.full.replace(/\.[^.]+$/, `_${size}.webp`);
     try {
-      return await StorageService.getFileUrl(optimizedPath);
+      return await StorageService.getFileUrl(optimizedPath, { quietOn404 });
     } catch {
       // silent: WebP variant not yet generated; falling back to full-size original
       try {
@@ -281,12 +288,14 @@ export class RecipeImageService {
    *
    * @param {Object} recipe
    * @param {string} [size='400x400']
+   * @param {Object} [options]
+   * @param {boolean} [options.quietOn404=false] - Forwarded to `getOptimizedUrl`.
    * @returns {Promise<string|null>}
    */
-  static async getPrimaryUrl(recipe, size = '400x400') {
+  static async getPrimaryUrl(recipe, size = '400x400', options = {}) {
     const primary = getPrimaryImage(recipe);
     if (!primary) return null;
-    return RecipeImageService.getOptimizedUrl(primary, size);
+    return RecipeImageService.getOptimizedUrl(primary, size, options);
   }
 
   /**

@@ -50,9 +50,14 @@ export class StorageService {
   /**
    * Gets the download URL for a file in Firebase Storage.
    * @param {string} path - The storage path
+   * @param {Object} [options]
+   * @param {boolean} [options.quietOn404=false] - When true, `storage/object-not-found`
+   *   errors skip console.error + Sentry capture (the error still throws so caller
+   *   fallback chains run). Use only at sites that explicitly expect the miss —
+   *   e.g. read-with-fallback during resize-extension lag (#189).
    * @returns {Promise<string>} The download URL
    */
-  static async getFileUrl(path) {
+  static async getFileUrl(path, { quietOn404 = false } = {}) {
     if (urlCache.has(path)) {
       return urlCache.get(path);
     }
@@ -64,8 +69,10 @@ export class StorageService {
       urlCache.set(path, url);
       return url;
     } catch (error) {
-      console.error('Error getting file URL:', error);
-      captureError(error, { service: 'storage', op: 'getFileUrl', path });
+      if (!(quietOn404 && error?.code === 'storage/object-not-found')) {
+        console.error('Error getting file URL:', error);
+        captureError(error, { service: 'storage', op: 'getFileUrl', path });
+      }
       throw new Error('Failed to get file URL');
     }
   }
@@ -112,16 +119,22 @@ export class StorageService {
   /**
    * Gets the metadata for a file in Firebase Storage.
    * @param {string} path - The storage path
+   * @param {Object} [options]
+   * @param {boolean} [options.quietOn404=false] - When true, `storage/object-not-found`
+   *   errors skip console.error + Sentry capture (the error still throws). Use at
+   *   sites that use this as an existence probe and treat the miss as expected.
    * @returns {Promise<Object>} The file metadata
    */
-  static async getMetadata(path) {
+  static async getMetadata(path, { quietOn404 = false } = {}) {
     try {
       const storage = getStorageInstance();
       const storageRef = ref(storage, path);
       return await getMetadata(storageRef);
     } catch (error) {
-      console.error('Error getting file metadata:', error);
-      captureError(error, { service: 'storage', op: 'getMetadata', path });
+      if (!(quietOn404 && error?.code === 'storage/object-not-found')) {
+        console.error('Error getting file metadata:', error);
+        captureError(error, { service: 'storage', op: 'getMetadata', path });
+      }
       throw new Error('Failed to get file metadata');
     }
   }

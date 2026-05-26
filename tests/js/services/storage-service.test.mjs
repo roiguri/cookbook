@@ -73,6 +73,49 @@ describe('StorageService', () => {
       await expect(StorageService.getFileUrl(mockPath)).rejects.toThrow('Failed to get file URL');
       errorSpy.mockRestore();
     });
+
+    it('with quietOn404: stays silent on storage/object-not-found and still throws (#189)', async () => {
+      const notFound = Object.assign(new Error('object not found'), {
+        code: 'storage/object-not-found',
+      });
+      getDownloadURL.mockRejectedValue(notFound);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(StorageService.getFileUrl(mockPath, { quietOn404: true })).rejects.toThrow(
+        'Failed to get file URL',
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+    });
+
+    it('with quietOn404: still logs non-404 errors (permission, network, etc.)', async () => {
+      const permDenied = Object.assign(new Error('forbidden'), {
+        code: 'storage/unauthorized',
+      });
+      getDownloadURL.mockRejectedValue(permDenied);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(StorageService.getFileUrl(mockPath, { quietOn404: true })).rejects.toThrow(
+        'Failed to get file URL',
+      );
+      expect(errorSpy).toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+    });
+
+    it('without quietOn404: object-not-found still logs (default loud)', async () => {
+      const notFound = Object.assign(new Error('object not found'), {
+        code: 'storage/object-not-found',
+      });
+      getDownloadURL.mockRejectedValue(notFound);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(StorageService.getFileUrl(mockPath)).rejects.toThrow('Failed to get file URL');
+      expect(errorSpy).toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+    });
   });
 
   describe('deleteFile', () => {
@@ -136,6 +179,38 @@ describe('StorageService', () => {
       await expect(StorageService.getMetadata(mockPath)).rejects.toThrow(
         'Failed to get file metadata',
       );
+      errorSpy.mockRestore();
+    });
+
+    it('with quietOn404: stays silent on storage/object-not-found (existence probes)', async () => {
+      const getMetadata = (await import('firebase/storage')).getMetadata;
+      const notFound = Object.assign(new Error('object not found'), {
+        code: 'storage/object-not-found',
+      });
+      getMetadata.mockRejectedValue(notFound);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(StorageService.getMetadata(mockPath, { quietOn404: true })).rejects.toThrow(
+        'Failed to get file metadata',
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+    });
+
+    it('with quietOn404: still logs non-404 metadata errors', async () => {
+      const getMetadata = (await import('firebase/storage')).getMetadata;
+      const permDenied = Object.assign(new Error('forbidden'), {
+        code: 'storage/unauthorized',
+      });
+      getMetadata.mockRejectedValue(permDenied);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(StorageService.getMetadata(mockPath, { quietOn404: true })).rejects.toThrow(
+        'Failed to get file metadata',
+      );
+      expect(errorSpy).toHaveBeenCalled();
+
       errorSpy.mockRestore();
     });
   });
