@@ -6,8 +6,20 @@ const TOPPING_POOL = ['tomato', 'mushroom', 'olive', 'pepper', 'sausage', 'basil
 // pizzatron.css (.pizzatron-pizza-order*). Pizza diameter is tuned here AND
 // in CSS — keep .pizzatron-pizza width/height in sync with pizza.sizePx.
 const TUNING = {
-  belt: { speedPxPerFrame: 0.6 },
-  spawn: { intervalMs: 6000 },
+  belt: {
+    // speed grows linearly from baseSpeed toward (baseSpeed + ramp*rampMax)
+    // as state.spawnCounter rises, then clamps.
+    baseSpeedPxPerFrame: 0.6,
+    rampPerSpawn: 0.06,
+    maxRampSpawns: 10,
+  },
+  spawn: {
+    // interval shrinks from baseIntervalMs toward minIntervalMs as
+    // state.spawnCounter rises (also linear, also clamped).
+    baseIntervalMs: 6000,
+    decreasePerSpawnMs: 250,
+    minIntervalMs: 3500,
+  },
   pizza: { sizePx: 110, holdMsOnArrival: 900, fadeOutMs: 220 },
   order: {
     // Only the first `activeIngredients` items of TOPPING_POOL appear in
@@ -136,9 +148,20 @@ export class PizzatronGame {
     this.gameLoopId = requestAnimationFrame(loop);
   }
 
+  currentBeltSpeed() {
+    const { baseSpeedPxPerFrame, rampPerSpawn, maxRampSpawns } = TUNING.belt;
+    const t = Math.min(this.state.spawnCounter, maxRampSpawns);
+    return baseSpeedPxPerFrame + t * rampPerSpawn;
+  }
+
+  currentSpawnInterval() {
+    const { baseIntervalMs, decreasePerSpawnMs, minIntervalMs } = TUNING.spawn;
+    return Math.max(minIntervalMs, baseIntervalMs - this.state.spawnCounter * decreasePerSpawnMs);
+  }
+
   advanceBelt() {
     if (!this.beltEl || this.beltTileWidth <= 0) return;
-    const speed = TUNING.belt.speedPxPerFrame;
+    const speed = this.currentBeltSpeed();
     this.beltOffset = (this.beltOffset + speed) % this.beltTileWidth;
     this.beltEl.style.backgroundPositionX = `${this.beltOffset}px`;
 
@@ -170,7 +193,7 @@ export class PizzatronGame {
       // sliding during the hold — but leave this pizza visible as evidence.
       this.isRunning = false;
       if (this.spawnerId) {
-        clearInterval(this.spawnerId);
+        clearTimeout(this.spawnerId);
         this.spawnerId = null;
       }
       p.removalTimer = setTimeout(() => this.onWrongOrder(p), TUNING.pizza.holdMsOnArrival);
@@ -192,7 +215,7 @@ export class PizzatronGame {
     if (this.state.ordersCompleted >= this.state.ordersToWin) {
       this.isRunning = false;
       if (this.spawnerId) {
-        clearInterval(this.spawnerId);
+        clearTimeout(this.spawnerId);
         this.spawnerId = null;
       }
       if (this.config.onComplete) this.config.onComplete();
@@ -236,10 +259,12 @@ export class PizzatronGame {
   }
 
   startSpawner() {
-    this.spawnerId = setInterval(() => {
+    const tick = () => {
       if (!this.isRunning) return;
       this.spawnPizza();
-    }, TUNING.spawn.intervalMs);
+      this.spawnerId = setTimeout(tick, this.currentSpawnInterval());
+    };
+    this.spawnerId = setTimeout(tick, this.currentSpawnInterval());
   }
 
   generateOrder(difficulty) {
@@ -449,7 +474,7 @@ export class PizzatronGame {
       this.gameLoopId = null;
     }
     if (this.spawnerId) {
-      clearInterval(this.spawnerId);
+      clearTimeout(this.spawnerId);
       this.spawnerId = null;
     }
     if (this._onResize) {
