@@ -16,7 +16,7 @@ const REGISTRY = [
   {
     GameClass: BurgerStackerGame,
     defaultConfig: { targetHeight: 5 },
-    successMessage: 'כל הכבוד! הבורגר מוכן!',
+    successMessage: 'כל הכבוד! ההמבוגר מוכן',
     loadingText: 'מכין את המטבח... תפוס את המרכיבים!',
   },
 ];
