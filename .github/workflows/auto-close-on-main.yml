@@ -1,0 +1,88 @@
+name: Auto-close issues on main promotion
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  close-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect PR numbers from new commits
+        id: prs
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+          if [[ "$BEFORE" =~ ^0+$ ]]; then
+            RANGE="$AFTER"
+          else
+            RANGE="$BEFORE..$AFTER"
+          fi
+          PRS=$(git log --format="%s%n%b" "$RANGE" 2>/dev/null \
+            | grep -oE '#[0-9]+' | tr -d '#' | sort -u | tr '\n' ',' | sed 's/,$//')
+          echo "prs=$PRS" >> "$GITHUB_OUTPUT"
+          echo "Found PR refs: $PRS"
+
+      - name: Close referenced issues
+        if: steps.prs.outputs.prs != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumbers = '${{ steps.prs.outputs.prs }}'.split(',').filter(Boolean);
+            const closingPattern = /\b(close[sd]?|fix(es|ed)?|resolve[sd]?)\s+#(\d+)/gi;
+            const issuesToClose = new Map();
+
+            for (const prNum of prNumbers) {
+              try {
+                const { data: pr } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: parseInt(prNum),
+                });
+                const body = pr.body || '';
+                let match;
+                while ((match = closingPattern.exec(body)) !== null) {
+                  const issueNum = match[3];
+                  if (!issuesToClose.has(issueNum)) issuesToClose.set(issueNum, prNum);
+                }
+              } catch (e) {
+                console.log(`Skipping ref #${prNum}: ${e.message}`);
+              }
+            }
+
+            for (const [issueNum, sourcePr] of issuesToClose) {
+              try {
+                const { data: issue } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(issueNum),
+                });
+                if (issue.state !== 'open' || issue.pull_request) {
+                  console.log(`Skipping #${issueNum} (state=${issue.state}, isPR=${!!issue.pull_request})`);
+                  continue;
+                }
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(issueNum),
+                  body: `Auto-closed: fix promoted to \`main\` (PR #${sourcePr}).`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(issueNum),
+                  state: 'closed',
+                });
+                console.log(`Closed #${issueNum} (from PR #${sourcePr})`);
+              } catch (e) {
+                console.log(`Failed to close #${issueNum}: ${e.message}`);
+              }
+            }
