@@ -158,7 +158,7 @@ class RecipeFilterComponent extends HTMLElement {
   render() {
     this.shadowRoot.innerHTML = `
       <style>${this.styles()}</style>
-      <custom-modal height="auto" fullscreen-mobile>
+      <custom-modal height="auto">
         <div class="filter-container">
           ${this.renderHeader()}
           ${this.renderFilterGrid()}
