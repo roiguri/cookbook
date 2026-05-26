@@ -221,6 +221,28 @@ describe('RecipeService', () => {
     it('throws when recipeData is missing', async () => {
       await expect(RecipeService.create({})).rejects.toThrow('recipeData is required');
     });
+
+    it('service-stamps creationTime on the persisted payload', async () => {
+      firestoreMocks.setDocument.mockResolvedValue();
+      await RecipeService.create({
+        recipeData: { name: 'Cake', category: 'desserts' },
+        uploadedBy: 'user-1',
+      });
+      const payload = firestoreMocks.setDocument.mock.calls[0][2];
+      expect(payload.creationTime).toBeDefined();
+    });
+
+    it('overrides caller-supplied creationTime (service is the single source of truth)', async () => {
+      firestoreMocks.setDocument.mockResolvedValue();
+      const stale = { fake: 'caller-set' };
+      await RecipeService.create({
+        recipeData: { name: 'Cake', category: 'desserts', creationTime: stale },
+        uploadedBy: 'user-1',
+      });
+      const payload = firestoreMocks.setDocument.mock.calls[0][2];
+      expect(payload.creationTime).toBeDefined();
+      expect(payload.creationTime).not.toBe(stale);
+    });
   });
 
   describe('update', () => {
