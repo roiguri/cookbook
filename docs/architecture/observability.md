@@ -21,7 +21,11 @@ The plugin is a no-op (and sourcemap generation itself is skipped) when any of `
 
 ### 2. Runtime — event collection
 
-`@sentry/browser` is initialized once at app start via `initLogger()` in `src/app.js`, **before** Firebase init so setup errors are captured. The SDK installs:
+`initLogger()` is invoked once at app start in `src/app.js`, **before** Firebase init. The function `await`s `import('@sentry/browser')` so the SDK lives in its own async chunk instead of the critical-path entry bundle (see [Performance impact](#performance-impact) below for the rationale and numbers).
+
+Because the SDK loads asynchronously, any `captureError` / `captureMessage` / `setUser` / `addBreadcrumb` calls fired between `initLogger()` and the chunk landing are pushed onto an in-memory queue. When `Sentry.init()` finishes, the queue is flushed; if `initLogger()` resolves with the logger inactive (no DSN / development), the queue is dropped. Net effect: early-startup errors (e.g. `initFirebase` throwing synchronously) are still reported.
+
+Once the SDK is ready it installs:
 
 - Global `window.onerror` and `window.onunhandledrejection` handlers
 - A `console.error` wrapper
@@ -140,14 +144,17 @@ When you add `captureError(error, { ...ids })`, the identifiers land in Sentry's
 
 What this integration costs:
 
-|                       | Cost                                      | Notes                                                                                                                            |
-| --------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Bundle size           | +85 KB raw / +29 KB gzipped on `main.js`  | Loaded in the initial bundle (not lazy) so early errors are captured. ~100 ms slower first paint on 3G, negligible on broadband. |
-| `Sentry.init()`       | ~5–15 ms at boot                          | One-time, runs before Firebase init                                                                                              |
-| `captureError()` call | <1 ms sync + async send                   | JSON serialize + fire-and-forget POST. Doesn't block your code.                                                                  |
-| Global handlers       | unmeasurable                              | Event listeners, not interceptors                                                                                                |
-| Breadcrumbs           | ~1 KB memory per breadcrumb, capped at 50 |                                                                                                                                  |
-| Network               | 0 when no errors                          | ~5–10 KB per event when errors do happen                                                                                         |
+|                       | Cost                                         | Notes                                                                                                                                                                                                                         |
+| --------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entry bundle          | 0                                            | The SDK is loaded via dynamic `import('@sentry/browser')` inside `initLogger()`, so it lands in its own chunk (~450 KB raw / ~149 KB gz at this writing) — fetched in parallel, not blocking parse/exec on the critical path. |
+| Pre-init errors       | Queued in-memory, flushed once the SDK lands | Errors during the brief window before the chunk loads are captured. If `initLogger` decides Sentry should stay inactive (no DSN / dev), the queue is dropped.                                                                 |
+| `Sentry.init()`       | ~5–15 ms inside the chunk's `.then()`        | Runs once, after Firebase init (not before — async). Pre-init errors are queued, not lost.                                                                                                                                    |
+| `captureError()` call | <1 ms sync + async send                      | JSON serialize + fire-and-forget POST. Doesn't block your code.                                                                                                                                                               |
+| Global handlers       | unmeasurable                                 | Event listeners, not interceptors                                                                                                                                                                                             |
+| Breadcrumbs           | ~1 KB memory per breadcrumb, capped at 50    |                                                                                                                                                                                                                               |
+| Network               | 0 when no errors                             | ~5–10 KB per event when errors do happen, plus the one-time chunk fetch                                                                                                                                                       |
+
+**Why dynamic import?** The original integration imported `@sentry/browser` statically from `logger.js`, which pulled the entire SDK into `main.js` (~+85 KB raw / ~+29 KB gz). Lighthouse penalised that under mobile throttling — the deploy-preview Performance score sat ~10 points below its previous baseline. Moving the import inside `initLogger()`'s body (where Vite/Rollup emit it as a sibling chunk) restored the score without changing the public logger API.
 
 When the logger is in no-op mode (local dev), all of this is zero — the SDK isn't initialized.
 

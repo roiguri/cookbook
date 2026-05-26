@@ -4,6 +4,11 @@ Patterns and pitfalls discovered while tuning the SPA.
 
 > **When to add an entry:** after fixing a perf bug whose root cause was a pattern (not a single-site mistake). Date it (`YYYY-MM-DD`), state the Learning + Action in 2–4 lines, and add the newest entry at the top of its block. Newest entries win when guidance conflicts. If a pattern fits inside an architecture doc (`docs/architecture/*.md`), put the canonical version there and add a short pointer entry here.
 
+## 2026-05-27 - Keep Observability SDKs Off the Critical Path
+
+**Learning:** A static `import * as Sentry from '@sentry/browser'` inside `logger.js` (which is imported by `app.js`) lands the entire SDK in `main.js`. Even though `initLogger()` short-circuits to a no-op when the DSN is missing, the SDK is still parsed and executed at startup because ESM static imports are hoisted. On Netlify deploy previews, this added ~+85 KB raw / ~+29 KB gz to the critical-path entry chunk and pulled the mobile Lighthouse score from ~90+ down to ~80.
+**Action:** Observability / analytics / error-tracking SDKs are non-UI and must not block first paint. Load them via `await import('package')` inside the init function. If callers may fire events before the SDK lands, queue them in-module and flush on resolution (see [`logger.js`](../../src/js/services/logger.js)). Public capture API stays synchronous; only the loader changes. Canonical write-up: [`docs/architecture/observability.md`](../architecture/observability.md#performance-impact).
+
 ## 2026-05-26 - Non-blocking Holds for Every New Init-Path Import
 
 **Learning:** Adding _one more_ `await import()` to `initializeSPA` (even for a 2 KB chunk that holds an idle event handler) dropped the deploy preview's Lighthouse mobile-throttled Performance score from ~90 to 65. Throttled mobile budgets a single extra critical-path round-trip generously. The earlier "Non-blocking Component Preloading" rule applies recursively — once one `await` is justified for an ordering reason (e.g. `navigation-script`), it is tempting to chain another on the same line. Don't.
