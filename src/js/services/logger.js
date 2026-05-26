@@ -4,27 +4,13 @@
  * Thin wrapper around Sentry. All app code imports from here, never from
  * `@sentry/browser` directly — if we swap providers, only this file changes.
  *
- * The Sentry SDK is loaded via dynamic import so it lands in its own chunk
- * instead of the critical-path entry bundle. The import is additionally
- * deferred via `requestIdleCallback` (or a `setTimeout` fallback) so the
- * chunk fetch, parse, and `Sentry.init()` work all run AFTER the browser
- * is idle — past the Lighthouse mobile measurement window. Otherwise that
- * post-FCP work counts directly against Total Blocking Time and erases the
- * gain from shrinking the entry bundle (see `docs/lessons/performance.md`).
+ * The SDK is loaded via dynamic import deferred to `requestIdleCallback`
+ * (rationale in `docs/lessons/performance.md`). Capture calls fired before
+ * init resolves are queued and replayed.
  *
- * Calls made before the SDK is ready are queued and flushed once init
- * completes; if init resolves with Sentry inactive (no DSN, or
- * development), the queue is dropped.
- *
- * Activation rules:
- *   - VITE_SENTRY_DSN must be set, AND
- *   - VITE_SENTRY_ENVIRONMENT must not be `development`
- *   When inactive, every export is a safe no-op.
- *
- * Env vars:
- *   VITE_SENTRY_DSN          public DSN, inlined into the bundle
- *   VITE_SENTRY_ENVIRONMENT  `production` | `staging` | `development`
- *   VITE_SENTRY_RELEASE      git SHA / version; defaults to import.meta.env.MODE
+ * Inactive (safe no-op) unless VITE_SENTRY_DSN is set AND
+ * VITE_SENTRY_ENVIRONMENT ≠ `development`. VITE_SENTRY_RELEASE tags events;
+ * defaults to `import.meta.env.MODE`.
  */
 
 let Sentry = null;
@@ -82,10 +68,7 @@ export function initLogger() {
         });
     };
 
-    // Defer past the Lighthouse measurement window so the chunk fetch + parse
-    // + init don't get charged to Total Blocking Time. requestIdleCallback
-    // with a 5s timeout guarantees Sentry initialises even if the page stays
-    // busy; the setTimeout fallback covers older Safari (< 16.4).
+    // setTimeout fallback covers Safari < 16.4 (no requestIdleCallback).
     if (typeof requestIdleCallback === 'function') {
       requestIdleCallback(load, { timeout: 5000 });
     } else {
