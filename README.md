@@ -60,13 +60,6 @@ This project was built to demonstrate a strong grasp of core web technologies:
 You can view the live application hosted on Netlify here:
 [**https://our-kitchen-chronicles.netlify.app/**](https://our-kitchen-chronicles.netlify.app/)
 
-## 🔮 Future Plans
-
-While this project was a foundational learning experience, I plan to continue evolving it:
-
-- **Social Features:** Adding comments, ratings, and social sharing capabilities.
-- **Offline Support:** Enhancing PWA capabilities for fully offline access to saved recipes.
-
 ---
 
 _Built by [Roi Guri](https://github.com/roiguri)_
