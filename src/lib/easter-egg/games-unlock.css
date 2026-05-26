@@ -1,0 +1,166 @@
+/* Easter egg: mini-games unlock animation */
+
+/* Suppress mobile text-selection / tap-highlight / iOS callout on the brand,
+   otherwise rapid 7-tap unlock triggers selection handles or a context preview
+   that disrupts the sparkle visual. */
+.menu-title-container > a,
+header .logo,
+.drawer-brand {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Per-tap glow on the brand. Set by the JS detector as data-unlock-glow="1|2|3" */
+header .logo[data-unlock-glow],
+.drawer-brand[data-unlock-glow] {
+  transition: text-shadow 200ms var(--ease, ease);
+}
+
+header .logo[data-unlock-glow='1'],
+.drawer-brand[data-unlock-glow='1'] {
+  text-shadow: 0 0 8px var(--primary, #6a994e);
+}
+
+header .logo[data-unlock-glow='2'],
+.drawer-brand[data-unlock-glow='2'] {
+  text-shadow:
+    0 0 10px var(--primary, #6a994e),
+    0 0 20px var(--primary, #6a994e);
+}
+
+header .logo[data-unlock-glow='3'],
+.drawer-brand[data-unlock-glow='3'] {
+  text-shadow:
+    0 0 12px #fbbf24,
+    0 0 24px var(--primary, #6a994e),
+    0 0 36px var(--primary, #6a994e);
+}
+
+/* Note: this easter egg is deliberately user-initiated (7 logo taps to unlock).
+   We intentionally do NOT honor prefers-reduced-motion here — the animation
+   only plays when the user explicitly opts in, so it's analogous to clicking
+   "play" on a video. The brand glow + sparkle burst stay visible regardless
+   of the OS-level motion preference. */
+
+.games-unlock-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-fullscreen, 10000);
+  opacity: 1;
+  transition: opacity 320ms var(--ease-out, ease-out);
+}
+
+.games-unlock-overlay.games-unlock-fade {
+  opacity: 0;
+}
+
+/* Screen dim — backdrop that makes the sparkles read clearly */
+.games-unlock-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  animation: games-unlock-dim 1080ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes games-unlock-dim {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Central flash from the brand position */
+.games-unlock-flash {
+  position: absolute;
+  width: 0;
+  height: 0;
+  background: radial-gradient(
+    circle,
+    #fff 0%,
+    #fff 12%,
+    var(--primary, #6a994e) 35%,
+    var(--primary, #6a994e) 55%,
+    transparent 78%
+  );
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  filter: blur(3px);
+  animation: games-unlock-flash 820ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes games-unlock-flash {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  18% {
+    width: 260px;
+    height: 260px;
+    opacity: 1;
+  }
+  100% {
+    width: 900px;
+    height: 900px;
+    opacity: 0;
+  }
+}
+
+.games-unlock-burst {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.games-unlock-sparkle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  margin: -7px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #fff 0%,
+    #fff 28%,
+    var(--sparkle-color, var(--primary, #6a994e)) 62%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 14px var(--sparkle-color, var(--primary, #6a994e)),
+    0 0 28px var(--sparkle-color, var(--primary, #6a994e));
+  opacity: 0;
+  animation: games-unlock-burst 1000ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes games-unlock-burst {
+  0% {
+    transform: rotate(var(--angle, 0deg)) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: rotate(var(--angle, 0deg)) translateX(34px) scale(1.25);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle, 0deg)) translateX(var(--dist, 240px)) scale(0.4);
+    opacity: 0;
+  }
+}

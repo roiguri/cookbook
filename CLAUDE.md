@@ -65,6 +65,9 @@ Architecture, conventions, full service surface, and reusable patterns: [`docs/a
 | `/grandmas-cooking` | `documents-page.js`         |
 | `/dashboard`        | `manager-dashboard-page.js` |
 | `/my-meal`          | `my-meal-page.js`           |
+| `/games`            | `games-page.js`             |
+
+The `/games` route is an easter egg — there is no link to it anywhere in the nav. Unlock it by tapping the header logo (or the mobile drawer brand) **7 times within 2 seconds**. The route also works as a direct URL once known. See `src/lib/easter-egg/games-unlock.js`.
 
 ### User Roles
 

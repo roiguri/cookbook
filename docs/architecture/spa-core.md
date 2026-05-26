@@ -95,5 +95,8 @@ Every page is a plain object exported as `default` from `src/app/pages/*.js`. Co
 | `/grandmas-cooking` | `src/app/pages/documents-page.js`         |
 | `/dashboard`        | `src/app/pages/manager-dashboard-page.js` |
 | `/my-meal`          | `src/app/pages/my-meal-page.js`           |
+| `/games`            | `src/app/pages/games-page.js`             |
+
+`/games` is an unlisted easter-egg route: tap the header logo (or mobile drawer brand) 7 times within 2 seconds to trigger a sparkle-burst animation and navigate to it. The route is also reachable by direct URL. Detector lives in `src/lib/easter-egg/games-unlock.js`, animation styles in the sibling `.css`. Initialized at SPA boot from `src/app.js`.
 
 Netlify is configured to fall back to `index.html` for unknown paths (see `netlify.toml`) so deep links work on production.

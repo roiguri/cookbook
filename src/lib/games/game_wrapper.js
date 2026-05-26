@@ -8,12 +8,20 @@ export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}`;
 
 const REGISTRY = [
   {
+    key: 'memory',
+    name: 'משחק זיכרון',
+    icon: '🧠',
+    description: 'מצאו את הזוגות',
     GameClass: CookingMemoryGame,
     defaultConfig: { rows: 3 },
     successMessage: 'כל הכבוד! הזיכרון שלך חד!',
     loadingText: 'זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!',
   },
   {
+    key: 'burger',
+    name: 'מגדל ההמבורגר',
+    icon: '🍔',
+    description: 'תפסו את המרכיבים והרכיבו המבורגר',
     GameClass: BurgerStackerGame,
     defaultConfig: { targetHeight: 5 },
     successMessage: 'כל הכבוד! ההמבוגר מוכן',
@@ -22,14 +30,29 @@ const REGISTRY = [
 ];
 
 export class GameWrapper {
-  static random(container, overrides = {}) {
-    const pick = REGISTRY[Math.floor(Math.random() * REGISTRY.length)];
+  static list() {
+    return REGISTRY.map(({ key, name, icon, description }) => ({
+      key,
+      name,
+      icon,
+      description,
+    }));
+  }
+
+  static create(key, container, overrides = {}) {
+    const pick = REGISTRY.find((g) => g.key === key);
+    if (!pick) throw new Error(`Unknown game key: ${key}`);
     return new GameWrapper(container, pick.GameClass, {
       ...pick.defaultConfig,
       ...overrides,
       successMessage: pick.successMessage,
       loadingText: pick.loadingText,
     });
+  }
+
+  static random(container, overrides = {}) {
+    const pick = REGISTRY[Math.floor(Math.random() * REGISTRY.length)];
+    return GameWrapper.create(pick.key, container, overrides);
   }
 
   constructor(container, GameClass, config = {}) {
