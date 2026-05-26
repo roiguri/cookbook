@@ -22,6 +22,7 @@
 import { getFirebaseApp } from '../_firebase/firebase-service.js';
 import { Timestamp } from 'firebase/firestore';
 import { UserService } from './user-service.js';
+import { captureError } from '../logger.js';
 
 const SW_PATH = '/firebase-messaging-sw.js';
 const TOKEN_CACHE_KEY = 'mcb_fcm_token_v1';
@@ -125,6 +126,7 @@ class NotificationService {
         return true;
       } catch (error) {
         console.error('[notifications] init failed:', error);
+        captureError(error, { service: 'notification', op: 'init' });
         return false;
       }
     })();
@@ -176,6 +178,7 @@ class NotificationService {
       return { ok: true };
     } catch (error) {
       console.error('[notifications] requestPermissionAndRegister failed:', error);
+      captureError(error, { service: 'notification', op: 'requestPermissionAndRegister', uid });
       return { ok: false, reason: 'error' };
     }
   }
@@ -204,10 +207,11 @@ class NotificationService {
         const { deleteToken } = await import('firebase/messaging');
         if (this._messaging) await deleteToken(this._messaging);
       } catch (_) {
-        // ignore — server-side pruning will catch dead tokens later
+        // silent: FCM deleteToken failed; server-side pruning will catch dead tokens later
       }
     } catch (error) {
       console.warn('[notifications] unregisterCurrentDevice failed:', error);
+      captureError(error, { service: 'notification', op: 'unregisterCurrentDevice', uid });
     } finally {
       this._currentToken = null;
       localStorage.removeItem(TOKEN_CACHE_KEY);
@@ -235,7 +239,8 @@ class NotificationService {
         parsed.createdAt = new Timestamp(parsed.createdAt.seconds, parsed.createdAt.nanoseconds);
       }
       return parsed;
-    } catch (_) {
+    } catch (error) {
+      captureError(error, { service: 'notification', op: '_readCachedEntry' });
       return null;
     }
   }

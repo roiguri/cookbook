@@ -13,6 +13,13 @@ const sentryEnabled = Boolean(sentryAuthToken && sentryOrg && sentryProject);
 
 export default defineConfig({
   base: '/',
+  // Inject sentryRelease into the client bundle so runtime events tag the same
+  // release the source map upload used. Without this, logger.js can't see
+  // COMMIT_REF (not VITE_-prefixed) and events ship release=undefined, so
+  // Sentry can't deobfuscate stacks.
+  define: {
+    'import.meta.env.VITE_SENTRY_RELEASE': JSON.stringify(sentryRelease || ''),
+  },
   plugins: [
     sentryEnabled &&
       sentryVitePlugin({

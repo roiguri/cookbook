@@ -4,6 +4,7 @@ import { Timestamp } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
 import { MediaInstructionService } from './media-instruction-service.js';
+import { captureError } from '../logger.js';
 
 /**
  * RecipeService — Recipe-Aware Service Layer
@@ -311,6 +312,13 @@ export class RecipeService {
                   newCategory,
                 );
               } catch (error) {
+                captureError(error, {
+                  service: 'recipe',
+                  op: 'update:migrateFilesToCategory',
+                  recipeId,
+                  imageId: img.id,
+                  newCategory,
+                });
                 migrationWarnings.push({ imageId: img.id, error: error.message });
               }
             }
@@ -471,6 +479,12 @@ export class RecipeService {
           `RecipeService.replaceImage: fieldUpdates patch failed for image ${imageId}:`,
           err,
         );
+        captureError(err, {
+          service: 'recipe',
+          op: 'replaceImage:fieldUpdatesPatch',
+          recipeId,
+          imageId,
+        });
       }
     }
 
