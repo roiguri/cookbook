@@ -1,6 +1,8 @@
 # Security Lessons
 
-Vulnerabilities found and the patterns we adopted to prevent them. Dated entries; newest practices win when guidance conflicts.
+Vulnerabilities found and the patterns we adopted to prevent them.
+
+> **When to add an entry:** after fixing a vulnerability whose root cause was a pattern (not a single-site mistake). Date it (`YYYY-MM-DD`), state the Vulnerability + Learning + Prevention in 2–5 lines, and add the newest entry at the top. Newest entries win when guidance conflicts. If a pattern fits inside an architecture doc, put the canonical version there and add a short pointer here.
 
 ## 2025-10-18 - DOM XSS in Recipe Component
 

@@ -41,18 +41,11 @@ gsutil -m rsync -r gs://BUCKET_NAME/img/recipes/backup/full/ gs://BUCKET_NAME/im
 gsutil -m rm -r gs://BUCKET_NAME/img/recipes/backup
 ```
 
-## 3. Architecture & Fallbacks
+## 3. Runtime architecture
 
-The application is built to handle the asynchronous nature of server-side resizing seamlessly.
+Runtime URL resolution and deletion are owned by `RecipeImageService`:
 
-### The Waterfall Fallback Flow
+- `getOptimizedUrl(image, size)` does the **WebP → full → null** waterfall, so the user sees the original immediately after upload while the resize extension is still catching up, and falls back to a CSS placeholder if all Storage paths fail.
+- `deleteFiles(image)` cleans up the original plus all generated variants (`_400x400.webp`, `_1080x1080.webp`, the `_original.<ext>` AI-enhance backup, and the backup's variants).
 
-When a component requests an image, the `getOptimizedImageUrl` utility follows this sequence:
-
-1.  **Optimized Attempt:** Tries to fetch the WebP variant (`_400x400.webp` or `_1080x1080.webp`).
-2.  **Latency Fallback:** If missing, it fetches the original `full` image (ensuring the user sees something immediately after upload).
-3.  **UI Placeholder:** If Storage paths fail, it returns `null`, and the component renders a CSS-based SVG placeholder.
-
-### Clean Deletion
-
-When a recipe or image is deleted via the app, the logic in `recipe-image-utils.js` automatically cleans up all associated files: the original, the 400px WebP, and the 1080px WebP.
+See [`docs/architecture/services.md`](architecture/services.md) for the full service surface.

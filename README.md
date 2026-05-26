@@ -52,8 +52,7 @@ This project was built to demonstrate a strong grasp of core web technologies:
 - [`CLAUDE.md`](./CLAUDE.md) — developer & agent guide: commands, conventions, repo conventions.
 - [`docs/architecture/`](./docs/architecture/) — deeper references for the [SPA core](./docs/architecture/spa-core.md), [component system](./docs/architecture/components.md), [services / Firebase layer](./docs/architecture/services.md), and [design system](./docs/architecture/design-system.md).
 - [`docs/lessons/`](./docs/lessons/) — patterns and pitfalls discovered while building: [performance](./docs/lessons/performance.md), [accessibility](./docs/lessons/accessibility.md), [security](./docs/lessons/security.md).
-- [`docs/operations/firebase-image-optimization.md`](./docs/operations/firebase-image-optimization.md) — image pipeline configuration and bulk-reprocessing notes.
-- [`CHANGELOG.md`](./CHANGELOG.md) — versioned change log.
+- [`docs/firebase-image-optimization.md`](./docs/firebase-image-optimization.md) — image pipeline configuration and bulk-reprocessing notes.
 
 ## 🚀 Live Demo
 

@@ -176,4 +176,4 @@ For server-side enforcement, the truth is in `firestore.rules` and `storage.rule
 - **Batch recipe import** — triggered by Pub/Sub for bulk operations.
 - **Firestore triggers** — downstream side effects on recipe creation/update.
 
-Image resizing is **not** a Cloud Function any more — it's the Firebase "Resize Images" extension; configuration and bulk-reprocessing notes live in [`docs/operations/firebase-image-optimization.md`](../operations/firebase-image-optimization.md).
+Image resizing is **not** a Cloud Function any more — it's the Firebase "Resize Images" extension; configuration and bulk-reprocessing notes live in [`docs/firebase-image-optimization.md`](../firebase-image-optimization.md).
