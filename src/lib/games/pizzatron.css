@@ -53,6 +53,7 @@
 }
 
 .pizzatron-belt {
+  --belt-tile-w: 192px;
   position: absolute;
   top: 0;
   bottom: 0;
@@ -60,7 +61,7 @@
   right: 120px;
   background-image: url('./assets/pizzatron/pizza_belt_small.png');
   background-repeat: repeat-x;
-  background-size: auto 100%;
+  background-size: var(--belt-tile-w) 100%;
   background-position: 0 0;
   border-radius: 4px;
 }

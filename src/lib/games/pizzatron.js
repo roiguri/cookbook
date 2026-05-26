@@ -19,11 +19,41 @@ export class PizzatronGame {
     };
 
     this.isRunning = false;
+    this.beltEl = null;
+    this.beltSpeed = 0.6; // px per frame at base difficulty
+    this.beltOffset = 0;
+    this.beltTileWidth = 0; // populated from --belt-tile-w after render
+    this.gameLoopId = null;
   }
 
   start() {
     this.isRunning = true;
     this.render();
+    this.beltEl = this.container.querySelector('#pizzatron-belt');
+    this.beltTileWidth = this.readBeltTileWidth();
+    this.startGameLoop();
+  }
+
+  readBeltTileWidth() {
+    if (!this.beltEl) return 192;
+    const raw = getComputedStyle(this.beltEl).getPropertyValue('--belt-tile-w').trim();
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 192;
+  }
+
+  startGameLoop() {
+    const loop = () => {
+      if (!this.isRunning) return;
+      this.advanceBelt();
+      this.gameLoopId = requestAnimationFrame(loop);
+    };
+    this.gameLoopId = requestAnimationFrame(loop);
+  }
+
+  advanceBelt() {
+    if (!this.beltEl || this.beltTileWidth <= 0) return;
+    this.beltOffset = (this.beltOffset + this.beltSpeed) % this.beltTileWidth;
+    this.beltEl.style.backgroundPositionX = `${this.beltOffset}px`;
   }
 
   render() {
@@ -48,6 +78,11 @@ export class PizzatronGame {
 
   destroy() {
     this.isRunning = false;
+    if (this.gameLoopId) {
+      cancelAnimationFrame(this.gameLoopId);
+      this.gameLoopId = null;
+    }
+    this.beltEl = null;
     this.container.innerHTML = '';
   }
 }
