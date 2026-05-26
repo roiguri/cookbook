@@ -2,7 +2,7 @@
 
 ## Status
 
-Umbrella branch `refactor/service-layer` (#211). In flight. Merges to `development` only after all phases below are complete and the ESLint convention rule passes.
+**✅ Complete.** Umbrella branch `refactor/service-layer` (#211) ready to merge into `development`. All structural goals met; the ESLint convention rule is in place and passes with zero exemptions.
 
 ## Convention (load-bearing)
 
@@ -23,7 +23,7 @@ Umbrella branch `refactor/service-layer` (#211). In flight. Merges to `developme
 
 ```
 src/js/services/
-├── _firebase/                               # internal infrastructure
+├── _firebase/                               # internal infrastructure (only services may import)
 ├── auth/
 │   └── auth-service.js
 ├── users/
@@ -31,10 +31,13 @@ src/js/services/
 │   ├── favorites-service.js                 # delegates → UserService
 │   └── notification-service.js              # delegates → UserService; FCM SDK direct
 ├── recipes/
-│   ├── recipe-service.js                    # owns recipes/{id}; composes image storage
+│   ├── recipe-service.js                    # owns recipes/{id}; composes image + media services
 │   ├── recipe-image-service.js              # image storage ops + URL reads; NO Firestore
 │   ├── recipe-image-proposal-service.js     # proposal/moderation workflow
-│   └── media-instruction-service.js         # media-instruction Storage ops
+│   ├── media-instruction-service.js         # media-instruction Storage ops
+│   └── ai-enhancement-service.js
+├── pdf/
+│   └── pdf-service.js                       # scanned-PDF reads (page index + page image URLs)
 ├── meals/
 │   └── active-meal-service.js
 └── admin/
@@ -52,128 +55,72 @@ src/js/utils/
 
 Reference only — `git log refactor/service-layer` is authoritative.
 
-| PR        | Scope                                                                                                                                      |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| #197      | PR-A: `RecipeService` + `RecipeImageProposalService` API                                                                                   |
-|           | PR-B/C/D: form-submit / delete / image-proposal migrations                                                                                 |
-| #212      | PR-E: search bypasses → `RecipeService.list`                                                                                               |
-| #213      | PR-F: self-heal → `RecipeService.update` PATCH                                                                                             |
-| #214      | PR-G: page list-queries                                                                                                                    |
-| #216      | Dead search-service removal                                                                                                                |
-| #218      | Phase 0: services restructured into by-domain folders                                                                                      |
-| #219      | PR-H: AI image enhance + `RecipeImageService` introduced                                                                                   |
-| #220      | PR-I: `UserService` API                                                                                                                    |
-| #222–#226 | PR-J1–J4: user-doc callers routed through `UserService`                                                                                    |
-| #227      | PR-L: `ActiveMealService` API                                                                                                              |
-| #228      | PR-M: active-meal callers migrated                                                                                                         |
-| #231      | Preview-modal approval → `RecipeService`                                                                                                   |
-| #232      | PR-N: `FailedUrlExtractionService`                                                                                                         |
-| #233      | PR-O1: `UserService.listAvatarOptions` + component-storage cleanup                                                                         |
-| #237      | Infra: jest config ignores `.claude/worktrees/` for cross-worktree test discovery                                                          |
-| #236      | PR-Q1a-1: `setPrimaryImage` → `RecipeService` (utils + service old method removed)                                                         |
-| #238      | PR-Q1a-2: `replaceImage` → `RecipeService`; `RecipeImageService.replaceFiles` (Storage-only)                                               |
-| #239      | PR-Q1a-3: `uploadAndBuildImageMetadata` → `RecipeImageService.uploadFile`                                                                  |
-| #240      | PR-Q1a-4: `RecipeImageService.deleteFiles`; `removeAllRecipeImages` inlined into `RecipeService.delete`                                    |
-| #241      | PR-Q1a-5: `migrateImageToCategory` → `RecipeImageService.migrateFilesToCategory`                                                           |
-| #242      | PR-Q1b-1: `getOptimizedImageUrl` + `getPrimaryImageUrl` → `RecipeImageService.{getOptimizedUrl, getPrimaryUrl}`                            |
-| #244      | PR-Q1b-2: `getImageUrl(path)` → `RecipeImageService.getFullUrl(image)` with typed input                                                    |
-| #245      | PR-Q2: 4 proposal helpers inlined into `RecipeImageProposalService`; `deleteImageFiles` helper + Firestore/Storage imports gone from utils |
-| #249      | PR-Q3: new `MediaInstructionService` (5 methods); `recipe-media-utils.js` becomes pure                                                     |
-| #252      | PR-Q4: deleted `getRecipeById` + `getRecipesForCards` from utils; 6 callers route through `RecipeService.get` + `formatRecipeData(...)`    |
+| PR        | Scope                                                                                                                                                     |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #197      | PR-A: `RecipeService` + `RecipeImageProposalService` API                                                                                                  |
+|           | PR-B/C/D: form-submit / delete / image-proposal migrations                                                                                                |
+| #212      | PR-E: search bypasses → `RecipeService.list`                                                                                                              |
+| #213      | PR-F: self-heal → `RecipeService.update` PATCH                                                                                                            |
+| #214      | PR-G: page list-queries                                                                                                                                   |
+| #216      | Dead search-service removal                                                                                                                               |
+| #218      | Phase 0: services restructured into by-domain folders                                                                                                     |
+| #219      | PR-H: AI image enhance + `RecipeImageService` introduced                                                                                                  |
+| #220      | PR-I: `UserService` API                                                                                                                                   |
+| #222–#226 | PR-J1–J4: user-doc callers routed through `UserService`                                                                                                   |
+| #227      | PR-L: `ActiveMealService` API                                                                                                                             |
+| #228      | PR-M: active-meal callers migrated                                                                                                                        |
+| #231      | Preview-modal approval → `RecipeService`                                                                                                                  |
+| #232      | PR-N: `FailedUrlExtractionService`                                                                                                                        |
+| #233      | PR-O1: `UserService.listAvatarOptions` + component-storage cleanup                                                                                        |
+| #237      | Infra: jest config ignores `.claude/worktrees/` for cross-worktree test discovery                                                                         |
+| #236      | PR-Q1a-1: `setPrimaryImage` → `RecipeService` (utils + service old method removed)                                                                        |
+| #238      | PR-Q1a-2: `replaceImage` → `RecipeService`; `RecipeImageService.replaceFiles` (Storage-only)                                                              |
+| #239      | PR-Q1a-3: `uploadAndBuildImageMetadata` → `RecipeImageService.uploadFile`                                                                                 |
+| #240      | PR-Q1a-4: `RecipeImageService.deleteFiles`; `removeAllRecipeImages` inlined into `RecipeService.delete`                                                   |
+| #241      | PR-Q1a-5: `migrateImageToCategory` → `RecipeImageService.migrateFilesToCategory`                                                                          |
+| #242      | PR-Q1b-1: `getOptimizedImageUrl` + `getPrimaryImageUrl` → `RecipeImageService.{getOptimizedUrl, getPrimaryUrl}`                                           |
+| #244      | PR-Q1b-2: `getImageUrl(path)` → `RecipeImageService.getFullUrl(image)` with typed input                                                                   |
+| #245      | PR-Q2: 4 proposal helpers inlined into `RecipeImageProposalService`; `deleteImageFiles` helper + Firestore/Storage imports gone from utils                |
+| #249      | PR-Q3: new `MediaInstructionService` (5 methods); `recipe-media-utils.js` becomes pure                                                                    |
+| #252      | PR-Q4: deleted `getRecipeById` + `getRecipesForCards` from utils; 6 callers route through `RecipeService.get` + `formatRecipeData(...)`                   |
+| #253      | PR-O2-1: dropped dead `firebase/storage` import from `recipe_import_modal.js`                                                                             |
+| #254      | PR-O2-2: `RecipeService.create` service-stamps `creationTime`; dropped `firebase/firestore` import from `propose_recipe_component.js`                     |
+| #255      | PR-O2-3: new `PdfService` (`getPageIndex`, `getPageImageUrl`); `pdf_viewer.js` migrated off raw Firebase SDKs                                             |
+| #256      | PR-O2-4: strict `no-restricted-imports` ESLint rule for `_firebase/*` + raw `firebase/{firestore,storage,auth}` outside `src/js/services/**`; closes #215 |
 
 ### Naming deviations from the original plan
 
 - `uploadFiles` plural → **`uploadFile`** (singular) with positional + options shape: `uploadFile(recipeId, category, file, { isPrimary, uploadedBy })`. The call writes exactly one file (Storage Resize extension regenerates variants async); plural would have misled.
 - `migrateFilesToCategory` shipped as `(recipeId, image, newCategory)` — drops the `oldCategory` parameter (was only used in an error log).
 - `getRecipeById` / `getRecipesForCards` weren't strict passthroughs — they applied `formatRecipeData` to the Firestore result. Q4 kept `RecipeService.get` raw and pushed the formatting decision to caller boundaries (`formatRecipeData(await RecipeService.get(id))`). This split lets render paths get normalized defaults while update paths (notably the edit form) keep the raw shape for dirty-state baselining.
+- O2 was originally planned as a single PR (just adding the ESLint rule). Pre-O2 audit surfaced three uncleaned violations in `src/lib/`: a dead `firebase/storage` import in `recipe_import_modal.js`, a `Timestamp.now()` write in `propose_recipe_component.js`, and Firestore + Storage reads in `pdf_viewer.js`. O2 split into 4 PRs — three cleanup PRs followed by the rule — so each violation could be reviewed and smoked independently.
+- `propose_recipe_component.js` previously set `creationTime: Timestamp.now()` itself. O2-2 moved that responsibility into `RecipeService.create` (single source of truth; caller-supplied creationTime is now ignored). Preserves the project-wide `Timestamp.now()` convention from PR #98.
+- `pdf_viewer.js` Firestore + Storage reads moved into a new thin domain service `PdfService` (`src/js/services/pdf/pdf-service.js`) rather than calling `_firebase/*` services directly. Named `PdfService` (not `DocumentService`, which collides with the Firestore-document mental model, nor `CookbookService`, which is too generic since the whole app is a cookbook).
 
-## Pre-O2 audit (state of `refactor/service-layer`)
+## Final state — all acceptance criteria met
 
-Status snapshot taken before kicking off the final ESLint-enforcement PR. The umbrella's structural goals are met; the enforcement rule will lock them in.
+| Criterion                                                                                                                                 | Status                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ESLint rule passes with no exemptions                                                                                                     | ✅ PR-O2-4 added strict `no-restricted-imports` patterns scoped to `src/**` with `src/js/services/**` excluded. Verified with a negative test (forbidden import caught with the configured message). |
+| Raw `firebase/{firestore,storage,auth}` + `_firebase/*-service` imports outside `src/js/services/**`                                      | ✅ 0 hits                                                                                                                                                                                            |
+| `RecipeImageService` has zero Firestore calls                                                                                             | ✅                                                                                                                                                                                                   |
+| `recipe-image-utils.js` / `recipe-media-utils.js` / `recipe-data-utils.js` contain only pure helpers (no `await`, no service/SDK imports) | ✅ verified via grep                                                                                                                                                                                 |
+| `npm run lint && npx prettier --check && npm test && npm run build` green                                                                 | ✅ 0 errors, 543/543 tests, build ✓                                                                                                                                                                  |
 
-### ✅ Goals met
+### Public surfaces
 
-| Acceptance criterion                                                                                                                      | Status                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `recipe-image-utils.js` / `recipe-media-utils.js` / `recipe-data-utils.js` contain only pure helpers (no `await`, no service/SDK imports) | ✅ verified via grep                                                                            |
-| `RecipeImageService` has zero Firestore calls                                                                                             | ✅ verified (only mention is a JSDoc note)                                                      |
-| All sub-PRs land green                                                                                                                    | ✅ `npm test` (534/534), `npm run lint` (0 errors), `prettier --check` clean, `npm run build` ✓ |
+- `RecipeService`: `get`, `list`, `generateId`, `create`, `update`, `delete`, `setPrimaryImage`, `replaceImage`.
+- `RecipeImageService`: `uploadFile`, `replaceFiles`, `deleteFiles`, `migrateFilesToCategory`, `getOptimizedUrl`, `getPrimaryUrl`, `getFullUrl`.
+- `RecipeImageProposalService`: `propose`, `approve`, `reject`, `listPending`.
+- `MediaInstructionService`: `upload`, `delete`, `deleteMany`, `removeAll`, `getUrl`.
+- `PdfService`: `getPageIndex`, `getPageImageUrl`.
 
-### Final-state service layout (matches the plan)
+### Issues opened during the umbrella (follow-ups, out of scope)
 
-```
-src/js/services/recipes/
-├── recipe-service.js                    # owns recipes/{id}; composes images + media
-├── recipe-image-service.js              # 4 Storage write methods + 3 URL read methods; zero Firestore
-├── recipe-image-proposal-service.js     # 4 proposal/moderation methods; bounded recipes/{id} writes
-├── media-instruction-service.js         # 5 media Storage methods; zero Firestore
-└── ai-enhancement-service.js            # pre-existing AI helper
-```
-
-`RecipeImageService` public surface:
-`uploadFile`, `replaceFiles`, `deleteFiles`, `migrateFilesToCategory`, `getOptimizedUrl`, `getPrimaryUrl`, `getFullUrl`.
-
-`RecipeImageProposalService` public surface:
-`propose`, `approve`, `reject`, `listPending`.
-
-`MediaInstructionService` public surface:
-`upload`, `delete`, `deleteMany`, `removeAll`, `getUrl`.
-
-### ⚠️ Outstanding for PR-O2
-
-`grep` for `FirestoreService` / `StorageService` / raw `firebase/*` SDKs outside `src/js/services/**` still returns 3 hits:
-
-| File                                                                | Imports                                                                                                                   |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/recipes/recipe_form_component/propose_recipe_component.js` | `Timestamp` from `firebase/firestore`                                                                                     |
-| `src/lib/recipes/recipe_import_modal/recipe_import_modal.js`        | `getStorage, ref, uploadString, getDownloadURL` from `firebase/storage` — **dead imports** (never referenced in the file) |
-| `src/lib/utilities/pdf_viewer/pdf_viewer.js`                        | `doc, getDoc` from `firebase/firestore`; `ref, getDownloadURL` from `firebase/storage`                                    |
-
-PR-O2 migrates these (the dead one is a delete; the other two route through `FirestoreService` / `StorageService`) and then adds the strict `no-restricted-imports` rule scoped to non-service code.
-
-### Issues opened during the umbrella
-
-- #243 — investigate / remove image-carousel legacy string-path fallback (Q1b-2)
-- #248 — pending-image approval modal: "remove" button is non-functional (found while smoking Q2)
-- #250 — search button "active" border doesn't match search-bar shape (found while smoking Q3)
-- #251 — manager dashboard: dirty state persists after switching panels (found while smoking Q3)
-
-## Remaining work
-
-Only **PR-O2** left. See below.
-
----
-
-### PR-O2 — Strict ESLint rule, no exemptions
-
-```js
-{
-  files: ['src/**/*.js', '!src/js/services/**/*.js'],
-  rules: {
-    'no-restricted-imports': ['error', {
-      patterns: [
-        { group: ['**/_firebase/firestore-service*'], message: 'Use a domain service.' },
-        { group: ['**/_firebase/storage-service*'],   message: 'Use a domain service.' },
-        { group: ['firebase/firestore', 'firebase/storage', 'firebase/auth'],
-          message: 'Raw Firebase SDKs only inside src/js/services/**.' },
-      ],
-    }],
-  },
-}
-```
-
-**Acceptance**: `npm run lint` passes with zero exemptions. `gh issue close 215`.
-
----
-
-## Acceptance criteria — umbrella → development
-
-- ESLint rule passes with no exemptions.
-- `grep -r "FirestoreService\|StorageService\|firebase/firestore\|firebase/storage\|firebase/auth" src/ --include="*.js"` returns matches only inside `src/js/services/**`.
-- `RecipeImageService` has zero Firestore calls.
-- `recipe-image-utils.js`, `recipe-media-utils.js`, `recipe-data-utils.js` contain only pure helpers (no `await`, no service/SDK imports).
-- Full smoke walkthrough passes.
-- `npm run lint && npm run format -- --check && npm test && npm run build` green.
+- #243 — investigate / remove image-carousel legacy string-path fallback (found smoking Q1b-2)
+- #248 — pending-image approval modal: "remove" button is non-functional (found smoking Q2)
+- #250 — search button "active" border doesn't match search-bar shape (found smoking Q3)
+- #251 — manager dashboard: dirty state persists after switching panels (found smoking Q3)
 
 ## Final smoke walkthrough
 
