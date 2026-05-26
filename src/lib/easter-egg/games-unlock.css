@@ -1,0 +1,97 @@
+/* Easter egg: mini-games unlock animation */
+
+.games-unlock-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-fullscreen, 10000);
+  opacity: 1;
+  transition: opacity 320ms var(--ease-out, ease-out);
+}
+
+.games-unlock-overlay.games-unlock-fade {
+  opacity: 0;
+}
+
+.games-unlock-flash {
+  position: absolute;
+  width: 0;
+  height: 0;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--primary, #6a994e) 70%, white) 0%,
+    color-mix(in oklab, var(--primary, #6a994e) 30%, transparent) 40%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: games-unlock-flash 720ms var(--ease-out, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
+}
+
+@keyframes games-unlock-flash {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.9;
+  }
+  100% {
+    width: 800px;
+    height: 800px;
+    opacity: 0;
+  }
+}
+
+.games-unlock-burst {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.games-unlock-sparkle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  margin: -5px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #fff 0%,
+    color-mix(in oklab, var(--primary, #6a994e) 80%, white) 55%,
+    transparent 80%
+  );
+  box-shadow:
+    0 0 12px color-mix(in oklab, var(--primary, #6a994e) 80%, white),
+    0 0 24px color-mix(in oklab, var(--primary, #6a994e) 40%, transparent);
+  opacity: 0;
+  animation: games-unlock-burst 900ms var(--ease-out, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes games-unlock-burst {
+  0% {
+    transform: rotate(var(--angle, 0deg)) translateX(0) scale(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+    transform: rotate(var(--angle, 0deg)) translateX(20px) scale(1);
+  }
+  100% {
+    transform: rotate(var(--angle, 0deg)) translateX(var(--dist, 160px)) scale(0.3);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .games-unlock-overlay,
+  .games-unlock-flash,
+  .games-unlock-sparkle {
+    animation: none;
+    display: none;
+  }
+}

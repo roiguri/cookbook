@@ -1,0 +1,43 @@
+/* SPA Mini Games Page */
+
+.spa-content .games-page {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px var(--gutter, 16px) 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+}
+
+.spa-content .games-page-hero {
+  text-align: center;
+}
+
+.spa-content .games-page-title {
+  font-family: var(--font-display-he, var(--font-display, serif));
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--step-4);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  color: var(--ink, #1f1d18);
+}
+
+.spa-content .games-page-subtitle {
+  font-family: var(--font-ui-he, system-ui, sans-serif);
+  font-size: var(--step-0);
+  color: var(--ink-3, #7c7562);
+  margin: 0;
+}
+
+.spa-content .games-page-game {
+  background: var(--surface-1, #fff);
+  border-radius: var(--r-lg, 16px);
+  padding: 20px;
+  border: 1px solid var(--hairline, rgba(31, 29, 24, 0.12));
+  box-shadow: var(--shadow-1, 0 1px 4px rgba(31, 29, 24, 0.08));
+  box-sizing: border-box;
+}

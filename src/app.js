@@ -63,6 +63,11 @@ async function initializeSPA() {
     // (e.g., navigation-script handles link interception which the router depends on)
     await import('./js/navigation-script.js');
 
+    // Easter egg: rapid-tap the brand logo to unlock the mini-games page.
+    // Registered before the router so the capture-phase handler beats link interception.
+    const { initGamesUnlock } = await import('./lib/easter-egg/games-unlock.js');
+    initGamesUnlock();
+
     const contentContainer = document.getElementById('spa-content');
     if (!contentContainer) {
       throw new Error('SPA content container not found');
@@ -144,6 +149,14 @@ function registerRoutes(router, pageManager) {
     await pageManager.loadPage(module.default || module, {
       ...params,
       route: '/my-meal',
+    });
+  });
+
+  router.registerRoute('/games', async (params) => {
+    const module = await import('./app/pages/games-page.js');
+    await pageManager.loadPage(module.default || module, {
+      ...params,
+      route: '/games',
     });
   });
 }
