@@ -37,6 +37,8 @@ class MediaInstructionsEditor extends HTMLElement {
     this.uploading = false;
     this.errors = [];
     this.draggedIndex = null;
+    this.touchDragging = false;
+    this.currentDropIndex = null;
 
     this.handleAccepted = this.handleAccepted.bind(this);
     this.handleRejected = this.handleRejected.bind(this);
@@ -253,6 +255,82 @@ class MediaInstructionsEditor extends HTMLElement {
     this.renderMediaList();
   }
 
+  // --- Touch-Based Reorder Handlers (mobile parity for HTML5 drag) ---
+
+  handleItemTouchStart(e, index) {
+    if (e.touches.length !== 1) return;
+    this.draggedIndex = index;
+    this.touchDragging = true;
+    this.currentDropIndex = null;
+    const mediaItem = e.target.closest('.media-item');
+    if (mediaItem) {
+      mediaItem.classList.add('dragging');
+    }
+  }
+
+  handleItemTouchMove(e) {
+    if (!this.touchDragging || this.draggedIndex === null) return;
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const items = this.shadowRoot.querySelectorAll('.media-item');
+    let foundIndex = null;
+    items.forEach((item, idx) => {
+      const rect = item.getBoundingClientRect();
+      if (
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom
+      ) {
+        foundIndex = idx;
+      }
+    });
+
+    if (foundIndex === null || foundIndex === this.draggedIndex) {
+      items.forEach((item) => item.classList.remove('drag-over'));
+      this.currentDropIndex = null;
+      return;
+    }
+
+    this.currentDropIndex = foundIndex;
+    items.forEach((item, idx) => {
+      item.classList.toggle('drag-over', idx === foundIndex);
+    });
+  }
+
+  handleItemTouchEnd() {
+    if (!this.touchDragging) return;
+    this.touchDragging = false;
+
+    const items = this.shadowRoot.querySelectorAll('.media-item');
+    items.forEach((item) => {
+      item.classList.remove('dragging');
+      item.classList.remove('drag-over');
+    });
+
+    if (
+      this.draggedIndex !== null &&
+      this.currentDropIndex !== null &&
+      this.currentDropIndex !== this.draggedIndex
+    ) {
+      const draggedItem = this.mediaItems.splice(this.draggedIndex, 1)[0];
+      this.mediaItems.splice(this.currentDropIndex, 0, draggedItem);
+
+      this.mediaItems.forEach((item, idx) => {
+        if (!item.file && item.order !== undefined) {
+          item.order = idx;
+        }
+      });
+
+      this.emitChange();
+      this.renderMediaList();
+    }
+
+    this.draggedIndex = null;
+    this.currentDropIndex = null;
+  }
+
   // --- Rendering ---
 
   render() {
@@ -330,6 +408,7 @@ class MediaInstructionsEditor extends HTMLElement {
           border-radius: var(--r-sm, 8px);
           transition: background var(--dur-1, 160ms), color var(--dur-1, 160ms), border-color var(--dur-1, 160ms);
           user-select: none;
+          touch-action: none;
         }
 
         .drag-handle:hover {
@@ -609,6 +688,14 @@ class MediaInstructionsEditor extends HTMLElement {
       if (dragHandle) {
         dragHandle.addEventListener('dragstart', (e) => this.handleItemDragStart(e, index));
         dragHandle.addEventListener('dragend', (e) => this.handleItemDragEnd(e));
+        dragHandle.addEventListener('touchstart', (e) => this.handleItemTouchStart(e, index), {
+          passive: true,
+        });
+        dragHandle.addEventListener('touchmove', (e) => this.handleItemTouchMove(e), {
+          passive: false,
+        });
+        dragHandle.addEventListener('touchend', () => this.handleItemTouchEnd());
+        dragHandle.addEventListener('touchcancel', () => this.handleItemTouchEnd());
       }
 
       // Drop zones
