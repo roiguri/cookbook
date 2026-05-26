@@ -227,17 +227,31 @@ class AiImageEnhanceModal extends HTMLElement {
 
   _setEnhanceLoading(isLoading) {
     const loadingView = this.shadowRoot.getElementById('enhance-loading');
+    const compare = this.shadowRoot.querySelector('.compare');
     const advanced = this.shadowRoot.querySelector('.advanced');
     const actions = this.shadowRoot.querySelector('.actions');
+    const status = this.shadowRoot.querySelector('.loading-status-row');
+    const ready = this.shadowRoot.getElementById('enhance-ready');
     if (loadingView) loadingView.hidden = !isLoading;
+    if (compare) compare.style.display = isLoading ? 'none' : '';
     if (advanced) advanced.style.display = isLoading ? 'none' : '';
     if (actions) actions.style.display = isLoading ? 'none' : '';
 
     if (isLoading) {
+      // Reset to "in progress" appearance — status row visible, ready overlay hidden.
+      if (status) status.style.display = '';
+      if (ready) ready.hidden = true;
       this._startGame();
     } else {
       this._destroyGame();
     }
+  }
+
+  _showEnhanceReady() {
+    const status = this.shadowRoot.querySelector('.loading-status-row');
+    const ready = this.shadowRoot.getElementById('enhance-ready');
+    if (status) status.style.display = 'none';
+    if (ready) ready.hidden = false;
   }
 
   _startGame() {
@@ -432,14 +446,17 @@ class AiImageEnhanceModal extends HTMLElement {
       if (afterPlaceholder) afterPlaceholder.style.display = 'none';
       this._updatePaneHints();
       this._setStatus('התמונה שופרה. ניתן לשמור או לבטל.');
+      // Keep the game alive — switch the loading row to a "ready" badge.
+      // The user dismisses it via "view-result-btn" when they want to leave the game.
+      this._showEnhanceReady();
     } catch (error) {
       console.error('Image enhancement failed:', error);
       // Restore the placeholder so the after pane stops looking like it's loading.
       this._clearAfterImage();
       this._setStatus(this._formatError(error));
+      this._setEnhanceLoading(false);
     } finally {
       this._isLoading = false;
-      this._setEnhanceLoading(false);
       this._updateActions();
     }
   }
@@ -558,6 +575,9 @@ class AiImageEnhanceModal extends HTMLElement {
     sr.getElementById('enhance-btn').addEventListener('click', () => this._enhance());
     sr.getElementById('save-btn').addEventListener('click', () => this._save());
     sr.getElementById('discard-btn').addEventListener('click', () => this._discard());
+    sr.getElementById('view-result-btn').addEventListener('click', () =>
+      this._setEnhanceLoading(false),
+    );
     sr.getElementById('before-pane').addEventListener('click', () => {
       if (this._beforeUrl) this._openViewer('before');
     });
@@ -858,6 +878,28 @@ class AiImageEnhanceModal extends HTMLElement {
           font-size: 13px;
         }
 
+        .enhance-ready {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .enhance-ready[hidden] {
+          display: none;
+        }
+
+        .ready-icon {
+          font-size: 18px;
+        }
+
+        .ready-text {
+          color: var(--ink, #1f1d18);
+          font-size: 14px;
+          font-weight: 500;
+        }
+
         .loading-dots {
           display: inline-flex;
           gap: 4px;
@@ -950,6 +992,11 @@ class AiImageEnhanceModal extends HTMLElement {
               <div class="loading-dot"></div>
             </div>
             <span id="loading-text">זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!</span>
+          </div>
+          <div id="enhance-ready" class="enhance-ready" hidden>
+            <span class="ready-icon">✨</span>
+            <span class="ready-text">התמונה המשופרת מוכנה!</span>
+            <button id="view-result-btn" class="action primary">צפה בתוצאה</button>
           </div>
           <div id="game-container" class="game-container"></div>
         </div>
