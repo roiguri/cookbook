@@ -106,6 +106,11 @@ test.describe('Auth Avatar Visuals', () => {
     const avatar = page.locator('auth-avatar');
     await avatar.click();
 
+    // handleClick is async — it awaits loadAuthComponents() before calling
+    // openModal/showAuthForms. Wait for the side-effects rather than reading
+    // window flags synchronously after the click event dispatches.
+    await page.waitForFunction(() => window.modalOpened && window.authFormsShown);
+
     const result = await page.evaluate(() => ({
       modalOpened: window.modalOpened,
       authFormsShown: window.authFormsShown,
@@ -140,6 +145,8 @@ test.describe('Auth Avatar Visuals', () => {
 
     const avatar = page.locator('auth-avatar');
     await avatar.click();
+
+    await page.waitForFunction(() => window.modalOpened && window.userProfileShown);
 
     const result = await page.evaluate(() => ({
       modalOpened: window.modalOpened,
