@@ -1,0 +1,245 @@
+/* PDF viewer table-of-contents drawer (mobile only). The <app-drawer>
+   host gets the .pdf-toc-drawer class via its drawer-class attribute,
+   and the backdrop sibling gets .pdf-toc-drawer__backdrop. */
+
+.pdf-toc-drawer {
+  display: none;
+}
+
+.pdf-toc-drawer__backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .pdf-toc-drawer {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: min(360px, 90vw);
+    background: var(--surface-1, #fff);
+    border-inline-start: 1px solid var(--hairline, rgba(31, 29, 24, 0.08));
+    transform: translate3d(100%, 0, 0);
+    transition: transform var(--dur-3, 520ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+    z-index: var(--z-drawer, 1020);
+    box-shadow: -24px 0 64px -24px rgba(31, 29, 24, 0.35);
+    overflow: hidden;
+  }
+
+  .pdf-toc-drawer.active {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .pdf-toc-drawer__backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(31, 29, 24, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--dur-3, 520ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+    z-index: var(--z-backdrop, 1010);
+  }
+
+  .pdf-toc-drawer__backdrop.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .pdf-toc-drawer__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--hairline, rgba(31, 29, 24, 0.08));
+    background: var(--surface-2, #f5f4f0);
+    flex-shrink: 0;
+  }
+
+  .pdf-toc-drawer__title {
+    font-family: var(--font-ui-he, inherit);
+    font-weight: 600;
+    color: var(--ink, #1f1d18);
+    font-size: 16px;
+  }
+
+  .pdf-toc-drawer__close {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-pill, 999px);
+    border: 1px solid var(--hairline-strong, rgba(31, 29, 24, 0.15));
+    background: var(--surface-1, #fff);
+    color: var(--ink-2, #2c2a25);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background var(--dur-1, 160ms),
+      border-color var(--dur-1, 160ms);
+  }
+
+  .pdf-toc-drawer__close:hover {
+    background: var(--surface-0, #fafaf8);
+    border-color: var(--primary, #6a994e);
+    color: var(--primary, #6a994e);
+  }
+
+  .pdf-toc-drawer__toc {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+  }
+
+  .pdf-toc-drawer .toc__head {
+    padding: 12px 14px;
+    flex-shrink: 0;
+  }
+
+  .pdf-toc-drawer .toc__search {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--hairline-strong, rgba(31, 29, 24, 0.15));
+    border-radius: var(--r-sm, 8px);
+    font-size: 16px;
+    font-family: var(--font-ui-he, inherit);
+    background: var(--surface-0, #fafaf8);
+    color: var(--ink, #1f1d18);
+    box-sizing: border-box;
+    transition:
+      border-color var(--dur-1, 160ms),
+      box-shadow var(--dur-1, 160ms);
+  }
+
+  .pdf-toc-drawer .toc__search:focus {
+    outline: none;
+    border-color: var(--primary, #6a994e);
+    box-shadow: 0 0 0 3px rgba(106, 153, 78, 0.12);
+    background: var(--surface-1, #fff);
+  }
+
+  .pdf-toc-drawer .toc__body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 4px 10px 16px;
+  }
+
+  .pdf-toc-drawer .toc__cat {
+    margin-bottom: 2px;
+    border-radius: var(--r-sm, 8px);
+  }
+
+  .pdf-toc-drawer .toc__cat.hidden,
+  .pdf-toc-drawer .toc__list .hidden {
+    display: none;
+  }
+
+  .pdf-toc-drawer .toc__summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 10px 12px;
+    border-radius: var(--r-sm, 8px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--font-ui-he, inherit);
+    font-weight: 600;
+    color: var(--ink, #1f1d18);
+    font-size: 15px;
+    transition: background var(--dur-1, 160ms);
+  }
+
+  .pdf-toc-drawer .toc__summary::-webkit-details-marker {
+    display: none;
+  }
+  .pdf-toc-drawer .toc__summary::marker {
+    content: '';
+  }
+
+  .pdf-toc-drawer .toc__summary::before {
+    content: '▸';
+    color: var(--ink-3, rgba(31, 29, 24, 0.55));
+    font-size: 11px;
+    transition: transform var(--dur-1, 160ms);
+    display: inline-block;
+  }
+
+  .pdf-toc-drawer .toc__cat[open] > .toc__summary::before {
+    transform: rotate(90deg);
+  }
+
+  .pdf-toc-drawer .toc__cat-name {
+    flex-grow: 1;
+    text-align: start;
+  }
+
+  .pdf-toc-drawer .toc__cat-range {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    color: var(--ink-3, rgba(31, 29, 24, 0.55));
+    background: var(--surface-1, #fff);
+    padding: 2px 8px;
+    border-radius: var(--r-pill, 999px);
+    border: 1px solid var(--hairline, rgba(31, 29, 24, 0.08));
+  }
+
+  .pdf-toc-drawer .toc__summary:hover {
+    background: var(--surface-2, #f5f4f0);
+  }
+
+  .pdf-toc-drawer .toc__cat--active > .toc__summary {
+    background: rgba(106, 153, 78, 0.1);
+  }
+
+  .pdf-toc-drawer .toc__list {
+    list-style: none;
+    margin: 2px 0 6px;
+    padding: 0 0 0 14px;
+  }
+
+  .pdf-toc-drawer .toc__recipe {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    text-align: start;
+    padding: 10px 12px;
+    margin: 1px 0;
+    border: 0;
+    background: transparent;
+    border-radius: var(--r-xs, 6px);
+    cursor: pointer;
+    font-family: var(--font-ui-he, inherit);
+    font-size: 14px;
+    color: var(--ink-2, #2c2a25);
+    transition:
+      background var(--dur-1, 160ms),
+      color var(--dur-1, 160ms);
+  }
+
+  .pdf-toc-drawer .toc__recipe:hover {
+    background: var(--surface-2, #f5f4f0);
+    color: var(--ink, #1f1d18);
+  }
+
+  .pdf-toc-drawer .toc__recipe--active {
+    background: var(--primary, #6a994e);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .pdf-toc-drawer .toc__page {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    opacity: 0.7;
+  }
+}

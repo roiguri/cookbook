@@ -2,6 +2,7 @@ import { UserService } from '../../js/services/users/user-service.js';
 import authService from '../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import '../../styles/pages/documents-spa.css';
+import '../../styles/components/pdf-toc-drawer.css';
 
 export default {
   async render(params) {
