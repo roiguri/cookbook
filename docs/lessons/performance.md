@@ -4,6 +4,11 @@ Patterns and pitfalls discovered while tuning the SPA.
 
 > **When to add an entry:** after fixing a perf bug whose root cause was a pattern (not a single-site mistake). Date it (`YYYY-MM-DD`), state the Learning + Action in 2–4 lines, and add the newest entry at the top of its block. Newest entries win when guidance conflicts. If a pattern fits inside an architecture doc (`docs/architecture/*.md`), put the canonical version there and add a short pointer entry here.
 
+## 2026-05-26 - Non-blocking Holds for Every New Init-Path Import
+
+**Learning:** Adding _one more_ `await import()` to `initializeSPA` (even for a 2 KB chunk that holds an idle event handler) dropped the deploy preview's Lighthouse mobile-throttled Performance score from ~90 to 65. Throttled mobile budgets a single extra critical-path round-trip generously. The earlier "Non-blocking Component Preloading" rule applies recursively — once one `await` is justified for an ordering reason (e.g. `navigation-script`), it is tempting to chain another on the same line. Don't.
+**Action:** Default every new dynamic import in `initializeSPA` to `import(...).then(use)` (fire-and-forget). Only chain a second `await` if you can name the specific race it prevents _and_ prove the handler must be attached before first paint. Idle handlers that the user can't trigger within ~500 ms (e.g. the easter-egg detector) do not qualify.
+
 ## 2025-10-25 - Debounce Search Inputs
 
 **Learning:** Search inputs triggering filtering operations directly on every keystroke can cause performance bottlenecks. Debouncing is a simple, effective optimization.
