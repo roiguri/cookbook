@@ -64,9 +64,9 @@ async function initializeSPA() {
     await import('./js/navigation-script.js');
 
     // Easter egg: rapid-tap the brand logo to unlock the mini-games page.
-    // Registered before the router so the capture-phase handler beats link interception.
-    const { initGamesUnlock } = await import('./lib/easter-egg/games-unlock.js');
-    initGamesUnlock();
+    // Non-blocking — the user can't tap 7 times before this resolves, so we
+    // don't gate SPA initialization on it.
+    import('./lib/easter-egg/games-unlock.js').then(({ initGamesUnlock }) => initGamesUnlock());
 
     const contentContainer = document.getElementById('spa-content');
     if (!contentContainer) {
