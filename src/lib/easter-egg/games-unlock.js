@@ -126,6 +126,10 @@ function runUnlockAnimation(origin) {
     overlay.className = 'games-unlock-overlay';
     overlay.setAttribute('aria-hidden', 'true');
 
+    const dim = document.createElement('div');
+    dim.className = 'games-unlock-dim';
+    overlay.appendChild(dim);
+
     const flash = document.createElement('div');
     flash.className = 'games-unlock-flash';
     flash.style.left = `${cx}px`;
@@ -137,16 +141,17 @@ function runUnlockAnimation(origin) {
     burst.style.left = `${cx}px`;
     burst.style.top = `${cy}px`;
 
-    const SPARKLE_COUNT = 18;
+    const SPARKLE_COUNT = 22;
     for (let i = 0; i < SPARKLE_COUNT; i += 1) {
       const sparkle = document.createElement('span');
       sparkle.className = 'games-unlock-sparkle';
-      const angle = (360 / SPARKLE_COUNT) * i + (Math.random() * 8 - 4);
-      const dist = 140 + Math.random() * 120;
-      const delay = Math.random() * 120;
+      const angle = (360 / SPARKLE_COUNT) * i + (Math.random() * 10 - 5);
+      const dist = 220 + Math.random() * 140;
+      const delay = Math.random() * 140;
       sparkle.style.setProperty('--angle', `${angle}deg`);
       sparkle.style.setProperty('--dist', `${dist}px`);
       sparkle.style.setProperty('--delay', `${delay}ms`);
+      if (i % 3 === 0) sparkle.style.setProperty('--sparkle-color', '#fbbf24');
       burst.appendChild(sparkle);
     }
     overlay.appendChild(burst);
@@ -159,7 +164,7 @@ function runUnlockAnimation(origin) {
         overlay.remove();
         resolve();
       }, 320);
-    }, 700);
+    }, 780);
   });
 }
 

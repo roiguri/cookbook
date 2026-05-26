@@ -13,17 +13,17 @@
 
 .spa-content .games-page-hero {
   text-align: center;
-  animation: games-page-hero-in 420ms cubic-bezier(0.22, 0.61, 0.36, 1) 40ms backwards;
+  animation: games-page-hero-in 600ms cubic-bezier(0.22, 0.61, 0.36, 1) 80ms backwards;
 }
 
 @keyframes games-page-hero-in {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-30px) scale(0.92);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -72,8 +72,8 @@
   font-family: var(--font-ui-he, system-ui, sans-serif);
   text-align: center;
   color: var(--ink, #1f1d18);
-  animation: games-page-card-in 480ms cubic-bezier(0.22, 0.61, 0.36, 1)
-    calc(180ms + var(--card-i, 0) * 90ms) backwards;
+  animation: games-page-card-in 600ms cubic-bezier(0.22, 0.61, 0.36, 1)
+    calc(240ms + var(--card-i, 0) * 120ms) backwards;
   transition:
     transform var(--dur-1, 160ms) var(--ease, ease),
     box-shadow var(--dur-1, 160ms) var(--ease, ease),
@@ -83,7 +83,7 @@
 @keyframes games-page-card-in {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.96);
+    transform: translateY(24px) scale(0.85);
   }
   to {
     opacity: 1;
