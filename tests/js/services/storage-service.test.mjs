@@ -1,4 +1,4 @@
-// tests/services/storage-service.test.mjs
+// tests/services/_firebase/storage-service.test.mjs
 
 import { jest } from '@jest/globals';
 
@@ -16,9 +16,9 @@ describe('StorageService', () => {
   beforeEach(async () => {
     jest.resetModules();
     // Dynamically import after mocks are in place
-    ({ StorageService } = await import('src/js/services/storage-service.js'));
+    ({ StorageService } = await import('src/js/services/_firebase/storage-service.js'));
     ({ ref, uploadBytes, getDownloadURL, deleteObject } = await import('firebase/storage'));
-    firebaseService = await import('src/js/services/firebase-service.js');
+    firebaseService = await import('src/js/services/_firebase/firebase-service.js');
     firebaseService.getStorageInstance.mockReturnValue(mockStorage);
     ref.mockImplementation((storage, path) => ({ storage, path }));
   });

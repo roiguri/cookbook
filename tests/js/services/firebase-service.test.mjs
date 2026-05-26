@@ -10,7 +10,7 @@ describe('firebase-service', () => {
 
   beforeEach(async () => {
     jest.resetModules();
-    firebaseService = await import('src/js/services/firebase-service.js');
+    firebaseService = await import('src/js/services/_firebase/firebase-service.js');
   });
 
   it('should export initFirebase function', () => {

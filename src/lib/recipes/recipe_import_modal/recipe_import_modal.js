@@ -7,7 +7,6 @@ import cropperStyles from 'cropperjs/dist/cropper.css?inline';
 import memoryGameStyles from '../../games/memory_game.css?inline';
 import burgerStackerStyles from '../../games/burger_stacker.css?inline';
 import gameWrapperStyles from '../../games/game_wrapper.css?inline';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { CookingMemoryGame } from '../../games/memory_game.js';
 import { BurgerStackerGame } from '../../games/burger_stacker.js';
 import { GameWrapper } from '../../games/game_wrapper.js';

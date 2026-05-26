@@ -1,7 +1,7 @@
 /*
  * Recipe Data Utilities
  * --------------------
- * This module provides helper functions for recipe data formatting, validation, and Firestore operations.
+ * Pure helpers for recipe data formatting and validation. No I/O.
  *
  * Exported Methods:
  *
@@ -21,18 +21,14 @@
  *       Get a localized display name for a category.
  *   - getCategoryIcon(category):
  *       Get an icon for a category.
- *   - getRecipesForCards(options):
- *       Fetch recipes for display in cards (with filters/options).
- *   - getRecipeById(recipeId):
- *       Fetch a single complete recipe by ID.
  *   - extractIngredientNamesFromSections(ingredientSections):
  *       Extract ingredient names from sectioned ingredient format.
+ *
+ * Firestore reads moved out: callers fetch via RecipeService.{get,list} and
+ * pipe through formatRecipeData(...) if they want the normalized shape.
  */
 
-import { FirestoreService } from '../../services/firestore-service.js';
 import { parseAmount } from './recipe-ingredients-utils.js';
-import { removeAllRecipeImages } from './recipe-image-utils.js';
-import { removeAllMediaInstructions } from './recipe-media-utils.js';
 
 /**
  * @typedef {Object} Ingredient
@@ -376,65 +372,4 @@ export function getLocalizedCategoryName(categoryId) {
  */
 export function getCategoryIcon(category) {
   return CATEGORY_ICONS[category] || CATEGORY_ICONS.else;
-}
-
-/**
- * Fetch recipes for display in recipe cards (lightweight version)
- * @param {Object} options - Query options (category, limit, approved only, etc.)
- * @returns {Promise<Array>} Array of recipe card data objects
- * @property {Date|string|number} [creationTime]
- */
-export async function getRecipesForCards(options = {}) {
-  const queryParams = { where: [], orderBy: ['creationTime', 'desc'] };
-  if (options.category) {
-    queryParams.where.push(['category', '==', options.category]);
-  }
-  if (options.approvedOnly) {
-    queryParams.where.push(['approved', '==', true]);
-  }
-  if (options.limit) {
-    queryParams.limit = options.limit;
-  }
-  const docs = await FirestoreService.queryDocuments('recipes', queryParams);
-  return docs.map(formatRecipeData);
-}
-
-/**
- * Fetch a single complete recipe by ID
- * @param {string} recipeId - Recipe ID
- * @returns {Promise<Object>} Complete recipe object
- */
-export async function getRecipeById(recipeId) {
-  const doc = await FirestoreService.getDocument('recipes', recipeId);
-  return doc ? formatRecipeData(doc) : null;
-}
-
-/**
- * Completely deletes a recipe from Firestore and all associated media from Storage.
- * @param {string} recipeId - The ID of the recipe to delete
- * @returns {Promise<void>}
- */
-export async function deleteRecipe(recipeId) {
-  try {
-    // 1. Get recipe data to find media instructions
-    const recipe = await FirestoreService.getDocument('recipes', recipeId);
-    if (!recipe) {
-      console.warn('Recipe not found for deletion:', recipeId);
-      return;
-    }
-
-    // 2. Delete all recipe images from Storage
-    await removeAllRecipeImages(recipeId);
-
-    // 3. Delete all media instructions from Storage
-    if (Array.isArray(recipe.mediaInstructions) && recipe.mediaInstructions.length > 0) {
-      await removeAllMediaInstructions(recipe.mediaInstructions);
-    }
-
-    // 4. Delete the recipe document from Firestore
-    await FirestoreService.deleteDocument('recipes', recipeId);
-  } catch (error) {
-    console.error('Error deleting recipe:', error);
-    throw new Error(`Failed to delete recipe: ${error.message}`);
-  }
 }

@@ -5,7 +5,7 @@
  * Handles collecting form data from various form sections and converting to recipe data structure.
  */
 
-import authService from '../../services/auth-service.js';
+import authService from '../../services/auth/auth-service.js';
 
 /**
  * Collects all form data and converts it to recipe data structure

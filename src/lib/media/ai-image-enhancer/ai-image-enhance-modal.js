@@ -10,10 +10,9 @@
  * on a successful save.
  */
 
-import { enhanceFoodImage } from '../../../js/services/ai-enhancement-service.js';
-import { FirestoreService } from '../../../js/services/firestore-service.js';
-import { StorageService } from '../../../js/services/storage-service.js';
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { enhanceFoodImage } from '../../../js/services/recipes/ai-enhancement-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';
 
@@ -177,7 +176,7 @@ class AiImageEnhanceModal extends HTMLElement {
     if (spinner) spinner.style.display = 'flex';
 
     try {
-      const url = await getOptimizedImageUrl(this._image, '1080x1080');
+      const url = await RecipeImageService.getOptimizedUrl(this._image, '1080x1080');
       if (url) {
         img.onload = () => {
           img.style.display = 'block';
@@ -337,7 +336,7 @@ class AiImageEnhanceModal extends HTMLElement {
     this._setStatus('שולח לשיפור בעזרת AI...');
 
     try {
-      const downloadUrl = await StorageService.getFileUrl(this._image.full);
+      const downloadUrl = await RecipeImageService.getFullUrl(this._image);
       const response = await fetch(downloadUrl);
       if (!response.ok) throw new Error(`Failed to fetch image (${response.status})`);
       const sourceBlob = await response.blob();
@@ -400,53 +399,12 @@ class AiImageEnhanceModal extends HTMLElement {
     this._setStatus('שומר את התמונה החדשה...');
 
     try {
-      const originalPath = this._image.full;
-      const backupPath = this._makeBackupPath(originalPath);
-
-      // Back up the original once (idempotent).
-      let backupExists = false;
-      try {
-        await StorageService.getMetadata(backupPath);
-        backupExists = true;
-      } catch {
-        backupExists = false;
-      }
-
-      if (!backupExists) {
-        const originalUrl = await StorageService.getFileUrl(originalPath);
-        const origResponse = await fetch(originalUrl);
-        if (!origResponse.ok) throw new Error(`Failed to fetch original (${origResponse.status})`);
-        await StorageService.uploadFile(await origResponse.blob(), backupPath);
-      }
-
-      // Overwrite original; Storage trigger regenerates WebP variants.
-      await StorageService.uploadFile(this._enhancedResult.blob, originalPath);
-
-      // Best-effort stale WebP cleanup so the carousel refreshes promptly.
-      await Promise.all([
-        StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_400x400.webp')).catch(
-          () => {},
-        ),
-        StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_1080x1080.webp')).catch(
-          () => {},
-        ),
-      ]);
-
-      // Mark this image as AI-enhanced in Firestore. Best-effort: the user-
-      // visible enhancement already succeeded above, so a write failure here
-      // shouldn't surface as a save error — it just means the badge signal
-      // is missing on this image until a future backfill.
-      try {
-        const fresh = await FirestoreService.getDocument('recipes', this._recipe.id);
-        if (fresh && Array.isArray(fresh.images)) {
-          const images = fresh.images.map((img) =>
-            img.id === this._image.id ? { ...img, aiEnhanced: true } : img,
-          );
-          await FirestoreService.updateDocument('recipes', this._recipe.id, { images });
-        }
-      } catch (err) {
-        console.error('Failed to mark image as AI-enhanced:', err);
-      }
+      const { backupPath, backupCreated } = await RecipeService.replaceImage(
+        this._recipe.id,
+        this._image.id,
+        this._enhancedResult.blob,
+        { fieldUpdates: { aiEnhanced: true } },
+      );
 
       this._setStatus('התמונה הוחלפה. התמונה המקורית נשמרה כגיבוי.');
 
@@ -458,7 +416,7 @@ class AiImageEnhanceModal extends HTMLElement {
             recipeId: this._recipe.id,
             imageId: this._image.id,
             backupPath,
-            backupCreated: !backupExists,
+            backupCreated,
           },
         }),
       );
@@ -488,10 +446,6 @@ class AiImageEnhanceModal extends HTMLElement {
     if (code === 'functions/unauthenticated') return 'יש להתחבר כדי להשתמש בתכונה זו.';
     if (code === 'functions/permission-denied') return 'אין הרשאה — תכונה זו זמינה למנהלים בלבד.';
     return error?.message ? `שגיאה: ${error.message}` : 'שגיאה בשיפור התמונה';
-  }
-
-  _makeBackupPath(fullPath) {
-    return fullPath.replace(/(\.[^.]+)$/, '_original$1');
   }
 
   // ---------------------------------------------------------------------------

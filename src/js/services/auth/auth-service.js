@@ -26,8 +26,9 @@
  *   - waitForAuth(timeout): Waits for authentication to initialize, returns authenticated user or null.
  *   - getCurrentAvatarUrl(): Returns the current user's avatar URL.
  */
-import { getAuthInstance, getFirestoreInstance } from './firebase-service.js';
-import { serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getAuthInstance } from '../_firebase/firebase-service.js';
+import { serverTimestamp } from 'firebase/firestore';
+import { UserService } from '../users/user-service.js';
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -170,12 +171,10 @@ class AuthService {
     }
 
     try {
-      const db = getFirestoreInstance();
-      const userDocRef = doc(db, 'users', this._currentUser.uid);
-      const docSnap = await getDoc(userDocRef);
+      const data = await UserService.get(this._currentUser.uid);
 
-      if (docSnap.exists()) {
-        this._userData = docSnap.data();
+      if (data) {
+        this._userData = data;
       } else {
         // If document doesn't exist, use default structure
         this._userData = { role: 'user', favorites: [] };
@@ -251,14 +250,10 @@ class AuthService {
       const userCredential = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
       const user = userCredential.user;
 
-      // Check if user document exists in Firestore
-      const db = getFirestoreInstance();
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      // If user doesn't exist in Firestore, create a new document
-      if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
+      // Check if user document exists; create one if not.
+      const existing = await UserService.get(user.uid);
+      if (!existing) {
+        await UserService.create(user.uid, {
           email: user.email,
           fullName: user.displayName,
           role: 'user',
@@ -283,7 +278,6 @@ class AuthService {
   async signup(email, password, fullName) {
     try {
       const auth = getAuthInstance();
-      const db = getFirestoreInstance();
       // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -292,8 +286,7 @@ class AuthService {
       await updateProfile(user, { displayName: fullName });
 
       // Create user document in Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      await setDoc(userDocRef, {
+      await UserService.create(user.uid, {
         email: email,
         fullName: fullName,
         role: 'user',
@@ -318,7 +311,7 @@ class AuthService {
       // this an optional dependency — non-notification code paths never load it.
       if (this._currentUser) {
         try {
-          const { default: notificationService } = await import('./notification-service.js');
+          const { default: notificationService } = await import('../users/notification-service.js');
           await notificationService.unregisterCurrentDevice(this._currentUser.uid);
         } catch (error) {
           console.warn('Failed to unregister push token on logout:', error);
@@ -356,7 +349,6 @@ class AuthService {
     try {
       const user = this.getCurrentUser();
       if (!user) throw new Error('No user is signed in');
-      const db = getFirestoreInstance();
       // Update auth profile if displayName or photoURL provided
       if (profileData.displayName || profileData.photoURL) {
         await updateProfile(user, {
@@ -365,8 +357,7 @@ class AuthService {
         });
       }
       // Update user document in Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, {
+      await UserService.update(user.uid, {
         ...profileData,
         updatedAt: serverTimestamp(),
       });
@@ -410,10 +401,8 @@ class AuthService {
     try {
       const user = this.getCurrentUser();
       if (!user) throw new Error('No user is signed in');
-      const db = getFirestoreInstance();
       // Delete user document from Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      await deleteDoc(userDocRef);
+      await UserService.delete(user.uid);
       // Delete user from Firebase Auth
       await user.delete();
     } catch (error) {
@@ -578,12 +567,8 @@ class AuthService {
     }
     // Fallback for direct calls with different user (shouldn't happen often)
     try {
-      const db = getFirestoreInstance();
-      const userDocRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userDocRef);
-      if (docSnap.exists()) {
-        return docSnap.data();
-      }
+      const data = await UserService.get(user.uid);
+      if (data) return data;
       return { role: 'user' };
     } catch (error) {
       console.error('Error fetching user roles:', error);
@@ -605,11 +590,8 @@ class AuthService {
     }
     // Fallback
     try {
-      const db = getFirestoreInstance();
-      const userDocRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userDocRef);
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
+      const userData = await UserService.get(user.uid);
+      if (userData) {
         return userData.avatarUrl || user.photoURL || null;
       }
       return user.photoURL || null;

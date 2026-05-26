@@ -1,6 +1,5 @@
-import { getFirestoreInstance } from '../../../js/services/firebase-service.js';
-import { doc, getDoc } from 'firebase/firestore';
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { showErrorModal, logError } from '../../../js/utils/error-handler.js';
 import { validateRecipeForm } from '../../../js/utils/form/form-validation-utils.js';
 import { collectRecipeFormData } from '../../../js/utils/form/form-data-collector.js';
@@ -19,7 +18,7 @@ import './parts/recipe-related-field.js';
 import '../../media/media-instructions-editor/media-instructions-editor.js';
 import '../recipe_import_modal/recipe_import_modal.js';
 import { mapExtractedDataToForm } from '../../../js/utils/recipe-extractor-utils.js';
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 
 import styles from './recipe_form_component.css?inline';
 import baseButtonStyles from '../../../styles/components/base_button.css?inline';
@@ -391,29 +390,23 @@ class RecipeFormComponent extends HTMLElement {
 
   async setRecipeData(recipeId) {
     try {
-      const db = getFirestoreInstance();
-      const docSnap = await getDoc(doc(db, 'recipes', recipeId));
+      const data = await RecipeService.get(recipeId);
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+      if (data) {
         this.recipeData = data;
         await this.populateFromData(data, recipeId);
-
-        // Re-collect from the form so the dirty-state baseline matches
-        // the shape produced by subsequent captures (Firestore-raw and
-        // form-collected shapes diverge — e.g. source:'existing' on
-        // images, instruction string normalization).
-        setTimeout(() => {
-          this.collectFormData();
-          this.enableFormProtection(this.recipeData);
-        }, 500);
       } else {
         console.warn('No such document!');
-        setTimeout(() => {
-          this.collectFormData();
-          this.enableFormProtection(this.recipeData);
-        }, 500);
       }
+
+      // Re-collect from the form so the dirty-state baseline matches
+      // the shape produced by subsequent captures (Firestore-raw and
+      // form-collected shapes diverge — e.g. source:'existing' on
+      // images, instruction string normalization).
+      setTimeout(() => {
+        this.collectFormData();
+        this.enableFormProtection(this.recipeData);
+      }, 500);
     } catch (error) {
       console.error('Error fetching recipe:', error);
       setTimeout(() => {
@@ -514,7 +507,7 @@ class RecipeFormComponent extends HTMLElement {
 
     for (const image of images) {
       try {
-        const previewUrl = await getOptimizedImageUrl(image, '400x400');
+        const previewUrl = await RecipeImageService.getOptimizedUrl(image, '400x400');
         if (previewUrl) {
           // Spread the full image object so persistent fields (e.g. aiEnhanced)
           // survive the edit round-trip. Transient form fields are layered on top.
@@ -665,21 +658,6 @@ class RecipeFormComponent extends HTMLElement {
 
   setDisabled(isDisabled) {
     setFormDisabledState(this.shadowRoot, isDisabled);
-  }
-
-  /**
-   * Public API: Upload pending media instructions
-   * Delegates to the media-instructions-editor component without exposing internal structure
-   * @param {string} recipeId - Recipe ID for storage path
-   * @param {string} userId - User ID for metadata
-   * @returns {Promise<Array>} Array of uploaded media metadata objects
-   */
-  async uploadPendingMediaInstructions(recipeId, userId) {
-    const mediaEditor = this.shadowRoot.getElementById('media-instructions-editor');
-    if (!mediaEditor || typeof mediaEditor.uploadPendingFiles !== 'function') {
-      return [];
-    }
-    return await mediaEditor.uploadPendingFiles(recipeId, userId);
   }
 
   /**

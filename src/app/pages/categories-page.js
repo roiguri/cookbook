@@ -1,10 +1,10 @@
-import authService from '../../js/services/auth-service.js';
-import { FirestoreService } from '../../js/services/firestore-service.js';
+import authService from '../../js/services/auth/auth-service.js';
+import { RecipeService } from '../../js/services/recipes/recipe-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { FilterUtils } from '../../js/utils/filter-utils.js';
 import { getLocalizedCategoryName } from '../../js/utils/recipes/recipe-data-utils.js';
 import { getErrorMessage, logError } from '../../js/utils/error-handler.js';
-import favoritesService from '../../js/services/favorites-service.js';
+import favoritesService from '../../js/services/users/favorites-service.js';
 import '../../styles/pages/categories-spa.css';
 
 // TODO: implement recipe-per-page change on screen resize
@@ -149,7 +149,6 @@ export default {
     try {
       await Promise.all([
         import('../../lib/recipes/recipe-card/recipe-card.js'),
-        import('../../lib/search/search-service/search-service.js'),
         import('../../lib/collections/unified-recipe-filter/unified-recipe-filter.js'),
         import('../../lib/collections/recipe-grid/recipe-presentation-grid.js'),
       ]);
@@ -214,7 +213,7 @@ export default {
         queryParams.where.push(['category', '==', this.currentCategory]);
       }
 
-      this.allRecipes = await FirestoreService.queryDocuments('recipes', queryParams);
+      this.allRecipes = await RecipeService.list(queryParams);
 
       let filteredRecipes = [...this.allRecipes];
 

@@ -66,7 +66,7 @@ async function setupComponentWithMock(page, recipeData, mockImageSrc = MOCK_IMAG
       const component = document.querySelector('recipe-component');
 
       // Import services to mock
-      const authServiceModule = await import('/src/js/services/auth-service.js');
+      const authServiceModule = await import('/src/js/services/auth/auth-service.js');
       const authService = authServiceModule.default;
 
       // Mock Auth Service

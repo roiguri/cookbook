@@ -11,8 +11,8 @@
  * recipe's image list without a full reload.
  */
 
-import { FirestoreService } from '../../../js/services/firestore-service.js';
-import { getOptimizedImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 
 class AiImageEnhancer extends HTMLElement {
   constructor() {
@@ -66,7 +66,7 @@ class AiImageEnhancer extends HTMLElement {
 
   async _loadRecipes() {
     try {
-      const all = await FirestoreService.queryDocuments('recipes', {
+      const all = await RecipeService.list({
         where: [['approved', '==', true]],
       });
       this._recipes = all
@@ -91,7 +91,7 @@ class AiImageEnhancer extends HTMLElement {
 
   async _refreshRecipe(recipeId) {
     try {
-      const fresh = await FirestoreService.getDocument('recipes', recipeId);
+      const fresh = await RecipeService.get(recipeId);
       if (!fresh) return;
       const idx = this._recipes.findIndex((r) => r.id === recipeId);
       if (idx !== -1) this._recipes[idx] = fresh;
@@ -201,7 +201,7 @@ class AiImageEnhancer extends HTMLElement {
       tile.addEventListener('click', () => this._openModal(image));
       strip.appendChild(tile);
 
-      getOptimizedImageUrl(image, '400x400')
+      RecipeImageService.getOptimizedUrl(image, '400x400')
         .then((url) => {
           if (!url) {
             shimmer.style.display = 'none';

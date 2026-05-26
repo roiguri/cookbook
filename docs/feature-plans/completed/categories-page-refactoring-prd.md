@@ -1,3 +1,9 @@
+> **Status: OBSOLETE — partially completed.**
+> The categories page was reduced from ~1012 to ~601 lines through ad-hoc work,
+> but the planned full extraction into `src/lib/categories/` and `src/lib/filtering/`
+> directories did not happen. Preserved here as historical design context.
+> Not on the active backlog as of 2026-05.
+
 # Categories Page Refactoring - Product Requirements Document (PRD)
 
 ## Document Information

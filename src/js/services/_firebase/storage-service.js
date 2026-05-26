@@ -11,7 +11,7 @@ import {
 } from 'firebase/storage';
 // 2. Internal modules/services
 import { getStorageInstance } from './firebase-service.js';
-import { LRUCache } from '../utils/lru-cache.js';
+import { LRUCache } from '../../utils/lru-cache.js';
 
 const urlCache = new LRUCache(500);
 

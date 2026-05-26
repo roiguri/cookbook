@@ -1,8 +1,10 @@
-import { FirestoreService } from '../../js/services/firestore-service.js';
-import authService from '../../js/services/auth-service.js';
-import notificationService from '../../js/services/notification-service.js';
+import { FailedUrlExtractionService } from '../../js/services/admin/failed-url-extraction-service.js';
+import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import { UserService } from '../../js/services/users/user-service.js';
+import authService from '../../js/services/auth/auth-service.js';
+import notificationService from '../../js/services/users/notification-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
-import { CATEGORY_MAP, deleteRecipe } from '../../js/utils/recipes/recipe-data-utils.js';
+import { CATEGORY_MAP } from '../../js/utils/recipes/recipe-data-utils.js';
 import { debounce } from '../../js/utils/common-utils.js';
 import {
   DashboardRefreshManager,
@@ -81,7 +83,7 @@ export default {
 
   async checkManagerStatus(user) {
     try {
-      const userDoc = await FirestoreService.getDocument('users', user.uid);
+      const userDoc = await UserService.get(user.uid);
       if (userDoc) {
         return userDoc.role === 'manager';
       }
@@ -238,7 +240,7 @@ export default {
     const userList = document.getElementById('user-list');
     userList.setItems([]); // Clear existing items first
     try {
-      const users = await FirestoreService.queryDocuments('users');
+      const users = await UserService.list();
       const userItems = users.map((user) => ({
         header: this.createHeader(user.email),
         content: this.createContent(user),
@@ -303,7 +305,7 @@ export default {
 
   async updateUserRole(userId, newRole) {
     try {
-      await FirestoreService.updateDocument('users', userId, { role: newRole });
+      await UserService.update(userId, { role: newRole });
       this.showSuccessMessage('תפקיד המשתמש עודכן בהצלחה');
     } catch (error) {
       this.handleError(error);
@@ -320,7 +322,7 @@ export default {
     const filterSelect = document.getElementById('recipe-filter');
 
     try {
-      const recipes = await FirestoreService.queryDocuments('recipes', {
+      const recipes = await RecipeService.list({
         where: [['approved', '==', true]],
       });
       this.allRecipes = recipes;
@@ -438,7 +440,7 @@ export default {
   async deleteRecipe(recipeId) {
     try {
       this.toggleLoading(true);
-      await deleteRecipe(recipeId);
+      await RecipeService.delete(recipeId);
       this.showSuccessMessage('המתכון נמחק בהצלחה');
       this.refreshManager.refreshRecipes();
     } catch (error) {
@@ -483,7 +485,7 @@ export default {
     const noPendingMessage = pendingRecipeSection.querySelector('.no-pending-message');
 
     try {
-      const pendingRecipes = await FirestoreService.queryDocuments('recipes', {
+      const pendingRecipes = await RecipeService.list({
         where: [['approved', '==', false]],
       });
       const recipeItems = pendingRecipes.map((recipe) => ({
@@ -594,7 +596,7 @@ export default {
       //    where: [['pendingImages', '!=', []], ['approved', '==', true]]
       // See: https://firebase.google.com/docs/firestore/query-data/indexing
 
-      const allPendingRecipes = await FirestoreService.queryDocuments('recipes', {
+      const allPendingRecipes = await RecipeService.list({
         where: [['pendingImages', '!=', []]],
       });
 
@@ -715,9 +717,7 @@ export default {
     const noItemsMessage = failedUrlsSection.querySelector('.no-items-message');
 
     try {
-      const failedUrls = await FirestoreService.queryDocuments('failed_url_extractions', {
-        orderBy: ['lastAttempt', 'desc'],
-      });
+      const failedUrls = await FailedUrlExtractionService.list();
 
       const items = failedUrls.map((item) => ({
         header: this.createFailedUrlHeader(item),
@@ -876,7 +876,7 @@ export default {
       async () => {
         try {
           this.toggleLoading(true);
-          await FirestoreService.deleteDocument('failed_url_extractions', id);
+          await FailedUrlExtractionService.delete(id);
           this.loadFailedUrls();
           this.showSuccess('הרשומה נמחקה בהצלחה');
         } catch (error) {

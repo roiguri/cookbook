@@ -1,20 +1,19 @@
 /*
  * Recipe Media Instructions Utilities
  * ------------------------------------
- * This module provides helper functions for media instruction upload, management, and validation.
+ * Pure helpers for media-instruction handling. No I/O.
  *
- * Exported Methods:
- *
- * Upload & Delete:
- *   - uploadMediaInstructionFile(file, recipeId, userId): Upload media file to Firebase Storage
- *   - deleteMediaInstructionFile(filePath): Delete media file from Firebase Storage
+ * Exported:
  *
  * Validation:
- *   - validateMediaInstructionData(mediaInstructions): Validate array of media instructions
- *   - validateMediaFile(file): Validate single media file (type and size)
+ *   - validateMediaFile(file): Validate single media file (type and size).
+ *   - validateMediaInstructionData(mediaInstructions): Validate metadata array shape.
  *
  * ID Generation:
- *   - generateMediaInstructionId(): Generate unique ID for media instruction
+ *   - generateMediaInstructionId(): UUID-like id for a media instruction.
+ *
+ * Storage operations (upload, delete, getUrl, removeAll) live on
+ * MediaInstructionService.
  */
 
 /**
@@ -27,9 +26,6 @@
  * @property {string} uploadedBy - User ID who uploaded
  * @property {Timestamp} uploadedAt - Upload timestamp
  */
-
-// --- Imports ---
-import { StorageService } from '../../services/storage-service.js';
 
 // --- Constants ---
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -122,179 +118,4 @@ export function validateMediaInstructionData(mediaInstructions) {
 export function generateMediaInstructionId() {
   // Use globalThis.crypto for compatibility with both browsers and Node.js
   return 'media-' + globalThis.crypto.randomUUID();
-}
-
-// --- Determine Media Type ---
-/**
- * Determines if a file is an image or video based on MIME type
- * @param {File} file - The file to check
- * @returns {'image'|'video'|null}
- */
-function getMediaType(file) {
-  if (ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return 'image';
-  }
-  if (ALLOWED_VIDEO_TYPES.includes(file.type)) {
-    return 'video';
-  }
-  return null;
-}
-
-// --- Upload & Delete ---
-/**
- * Uploads a media instruction file to Firebase Storage
- * @param {File} file - The file to upload
- * @param {string} recipeId - The recipe ID
- * @param {string} userId - The user ID who is uploading
- * @param {Function} [onProgress] - Optional progress callback (percent: number) => void
- * @returns {Promise<MediaInstruction>} Metadata object for the uploaded file
- * @throws {Error} If validation fails or upload fails
- */
-export async function uploadMediaInstructionFile(file, recipeId, userId, onProgress) {
-  // Validate file
-  const validation = validateMediaFile(file);
-  if (!validation.isValid) {
-    throw new Error(`בדיקת הקובץ נכשלה: ${validation.errors.join(', ')}`);
-  }
-
-  // Validate required parameters
-  if (!recipeId || typeof recipeId !== 'string') {
-    throw new Error('Invalid recipeId');
-  }
-  if (!userId || typeof userId !== 'string') {
-    throw new Error('Invalid userId');
-  }
-
-  try {
-    // Generate a single ID for both storage path and metadata
-    const mediaId = generateMediaInstructionId();
-    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const storagePath = `recipes/${recipeId}/media-instructions/${mediaId}_${sanitizedFileName}`;
-
-    // Determine media type
-    const mediaType = getMediaType(file);
-    if (!mediaType) {
-      throw new Error('Unable to determine media type');
-    }
-
-    // TODO: Implement progress tracking with Firebase Storage 'state_changed' listener
-    // For now, onProgress is accepted but not used (can be implemented later)
-    if (onProgress && typeof onProgress === 'function') {
-      onProgress(0);
-    }
-
-    // Upload to Firebase Storage
-    await StorageService.uploadFile(file, storagePath);
-
-    if (onProgress && typeof onProgress === 'function') {
-      onProgress(100);
-    }
-
-    // Build and return metadata
-    const metadata = {
-      id: mediaId, // Same ID as used in storage path
-      path: storagePath,
-      caption: '', // Empty caption - to be filled by user
-      type: mediaType,
-      order: 0, // Default order - to be updated when added to array
-      uploadedBy: userId,
-      uploadedAt: new Date(),
-    };
-
-    return metadata;
-  } catch (error) {
-    console.error('Error uploading media instruction file:', error);
-    throw new Error(`העלאת הקובץ נכשלה: ${error.message}`);
-  }
-}
-
-/**
- * Deletes a media instruction file from Firebase Storage
- * @param {string} filePath - The storage path of the file to delete
- * @returns {Promise<void>}
- * @throws {Error} If deletion fails
- */
-export async function deleteMediaInstructionFile(filePath) {
-  if (!filePath || typeof filePath !== 'string') {
-    throw new Error('Invalid filePath');
-  }
-
-  try {
-    await StorageService.deleteFile(filePath);
-  } catch (error) {
-    // Handle "file not found" gracefully
-    if (error.code === 'storage/object-not-found') {
-      console.warn(`Media instruction file not found (may already be deleted): ${filePath}`);
-      return; // Don't throw error for already-deleted files
-    }
-
-    console.error('Error deleting media instruction file:', error);
-    throw new Error(`מחיקת הקובץ נכשלה: ${error.message}`);
-  }
-}
-
-/**
- * Deletes multiple media instruction files from Firebase Storage
- * @param {string[]} filePaths - Array of storage paths to delete
- * @returns {Promise<{ success: number, failed: number, errors: Array }>}
- */
-export async function deleteMediaInstructionFiles(filePaths) {
-  if (!Array.isArray(filePaths)) {
-    throw new Error('filePaths must be an array');
-  }
-
-  const results = {
-    success: 0,
-    failed: 0,
-    errors: [],
-  };
-
-  const deletePromises = filePaths.map(async (path) => {
-    try {
-      await deleteMediaInstructionFile(path);
-      results.success++;
-    } catch (error) {
-      results.failed++;
-      results.errors.push({ path, error: error.message });
-    }
-  });
-
-  await Promise.all(deletePromises);
-
-  return results;
-}
-
-/**
- * Gets the download URL for a media instruction file
- * @param {string} storagePath - The storage path
- * @returns {Promise<string>} The download URL
- */
-export async function getMediaInstructionUrl(storagePath) {
-  if (!storagePath) return '';
-
-  // If it's already a URL (blob or data), return it directly
-  if (storagePath.startsWith('blob:') || storagePath.startsWith('data:')) {
-    return storagePath;
-  }
-
-  try {
-    return await StorageService.getFileUrl(storagePath);
-  } catch (error) {
-    console.error('Error getting media instruction URL:', error);
-    throw new Error(`קבלת כתובת המדיה נכשלה: ${error.message}`);
-  }
-}
-
-/**
- * Removes all media instruction files for a recipe
- * @param {Array<MediaInstruction>} mediaInstructions - Array of media instructions to delete
- * @returns {Promise<{ success: number, failed: number, errors: Array }>}
- */
-export async function removeAllMediaInstructions(mediaInstructions) {
-  if (!Array.isArray(mediaInstructions) || mediaInstructions.length === 0) {
-    return { success: 0, failed: 0, errors: [] };
-  }
-
-  const filePaths = mediaInstructions.map((media) => media.path);
-  return await deleteMediaInstructionFiles(filePaths);
 }

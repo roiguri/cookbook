@@ -5,6 +5,7 @@ import { jest } from '@jest/globals';
 import '../../common/mocks/firebase-service.mock.js';
 import '../../common/mocks/firebase-auth.mock.js';
 import '../../common/mocks/firebase-firestore.mock.js';
+import '../../common/mocks/firebase-storage.mock.js';
 import '../../common/mocks/document.mock.js';
 import { mockDocRef } from '../../common/mocks/firebase-firestore.mock.js';
 
@@ -36,8 +37,8 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.resetModules();
-    firebaseService = await import('src/js/services/firebase-service.js');
-    ({ AuthService } = await import('src/js/services/auth-service.js'));
+    firebaseService = await import('src/js/services/_firebase/firebase-service.js');
+    ({ AuthService } = await import('src/js/services/auth/auth-service.js'));
 
     // Dynamically import the Firebase Auth mocks
     ({
@@ -374,9 +375,13 @@ describe('AuthService', () => {
       const userCredential = { user: mockUser };
       signInWithPopup.mockResolvedValue(userCredential);
 
-      // User exists in Firestore
+      // User exists in Firestore. The mock must shape a complete docSnap
+      // since the read goes through FirestoreService.getDocument, which
+      // calls docSnap.data() and reads docSnap.id.
       getDoc.mockResolvedValue({
         exists: () => true,
+        data: () => ({ role: 'user' }),
+        id: mockUser.uid,
       });
 
       await authService.loginWithGoogle();

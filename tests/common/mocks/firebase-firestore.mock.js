@@ -35,6 +35,16 @@ jest.unstable_mockModule('firebase/firestore', () => ({
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
+  // Field-value sentinels. Tests can compare against fresh `arrayUnion(x)` /
+  // `arrayRemove(x)` calls since the same value+args yield equal-by-`.toEqual`
+  // sentinel objects.
+  arrayUnion: jest.fn((...values) => ({ __op: 'arrayUnion', values })),
+  arrayRemove: jest.fn((...values) => ({ __op: 'arrayRemove', values })),
+  deleteField: jest.fn(() => ({ __op: 'deleteField' })),
+  // Real-time listener. Tests inject behavior via `onSnapshot.mockImplementation`
+  // — typically capturing the listener arg and invoking it manually to simulate
+  // snapshot events.
+  onSnapshot: jest.fn(),
   getFirestore: jest.fn(() => 'mockFirestore'),
   getDocs: jest.fn(),
   addDoc: jest.fn(),

@@ -46,7 +46,7 @@ const mockUser = {
 };
 
 // Mock Dependencies
-jest.unstable_mockModule('src/js/services/favorites-service.js', () => ({
+jest.unstable_mockModule('src/js/services/users/favorites-service.js', () => ({
   default: {
     getUserFavorites: jest.fn(() => Promise.resolve(['recipe-123'])),
     addFavorite: jest.fn(() => Promise.resolve()),
@@ -54,23 +54,40 @@ jest.unstable_mockModule('src/js/services/favorites-service.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('src/js/services/auth-service.js', () => ({
+jest.unstable_mockModule('src/js/services/auth/auth-service.js', () => ({
   default: {
     getCurrentUser: jest.fn(() => mockUser),
   },
 }));
 
+jest.unstable_mockModule('src/js/services/meals/active-meal-service.js', () => ({
+  ActiveMealService: {
+    addToMeal: jest.fn(() => Promise.resolve({ success: true })),
+  },
+}));
+
 jest.unstable_mockModule('src/js/utils/recipes/recipe-data-utils.js', () => ({
-  getRecipeById: jest.fn(() => Promise.resolve(mockRecipeData)),
+  formatRecipeData: jest.fn((doc) => doc),
   getLocalizedCategoryName: jest.fn((cat) => cat),
   formatCookingTime: jest.fn((time) => `${time} mins`),
   getTimeClass: jest.fn(() => 'quick'),
   getDifficultyClass: jest.fn(() => 'easy'),
 }));
 
+jest.unstable_mockModule('src/js/services/recipes/recipe-service.js', () => ({
+  RecipeService: {
+    get: jest.fn(() => Promise.resolve(mockRecipeData)),
+  },
+}));
+
 jest.unstable_mockModule('src/js/utils/recipes/recipe-image-utils.js', () => ({
-  getPrimaryImageUrl: jest.fn(() => Promise.resolve('http://example.com/img.jpg')),
   getPlaceholderImageUrl: jest.fn(() => Promise.resolve('http://example.com/placeholder.jpg')),
+}));
+
+jest.unstable_mockModule('src/js/services/recipes/recipe-image-service.js', () => ({
+  RecipeImageService: {
+    getPrimaryUrl: jest.fn(() => Promise.resolve('http://example.com/img.jpg')),
+  },
 }));
 
 jest.unstable_mockModule('src/js/utils/lazy-loading.js', () => ({

@@ -1,7 +1,6 @@
 import { AppConfig } from '../../js/config/app-config.js';
-import authService from '../../js/services/auth-service.js';
-import { firestoreService } from '../../js/services/firestore-service.js';
-import { arrayUnion, serverTimestamp } from 'firebase/firestore';
+import authService from '../../js/services/auth/auth-service.js';
+import { ActiveMealService } from '../../js/services/meals/active-meal-service.js';
 import '../../styles/pages/recipe-detail-spa.css';
 
 export default {
@@ -132,10 +131,7 @@ export default {
         if (!currentUser) return;
 
         try {
-          // Dynamic import of utils
-          const { ActiveMealUtils } = await import('../../js/utils/active-meal-utils.js');
-
-          const result = await ActiveMealUtils.addToMeal(currentUser.uid, recipeId);
+          const result = await ActiveMealService.addToMeal(currentUser.uid, recipeId);
 
           const messageModal = container.querySelector('message-modal');
 

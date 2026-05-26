@@ -1,21 +1,19 @@
 import { icons } from '../../../js/icons.js';
-import authService from '../../../js/services/auth-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../../js/config/app-config.js';
-import { FirestoreService } from '../../../js/services/firestore-service.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import {
-  getRecipeById,
+  formatRecipeData,
   getLocalizedCategoryName,
   formatCookingTime,
 } from '../../../js/utils/recipes/recipe-data-utils.js';
-import {
-  getRecipeImages,
-  getOptimizedImageUrl,
-} from '../../../js/utils/recipes/recipe-image-utils.js';
+import { getRecipeImages } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import {
   formatIngredientAmount,
   scaleIngredients,
 } from '../../../js/utils/recipes/recipe-ingredients-utils.js';
-import { getMediaInstructionUrl } from '../../../js/utils/recipes/recipe-media-utils.js';
+import { MediaInstructionService } from '../../../js/services/recipes/media-instruction-service.js';
 
 import '../../media/image-carousel/image-carousel.js';
 import '../../media/media-scroller/media-scroller.js';
@@ -885,7 +883,7 @@ class RecipeComponent extends HTMLElement {
     if (!this.recipeId) return;
 
     try {
-      const recipe = await getRecipeById(this.recipeId);
+      const recipe = formatRecipeData(await RecipeService.get(this.recipeId));
       if (recipe) {
         this.updatePageTitle(recipe.name);
         await this.setData(recipe);
@@ -1018,7 +1016,7 @@ class RecipeComponent extends HTMLElement {
 
     try {
       // Get optimized download URL from util
-      const url = await getOptimizedImageUrl(image, '1080x1080');
+      const url = await RecipeImageService.getOptimizedUrl(image, '1080x1080');
 
       if (this._imageRequestId !== requestId) return;
 
@@ -1265,14 +1263,18 @@ class RecipeComponent extends HTMLElement {
       return;
     }
 
-    const fetched = await Promise.all(ids.map((id) => getRecipeById(id)));
+    const fetched = await Promise.all(
+      ids.map(async (id) => formatRecipeData(await RecipeService.get(id))),
+    );
     const valid = fetched.filter((r) => r && r.approved);
 
-    // Self-heal: remove stale IDs from Firestore (fire-and-forget)
+    // Self-heal: prune stale IDs from the recipe doc (fire-and-forget).
+    // RecipeService.update has PATCH semantics — only `changes` are written,
+    // so images / mediaInstructions / approved are left alone.
     const validIds = valid.map((r) => r.id);
     if (validIds.length !== ids.length && this.recipeId) {
-      FirestoreService.updateDocument('recipes', this.recipeId, {
-        relatedRecipes: validIds,
+      RecipeService.update(this.recipeId, {
+        changes: { relatedRecipes: validIds },
       }).catch(() => {});
     }
 
@@ -1308,7 +1310,7 @@ class RecipeComponent extends HTMLElement {
       const mediaWithUrls = await Promise.all(
         sortedMedia.map(async (media) => {
           try {
-            const url = await getMediaInstructionUrl(media.path);
+            const url = await MediaInstructionService.getUrl(media.path);
             return {
               ...media,
               path: url,

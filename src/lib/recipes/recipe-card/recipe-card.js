@@ -34,19 +34,19 @@
  * - Consistent dimensions to prevent layout shifts
  */
 import { icons } from '../../../js/icons.js';
-import authService from '../../../js/services/auth-service.js';
-import favoritesService from '../../../js/services/favorites-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
+import favoritesService from '../../../js/services/users/favorites-service.js';
+import { ActiveMealService } from '../../../js/services/meals/active-meal-service.js';
 import {
   getLocalizedCategoryName,
   formatCookingTime,
   getTimeClass,
   getDifficultyClass,
-  getRecipeById,
+  formatRecipeData,
 } from '../../../js/utils/recipes/recipe-data-utils.js';
-import {
-  getPrimaryImageUrl,
-  getPlaceholderImageUrl,
-} from '../../../js/utils/recipes/recipe-image-utils.js';
+import { getPlaceholderImageUrl } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { initLazyLoading, lazyImageLoader } from '../../../js/utils/lazy-loading.js';
 import RECIPE_CARD_CONFIG from './recipe-card-config.js';
 import { recipeCardStyles } from './recipe-card-styles.js';
@@ -528,7 +528,7 @@ class RecipeCard extends HTMLElement {
     }
     try {
       this._isLoading = true;
-      this._recipeData = await getRecipeById(this.recipeId);
+      this._recipeData = formatRecipeData(await RecipeService.get(this.recipeId));
       if (!this._recipeData) {
         throw new Error('Recipe not found');
       }
@@ -541,7 +541,7 @@ class RecipeCard extends HTMLElement {
 
   async _fetchRecipeImage() {
     try {
-      this._imageUrl = await getPrimaryImageUrl(this._recipeData, '400x400');
+      this._imageUrl = await RecipeImageService.getPrimaryUrl(this._recipeData, '400x400');
     } catch (error) {
       console.error('Error fetching recipe image:', error);
       this._imageUrl = getPlaceholderImageUrl();
@@ -699,11 +699,9 @@ class RecipeCard extends HTMLElement {
     if (!user) return;
 
     try {
-      const { ActiveMealUtils } = await import('../../../js/utils/active-meal-utils.js');
-
       await import('../../../lib/modals/message-modal/message-modal.js');
 
-      const result = await ActiveMealUtils.addToMeal(user.uid, this.recipeId);
+      const result = await ActiveMealService.addToMeal(user.uid, this.recipeId);
 
       let messageModal = document.querySelector('message-modal');
       if (!messageModal) {

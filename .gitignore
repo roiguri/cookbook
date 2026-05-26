@@ -4,8 +4,10 @@
 .claude
 .gemini
 
-# Ignore VS Code settings
-.vscode/
+# Ignore VS Code settings, but share workspace recommendations + per-repo settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 
 # Ignore node_modules
 node_modules/
