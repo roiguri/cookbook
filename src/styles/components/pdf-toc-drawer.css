@@ -1,12 +1,8 @@
 /* PDF viewer table-of-contents drawer (mobile only). The <app-drawer>
-   host gets the .pdf-toc-drawer class via its drawer-class attribute,
-   and the backdrop sibling gets .pdf-toc-drawer__backdrop. */
+   host gets the .pdf-toc-drawer class via its drawer-class attribute.
+   Backdrop styling is provided by <app-drawer> (app-drawer.css). */
 
 .pdf-toc-drawer {
-  display: none;
-}
-
-.pdf-toc-drawer__backdrop {
   display: none;
 }
 
@@ -30,24 +26,6 @@
 
   .pdf-toc-drawer.active {
     transform: translate3d(0, 0, 0);
-  }
-
-  .pdf-toc-drawer__backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(31, 29, 24, 0.4);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    opacity: 0;
-    visibility: hidden;
-    transition: all var(--dur-3, 520ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-    z-index: var(--z-backdrop, 1010);
-  }
-
-  .pdf-toc-drawer__backdrop.active {
-    opacity: 1;
-    visibility: visible;
   }
 
   .pdf-toc-drawer__head {
