@@ -1,4 +1,37 @@
+import { CookingMemoryGame } from './memory_game.js';
+import { BurgerStackerGame } from './burger_stacker.js';
+import wrapperCss from './game_wrapper.css?inline';
+import memoryCss from './memory_game.css?inline';
+import burgerCss from './burger_stacker.css?inline';
+
+export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}`;
+
+const REGISTRY = [
+  {
+    GameClass: CookingMemoryGame,
+    defaultConfig: { rows: 3 },
+    successMessage: 'כל הכבוד! הזיכרון שלך חד!',
+    loadingText: 'זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!',
+  },
+  {
+    GameClass: BurgerStackerGame,
+    defaultConfig: { targetHeight: 5 },
+    successMessage: 'כל הכבוד! ההמבוגר מוכן',
+    loadingText: 'מכין את המטבח... תפוס את המרכיבים!',
+  },
+];
+
 export class GameWrapper {
+  static random(container, overrides = {}) {
+    const pick = REGISTRY[Math.floor(Math.random() * REGISTRY.length)];
+    const wrapper = new GameWrapper(container, pick.GameClass, {
+      ...pick.defaultConfig,
+      ...overrides,
+      successMessage: pick.successMessage,
+    });
+    return { wrapper, loadingText: pick.loadingText };
+  }
+
   constructor(container, GameClass, config = {}) {
     this.container = container;
     this.GameClass = GameClass;

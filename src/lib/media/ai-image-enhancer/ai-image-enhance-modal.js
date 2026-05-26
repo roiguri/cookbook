@@ -15,12 +15,7 @@ import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';
-import memoryGameStyles from '../../games/memory_game.css?inline';
-import burgerStackerStyles from '../../games/burger_stacker.css?inline';
-import gameWrapperStyles from '../../games/game_wrapper.css?inline';
-import { CookingMemoryGame } from '../../games/memory_game.js';
-import { BurgerStackerGame } from '../../games/burger_stacker.js';
-import { GameWrapper } from '../../games/game_wrapper.js';
+import { GameWrapper, GAME_STYLES } from '../../games/game_wrapper.js';
 
 const MAX_INPUT_DIMENSION = 1536;
 const JPEG_QUALITY = 0.92;
@@ -256,23 +251,12 @@ class AiImageEnhanceModal extends HTMLElement {
 
   _startGame() {
     const container = this.shadowRoot.getElementById('game-container');
-    const loadingText = this.shadowRoot.getElementById('loading-text');
+    const loadingTextEl = this.shadowRoot.getElementById('loading-text');
     if (!container || this._gameWrapper) return;
 
-    const useBurgerGame = Math.random() > 0.5;
-    if (useBurgerGame) {
-      this._gameWrapper = new GameWrapper(container, BurgerStackerGame, {
-        successMessage: 'כל הכבוד! הבורגר מוכן!',
-        targetHeight: 5,
-      });
-      if (loadingText) loadingText.textContent = 'מכין את המטבח... תפוס את המרכיבים!';
-    } else {
-      this._gameWrapper = new GameWrapper(container, CookingMemoryGame, {
-        rows: 3,
-        successMessage: 'כל הכבוד! הזיכרון שלך חד!',
-      });
-      if (loadingText) loadingText.textContent = 'זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!';
-    }
+    const { wrapper, loadingText } = GameWrapper.random(container);
+    this._gameWrapper = wrapper;
+    if (loadingTextEl) loadingTextEl.textContent = loadingText;
 
     this._gameWrapper.init();
   }
@@ -592,9 +576,7 @@ class AiImageEnhanceModal extends HTMLElement {
   _render() {
     this.shadowRoot.innerHTML = `
       <style>
-        ${memoryGameStyles}
-        ${burgerStackerStyles}
-        ${gameWrapperStyles}
+        ${GAME_STYLES}
 
         :host {
           font-family: var(--font-ui-he, sans-serif);
