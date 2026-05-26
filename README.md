@@ -30,6 +30,7 @@ The application is built as a Single Page Application (SPA) using a custom-built
 This project was built to demonstrate a strong grasp of core web technologies:
 
 - **Frontend:**
+
   - **Vanilla JavaScript (ES6+):** Core logic and state management.
   - **Web Components:** Encapsulated UI components using Shadow DOM for style isolation.
   - **Custom SPA Router:** Handles navigation and dynamic view rendering without page reloads.
@@ -37,6 +38,7 @@ This project was built to demonstrate a strong grasp of core web technologies:
   - **Vite:** Modern build tool for fast development and optimized production assets.
 
 - **Backend (Firebase):**
+
   - **Cloud Firestore:** NoSQL database for real-time data syncing.
   - **Firebase Authentication:** Secure user identity management.
   - **Cloud Storage:** Scalable storage for user-uploaded recipe images.

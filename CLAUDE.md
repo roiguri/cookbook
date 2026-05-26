@@ -50,14 +50,9 @@ UI components are custom Web Components in `src/lib/`. Most use Shadow DOM. Impo
 
 ### Services / Firebase Layer
 
-All Firebase access goes through service wrappers in `src/js/services/` — never import Firebase SDK directly in page or component files. ESLint enforces this.
+Pages and lib components consume **domain services** under `src/js/services/<domain>/` — never raw Firebase SDKs and never the `_firebase/*` infrastructure services directly. ESLint enforces this with zero exemptions.
 
-- `FirestoreService` — CRUD for `recipes`, `users`, `active_meals`, `cookbook`
-- `StorageService` — upload/download/delete files
-- `AuthService` — auth state, sign in/out
-- `FavoritesService` — user favorites management
-
-Firebase config is in `src/js/config/firebase-config.js`.
+Architecture, conventions, full service surface, and reusable patterns: [`docs/architecture/services.md`](docs/architecture/services.md). JSDoc on each service class is the canonical API reference. Firebase config: `src/js/config/firebase-config.js`.
 
 ### Routing Reference
 
