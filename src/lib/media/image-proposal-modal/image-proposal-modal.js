@@ -125,7 +125,7 @@ class ImageProposalModal extends HTMLElement {
       </style>
 
       <loading-spinner overlay border-radius="10px" size="60px" color="#ffffff">
-        <custom-modal width="300px">
+        <custom-modal width="300px" fullscreen-mobile>
           <div class="proposal-modal">
             <div class="proposal-content">
               <div class="proposal-header">

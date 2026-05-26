@@ -84,7 +84,7 @@ class ImageApprovalMulti extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${this.styles()}</style>
       <loading-spinner overlay border-radius="10px" size="60px" color="#ffffff">
-        <custom-modal width="90vw" height="auto">
+        <custom-modal width="90vw" height="auto" fullscreen-mobile>
           <div class="approval-container">
             <h2>אישור תמונות</h2>
 

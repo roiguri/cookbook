@@ -156,7 +156,7 @@ class RecipePreviewModal extends HTMLElement {
   template() {
     return `
       <div class="recipe-preview-modal">
-        <custom-modal height="90vh" width="90vw">
+        <custom-modal height="90vh" width="90vw" fullscreen-mobile>
           <loading-spinner overlay border-radius="10px" style="z-index:1000; display:none;" id="modal-spinner"></loading-spinner>
           <div class="error-message"></div>
           <div class="modal-content">

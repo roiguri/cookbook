@@ -205,7 +205,7 @@ class EditPreviewRecipe extends HTMLElement {
     const isPreview = this.mode === 'preview';
     return `
       <div class="recipe-preview-modal">
-        <custom-modal height="90vh" width="60vw">
+        <custom-modal height="90vh" width="60vw" fullscreen-mobile>
           <div class="edit-modal-wrap">
             <div class="modal-body">
               ${

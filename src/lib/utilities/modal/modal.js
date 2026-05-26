@@ -50,6 +50,9 @@
  * @attr {string} width - Sets the width of the modal.
  * @attr {string} height - Sets the height of the modal.
  * @attr {string} background-color - Sets the background color of the modal.
+ * @attr {boolean} fullscreen-mobile - When present, the modal renders edge-to-edge
+ *   (100vw x 100dvh, no border, no radius) at viewports ≤768px. Desktop layout
+ *   is unaffected.
  */
 
 export class Modal extends HTMLElement {
@@ -106,6 +109,25 @@ export class Modal extends HTMLElement {
         :host {
           --modal-outer-padding: 4px;
           --modal-max-width: 100vw;
+        }
+
+        :host([fullscreen-mobile]) {
+          --modal-outer-padding: 0;
+          --modal-max-width: 100vw;
+        }
+
+        :host([fullscreen-mobile]) .modal-content {
+          width: 100vw;
+          max-width: 100vw;
+          height: 100dvh;
+          max-height: 100dvh;
+          border: 0;
+          border-radius: 0;
+          transform: translateY(24px);
+        }
+
+        :host([fullscreen-mobile]) .modal.open .modal-content {
+          transform: none;
         }
       }
 
