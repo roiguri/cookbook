@@ -41,6 +41,11 @@
   gap: 16px;
 }
 
+.spa-content .games-page-chooser[hidden],
+.spa-content .games-page-game-view[hidden] {
+  display: none;
+}
+
 .spa-content .games-page-card {
   display: flex;
   flex-direction: column;
