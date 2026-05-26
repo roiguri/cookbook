@@ -62,20 +62,26 @@ export class PizzatronGame {
     this.render();
     this.beltEl = this.container.querySelector('#pizzatron-belt');
     this.beltTrackEl = this.container.querySelector('.pizzatron-belt-track');
+    this.boxEl = this.container.querySelector('.pizzatron-box');
     this.beltTileWidth = this.readBeltTileWidth();
     this.pizzaArrivalX = this.computeArrivalX();
+    this._onResize = () => {
+      this.pizzaArrivalX = this.computeArrivalX();
+    };
+    window.addEventListener('resize', this._onResize);
     this.startGameLoop();
     this.startSpawner();
     this.spawnPizza();
   }
 
   computeArrivalX() {
-    // Box center sits at trackWidth + box.right - box.width / 2 (with right
-    // measured from the track's right edge). Current box: right -32px, width
-    // 170 → box center ≈ trackW - 53. Pizza center should land there, and
-    // pizza.x is the pizza's left edge.
-    const trackW = this.beltTrackEl ? this.beltTrackEl.offsetWidth : 0;
-    return trackW - 53 - TUNING.pizza.sizePx / 2;
+    // Derive the arrival point from the box element's actual layout so the
+    // pizza stops in the same spot regardless of window width or any future
+    // CSS tweak to box positioning. offsetLeft/offsetWidth are relative to
+    // the belt-track (the nearest positioned ancestor), matching pizza.x.
+    if (!this.boxEl) return 0;
+    const boxCenter = this.boxEl.offsetLeft + this.boxEl.offsetWidth / 2;
+    return boxCenter - TUNING.pizza.sizePx / 2;
   }
 
   readBeltTileWidth() {
@@ -235,12 +241,17 @@ export class PizzatronGame {
       clearInterval(this.spawnerId);
       this.spawnerId = null;
     }
+    if (this._onResize) {
+      window.removeEventListener('resize', this._onResize);
+      this._onResize = null;
+    }
     for (const p of this.state.belt) {
       if (p.removalTimer) clearTimeout(p.removalTimer);
     }
     this.state.belt = [];
     this.beltEl = null;
     this.beltTrackEl = null;
+    this.boxEl = null;
     this.container.innerHTML = '';
   }
 }
