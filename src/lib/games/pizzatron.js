@@ -35,7 +35,12 @@ export class PizzatronGame {
             <span id="pizzatron-orders-done">${this.state.ordersCompleted}</span><span class="pizzatron-counter-sep">/</span><span id="pizzatron-orders-total">${this.state.ordersToWin}</span>
           </span>
         </div>
-        <div class="pizzatron-belt-zone" id="pizzatron-belt-zone"></div>
+        <div class="pizzatron-belt-zone" id="pizzatron-belt-zone">
+          <div class="pizzatron-belt-track">
+            <div class="pizzatron-belt" id="pizzatron-belt"></div>
+            <div class="pizzatron-box"></div>
+          </div>
+        </div>
         <div class="pizzatron-tray" id="pizzatron-tray"></div>
       </div>
     `;
