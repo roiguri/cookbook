@@ -51,7 +51,7 @@ class AuthController extends HTMLElement {
           display: contents;
         }
       </style>
-      <custom-modal height="auto" width="520px">
+      <custom-modal height="auto" width="520px" fullscreen-mobile>
         <slot></slot>
       </custom-modal>
     `;
