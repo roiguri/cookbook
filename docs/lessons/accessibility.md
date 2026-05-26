@@ -1,4 +1,8 @@
-# Palette's Journal
+# Accessibility Lessons
+
+A11y patterns discovered while building interactive components.
+
+> **When to add an entry:** after fixing an a11y bug whose root cause was a pattern (not a single-site mistake). Date it (`YYYY-MM-DD`), state the Learning + Action in 2–4 lines, and add the newest entry at the top. Newest entries win when guidance conflicts. If a pattern fits inside an architecture doc, put the canonical version there and add a short pointer here.
 
 ## 2025-10-18 - Keyboard Accessible Cards
 

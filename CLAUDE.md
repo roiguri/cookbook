@@ -50,14 +50,9 @@ UI components are custom Web Components in `src/lib/`. Most use Shadow DOM. Impo
 
 ### Services / Firebase Layer
 
-All Firebase access goes through service wrappers in `src/js/services/` — never import Firebase SDK directly in page or component files. ESLint enforces this.
+Pages and lib components consume **domain services** under `src/js/services/<domain>/` — never raw Firebase SDKs and never the `_firebase/*` infrastructure services directly. ESLint enforces this with zero exemptions.
 
-- `FirestoreService` — CRUD for `recipes`, `users`, `active_meals`, `cookbook`
-- `StorageService` — upload/download/delete files
-- `AuthService` — auth state, sign in/out
-- `FavoritesService` — user favorites management
-
-Firebase config is in `src/js/config/firebase-config.js`.
+Architecture, conventions, full service surface, and reusable patterns: [`docs/architecture/services.md`](docs/architecture/services.md). JSDoc on each service class is the canonical API reference. Firebase config: `src/js/config/firebase-config.js`.
 
 ### Routing Reference
 
@@ -149,3 +144,18 @@ firebase deploy                            # deploy everything
 ```
 
 Rules files: `firestore.rules`, `storage.rules`. Functions source: `functions/`.
+
+---
+
+## Further Reading
+
+Deeper references — consult these before making non-trivial changes:
+
+- `docs/architecture/spa-core.md` — router, page manager, page module contract.
+- `docs/architecture/components.md` — Web Components conventions, dynamic imports, custom events.
+- `docs/architecture/services.md` — Firebase service wrappers, caching/dedup patterns, role enforcement.
+- `docs/architecture/design-system.md` — canonical token reference (colours, type, z-index, icons).
+- `docs/lessons/performance.md`, `docs/lessons/accessibility.md`, `docs/lessons/security.md` — patterns and pitfalls discovered while building.
+- `docs/firebase-image-optimization.md` — image pipeline configuration.
+- `docs/code-review-2026-05.md` — open code-review findings (P0–P4) not yet resolved.
+- `docs/archive/` — superseded/historical documents kept for reference.
