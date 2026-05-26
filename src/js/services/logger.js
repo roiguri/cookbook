@@ -147,9 +147,11 @@ export function setUser(user) {
 
   if (!user) {
     Sentry.setUser(null);
+    Sentry.setTag('role', undefined);
     return;
   }
-  Sentry.setUser({ id: user.id, segment: user.role });
+  Sentry.setUser({ id: user.id });
+  if (user.role) Sentry.setTag('role', user.role);
 }
 
 /**
