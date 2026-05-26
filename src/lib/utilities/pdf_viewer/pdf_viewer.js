@@ -492,6 +492,15 @@ class PDFViewer extends HTMLElement {
         overflow: hidden;
         transition: width var(--dur-2, 280ms) var(--ease-out, ease),
                     border-color var(--dur-2, 280ms) var(--ease-out, ease);
+        /* Bound the sidebar to the viewport so a long TOC scrolls
+           internally instead of growing the pdf-viewer container.
+           align-self stops the row from stretching to fit the TOC;
+           sticky keeps the sidebar pinned if the page itself scrolls. */
+        align-self: flex-start;
+        position: sticky;
+        top: 0;
+        height: 100svh;
+        max-height: 100svh;
       }
 
       .pdf_viewer.sidebar-collapsed .pdf_viewer__sidebar {
