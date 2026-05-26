@@ -225,39 +225,29 @@ class AiImageEnhanceModal extends HTMLElement {
     const compare = this.shadowRoot.querySelector('.compare');
     const advanced = this.shadowRoot.querySelector('.advanced');
     const actions = this.shadowRoot.querySelector('.actions');
-    const status = this.shadowRoot.querySelector('.loading-status-row');
-    const ready = this.shadowRoot.getElementById('enhance-ready');
     if (loadingView) loadingView.hidden = !isLoading;
     if (compare) compare.style.display = isLoading ? 'none' : '';
     if (advanced) advanced.style.display = isLoading ? 'none' : '';
     if (actions) actions.style.display = isLoading ? 'none' : '';
 
     if (isLoading) {
-      // Reset to "in progress" appearance — status row visible, ready overlay hidden.
-      if (status) status.style.display = '';
-      if (ready) ready.hidden = true;
       this._startGame();
     } else {
       this._destroyGame();
     }
   }
 
-  _showEnhanceReady() {
-    const status = this.shadowRoot.querySelector('.loading-status-row');
-    const ready = this.shadowRoot.getElementById('enhance-ready');
-    if (status) status.style.display = 'none';
-    if (ready) ready.hidden = false;
-  }
-
   _startGame() {
     const container = this.shadowRoot.getElementById('game-container');
-    const loadingTextEl = this.shadowRoot.getElementById('loading-text');
     if (!container || this._gameWrapper) return;
 
-    const { wrapper, loadingText } = GameWrapper.random(container);
-    this._gameWrapper = wrapper;
-    if (loadingTextEl) loadingTextEl.textContent = loadingText;
-
+    this._gameWrapper = GameWrapper.random(container, {
+      asyncReady: {
+        text: 'התמונה המשופרת מוכנה!',
+        button: 'צפה בתוצאה',
+        onDismiss: () => this._setEnhanceLoading(false),
+      },
+    });
     this._gameWrapper.init();
   }
 
@@ -431,8 +421,8 @@ class AiImageEnhanceModal extends HTMLElement {
       this._updatePaneHints();
       this._setStatus('התמונה שופרה. ניתן לשמור או לבטל.');
       // Keep the game alive — switch the loading row to a "ready" badge.
-      // The user dismisses it via "view-result-btn" when they want to leave the game.
-      this._showEnhanceReady();
+      // The user dismisses it via the wrapper's button when they want to leave the game.
+      this._gameWrapper?.markAsyncReady();
     } catch (error) {
       console.error('Image enhancement failed:', error);
       // Restore the placeholder so the after pane stops looking like it's loading.
@@ -559,9 +549,6 @@ class AiImageEnhanceModal extends HTMLElement {
     sr.getElementById('enhance-btn').addEventListener('click', () => this._enhance());
     sr.getElementById('save-btn').addEventListener('click', () => this._save());
     sr.getElementById('discard-btn').addEventListener('click', () => this._discard());
-    sr.getElementById('view-result-btn').addEventListener('click', () =>
-      this._setEnhanceLoading(false),
-    );
     sr.getElementById('before-pane').addEventListener('click', () => {
       if (this._beforeUrl) this._openViewer('before');
     });
@@ -851,58 +838,6 @@ class AiImageEnhanceModal extends HTMLElement {
           display: none;
         }
 
-        .loading-status-row {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          color: var(--ink-3, rgba(31, 29, 24, 0.55));
-          font-size: 13px;
-        }
-
-        .enhance-ready {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .enhance-ready[hidden] {
-          display: none;
-        }
-
-        .ready-icon {
-          font-size: 18px;
-        }
-
-        .ready-text {
-          color: var(--ink, #1f1d18);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .loading-dots {
-          display: inline-flex;
-          gap: 4px;
-        }
-
-        .loading-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--primary, #6a994e);
-          animation: loading-bounce 1.2s ease-in-out infinite;
-        }
-
-        .loading-dot:nth-child(2) { animation-delay: 0.15s; }
-        .loading-dot:nth-child(3) { animation-delay: 0.3s; }
-
-        @keyframes loading-bounce {
-          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-4px); opacity: 1; }
-        }
-
         .game-container {
           width: 100%;
           max-width: 100%;
@@ -967,19 +902,6 @@ class AiImageEnhanceModal extends HTMLElement {
         </div>
 
         <div id="enhance-loading" class="enhance-loading" hidden>
-          <div class="loading-status-row">
-            <div class="loading-dots">
-              <div class="loading-dot"></div>
-              <div class="loading-dot"></div>
-              <div class="loading-dot"></div>
-            </div>
-            <span id="loading-text">זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!</span>
-          </div>
-          <div id="enhance-ready" class="enhance-ready" hidden>
-            <span class="ready-icon">✨</span>
-            <span class="ready-text">התמונה המשופרת מוכנה!</span>
-            <button id="view-result-btn" class="action primary">צפה בתוצאה</button>
-          </div>
           <div id="game-container" class="game-container"></div>
         </div>
 
