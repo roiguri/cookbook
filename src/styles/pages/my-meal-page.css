@@ -154,7 +154,7 @@
   box-shadow: -4px 0 24px rgba(31, 29, 24, 0.12);
   z-index: var(--z-drawer);
   transform: translateX(100%);
-  transition: transform var(--dur-2, 260ms) var(--ease-out, ease);
+  transition: transform var(--dur-3) var(--ease-out);
   display: flex;
   flex-direction: column;
 }
@@ -458,22 +458,7 @@
   text-decoration: line-through;
 }
 
-/* ---- Drawer backdrop ---- */
-
-.spa-content .my-meal-page .drawer-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(31, 29, 24, 0.45);
-  z-index: var(--z-backdrop);
-  display: none;
-}
-
-.spa-content .my-meal-page .drawer-backdrop.open {
-  display: block;
-}
+/* Drawer backdrop styles are provided by <app-drawer> (app-drawer.css). */
 
 /* ---- Empty state ---- */
 

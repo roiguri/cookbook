@@ -9,6 +9,7 @@ import {
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import '../../lib/modals/confirmation_modal/confirmation_modal.js';
+import '../../lib/utilities/app-drawer/app-drawer.js';
 import '../../styles/pages/my-meal-page.css';
 
 export default {
@@ -35,7 +36,6 @@ export default {
       meal: null,
       recipes: {}, // Cache for recipe data
       activeTabId: null,
-      drawerOpen: false,
       ingredientsView: 'all', // 'all' or 'current'
       unselectedIngredients: new Set(),
     };
@@ -138,7 +138,7 @@ export default {
     }
 
     // Update ingredients list if drawer is open
-    if (this.state.drawerOpen) {
+    if (this.drawer && this.drawer.isOpen) {
       this.renderIngredientsList();
     }
   },
@@ -285,7 +285,7 @@ export default {
 
     component.addEventListener('servings-changed', (e) => {
       this.updateRecipeState(recipeId, { servings: e.detail.servings });
-      if (this.state.drawerOpen) this.renderIngredientsList();
+      if (this.drawer && this.drawer.isOpen) this.renderIngredientsList();
     });
 
     container.appendChild(component);
@@ -327,7 +327,7 @@ export default {
 
   setupIngredientsDrawer() {
     const drawer = this.container.querySelector('#ingredients-drawer');
-    const backdrop = this.container.querySelector('#drawer-backdrop');
+    this.drawer = drawer;
     const toggleBtn = this.container.querySelector('#toggle-ingredients-btn');
     const closeBtn = this.container.querySelector('#close-drawer-btn');
     const viewAllBtn = this.container.querySelector('#view-all-ingredients');
@@ -343,17 +343,7 @@ export default {
       shareBtn.classList.remove('hidden');
     }
 
-    const toggleDrawer = () => {
-      this.state.drawerOpen = !this.state.drawerOpen;
-      if (this.state.drawerOpen) {
-        drawer.classList.add('open');
-        backdrop.classList.add('open');
-        this.renderIngredientsList();
-      } else {
-        drawer.classList.remove('open');
-        backdrop.classList.remove('open');
-      }
-    };
+    drawer.addEventListener('app-drawer-open', () => this.renderIngredientsList());
 
     const getIngredientsText = () => {
       const recipeIds =
@@ -444,9 +434,8 @@ export default {
       }
     });
 
-    toggleBtn.addEventListener('click', toggleDrawer);
-    closeBtn.addEventListener('click', toggleDrawer);
-    backdrop.addEventListener('click', toggleDrawer);
+    toggleBtn.addEventListener('click', () => drawer.toggle());
+    closeBtn.addEventListener('click', () => drawer.close());
 
     viewAllBtn.addEventListener('click', () => {
       this.state.ingredientsView = 'all';

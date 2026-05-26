@@ -1,0 +1,16 @@
+.app-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 29, 24, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--dur-3) var(--ease-out);
+  z-index: var(--z-backdrop);
+}
+
+.app-drawer-backdrop.app-drawer-backdrop--open {
+  opacity: 1;
+  visibility: visible;
+}

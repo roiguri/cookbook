@@ -29,7 +29,12 @@
     </div>
   </div>
 
-  <div id="ingredients-drawer" class="ingredients-drawer">
+  <app-drawer
+    id="ingredients-drawer"
+    drawer-class="ingredients-drawer"
+    active-class="open"
+    position="end"
+  >
     <div class="drawer-header">
       <h2>רשימת מצרכים</h2>
       <div class="header-actions">
@@ -98,7 +103,6 @@
     <div id="ingredients-list-container" class="ingredients-list-container">
       <!-- Ingredients list will be populated here -->
     </div>
-  </div>
-  <div id="drawer-backdrop" class="drawer-backdrop"></div>
+  </app-drawer>
   <confirmation-modal id="confirmation-modal"></confirmation-modal>
 </div>

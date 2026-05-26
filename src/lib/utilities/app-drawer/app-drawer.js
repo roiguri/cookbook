@@ -1,3 +1,5 @@
+import './app-drawer.css';
+
 /**
  * App Drawer Component
  * @class
@@ -5,9 +7,14 @@
  *
  * @description
  * A reusable light-DOM drawer/sidebar element. It owns lifecycle (open/close,
- * scroll lock, backdrop, Escape key) but is "headless" w.r.t. styling — the
- * consumer supplies the class names applied to the drawer host, the backdrop,
- * and the active state, so that any existing CSS keeps working unchanged.
+ * scroll lock, backdrop, Escape key) and ships default backdrop styling. The
+ * consumer supplies class names for the drawer host and active state; the
+ * `backdrop-class` is optional and layers on top of the component default.
+ *
+ * The backdrop element always receives the base class `app-drawer-backdrop`
+ * and, when open, the state class `app-drawer-backdrop--open` (in addition
+ * to any consumer-supplied `backdrop-class` and `active-class`). Consumers
+ * that want a non-default backdrop appearance can target their own class.
  *
  * The backdrop is created as a sibling appended to <body> so the drawer's own
  * `overflow: hidden` cannot clip it.
@@ -61,6 +68,7 @@ class AppDrawer extends HTMLElement {
     }
 
     this._backdrop = document.createElement('div');
+    this._backdrop.classList.add('app-drawer-backdrop');
     const backdropClass = this.getAttribute('backdrop-class');
     if (backdropClass) {
       backdropClass
@@ -95,7 +103,7 @@ class AppDrawer extends HTMLElement {
     if (this.isOpen) return;
     const active = this._activeClass();
     this.classList.add(active);
-    if (this._backdrop) this._backdrop.classList.add(active);
+    if (this._backdrop) this._backdrop.classList.add(active, 'app-drawer-backdrop--open');
 
     if (this._boolAttr('lock-scroll', true)) {
       document.body.style.overflow = 'hidden';
@@ -110,7 +118,7 @@ class AppDrawer extends HTMLElement {
     if (!this.isOpen) return;
     const active = this._activeClass();
     this.classList.remove(active);
-    if (this._backdrop) this._backdrop.classList.remove(active);
+    if (this._backdrop) this._backdrop.classList.remove(active, 'app-drawer-backdrop--open');
 
     if (this._lockedScroll) {
       document.body.style.overflow = '';

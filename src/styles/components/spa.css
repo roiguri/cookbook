@@ -64,7 +64,7 @@ footer {
   align-items: center;
   justify-content: center;
   background: rgba(250, 246, 236, 0.9);
-  z-index: var(--z-modal);
+  z-index: var(--z-page-overlay);
   transition: opacity 0.15s ease;
 }
 
