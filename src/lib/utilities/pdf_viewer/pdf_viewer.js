@@ -22,7 +22,9 @@ class PDFViewer extends HTMLElement {
     if (this.hasPageIndex) {
       this.pageIndex = await this.fetchPageIndex();
       if (this.pageIndex && this.pageIndex.categories) {
-        this.categories = Object.keys(this.pageIndex.categories);
+        this.categories = Object.entries(this.pageIndex.categories)
+          .sort(([, a], [, b]) => Number(a.startPage) - Number(b.startPage))
+          .map(([name]) => name);
       } else {
         this.categories = [];
       }
