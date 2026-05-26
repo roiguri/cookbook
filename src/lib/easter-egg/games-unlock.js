@@ -2,10 +2,12 @@ import './games-unlock.css';
 
 const TAP_TARGET = 7;
 const TAP_WINDOW_MS = 2000;
+const UNLOCK_COOLDOWN_MS = 1500;
 const BRAND_SELECTOR = 'header .logo, .drawer-brand';
 
 let tapCount = 0;
 let lastTapAt = 0;
+let cooldownUntil = 0;
 
 function reset() {
   tapCount = 0;
@@ -19,6 +21,14 @@ function handleClick(event) {
     return;
   }
 
+  // Suppress any further logo clicks while the unlock animation/navigation is in flight,
+  // otherwise a stray 8th+ tap re-triggers the normal /home interception.
+  if (Date.now() < cooldownUntil) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    return;
+  }
+
   const now = Date.now();
   if (now - lastTapAt > TAP_WINDOW_MS) tapCount = 0;
   lastTapAt = now;
@@ -29,6 +39,7 @@ function handleClick(event) {
   event.preventDefault();
   event.stopImmediatePropagation();
   reset();
+  cooldownUntil = Date.now() + UNLOCK_COOLDOWN_MS;
 
   runUnlockAnimation(brand).then(() => {
     if (window.spa?.router) {
