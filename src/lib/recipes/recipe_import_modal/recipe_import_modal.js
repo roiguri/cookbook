@@ -558,7 +558,7 @@ class RecipeImportModal extends HTMLElement {
             'מכין את המטבח... תפוס את המרכיבים!';
         } else {
           this.gameWrapper = new GameWrapper(gameContainer, CookingMemoryGame, {
-            rows: 2,
+            rows: 3,
             successMessage: 'כל הכבוד! הזיכרון שלך חד!',
           });
           this.shadowRoot.getElementById('loading-text').textContent =
