@@ -29,9 +29,8 @@ function clearGlow() {
 
 function pulseBrand(brand) {
   if (typeof brand.animate !== 'function') return;
-  const reduceMotion =
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduceMotion) return;
+  // Intentionally not honoring prefers-reduced-motion: this is an opt-in easter
+  // egg the user triggered by tapping the logo 7 times.
   brand.animate(
     [
       { transform: 'scale(1)' },
@@ -111,13 +110,6 @@ function handleClick(event) {
 
 function runUnlockAnimation(origin) {
   return new Promise((resolve) => {
-    const reduceMotion =
-      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) {
-      resolve();
-      return;
-    }
-
     const rect = origin.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;

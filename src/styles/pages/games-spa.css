@@ -91,14 +91,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .spa-content .games-page-hero,
-  .spa-content .games-page-card {
-    animation: none;
-    opacity: 1;
-  }
-}
-
 .spa-content .games-page-card:hover,
 .spa-content .games-page-card:focus-visible {
   transform: translateY(-2px);

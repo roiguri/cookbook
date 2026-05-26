@@ -26,13 +26,11 @@ header .logo[data-unlock-glow='3'],
     0 0 36px var(--primary, #6a994e);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  header .logo[data-unlock-glow],
-  .drawer-brand[data-unlock-glow] {
-    text-shadow: none;
-    transition: none;
-  }
-}
+/* Note: this easter egg is deliberately user-initiated (7 logo taps to unlock).
+   We intentionally do NOT honor prefers-reduced-motion here — the animation
+   only plays when the user explicitly opts in, so it's analogous to clicking
+   "play" on a video. The brand glow + sparkle burst stay visible regardless
+   of the OS-level motion preference. */
 
 .games-unlock-overlay {
   position: fixed;
@@ -152,16 +150,5 @@ header .logo[data-unlock-glow='3'],
   100% {
     transform: rotate(var(--angle, 0deg)) translateX(var(--dist, 240px)) scale(0.4);
     opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .games-unlock-overlay,
-  .games-unlock-dim,
-  .games-unlock-flash,
-  .games-unlock-burst,
-  .games-unlock-sparkle {
-    animation: none;
-    display: none;
   }
 }

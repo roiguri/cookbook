@@ -1,0 +1,32 @@
+- generic [active] [ref=e1]:
+    - banner [ref=e2]:
+        - link "Our Kitchen Chronicles" [ref=e4] [cursor=pointer]:
+            - /url: /home
+            - generic [ref=e5]:
+                - text: Our Kitchen
+                - emphasis [ref=e6]: Chronicles
+        - generic [ref=e7]:
+            - navigation [ref=e8]:
+                - list [ref=e9]:
+                    - listitem [ref=e10]:
+                        - link "דף הבית" [ref=e11] [cursor=pointer]:
+                            - /url: /home
+                    - listitem [ref=e12]:
+                        - link "מתכונים" [ref=e13] [cursor=pointer]:
+                            - /url: /categories
+                    - listitem [ref=e14]:
+                        - link "הצעת מתכון" [ref=e15] [cursor=pointer]:
+                            - /url: /propose-recipe
+            - generic [ref=e16]:
+                - generic [ref=e19]:
+                    - textbox "חיפוש מתכונים" [ref=e20]:
+                        - /placeholder: חיפוש מתכונים...
+                    - button "🔍" [ref=e21] [cursor=pointer]
+                - img [ref=e24] [cursor=pointer]
+    - main [ref=e26]
+    - contentinfo [ref=e29]:
+        - paragraph [ref=e30]: © 2024 Our Kitchen Chronicles. All rights reserved.
+        - link "Spoon icons created by Freepik - Flaticon" [ref=e31] [cursor=pointer]:
+            - /url: https://www.flaticon.com/free-icons/spoon
+    - iframe [ref=e33]:
+        - alert [ref=f1e1]
