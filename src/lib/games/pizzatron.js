@@ -19,7 +19,14 @@ const TUNING = {
     perTypeMin: 1,
     perTypeRange: 2, // result is perTypeMin..(perTypeMin + perTypeRange - 1)
   },
+  topping: {
+    sizePx: 22, // displayed size of a topping on a pizza
+    spiralScale: 9, // tune so toppings stay within the pizza at high counts
+    rotationJitterDeg: 30,
+  },
 };
+
+const GOLDEN_ANGLE = (137.5 * Math.PI) / 180;
 
 function getActiveToppings() {
   return TOPPING_POOL.slice(0, TUNING.order.activeIngredients);
@@ -62,6 +69,12 @@ export class PizzatronGame {
     this.spawnerId = null;
     this.pizzaIdCounter = 0;
     this.pizzaArrivalX = 0; // computed at start from box position
+    this.drag = null; // active drag: { type, ghost, pointerId, originEl }
+    this.firstInteractionFired = false;
+
+    this._onTrayPointerDown = this.onTrayPointerDown.bind(this);
+    this._onDragMove = this.onDragMove.bind(this);
+    this._onDragEnd = this.onDragEnd.bind(this);
   }
 
   start() {
@@ -78,6 +91,7 @@ export class PizzatronGame {
       this.pizzaArrivalX = this.computeArrivalX();
     };
     window.addEventListener('resize', this._onResize);
+    this.trayEl.addEventListener('pointerdown', this._onTrayPointerDown);
     this.startGameLoop();
     this.startSpawner();
     this.spawnPizza();
@@ -142,10 +156,69 @@ export class PizzatronGame {
   handlePizzaArrival(p) {
     p.phase = 'arrived';
     p.pizzaEl.classList.add('arrived');
-    // Placeholder: every arrival shows the success mark for now. Step 2d will
-    // compute isCorrect() here and swap in --bad + onGameOver for failures.
-    p.markEl.textContent = '✓';
-    p.removalTimer = setTimeout(() => this.removePizza(p), TUNING.pizza.holdMsOnArrival);
+    const correct = this.isCorrect(p.currentToppings, p.requiredToppings);
+    if (correct) {
+      p.markEl.textContent = '✓';
+      p.removalTimer = setTimeout(() => {
+        this.removePizza(p);
+        this.onCorrectOrder();
+      }, TUNING.pizza.holdMsOnArrival);
+    } else {
+      p.markEl.textContent = '✗';
+      p.markEl.classList.add('pizzatron-pizza-mark--bad');
+      // Freeze the rest of the game immediately so other pizzas don't keep
+      // sliding during the hold — but leave this pizza visible as evidence.
+      this.isRunning = false;
+      if (this.spawnerId) {
+        clearInterval(this.spawnerId);
+        this.spawnerId = null;
+      }
+      p.removalTimer = setTimeout(() => this.onWrongOrder(p), TUNING.pizza.holdMsOnArrival);
+    }
+  }
+
+  isCorrect(current, required) {
+    const keys = new Set([...Object.keys(current), ...Object.keys(required)]);
+    for (const k of keys) {
+      if ((current[k] || 0) !== (required[k] || 0)) return false;
+    }
+    return true;
+  }
+
+  onCorrectOrder() {
+    this.state.ordersCompleted += 1;
+    const doneEl = this.container.querySelector('#pizzatron-orders-done');
+    if (doneEl) doneEl.textContent = String(this.state.ordersCompleted);
+    if (this.state.ordersCompleted >= this.state.ordersToWin) {
+      this.isRunning = false;
+      if (this.spawnerId) {
+        clearInterval(this.spawnerId);
+        this.spawnerId = null;
+      }
+      if (this.config.onComplete) this.config.onComplete();
+    }
+  }
+
+  onWrongOrder(pizza) {
+    const reason = this.buildFailureReason(pizza);
+    if (this.config.onGameOver) this.config.onGameOver(reason);
+  }
+
+  buildFailureReason(pizza) {
+    const required = pizza.requiredToppings;
+    const current = pizza.currentToppings;
+    const keys = new Set([...Object.keys(required), ...Object.keys(current)]);
+    let hasMissing = false;
+    let hasExtra = false;
+    for (const k of keys) {
+      const r = required[k] || 0;
+      const c = current[k] || 0;
+      if (c < r) hasMissing = true;
+      else if (c > r) hasExtra = true;
+    }
+    if (hasMissing && !hasExtra) return 'חסרים מרכיבים בפיצה!';
+    if (hasExtra && !hasMissing) return 'יותר מדי מרכיבים בפיצה!';
+    return 'בוצעה הזמנה שגויה!';
   }
 
   removePizza(p) {
@@ -188,9 +261,11 @@ export class PizzatronGame {
   buildOrderLabel(requiredToppings) {
     const label = document.createElement('div');
     label.className = 'pizzatron-pizza-order';
+    const itemEls = {};
     for (const [type, count] of Object.entries(requiredToppings)) {
       const item = document.createElement('span');
       item.className = 'pizzatron-pizza-order-item';
+      item.dataset.toppingType = type;
       const icon = document.createElement('span');
       icon.className = `pizzatron-pizza-order-icon pizzatron-pizza-order-icon--${type}`;
       const countEl = document.createElement('span');
@@ -199,8 +274,9 @@ export class PizzatronGame {
       item.appendChild(icon);
       item.appendChild(countEl);
       label.appendChild(item);
+      itemEls[type] = item;
     }
-    return label;
+    return { label, itemEls };
   }
 
   spawnPizza() {
@@ -214,7 +290,7 @@ export class PizzatronGame {
     el.dataset.pizzaId = String(id);
     el.style.transform = `translateX(${-TUNING.pizza.sizePx}px)`;
 
-    const labelEl = this.buildOrderLabel(requiredToppings);
+    const { label: labelEl, itemEls: labelItemEls } = this.buildOrderLabel(requiredToppings);
     el.appendChild(labelEl);
 
     const markEl = document.createElement('div');
@@ -228,11 +304,122 @@ export class PizzatronGame {
       phase: 'riding',
       requiredToppings,
       currentToppings: {},
+      placedTotal: 0, // total toppings placed; drives the sunflower spiral index
       pizzaEl: el,
       labelEl,
+      labelItemEls,
       markEl,
       removalTimer: null,
     });
+  }
+
+  // --- Drag and drop ---
+
+  onTrayPointerDown(e) {
+    const basket = e.target.closest('.pizzatron-tray-basket');
+    if (!basket) return;
+    const type = basket.dataset.topping;
+    if (!type) return;
+    e.preventDefault();
+
+    const ghost = document.createElement('div');
+    ghost.className = `pizzatron-drag-ghost pizzatron-drag-ghost--${type}`;
+    ghost.style.left = `${e.clientX}px`;
+    ghost.style.top = `${e.clientY}px`;
+    document.body.appendChild(ghost);
+
+    this.drag = { type, ghost, pointerId: e.pointerId, originEl: basket };
+
+    try {
+      basket.setPointerCapture(e.pointerId);
+    } catch {
+      /* setPointerCapture may throw if the pointer is no longer active */
+    }
+    basket.addEventListener('pointermove', this._onDragMove);
+    basket.addEventListener('pointerup', this._onDragEnd);
+    basket.addEventListener('pointercancel', this._onDragEnd);
+  }
+
+  onDragMove(e) {
+    if (!this.drag || e.pointerId !== this.drag.pointerId) return;
+    this.drag.ghost.style.left = `${e.clientX}px`;
+    this.drag.ghost.style.top = `${e.clientY}px`;
+  }
+
+  onDragEnd(e) {
+    if (!this.drag || e.pointerId !== this.drag.pointerId) return;
+    const { type, ghost, pointerId, originEl } = this.drag;
+
+    const target = this.findPizzaUnder(e.clientX, e.clientY);
+    if (target) {
+      this.addTopping(target, type);
+    }
+
+    ghost.remove();
+    try {
+      originEl.releasePointerCapture(pointerId);
+    } catch {
+      /* already released */
+    }
+    originEl.removeEventListener('pointermove', this._onDragMove);
+    originEl.removeEventListener('pointerup', this._onDragEnd);
+    originEl.removeEventListener('pointercancel', this._onDragEnd);
+    this.drag = null;
+  }
+
+  findPizzaUnder(clientX, clientY) {
+    // Iterate in reverse so newer (rightmost) pizzas win when overlapping.
+    for (let i = this.state.belt.length - 1; i >= 0; i--) {
+      const p = this.state.belt[i];
+      if (p.phase !== 'riding') continue;
+      const rect = p.pizzaEl.getBoundingClientRect();
+      if (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      ) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  addTopping(pizza, type) {
+    pizza.currentToppings[type] = (pizza.currentToppings[type] || 0) + 1;
+    pizza.placedTotal += 1;
+
+    const pos = this.placeNthTopping(pizza.placedTotal);
+    const toppingEl = document.createElement('div');
+    toppingEl.className = `pizzatron-topping pizzatron-topping--${type}`;
+    toppingEl.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotation}deg)`;
+    pizza.pizzaEl.appendChild(toppingEl);
+
+    // Mark this topping fulfilled in the order label once the count matches.
+    const required = pizza.requiredToppings[type] || 0;
+    const current = pizza.currentToppings[type];
+    const itemEl = pizza.labelItemEls[type];
+    if (itemEl && required > 0 && current >= required) {
+      itemEl.classList.add('fulfilled');
+    }
+
+    if (!this.firstInteractionFired && this.config.onInteraction) {
+      this.firstInteractionFired = true;
+      this.config.onInteraction();
+    }
+  }
+
+  placeNthTopping(n) {
+    const pizzaRadius = TUNING.pizza.sizePx / 2;
+    const toppingRadius = TUNING.topping.sizePx / 2;
+    const angle = n * GOLDEN_ANGLE;
+    const r = Math.sqrt(n) * TUNING.topping.spiralScale;
+    const clamped = Math.min(r, pizzaRadius - toppingRadius);
+    return {
+      x: Math.cos(angle) * clamped,
+      y: Math.sin(angle) * clamped,
+      rotation: Math.random() * TUNING.topping.rotationJitterDeg,
+    };
   }
 
   render() {
@@ -269,6 +456,21 @@ export class PizzatronGame {
       window.removeEventListener('resize', this._onResize);
       this._onResize = null;
     }
+    if (this.trayEl) {
+      this.trayEl.removeEventListener('pointerdown', this._onTrayPointerDown);
+    }
+    if (this.drag) {
+      this.drag.ghost.remove();
+      try {
+        this.drag.originEl.releasePointerCapture(this.drag.pointerId);
+      } catch {
+        /* already released */
+      }
+      this.drag.originEl.removeEventListener('pointermove', this._onDragMove);
+      this.drag.originEl.removeEventListener('pointerup', this._onDragEnd);
+      this.drag.originEl.removeEventListener('pointercancel', this._onDragEnd);
+      this.drag = null;
+    }
     for (const p of this.state.belt) {
       if (p.removalTimer) clearTimeout(p.removalTimer);
     }
@@ -276,6 +478,7 @@ export class PizzatronGame {
     this.beltEl = null;
     this.beltTrackEl = null;
     this.boxEl = null;
+    this.trayEl = null;
     this.container.innerHTML = '';
   }
 }

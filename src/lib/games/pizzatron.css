@@ -41,6 +41,7 @@
   min-height: 140px;
   padding: 22px 12px 4px;
   color: var(--ink-3);
+  touch-action: none;
 }
 
 .pizzatron-belt-track {
@@ -145,6 +146,78 @@
 .pizzatron-pizza.arrived .pizzatron-pizza-order {
   opacity: 0;
   transition: opacity 160ms var(--ease, ease-out);
+}
+
+.pizzatron-pizza-order-item.fulfilled {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.pizzatron-topping {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  will-change: transform;
+}
+
+.pizzatron-topping--tomato {
+  background-image: url('./assets/pizzatron/pizza_tomato_small.png');
+}
+.pizzatron-topping--mushroom {
+  background-image: url('./assets/pizzatron/pizza_mushroom_small.png');
+}
+.pizzatron-topping--olive {
+  background-image: url('./assets/pizzatron/pizza_olive_small.png');
+}
+.pizzatron-topping--pepper {
+  background-image: url('./assets/pizzatron/pizza_pepper_small.png');
+}
+.pizzatron-topping--sausage {
+  background-image: url('./assets/pizzatron/pizza_sausage_small.png');
+}
+.pizzatron-topping--basil {
+  background-image: url('./assets/pizzatron/pizza_basil_small.png');
+}
+
+.pizzatron-drag-ghost {
+  position: fixed;
+  width: 64px;
+  height: 64px;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.92;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+}
+
+.pizzatron-drag-ghost--tomato {
+  background-image: url('./assets/pizzatron/pizza_tomato_small.png');
+}
+.pizzatron-drag-ghost--mushroom {
+  background-image: url('./assets/pizzatron/pizza_mushroom_small.png');
+}
+.pizzatron-drag-ghost--olive {
+  background-image: url('./assets/pizzatron/pizza_olive_small.png');
+}
+.pizzatron-drag-ghost--pepper {
+  background-image: url('./assets/pizzatron/pizza_pepper_small.png');
+}
+.pizzatron-drag-ghost--sausage {
+  background-image: url('./assets/pizzatron/pizza_sausage_small.png');
+}
+.pizzatron-drag-ghost--basil {
+  background-image: url('./assets/pizzatron/pizza_basil_small.png');
 }
 
 .pizzatron-pizza-mark {
