@@ -1,5 +1,31 @@
 import styles from './pizzatron.css?inline';
 
+const TOPPING_POOL = ['tomato', 'mushroom', 'olive', 'pepper', 'sausage', 'basil'];
+
+// One-stop gameplay tuning. Visual sizing of the order label lives in
+// pizzatron.css (.pizzatron-pizza-order*). Pizza diameter is tuned here AND
+// in CSS — keep .pizzatron-pizza width/height in sync with pizza.sizePx.
+const TUNING = {
+  belt: { speedPxPerFrame: 0.6 },
+  spawn: { intervalMs: 6000 },
+  pizza: { sizePx: 110, holdMsOnArrival: 900, fadeOutMs: 220 },
+  order: {
+    baseTypes: 2,
+    rampPerSpawns: 4, // +1 topping type every N spawns
+    typesCap: 5,
+    perTypeMin: 1,
+    perTypeRange: 2, // result is perTypeMin..(perTypeMin + perTypeRange - 1)
+  },
+};
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export class PizzatronGame {
   constructor(container, config = {}) {
     this.container = container;
@@ -17,22 +43,18 @@ export class PizzatronGame {
       ordersCompleted: 0,
       ordersToWin: this.config.ordersToWin,
       belt: [],
+      spawnCounter: 0,
     };
 
     this.isRunning = false;
     this.beltEl = null;
     this.beltTrackEl = null;
-    this.beltSpeed = 0.6; // px per frame at base difficulty
     this.beltOffset = 0;
     this.beltTileWidth = 0; // populated from --belt-tile-w after render
     this.gameLoopId = null;
     this.spawnerId = null;
-    this.spawnRate = 4500; // ms between pizzas at base difficulty
     this.pizzaIdCounter = 0;
-    this.pizzaSize = 110; // matches .pizzatron-pizza width/height in CSS
-    this.pizzaStartX = -this.pizzaSize; // off-screen left at spawn
     this.pizzaArrivalX = 0; // computed at start from box position
-    this.pizzaHoldMs = 900; // dwell time inside the box after arrival
   }
 
   start() {
@@ -53,7 +75,7 @@ export class PizzatronGame {
     // 170 → box center ≈ trackW - 53. Pizza center should land there, and
     // pizza.x is the pizza's left edge.
     const trackW = this.beltTrackEl ? this.beltTrackEl.offsetWidth : 0;
-    return trackW - 53 - this.pizzaSize / 2;
+    return trackW - 53 - TUNING.pizza.sizePx / 2;
   }
 
   readBeltTileWidth() {
@@ -74,12 +96,13 @@ export class PizzatronGame {
 
   advanceBelt() {
     if (!this.beltEl || this.beltTileWidth <= 0) return;
-    this.beltOffset = (this.beltOffset + this.beltSpeed) % this.beltTileWidth;
+    const speed = TUNING.belt.speedPxPerFrame;
+    this.beltOffset = (this.beltOffset + speed) % this.beltTileWidth;
     this.beltEl.style.backgroundPositionX = `${this.beltOffset}px`;
 
     for (const p of this.state.belt) {
       if (p.phase !== 'riding') continue;
-      p.x += this.beltSpeed;
+      p.x += speed;
       if (p.x >= this.pizzaArrivalX) {
         p.x = this.pizzaArrivalX;
         this.handlePizzaArrival(p);
@@ -94,7 +117,7 @@ export class PizzatronGame {
     // Placeholder: every arrival shows the success mark for now. Step 2d will
     // compute isCorrect() here and swap in --bad + onGameOver for failures.
     p.markEl.textContent = '✓';
-    p.removalTimer = setTimeout(() => this.removePizza(p), this.pizzaHoldMs);
+    p.removalTimer = setTimeout(() => this.removePizza(p), TUNING.pizza.holdMsOnArrival);
   }
 
   removePizza(p) {
@@ -103,27 +126,66 @@ export class PizzatronGame {
       p.removalTimer = null;
     }
     p.pizzaEl.classList.add('leaving');
+    // setTimeout duration must match the .pizzatron-pizza opacity transition.
     setTimeout(() => {
       p.pizzaEl.remove();
       const idx = this.state.belt.indexOf(p);
       if (idx >= 0) this.state.belt.splice(idx, 1);
-    }, 220); // matches .pizzatron-pizza opacity transition
+    }, TUNING.pizza.fadeOutMs);
   }
 
   startSpawner() {
     this.spawnerId = setInterval(() => {
       if (!this.isRunning) return;
       this.spawnPizza();
-    }, this.spawnRate);
+    }, TUNING.spawn.intervalMs);
+  }
+
+  generateOrder(difficulty) {
+    const cfg = TUNING.order;
+    const numTypes = Math.min(
+      cfg.baseTypes + Math.floor(difficulty / cfg.rampPerSpawns),
+      cfg.typesCap,
+    );
+    const types = shuffleInPlace([...TOPPING_POOL]).slice(0, numTypes);
+    const order = {};
+    for (const t of types) {
+      order[t] = cfg.perTypeMin + Math.floor(Math.random() * cfg.perTypeRange);
+    }
+    return order;
+  }
+
+  buildOrderLabel(requiredToppings) {
+    const label = document.createElement('div');
+    label.className = 'pizzatron-pizza-order';
+    for (const [type, count] of Object.entries(requiredToppings)) {
+      const item = document.createElement('span');
+      item.className = 'pizzatron-pizza-order-item';
+      const icon = document.createElement('span');
+      icon.className = `pizzatron-pizza-order-icon pizzatron-pizza-order-icon--${type}`;
+      const countEl = document.createElement('span');
+      countEl.className = 'pizzatron-pizza-order-count';
+      countEl.textContent = `×${count}`;
+      item.appendChild(icon);
+      item.appendChild(countEl);
+      label.appendChild(item);
+    }
+    return label;
   }
 
   spawnPizza() {
     if (!this.beltTrackEl) return;
     const id = ++this.pizzaIdCounter;
+    const requiredToppings = this.generateOrder(this.state.spawnCounter);
+    this.state.spawnCounter += 1;
+
     const el = document.createElement('div');
     el.className = 'pizzatron-pizza';
     el.dataset.pizzaId = String(id);
-    el.style.transform = `translateX(${this.pizzaStartX}px)`;
+    el.style.transform = `translateX(${-TUNING.pizza.sizePx}px)`;
+
+    const labelEl = this.buildOrderLabel(requiredToppings);
+    el.appendChild(labelEl);
 
     const markEl = document.createElement('div');
     markEl.className = 'pizzatron-pizza-mark';
@@ -132,9 +194,12 @@ export class PizzatronGame {
     this.beltTrackEl.appendChild(el);
     this.state.belt.push({
       id,
-      x: this.pizzaStartX,
+      x: -TUNING.pizza.sizePx,
       phase: 'riding',
+      requiredToppings,
+      currentToppings: {},
       pizzaEl: el,
+      labelEl,
       markEl,
       removalTimer: null,
     });

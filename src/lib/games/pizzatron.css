@@ -88,6 +88,65 @@
   opacity: 0;
 }
 
+.pizzatron-pizza-order {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink, #1f1d18);
+}
+
+.pizzatron-pizza-order-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.pizzatron-pizza-order-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.pizzatron-pizza-order-icon--tomato {
+  background-image: url('./assets/pizzatron/pizza_tomato_small.png');
+}
+.pizzatron-pizza-order-icon--mushroom {
+  background-image: url('./assets/pizzatron/pizza_mushroom_small.png');
+}
+.pizzatron-pizza-order-icon--olive {
+  background-image: url('./assets/pizzatron/pizza_olive_small.png');
+}
+.pizzatron-pizza-order-icon--pepper {
+  background-image: url('./assets/pizzatron/pizza_pepper_small.png');
+}
+.pizzatron-pizza-order-icon--sausage {
+  background-image: url('./assets/pizzatron/pizza_sausage_small.png');
+}
+.pizzatron-pizza-order-icon--basil {
+  background-image: url('./assets/pizzatron/pizza_basil_small.png');
+}
+
+.pizzatron-pizza.arrived .pizzatron-pizza-order {
+  opacity: 0;
+  transition: opacity 160ms var(--ease, ease-out);
+}
+
 .pizzatron-pizza-mark {
   position: absolute;
   top: -14px;
