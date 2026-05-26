@@ -1,5 +1,17 @@
 /* Easter egg: mini-games unlock animation */
 
+/* Suppress mobile text-selection / tap-highlight / iOS callout on the brand,
+   otherwise rapid 7-tap unlock triggers selection handles or a context preview
+   that disrupts the sparkle visual. */
+.menu-title-container > a,
+header .logo,
+.drawer-brand {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Per-tap glow on the brand. Set by the JS detector as data-unlock-glow="1|2|3" */
 header .logo[data-unlock-glow],
 .drawer-brand[data-unlock-glow] {

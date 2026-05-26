@@ -99,13 +99,17 @@ function handleClick(event) {
   reset();
   cooldownUntil = Date.now() + UNLOCK_COOLDOWN_MS;
 
-  runUnlockAnimation(brand).then(() => {
+  // Fire-and-forget the sparkle overlay (lives on body, survives the SPA swap).
+  // Navigate while it's still mid-burst so the games page renders underneath
+  // the fading sparkles — the entrance animation overlaps with the fade.
+  runUnlockAnimation(brand);
+  setTimeout(() => {
     if (window.spa?.router) {
       window.spa.router.navigate('/games');
     } else {
       window.location.href = '/games';
     }
-  });
+  }, 250);
 }
 
 function runUnlockAnimation(origin) {
