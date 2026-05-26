@@ -4,12 +4,7 @@ import Cropper from 'cropperjs';
 import '../../modals/confirmation_modal/confirmation_modal.js';
 import styles from './recipe_import_modal.css?inline';
 import cropperStyles from 'cropperjs/dist/cropper.css?inline';
-import memoryGameStyles from '../../games/memory_game.css?inline';
-import burgerStackerStyles from '../../games/burger_stacker.css?inline';
-import gameWrapperStyles from '../../games/game_wrapper.css?inline';
-import { CookingMemoryGame } from '../../games/memory_game.js';
-import { BurgerStackerGame } from '../../games/burger_stacker.js';
-import { GameWrapper } from '../../games/game_wrapper.js';
+import { GameWrapper, GAME_STYLES } from '../../games/game_wrapper.js';
 
 class RecipeImportModal extends HTMLElement {
   constructor() {
@@ -44,9 +39,7 @@ class RecipeImportModal extends HTMLElement {
       <style>
         ${cropperStyles}
         ${styles}
-        ${memoryGameStyles}
-        ${burgerStackerStyles}
-        ${gameWrapperStyles}
+        ${GAME_STYLES}
       </style>
       <custom-modal id="import-modal" width="600px">
           <div class="modal-body-content">
@@ -546,25 +539,9 @@ class RecipeImportModal extends HTMLElement {
 
       // Start Game Wrapper
       if (!this.gameWrapper && gameContainer) {
-        // Random game selection
-        const useBurgerGame = Math.random() > 0.5;
-
-        if (useBurgerGame) {
-          this.gameWrapper = new GameWrapper(gameContainer, BurgerStackerGame, {
-            successMessage: 'כל הכבוד! הבורגר מוכן!',
-            targetHeight: 5,
-          });
-          this.shadowRoot.getElementById('loading-text').textContent =
-            'מכין את המטבח... תפוס את המרכיבים!';
-        } else {
-          this.gameWrapper = new GameWrapper(gameContainer, CookingMemoryGame, {
-            rows: 3,
-            successMessage: 'כל הכבוד! הזיכרון שלך חד!',
-          });
-          this.shadowRoot.getElementById('loading-text').textContent =
-            'זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!';
-        }
-
+        const { wrapper, loadingText } = GameWrapper.random(gameContainer);
+        this.gameWrapper = wrapper;
+        this.shadowRoot.getElementById('loading-text').textContent = loadingText;
         this.gameWrapper.init();
       }
     } else {
