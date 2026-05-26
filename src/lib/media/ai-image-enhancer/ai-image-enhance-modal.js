@@ -268,7 +268,7 @@ class AiImageEnhanceModal extends HTMLElement {
       if (loadingText) loadingText.textContent = 'מכין את המטבח... תפוס את המרכיבים!';
     } else {
       this._gameWrapper = new GameWrapper(container, CookingMemoryGame, {
-        rows: 2,
+        rows: 3,
         successMessage: 'כל הכבוד! הזיכרון שלך חד!',
       });
       if (loadingText) loadingText.textContent = 'זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!';
