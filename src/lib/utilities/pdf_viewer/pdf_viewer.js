@@ -1,9 +1,4 @@
-import {
-  getFirestoreInstance,
-  getStorageInstance,
-} from '../../../js/services/_firebase/firebase-service.js';
-import { doc, getDoc } from 'firebase/firestore';
-import { ref, getDownloadURL } from 'firebase/storage';
+import { PdfService } from '../../../js/services/pdf/pdf-service.js';
 
 class PDFViewer extends HTMLElement {
   constructor() {
@@ -73,15 +68,9 @@ class PDFViewer extends HTMLElement {
 
   async fetchPageIndex() {
     try {
-      const db = getFirestoreInstance();
-      if (!db) {
-        console.error('Firestore not initialized');
-        return {};
-      }
-      const [collectionName, fileName] = this.getAttribute('page-index').split('/'); // Split the attribute value
-      const pageIndexRef = doc(db, collectionName, fileName);
-      const pageIndexDocSnap = await getDoc(pageIndexRef);
-      return pageIndexDocSnap.exists() ? pageIndexDocSnap.data() : {};
+      const [collectionName, fileName] = this.getAttribute('page-index').split('/');
+      const data = await PdfService.getPageIndex(collectionName, fileName);
+      return data || {};
     } catch (error) {
       console.error('Error fetching page index:', error);
       return {};
@@ -542,19 +531,9 @@ class PDFViewer extends HTMLElement {
     img.alt = `Page ${pageNumber}`;
 
     try {
-      const storage = getStorageInstance();
-      if (!storage) {
-        console.error('Storage not initialized');
-        return;
-      }
-
-      // Construct reference to the file
       // pdfPath usually has form "grandmas_cookbook/original/"
-      // We need to ensure we don't have double slashes if pdfPath ends with /
       const path = `${this.pdfPath}page.${pageNumber}.jpg`;
-      const imageRef = ref(storage, path);
-
-      const url = await getDownloadURL(imageRef);
+      const url = await PdfService.getPageImageUrl(path);
 
       img.src = url;
 
