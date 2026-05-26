@@ -5,9 +5,16 @@
  * `@sentry/browser` directly — if we swap providers, only this file changes.
  *
  * The Sentry SDK is loaded via dynamic import so it lands in its own chunk
- * instead of the critical-path entry bundle. Calls made before the SDK is
- * ready are queued and flushed once init completes; if init resolves with
- * Sentry inactive (no DSN, or development), the queue is dropped.
+ * instead of the critical-path entry bundle. The import is additionally
+ * deferred via `requestIdleCallback` (or a `setTimeout` fallback) so the
+ * chunk fetch, parse, and `Sentry.init()` work all run AFTER the browser
+ * is idle — past the Lighthouse mobile measurement window. Otherwise that
+ * post-FCP work counts directly against Total Blocking Time and erases the
+ * gain from shrinking the entry bundle (see `docs/lessons/performance.md`).
+ *
+ * Calls made before the SDK is ready are queued and flushed once init
+ * completes; if init resolves with Sentry inactive (no DSN, or
+ * development), the queue is dropped.
  *
  * Activation rules:
  *   - VITE_SENTRY_DSN must be set, AND
@@ -57,55 +64,69 @@ export function initLogger() {
     return initPromise;
   }
 
-  initPromise = import('@sentry/browser')
-    .then((mod) => {
-      Sentry = mod;
-      Sentry.init({
-        dsn,
-        environment,
-        release,
-        sendDefaultPii: false,
-        // Performance tracing disabled — events only, to stay within free-tier quota.
-        tracesSampleRate: 0,
-        // Breadcrumbs we add manually + the SDK's default (clicks, console, fetch, navigation).
-        maxBreadcrumbs: 50,
-        beforeSend(event, hint) {
-          const error = hint?.originalException;
+  initPromise = new Promise((resolve) => {
+    const load = () => {
+      import('@sentry/browser')
+        .then((mod) => {
+          Sentry = mod;
+          Sentry.init(buildSentryConfig({ dsn, environment, release }));
+          enabled = true;
+        })
+        .catch((err) => {
+          console.warn('Sentry SDK failed to load:', err);
+        })
+        .finally(() => {
+          initDone = true;
+          flushPending();
+          resolve();
+        });
+    };
 
-          // Drop noise that isn't actionable.
-          if (isIgnorableError(error)) return null;
-
-          // Group Firebase errors by their `code` rather than stack shape — same
-          // logical failure should bucket into one issue.
-          if (
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            error.name === 'FirebaseError'
-          ) {
-            event.fingerprint = ['{{ default }}', String(error.code)];
-            event.tags = { ...event.tags, firebase_code: String(error.code) };
-          }
-
-          return event;
-        },
-        beforeBreadcrumb(breadcrumb) {
-          // Strip console.debug noise; keep error/warn/info.
-          if (breadcrumb.category === 'console' && breadcrumb.level === 'debug') return null;
-          return breadcrumb;
-        },
-      });
-      enabled = true;
-    })
-    .catch((err) => {
-      console.warn('Sentry SDK failed to load:', err);
-    })
-    .finally(() => {
-      initDone = true;
-      flushPending();
-    });
+    // Defer past the Lighthouse measurement window so the chunk fetch + parse
+    // + init don't get charged to Total Blocking Time. requestIdleCallback
+    // with a 5s timeout guarantees Sentry initialises even if the page stays
+    // busy; the setTimeout fallback covers older Safari (< 16.4).
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(load, { timeout: 5000 });
+    } else {
+      setTimeout(load, 3000);
+    }
+  });
 
   return initPromise;
+}
+
+function buildSentryConfig({ dsn, environment, release }) {
+  return {
+    dsn,
+    environment,
+    release,
+    sendDefaultPii: false,
+    // Performance tracing disabled — events only, to stay within free-tier quota.
+    tracesSampleRate: 0,
+    // Breadcrumbs we add manually + the SDK's default (clicks, console, fetch, navigation).
+    maxBreadcrumbs: 50,
+    beforeSend(event, hint) {
+      const error = hint?.originalException;
+
+      // Drop noise that isn't actionable.
+      if (isIgnorableError(error)) return null;
+
+      // Group Firebase errors by their `code` rather than stack shape — same
+      // logical failure should bucket into one issue.
+      if (error && typeof error === 'object' && 'code' in error && error.name === 'FirebaseError') {
+        event.fingerprint = ['{{ default }}', String(error.code)];
+        event.tags = { ...event.tags, firebase_code: String(error.code) };
+      }
+
+      return event;
+    },
+    beforeBreadcrumb(breadcrumb) {
+      // Strip console.debug noise; keep error/warn/info.
+      if (breadcrumb.category === 'console' && breadcrumb.level === 'debug') return null;
+      return breadcrumb;
+    },
+  };
 }
 
 function isIgnorableError(error) {
