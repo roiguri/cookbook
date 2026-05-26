@@ -15,6 +15,12 @@ import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
 import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 import { icons } from '../../../js/icons.js';
 import '../../utilities/modal/modal.js';
+import memoryGameStyles from '../../games/memory_game.css?inline';
+import burgerStackerStyles from '../../games/burger_stacker.css?inline';
+import gameWrapperStyles from '../../games/game_wrapper.css?inline';
+import { CookingMemoryGame } from '../../games/memory_game.js';
+import { BurgerStackerGame } from '../../games/burger_stacker.js';
+import { GameWrapper } from '../../games/game_wrapper.js';
 
 const MAX_INPUT_DIMENSION = 1536;
 const JPEG_QUALITY = 0.92;
@@ -78,6 +84,7 @@ class AiImageEnhanceModal extends HTMLElement {
     this._isLoading = false;
     this._beforeUrl = null;
     this._viewer = null;
+    this._gameWrapper = null;
   }
 
   connectedCallback() {
@@ -218,6 +225,65 @@ class AiImageEnhanceModal extends HTMLElement {
     }
   }
 
+  _setEnhanceLoading(isLoading) {
+    const loadingView = this.shadowRoot.getElementById('enhance-loading');
+    const compare = this.shadowRoot.querySelector('.compare');
+    const advanced = this.shadowRoot.querySelector('.advanced');
+    const actions = this.shadowRoot.querySelector('.actions');
+    const status = this.shadowRoot.querySelector('.loading-status-row');
+    const ready = this.shadowRoot.getElementById('enhance-ready');
+    if (loadingView) loadingView.hidden = !isLoading;
+    if (compare) compare.style.display = isLoading ? 'none' : '';
+    if (advanced) advanced.style.display = isLoading ? 'none' : '';
+    if (actions) actions.style.display = isLoading ? 'none' : '';
+
+    if (isLoading) {
+      // Reset to "in progress" appearance — status row visible, ready overlay hidden.
+      if (status) status.style.display = '';
+      if (ready) ready.hidden = true;
+      this._startGame();
+    } else {
+      this._destroyGame();
+    }
+  }
+
+  _showEnhanceReady() {
+    const status = this.shadowRoot.querySelector('.loading-status-row');
+    const ready = this.shadowRoot.getElementById('enhance-ready');
+    if (status) status.style.display = 'none';
+    if (ready) ready.hidden = false;
+  }
+
+  _startGame() {
+    const container = this.shadowRoot.getElementById('game-container');
+    const loadingText = this.shadowRoot.getElementById('loading-text');
+    if (!container || this._gameWrapper) return;
+
+    const useBurgerGame = Math.random() > 0.5;
+    if (useBurgerGame) {
+      this._gameWrapper = new GameWrapper(container, BurgerStackerGame, {
+        successMessage: 'כל הכבוד! הבורגר מוכן!',
+        targetHeight: 5,
+      });
+      if (loadingText) loadingText.textContent = 'מכין את המטבח... תפוס את המרכיבים!';
+    } else {
+      this._gameWrapper = new GameWrapper(container, CookingMemoryGame, {
+        rows: 2,
+        successMessage: 'כל הכבוד! הזיכרון שלך חד!',
+      });
+      if (loadingText) loadingText.textContent = 'זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!';
+    }
+
+    this._gameWrapper.init();
+  }
+
+  _destroyGame() {
+    if (this._gameWrapper) {
+      this._gameWrapper.destroy();
+      this._gameWrapper = null;
+    }
+  }
+
   _setSavingOverlay(isSaving) {
     const overlay = this.shadowRoot.getElementById('saving-overlay');
     if (overlay) overlay.hidden = !isSaving;
@@ -333,6 +399,7 @@ class AiImageEnhanceModal extends HTMLElement {
     this._enhancedResult = null;
     this._updateActions();
     this._setAfterPaneLoading(true);
+    this._setEnhanceLoading(true);
     this._setStatus('שולח לשיפור בעזרת AI...');
 
     try {
@@ -379,11 +446,15 @@ class AiImageEnhanceModal extends HTMLElement {
       if (afterPlaceholder) afterPlaceholder.style.display = 'none';
       this._updatePaneHints();
       this._setStatus('התמונה שופרה. ניתן לשמור או לבטל.');
+      // Keep the game alive — switch the loading row to a "ready" badge.
+      // The user dismisses it via "view-result-btn" when they want to leave the game.
+      this._showEnhanceReady();
     } catch (error) {
       console.error('Image enhancement failed:', error);
       // Restore the placeholder so the after pane stops looking like it's loading.
       this._clearAfterImage();
       this._setStatus(this._formatError(error));
+      this._setEnhanceLoading(false);
     } finally {
       this._isLoading = false;
       this._updateActions();
@@ -504,17 +575,27 @@ class AiImageEnhanceModal extends HTMLElement {
     sr.getElementById('enhance-btn').addEventListener('click', () => this._enhance());
     sr.getElementById('save-btn').addEventListener('click', () => this._save());
     sr.getElementById('discard-btn').addEventListener('click', () => this._discard());
+    sr.getElementById('view-result-btn').addEventListener('click', () =>
+      this._setEnhanceLoading(false),
+    );
     sr.getElementById('before-pane').addEventListener('click', () => {
       if (this._beforeUrl) this._openViewer('before');
     });
     sr.getElementById('after-pane').addEventListener('click', () => {
       if (this._enhancedResult) this._openViewer('after');
     });
+    sr.getElementById('custom-modal').addEventListener('modal-closed', () => {
+      this._setEnhanceLoading(false);
+    });
   }
 
   _render() {
     this.shadowRoot.innerHTML = `
       <style>
+        ${memoryGameStyles}
+        ${burgerStackerStyles}
+        ${gameWrapperStyles}
+
         :host {
           font-family: var(--font-ui-he, sans-serif);
         }
@@ -776,6 +857,76 @@ class AiImageEnhanceModal extends HTMLElement {
           min-height: 16px;
         }
 
+        .enhance-loading {
+          margin-top: 14px;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 10px;
+        }
+
+        .enhance-loading[hidden] {
+          display: none;
+        }
+
+        .loading-status-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          color: var(--ink-3, rgba(31, 29, 24, 0.55));
+          font-size: 13px;
+        }
+
+        .enhance-ready {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .enhance-ready[hidden] {
+          display: none;
+        }
+
+        .ready-icon {
+          font-size: 18px;
+        }
+
+        .ready-text {
+          color: var(--ink, #1f1d18);
+          font-size: 14px;
+          font-weight: 500;
+        }
+
+        .loading-dots {
+          display: inline-flex;
+          gap: 4px;
+        }
+
+        .loading-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--primary, #6a994e);
+          animation: loading-bounce 1.2s ease-in-out infinite;
+        }
+
+        .loading-dot:nth-child(2) { animation-delay: 0.15s; }
+        .loading-dot:nth-child(3) { animation-delay: 0.3s; }
+
+        @keyframes loading-bounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        .game-container {
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+
         .saving-overlay {
           position: fixed;
           inset: 0;
@@ -831,6 +982,23 @@ class AiImageEnhanceModal extends HTMLElement {
               <span>התמונה המשופרת<br/>תופיע כאן</span>
             </div>
           </div>
+        </div>
+
+        <div id="enhance-loading" class="enhance-loading" hidden>
+          <div class="loading-status-row">
+            <div class="loading-dots">
+              <div class="loading-dot"></div>
+              <div class="loading-dot"></div>
+              <div class="loading-dot"></div>
+            </div>
+            <span id="loading-text">זה עשוי לקחת מספר שניות... הנה משחק קטן בינתיים!</span>
+          </div>
+          <div id="enhance-ready" class="enhance-ready" hidden>
+            <span class="ready-icon">✨</span>
+            <span class="ready-text">התמונה המשופרת מוכנה!</span>
+            <button id="view-result-btn" class="action primary">צפה בתוצאה</button>
+          </div>
+          <div id="game-container" class="game-container"></div>
         </div>
 
         <section class="advanced" aria-labelledby="advanced-title">
