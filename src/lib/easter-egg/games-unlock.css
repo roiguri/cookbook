@@ -1,5 +1,39 @@
 /* Easter egg: mini-games unlock animation */
 
+/* Per-tap glow on the brand. Set by the JS detector as data-unlock-glow="1|2|3" */
+header .logo[data-unlock-glow],
+.drawer-brand[data-unlock-glow] {
+  transition: text-shadow 200ms var(--ease, ease);
+}
+
+header .logo[data-unlock-glow='1'],
+.drawer-brand[data-unlock-glow='1'] {
+  text-shadow: 0 0 6px color-mix(in oklab, var(--primary, #6a994e) 50%, transparent);
+}
+
+header .logo[data-unlock-glow='2'],
+.drawer-brand[data-unlock-glow='2'] {
+  text-shadow:
+    0 0 8px color-mix(in oklab, var(--primary, #6a994e) 65%, transparent),
+    0 0 16px color-mix(in oklab, var(--primary, #6a994e) 30%, transparent);
+}
+
+header .logo[data-unlock-glow='3'],
+.drawer-brand[data-unlock-glow='3'] {
+  text-shadow:
+    0 0 10px color-mix(in oklab, var(--primary, #6a994e) 85%, transparent),
+    0 0 20px color-mix(in oklab, var(--primary, #6a994e) 50%, transparent),
+    0 0 30px color-mix(in oklab, var(--primary, #6a994e) 25%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  header .logo[data-unlock-glow],
+  .drawer-brand[data-unlock-glow] {
+    text-shadow: none;
+    transition: none;
+  }
+}
+
 .games-unlock-overlay {
   position: fixed;
   inset: 0;

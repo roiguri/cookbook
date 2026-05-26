@@ -27,8 +27,8 @@ export default {
 
     chooser.innerHTML = GameWrapper.list()
       .map(
-        (g) => `
-          <button class="games-page-card" type="button" data-game-key="${g.key}">
+        (g, i) => `
+          <button class="games-page-card" type="button" data-game-key="${g.key}" style="--card-i: ${i};">
             <span class="games-page-card-icon" aria-hidden="true">${g.icon}</span>
             <span class="games-page-card-name">${g.name}</span>
             <span class="games-page-card-desc">${g.description}</span>

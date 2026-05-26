@@ -8,10 +8,61 @@ const BRAND_SELECTOR = 'header .logo, .drawer-brand';
 let tapCount = 0;
 let lastTapAt = 0;
 let cooldownUntil = 0;
+let lastBrand = null;
+let glowTimer = null;
 
 function reset() {
   tapCount = 0;
   lastTapAt = 0;
+  clearGlow();
+}
+
+function clearGlow() {
+  if (glowTimer) {
+    clearTimeout(glowTimer);
+    glowTimer = null;
+  }
+  if (lastBrand) {
+    delete lastBrand.dataset.unlockGlow;
+  }
+}
+
+function pulseBrand(brand) {
+  if (typeof brand.animate !== 'function') return;
+  const reduceMotion =
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return;
+  brand.animate(
+    [
+      { transform: 'scale(1)' },
+      { transform: 'scale(1.08)', offset: 0.4 },
+      { transform: 'scale(1)' },
+    ],
+    { duration: 220, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
+  );
+}
+
+function updateGlow(brand, count) {
+  // Subtle hint that something is happening, escalating as the user nears unlock.
+  // Level 0 (no glow) for taps 1-2 keeps single-click home feeling normal.
+  let level = 0;
+  if (count >= 6) level = 3;
+  else if (count >= 5) level = 2;
+  else if (count >= 3) level = 1;
+
+  if (level === 0) {
+    delete brand.dataset.unlockGlow;
+  } else {
+    brand.dataset.unlockGlow = String(level);
+  }
+}
+
+function scheduleGlowReset() {
+  if (glowTimer) clearTimeout(glowTimer);
+  glowTimer = setTimeout(() => {
+    clearGlow();
+    tapCount = 0;
+  }, TAP_WINDOW_MS);
 }
 
 function handleClick(event) {
@@ -30,9 +81,17 @@ function handleClick(event) {
   }
 
   const now = Date.now();
-  if (now - lastTapAt > TAP_WINDOW_MS) tapCount = 0;
+  if (now - lastTapAt > TAP_WINDOW_MS) {
+    if (lastBrand && lastBrand !== brand) delete lastBrand.dataset.unlockGlow;
+    tapCount = 0;
+  }
   lastTapAt = now;
+  lastBrand = brand;
   tapCount += 1;
+
+  pulseBrand(brand);
+  updateGlow(brand, tapCount);
+  scheduleGlowReset();
 
   if (tapCount < TAP_TARGET) return;
 
