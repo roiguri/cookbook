@@ -479,12 +479,20 @@ class PDFViewer extends HTMLElement {
         flex-direction: row;
         flex-grow: 1;
         min-height: 0;
+        /* Containing block for the absolutely-positioned sidebar. */
+        position: relative;
       }
 
-      /* --- Sidebar --- */
+      /* --- Sidebar ---
+         Absolutely positioned so its (potentially long) TOC content
+         doesn't drive the row's cross-size. The main column alone sizes
+         the pdf-viewer; the sidebar fills the resulting height and its
+         .toc__body scrolls internally when content overflows. */
       .pdf_viewer__sidebar {
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: 0;
         width: 300px;
-        flex-shrink: 0;
         display: flex;
         flex-direction: column;
         background: var(--surface-2, #f5f4f0);
@@ -492,15 +500,6 @@ class PDFViewer extends HTMLElement {
         overflow: hidden;
         transition: width var(--dur-2, 280ms) var(--ease-out, ease),
                     border-color var(--dur-2, 280ms) var(--ease-out, ease);
-        /* Bound the sidebar to the viewport so a long TOC scrolls
-           internally instead of growing the pdf-viewer container.
-           align-self stops the row from stretching to fit the TOC;
-           sticky keeps the sidebar pinned if the page itself scrolls. */
-        align-self: flex-start;
-        position: sticky;
-        top: 0;
-        height: 100svh;
-        max-height: 100svh;
       }
 
       .pdf_viewer.sidebar-collapsed .pdf_viewer__sidebar {
@@ -704,6 +703,13 @@ class PDFViewer extends HTMLElement {
         flex-grow: 1;
         min-width: 0;
         min-height: 0;
+        /* Reserve room for the absolutely-positioned sidebar. */
+        margin-inline-start: 300px;
+        transition: margin-inline-start var(--dur-2, 280ms) var(--ease-out, ease);
+      }
+
+      .pdf_viewer.sidebar-collapsed .pdf_viewer__main {
+        margin-inline-start: 0;
       }
 
       .pdf_viewer__toolbar {
@@ -927,6 +933,8 @@ class PDFViewer extends HTMLElement {
       @media (max-width: 768px) {
         .pdf_viewer__sidebar { display: none; }
 
+        .pdf_viewer__main { margin-inline-start: 0; }
+
         .pdf_viewer__toolbar { display: flex; }
 
         .pdf_viewer__pdf-page { padding: 12px; }
@@ -942,6 +950,10 @@ class PDFViewer extends HTMLElement {
       .pdf_viewer.full-page .pdf_viewer__sidebar,
       .pdf_viewer.full-page .pdf_viewer__toolbar {
         display: none !important;
+      }
+
+      .pdf_viewer.full-page .pdf_viewer__main {
+        margin-inline-start: 0;
       }
     `;
   }
