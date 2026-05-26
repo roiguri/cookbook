@@ -27,6 +27,7 @@
  *   - getCurrentAvatarUrl(): Returns the current user's avatar URL.
  */
 import { getAuthInstance } from '../_firebase/firebase-service.js';
+import { captureError } from '../logger.js';
 import { serverTimestamp } from 'firebase/firestore';
 import { UserService } from '../users/user-service.js';
 import {
@@ -186,6 +187,11 @@ class AuthService {
       return this._userData;
     } catch (error) {
       console.error('Error fetching user data:', error);
+      captureError(error, {
+        service: 'auth',
+        op: 'getUserData',
+        uid: this._currentUser?.uid,
+      });
       // Fallback to minimal data if fetch fails
       if (!this._userData) {
         this._userData = { role: 'user', favorites: [] };
@@ -648,6 +654,11 @@ class AuthService {
    */
   _handleAuthError(operation, error) {
     console.error(`Auth error during ${operation}:`, error);
+    captureError(error, {
+      service: 'auth',
+      op: operation,
+      uid: this._currentUser?.uid,
+    });
 
     // Dispatch auth error event
     this._dispatchEvent('auth-error', {

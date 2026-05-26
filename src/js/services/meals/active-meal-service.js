@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { getFirestoreInstance } from '../_firebase/firebase-service.js';
+import { captureError } from '../logger.js';
 
 const ACTIVE_MEALS_COLLECTION = 'active_meals';
 
@@ -79,6 +80,7 @@ export class ActiveMealService {
       return { success: true };
     } catch (error) {
       console.error('ActiveMealService.addToMeal failed:', error);
+      captureError(error, { service: 'active-meal', op: 'addToMeal', uid, recipeId });
       return { success: false, reason: 'error', error };
     }
   }
@@ -102,6 +104,7 @@ export class ActiveMealService {
       return { success: true };
     } catch (error) {
       console.error('ActiveMealService.removeFromMeal failed:', error);
+      captureError(error, { service: 'active-meal', op: 'removeFromMeal', uid, recipeId });
       return { success: false, error };
     }
   }
@@ -120,6 +123,7 @@ export class ActiveMealService {
       return { success: true };
     } catch (error) {
       console.error('ActiveMealService.clearMeal failed:', error);
+      captureError(error, { service: 'active-meal', op: 'clearMeal', uid });
       return { success: false, error };
     }
   }
@@ -140,6 +144,7 @@ export class ActiveMealService {
       return { success: true };
     } catch (error) {
       console.error('ActiveMealService.switchRecipe failed:', error);
+      captureError(error, { service: 'active-meal', op: 'switchRecipe', uid, recipeId });
       return { success: false, error };
     }
   }
@@ -166,6 +171,7 @@ export class ActiveMealService {
       return { success: true };
     } catch (error) {
       console.error('ActiveMealService.updateRecipeState failed:', error);
+      captureError(error, { service: 'active-meal', op: 'updateRecipeState', uid, recipeId });
       return { success: false, error };
     }
   }

@@ -5,6 +5,7 @@ import {
   validateMediaFile,
   generateMediaInstructionId,
 } from '../../utils/recipes/recipe-media-utils.js';
+import { captureError } from '../logger.js';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
@@ -85,6 +86,7 @@ export class MediaInstructionService {
       };
     } catch (error) {
       console.error('Error uploading media instruction file:', error);
+      captureError(error, { service: 'media-instruction', op: 'upload', recipeId });
       throw new Error(`העלאת הקובץ נכשלה: ${error.message}`);
     }
   }
@@ -108,6 +110,7 @@ export class MediaInstructionService {
         return;
       }
       console.error('Error deleting media instruction file:', error);
+      captureError(error, { service: 'media-instruction', op: 'delete', filePath });
       throw new Error(`מחיקת הקובץ נכשלה: ${error.message}`);
     }
   }
@@ -130,6 +133,7 @@ export class MediaInstructionService {
           await MediaInstructionService.delete(path);
           results.success++;
         } catch (error) {
+          captureError(error, { service: 'media-instruction', op: 'deleteMany', filePath: path });
           results.failed++;
           results.errors.push({ path, error: error.message });
         }
@@ -170,6 +174,7 @@ export class MediaInstructionService {
       return await StorageService.getFileUrl(storagePath);
     } catch (error) {
       console.error('Error getting media instruction URL:', error);
+      captureError(error, { service: 'media-instruction', op: 'getUrl', storagePath });
       throw new Error(`קבלת כתובת המדיה נכשלה: ${error.message}`);
     }
   }

@@ -1,3 +1,5 @@
+import { captureError } from '../../js/services/logger.js';
+
 export class PageManager {
   constructor(contentContainer) {
     if (!contentContainer) {
@@ -40,6 +42,12 @@ export class PageManager {
       }
     } catch (error) {
       console.error('Error loading page:', error);
+      captureError(error, {
+        service: 'page-manager',
+        op: 'loadPage',
+        page: params.route,
+        params,
+      });
       await this.handlePageLoadError(error);
     } finally {
       this.isLoading = false;
@@ -113,6 +121,11 @@ export class PageManager {
         await this.callPageMethod('unmount');
       } catch (error) {
         console.error('Error unmounting current page:', error);
+        captureError(error, {
+          service: 'page-manager',
+          op: 'unmount',
+          page: this.currentPage,
+        });
       }
 
       this.currentPageModule = null;

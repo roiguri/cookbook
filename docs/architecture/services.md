@@ -17,6 +17,7 @@ src/js/services/
 │   ├── firebase-service.js                  # one-time SDK init via initFirebase(config)
 │   ├── firestore-service.js                 # generic Firestore CRUD primitives
 │   └── storage-service.js                   # Storage upload / download / delete primitives
+├── logger.js                                # Sentry wrapper — every service imports captureError
 ├── auth/
 │   └── auth-service.js                      # auth state, sign-in/out, current user, role
 ├── users/
@@ -155,6 +156,63 @@ const recipe = await RecipeService.get(id); // update path
 ```
 
 Update paths (notably the edit form) keep the raw shape so dirty-state comparisons against subsequent form captures don't trip on defaulted fields. This split is by design.
+
+## Error reporting
+
+Services route caught errors through `src/js/services/logger.js` (a thin Sentry wrapper). The full story — Sentry init, release/environment flow, privacy, fingerprinting, performance impact, quota, verification — lives in [`observability.md`](./observability.md). This section covers only what you need when **writing service code**.
+
+### The catch rule
+
+Every `catch` block has to decide: report or not?
+
+| Catch shape                                                           | What to do                                                                                                                                             |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `} catch (e) { throw e; }` — pure rethrow                             | **Skip.** Lower layer (Firestore/Storage) already captured.                                                                                            |
+| `} catch (e) { return default; }` — swallow + default                 | **`captureError(e, ...)` before the return.** Error is invisible otherwise.                                                                            |
+| `} catch (e) { throw new Error('Failed to X'); }` — transform         | **`captureError(e, ...)` before the rethrow.** Original stack is lost otherwise.                                                                       |
+| `} catch (e) { console.error(...); throw e; }` — log + rethrow        | **`captureError(e, ...)`.** Console alone isn't visible in production.                                                                                 |
+| `} catch (e) { console.error(...); return default; }` — log + swallow | **`captureError(e, ...)`.** Same reason.                                                                                                               |
+| `} catch {` — silent, no binding                                      | If intentional (existence probe, fallback chain, best-effort cleanup), leave a `// silent: <reason>` comment. Otherwise give it a binding and capture. |
+| `.catch(() => {})` on a Promise — silent best-effort cleanup          | Same as silent. Cleanup noise (e.g. orphaned WebP variants) should not pollute Sentry — comment and skip.                                              |
+
+One report per logical failure, not per layer. Re-throw unchanged → trust the lower layer.
+
+### How to call it
+
+```js
+import { captureError } from '../logger.js'; // adjust depth
+
+captureError(error, {
+  service: 'recipe', // domain tag (see table below)
+  op: 'create', // method name
+  recipeId, // identifiers — searchable on the issue page
+  uid,
+});
+```
+
+### Service-tag values
+
+Pick a kebab-case domain name per file and stick with it.
+
+| File                                      | `service` tag       |
+| ----------------------------------------- | ------------------- |
+| `_firebase/firestore-service.js`          | `firestore`         |
+| `_firebase/storage-service.js`            | `storage`           |
+| `auth/auth-service.js`                    | `auth`              |
+| `users/favorites-service.js`              | `favorites`         |
+| `users/notification-service.js`           | `notification`      |
+| `recipes/recipe-service.js`               | `recipe`            |
+| `recipes/recipe-image-service.js`         | `recipe-image`      |
+| `recipes/media-instruction-service.js`    | `media-instruction` |
+| `meals/active-meal-service.js`            | `active-meal`       |
+| (SPA core) `src/app/core/router.js`       | `router`            |
+| (SPA core) `src/app/core/page-manager.js` | `page-manager`      |
+
+When adding a new service, add a row.
+
+### Don't put user input in capture context
+
+The `{ ...identifiers }` go to Sentry as searchable "extra" data. IDs and operation names only — never raw form fields, search queries, or recipe content. Privacy details in [`observability.md`](./observability.md#privacy).
 
 ## Auth state and roles
 

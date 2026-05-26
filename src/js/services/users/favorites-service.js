@@ -5,6 +5,7 @@
  */
 
 import authService from '../auth/auth-service.js';
+import { captureError } from '../logger.js';
 import { UserService } from './user-service.js';
 
 class FavoritesService {
@@ -50,6 +51,11 @@ class FavoritesService {
         return favoriteRecipeIds;
       } catch (error) {
         console.error('Error fetching user favorites:', error);
+        captureError(error, {
+          service: 'favorites',
+          op: 'getUserFavorites',
+          uid: user.uid,
+        });
         return [];
       } finally {
         this._fetchPromise = null;
@@ -75,6 +81,12 @@ class FavoritesService {
       await UserService.addToArrayField(user.uid, 'favorites', recipeId);
     } catch (error) {
       console.error('Error adding favorite:', error);
+      captureError(error, {
+        service: 'favorites',
+        op: 'addFavorite',
+        uid: user.uid,
+        recipeId,
+      });
       // Revert cache on error
       this.updateCache(recipeId, false);
       throw error;
@@ -97,6 +109,12 @@ class FavoritesService {
       await UserService.removeFromArrayField(user.uid, 'favorites', recipeId);
     } catch (error) {
       console.error('Error removing favorite:', error);
+      captureError(error, {
+        service: 'favorites',
+        op: 'removeFavorite',
+        uid: user.uid,
+        recipeId,
+      });
       // Revert cache on error
       this.updateCache(recipeId, true);
       throw error;

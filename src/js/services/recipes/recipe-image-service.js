@@ -6,6 +6,7 @@ import {
   generateImageId,
   getPrimaryImage,
 } from '../../utils/recipes/recipe-image-utils.js';
+import { captureError } from '../logger.js';
 
 function makeBackupPath(fullPath) {
   return fullPath.replace(/(\.[^.]+)$/, '_original$1');
@@ -16,6 +17,7 @@ async function fileExists(path) {
     await StorageService.getMetadata(path);
     return true;
   } catch {
+    // silent: existence probe — false is the expected return when file is absent
     return false;
   }
 }
@@ -116,9 +118,9 @@ export class RecipeImageService {
     await StorageService.uploadFile(blob, originalPath);
 
     await Promise.all([
-      StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_400x400.webp')).catch(() => {}),
+      StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_400x400.webp')).catch(() => {}), // silent: best-effort WebP variant cleanup
       StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_1080x1080.webp')).catch(
-        () => {},
+        () => {}, // silent: best-effort WebP variant cleanup
       ),
     ]);
 
@@ -148,11 +150,11 @@ export class RecipeImageService {
     const originalOpt1080 = originalBackup.replace(/\.[^.]+$/, '_1080x1080.webp');
     await StorageService.deleteFile(full);
     await Promise.all([
-      StorageService.deleteFile(optimized400).catch(() => {}),
-      StorageService.deleteFile(optimized1080).catch(() => {}),
-      StorageService.deleteFile(originalBackup).catch(() => {}),
-      StorageService.deleteFile(originalOpt400).catch(() => {}),
-      StorageService.deleteFile(originalOpt1080).catch(() => {}),
+      StorageService.deleteFile(optimized400).catch(() => {}), // silent: best-effort WebP variant cleanup
+      StorageService.deleteFile(optimized1080).catch(() => {}), // silent: best-effort WebP variant cleanup
+      StorageService.deleteFile(originalBackup).catch(() => {}), // silent: best-effort backup cleanup; may not exist
+      StorageService.deleteFile(originalOpt400).catch(() => {}), // silent: best-effort backup variant cleanup
+      StorageService.deleteFile(originalOpt1080).catch(() => {}), // silent: best-effort backup variant cleanup
     ]);
   }
 
@@ -197,8 +199,8 @@ export class RecipeImageService {
       const oldOpt400 = image.full.replace(/\.[^.]+$/, '_400x400.webp');
       const oldOpt1080 = image.full.replace(/\.[^.]+$/, '_1080x1080.webp');
       await Promise.all([
-        StorageService.deleteFile(oldOpt400).catch(() => {}),
-        StorageService.deleteFile(oldOpt1080).catch(() => {}),
+        StorageService.deleteFile(oldOpt400).catch(() => {}), // silent: best-effort old WebP variant cleanup
+        StorageService.deleteFile(oldOpt1080).catch(() => {}), // silent: best-effort old WebP variant cleanup
       ]);
 
       // The AI-enhancement `_original` backup is NOT auto-generated, so it must
@@ -215,14 +217,14 @@ export class RecipeImageService {
         if (response.ok) {
           const blob = await response.blob();
           await StorageService.uploadFile(blob, newOriginal);
-          await StorageService.deleteFile(oldOriginal).catch(() => {});
+          await StorageService.deleteFile(oldOriginal).catch(() => {}); // silent: best-effort old backup cleanup
         }
       } catch {
-        // No `_original` backup at the old path — nothing to migrate.
+        // silent: no `_original` backup at the old path — nothing to migrate
       }
       await Promise.all([
-        StorageService.deleteFile(oldOriginalOpt400).catch(() => {}),
-        StorageService.deleteFile(oldOriginalOpt1080).catch(() => {}),
+        StorageService.deleteFile(oldOriginalOpt400).catch(() => {}), // silent: best-effort old backup variant cleanup
+        StorageService.deleteFile(oldOriginalOpt1080).catch(() => {}), // silent: best-effort old backup variant cleanup
       ]);
 
       return {
@@ -231,6 +233,12 @@ export class RecipeImageService {
       };
     } catch (error) {
       console.error(`Failed to migrate image ${image.id} to ${newCategory}:`, error);
+      captureError(error, {
+        service: 'recipe-image',
+        op: 'migrateFilesToCategory',
+        imageId: image.id,
+        newCategory,
+      });
       throw new Error(`Failed to migrate image ${image.id}: ${error.message}`);
     }
   }
@@ -256,9 +264,11 @@ export class RecipeImageService {
     try {
       return await StorageService.getFileUrl(optimizedPath);
     } catch {
+      // silent: WebP variant not yet generated; falling back to full-size original
       try {
         return await StorageService.getFileUrl(image.full);
       } catch {
+        // silent: full-size original also unavailable; caller renders placeholder
         return null;
       }
     }
