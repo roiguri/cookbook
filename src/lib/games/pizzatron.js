@@ -10,6 +10,9 @@ const TUNING = {
   spawn: { intervalMs: 6000 },
   pizza: { sizePx: 110, holdMsOnArrival: 900, fadeOutMs: 220 },
   order: {
+    // Only the first `activeIngredients` items of TOPPING_POOL appear in
+    // orders AND in the tray. Lower it to make the game easier / less crowded.
+    activeIngredients: 5,
     baseTypes: 2,
     rampPerSpawns: 4, // +1 topping type every N spawns
     typesCap: 5,
@@ -17,6 +20,10 @@ const TUNING = {
     perTypeRange: 2, // result is perTypeMin..(perTypeMin + perTypeRange - 1)
   },
 };
+
+function getActiveToppings() {
+  return TOPPING_POOL.slice(0, TUNING.order.activeIngredients);
+}
 
 function shuffleInPlace(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -63,6 +70,8 @@ export class PizzatronGame {
     this.beltEl = this.container.querySelector('#pizzatron-belt');
     this.beltTrackEl = this.container.querySelector('.pizzatron-belt-track');
     this.boxEl = this.container.querySelector('.pizzatron-box');
+    this.trayEl = this.container.querySelector('#pizzatron-tray');
+    this.renderTray();
     this.beltTileWidth = this.readBeltTileWidth();
     this.pizzaArrivalX = this.computeArrivalX();
     this._onResize = () => {
@@ -72,6 +81,19 @@ export class PizzatronGame {
     this.startGameLoop();
     this.startSpawner();
     this.spawnPizza();
+  }
+
+  renderTray() {
+    if (!this.trayEl) return;
+    this.trayEl.innerHTML = '';
+    for (const type of getActiveToppings()) {
+      const basket = document.createElement('div');
+      basket.className = `pizzatron-tray-basket pizzatron-tray-basket--${type}`;
+      basket.dataset.topping = type;
+      basket.setAttribute('role', 'button');
+      basket.setAttribute('aria-label', `סלסלת ${type}`);
+      this.trayEl.appendChild(basket);
+    }
   }
 
   computeArrivalX() {
@@ -149,11 +171,13 @@ export class PizzatronGame {
 
   generateOrder(difficulty) {
     const cfg = TUNING.order;
+    const active = getActiveToppings();
     const numTypes = Math.min(
       cfg.baseTypes + Math.floor(difficulty / cfg.rampPerSpawns),
       cfg.typesCap,
+      active.length,
     );
-    const types = shuffleInPlace([...TOPPING_POOL]).slice(0, numTypes);
+    const types = shuffleInPlace([...active]).slice(0, numTypes);
     const order = {};
     for (const t of types) {
       order[t] = cfg.perTypeMin + Math.floor(Math.random() * cfg.perTypeRange);

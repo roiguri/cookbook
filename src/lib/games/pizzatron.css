@@ -34,12 +34,12 @@
 
 .pizzatron-belt-zone {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 220px;
-  padding: 0 12px;
+  min-height: 140px;
+  padding: 22px 12px 4px;
   color: var(--ink-3);
 }
 
@@ -198,9 +198,50 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  padding: 12px;
-  min-height: 64px;
+  flex: 1 1 auto;
+  gap: 20px;
+  padding: 16px 12px;
+  min-height: 140px;
   background-color: var(--surface-1);
   border-top: 1px solid var(--ink-4);
+  touch-action: none;
+}
+
+.pizzatron-tray-basket {
+  width: 124px;
+  height: 124px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  cursor: grab;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+  transition: transform 120ms var(--ease, ease-out);
+}
+
+.pizzatron-tray-basket:hover {
+  transform: translateY(-2px);
+}
+
+.pizzatron-tray-basket:active {
+  cursor: grabbing;
+  transform: translateY(0) scale(0.96);
+}
+
+.pizzatron-tray-basket--tomato {
+  background-image: url('./assets/pizzatron/basket_tomato_small.png');
+}
+.pizzatron-tray-basket--mushroom {
+  background-image: url('./assets/pizzatron/basket_mushroom_small.png');
+}
+.pizzatron-tray-basket--olive {
+  background-image: url('./assets/pizzatron/basket_olive_small.png');
+}
+.pizzatron-tray-basket--pepper {
+  background-image: url('./assets/pizzatron/basket_pepper_small.png');
+}
+.pizzatron-tray-basket--sausage {
+  background-image: url('./assets/pizzatron/basket_sausage_small.png');
+}
+.pizzatron-tray-basket--basil {
+  background-image: url('./assets/pizzatron/basket_basil_small.png');
 }
