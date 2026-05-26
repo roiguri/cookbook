@@ -13,7 +13,7 @@ import {
   formatIngredientAmount,
   scaleIngredients,
 } from '../../../js/utils/recipes/recipe-ingredients-utils.js';
-import { getMediaInstructionUrl } from '../../../js/utils/recipes/recipe-media-utils.js';
+import { MediaInstructionService } from '../../../js/services/recipes/media-instruction-service.js';
 
 import '../../media/image-carousel/image-carousel.js';
 import '../../media/media-scroller/media-scroller.js';
@@ -1308,7 +1308,7 @@ class RecipeComponent extends HTMLElement {
       const mediaWithUrls = await Promise.all(
         sortedMedia.map(async (media) => {
           try {
-            const url = await getMediaInstructionUrl(media.path);
+            const url = await MediaInstructionService.getUrl(media.path);
             return {
               ...media,
               path: url,

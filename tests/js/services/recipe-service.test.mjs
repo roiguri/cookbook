@@ -16,9 +16,9 @@ const firestoreMocks = {
   generateId: jest.fn(() => 'recipe-123'),
 };
 
-const mediaUtilMocks = {
-  uploadMediaInstructionFile: jest.fn(),
-  removeAllMediaInstructions: jest.fn(() => Promise.resolve({ success: 0, failed: 0, errors: [] })),
+const mediaInstructionServiceMocks = {
+  upload: jest.fn(),
+  removeAll: jest.fn(() => Promise.resolve({ success: 0, failed: 0, errors: [] })),
 };
 
 const recipeImageServiceMocks = {
@@ -36,7 +36,9 @@ jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () =>
 jest.unstable_mockModule('src/js/services/recipes/recipe-image-service.js', () => ({
   RecipeImageService: recipeImageServiceMocks,
 }));
-jest.unstable_mockModule('src/js/utils/recipes/recipe-media-utils.js', () => mediaUtilMocks);
+jest.unstable_mockModule('src/js/services/recipes/media-instruction-service.js', () => ({
+  MediaInstructionService: mediaInstructionServiceMocks,
+}));
 
 function makeFile(name = 'a.jpg', type = 'image/jpeg') {
   return new File([new Blob(['a'], { type })], name, { type });
@@ -46,8 +48,8 @@ beforeEach(async () => {
   jest.resetModules();
   Object.values(firestoreMocks).forEach((m) => m.mockReset?.());
   firestoreMocks.generateId.mockImplementation(() => 'recipe-123');
-  Object.values(mediaUtilMocks).forEach((m) => m.mockReset?.());
-  mediaUtilMocks.removeAllMediaInstructions.mockImplementation(() =>
+  Object.values(mediaInstructionServiceMocks).forEach((m) => m.mockReset?.());
+  mediaInstructionServiceMocks.removeAll.mockImplementation(() =>
     Promise.resolve({ success: 0, failed: 0, errors: [] }),
   );
   Object.values(recipeImageServiceMocks).forEach((m) => m.mockReset?.());
@@ -157,7 +159,7 @@ describe('RecipeService', () => {
     });
 
     it('uploads pending media and assembles sequential order', async () => {
-      mediaUtilMocks.uploadMediaInstructionFile
+      mediaInstructionServiceMocks.upload
         .mockResolvedValueOnce({ id: 'm-1', path: 'mp/1', order: 0 })
         .mockResolvedValueOnce({ id: 'm-2', path: 'mp/2', order: 0 });
       firestoreMocks.setDocument.mockResolvedValue();
@@ -183,7 +185,7 @@ describe('RecipeService', () => {
     });
 
     it('skips failed media uploads but keeps successful ones', async () => {
-      mediaUtilMocks.uploadMediaInstructionFile
+      mediaInstructionServiceMocks.upload
         .mockRejectedValueOnce(new Error('boom'))
         .mockResolvedValueOnce({ id: 'm-2', path: 'mp/2', order: 0 });
       firestoreMocks.setDocument.mockResolvedValue();
@@ -373,7 +375,7 @@ describe('RecipeService', () => {
       expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'p1' }),
       );
-      expect(mediaUtilMocks.removeAllMediaInstructions).toHaveBeenCalledWith([{ path: 'mp/1' }]);
+      expect(mediaInstructionServiceMocks.removeAll).toHaveBeenCalledWith([{ path: 'mp/1' }]);
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-x');
       // The pre-delete updateDoc({ images: [], pendingImages: [] }) is gone now.
       expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
@@ -391,7 +393,7 @@ describe('RecipeService', () => {
     it('skips media cleanup when there are no media instructions', async () => {
       firestoreMocks.getDocument.mockResolvedValue({ id: 'recipe-y' });
       await RecipeService.delete('recipe-y');
-      expect(mediaUtilMocks.removeAllMediaInstructions).not.toHaveBeenCalled();
+      expect(mediaInstructionServiceMocks.removeAll).not.toHaveBeenCalled();
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-y');
     });
 
