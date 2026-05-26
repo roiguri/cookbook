@@ -133,6 +133,36 @@ describe('StorageService', () => {
       await expect(StorageService.deleteFile(mockPath)).rejects.toThrow('Failed to delete file');
       errorSpy.mockRestore();
     });
+
+    it('with quietOn404: stays silent on storage/object-not-found (best-effort cleanups)', async () => {
+      const notFound = Object.assign(new Error('object not found'), {
+        code: 'storage/object-not-found',
+      });
+      deleteObject.mockRejectedValue(notFound);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(StorageService.deleteFile(mockPath, { quietOn404: true })).rejects.toThrow(
+        'Failed to delete file',
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+    });
+
+    it('with quietOn404: still logs non-404 delete errors (permission, etc.)', async () => {
+      const permDenied = Object.assign(new Error('forbidden'), {
+        code: 'storage/unauthorized',
+      });
+      deleteObject.mockRejectedValue(permDenied);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(StorageService.deleteFile(mockPath, { quietOn404: true })).rejects.toThrow(
+        'Failed to delete file',
+      );
+      expect(errorSpy).toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+    });
   });
 
   describe('listFiles', () => {

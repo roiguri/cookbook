@@ -80,17 +80,25 @@ export class StorageService {
   /**
    * Deletes a file from Firebase Storage.
    * @param {string} path - The storage path
+   * @param {Object} [options]
+   * @param {boolean} [options.quietOn404=false] - When true, `storage/object-not-found`
+   *   errors skip console.error + Sentry capture (the error still throws). Use at
+   *   best-effort cleanup sites where the target file may not have been generated
+   *   yet (e.g. WebP variants from the Resize extension) or never existed (e.g.
+   *   the `_original` AI-backup file, which only some images carry). (#189)
    * @returns {Promise<void>}
    */
-  static async deleteFile(path) {
+  static async deleteFile(path, { quietOn404 = false } = {}) {
     try {
       const storage = getStorageInstance();
       const storageRef = ref(storage, path);
       await deleteObject(storageRef);
       urlCache.delete(path);
     } catch (error) {
-      console.error('Error deleting file:', error);
-      captureError(error, { service: 'storage', op: 'deleteFile', path });
+      if (!(quietOn404 && error?.code === 'storage/object-not-found')) {
+        console.error('Error deleting file:', error);
+        captureError(error, { service: 'storage', op: 'deleteFile', path });
+      }
       throw new Error('Failed to delete file');
     }
   }

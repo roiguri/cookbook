@@ -162,9 +162,11 @@ describe('RecipeImageService', () => {
 
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/desserts/recipe-9/img-1_400x400.webp',
+        { quietOn404: true },
       );
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/desserts/recipe-9/img-1_1080x1080.webp',
+        { quietOn404: true },
       );
     });
 
@@ -193,18 +195,23 @@ describe('RecipeImageService', () => {
       expect(storageMocks.deleteFile).toHaveBeenCalledWith('img/recipes/full/cat/rid/image.jpg');
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/image_400x400.webp',
+        { quietOn404: true },
       );
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/image_1080x1080.webp',
+        { quietOn404: true },
       );
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/image_original.jpg',
+        { quietOn404: true },
       );
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/image_original_400x400.webp',
+        { quietOn404: true },
       );
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/cat/rid/image_original_1080x1080.webp',
+        { quietOn404: true },
       );
     });
 
@@ -281,9 +288,11 @@ describe('RecipeImageService', () => {
 
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/desserts/recipe-9/keep_400x400.webp',
+        { quietOn404: true },
       );
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/desserts/recipe-9/keep_1080x1080.webp',
+        { quietOn404: true },
       );
     });
 
@@ -304,6 +313,7 @@ describe('RecipeImageService', () => {
       );
       expect(storageMocks.deleteFile).toHaveBeenCalledWith(
         'img/recipes/full/desserts/recipe-9/keep_original.jpg',
+        { quietOn404: true },
       );
     });
 

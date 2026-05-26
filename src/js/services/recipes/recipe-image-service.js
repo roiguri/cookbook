@@ -118,10 +118,12 @@ export class RecipeImageService {
     await StorageService.uploadFile(blob, originalPath);
 
     await Promise.all([
-      StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_400x400.webp')).catch(() => {}), // silent: best-effort WebP variant cleanup
-      StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_1080x1080.webp')).catch(
-        () => {}, // silent: best-effort WebP variant cleanup
-      ),
+      StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_400x400.webp'), {
+        quietOn404: true,
+      }).catch(() => {}), // silent: best-effort WebP variant cleanup
+      StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_1080x1080.webp'), {
+        quietOn404: true,
+      }).catch(() => {}), // silent: best-effort WebP variant cleanup
     ]);
 
     return { backupPath, backupCreated };
@@ -150,11 +152,11 @@ export class RecipeImageService {
     const originalOpt1080 = originalBackup.replace(/\.[^.]+$/, '_1080x1080.webp');
     await StorageService.deleteFile(full);
     await Promise.all([
-      StorageService.deleteFile(optimized400).catch(() => {}), // silent: best-effort WebP variant cleanup
-      StorageService.deleteFile(optimized1080).catch(() => {}), // silent: best-effort WebP variant cleanup
-      StorageService.deleteFile(originalBackup).catch(() => {}), // silent: best-effort backup cleanup; may not exist
-      StorageService.deleteFile(originalOpt400).catch(() => {}), // silent: best-effort backup variant cleanup
-      StorageService.deleteFile(originalOpt1080).catch(() => {}), // silent: best-effort backup variant cleanup
+      StorageService.deleteFile(optimized400, { quietOn404: true }).catch(() => {}), // silent: best-effort WebP variant cleanup
+      StorageService.deleteFile(optimized1080, { quietOn404: true }).catch(() => {}), // silent: best-effort WebP variant cleanup
+      StorageService.deleteFile(originalBackup, { quietOn404: true }).catch(() => {}), // silent: best-effort backup cleanup; may not exist
+      StorageService.deleteFile(originalOpt400, { quietOn404: true }).catch(() => {}), // silent: best-effort backup variant cleanup
+      StorageService.deleteFile(originalOpt1080, { quietOn404: true }).catch(() => {}), // silent: best-effort backup variant cleanup
     ]);
   }
 
@@ -199,8 +201,8 @@ export class RecipeImageService {
       const oldOpt400 = image.full.replace(/\.[^.]+$/, '_400x400.webp');
       const oldOpt1080 = image.full.replace(/\.[^.]+$/, '_1080x1080.webp');
       await Promise.all([
-        StorageService.deleteFile(oldOpt400).catch(() => {}), // silent: best-effort old WebP variant cleanup
-        StorageService.deleteFile(oldOpt1080).catch(() => {}), // silent: best-effort old WebP variant cleanup
+        StorageService.deleteFile(oldOpt400, { quietOn404: true }).catch(() => {}), // silent: best-effort old WebP variant cleanup
+        StorageService.deleteFile(oldOpt1080, { quietOn404: true }).catch(() => {}), // silent: best-effort old WebP variant cleanup
       ]);
 
       // The AI-enhancement `_original` backup is NOT auto-generated, so it must
@@ -212,19 +214,19 @@ export class RecipeImageService {
       const oldOriginalOpt400 = oldOriginal.replace(/\.[^.]+$/, '_400x400.webp');
       const oldOriginalOpt1080 = oldOriginal.replace(/\.[^.]+$/, '_1080x1080.webp');
       try {
-        const url = await StorageService.getFileUrl(oldOriginal);
+        const url = await StorageService.getFileUrl(oldOriginal, { quietOn404: true });
         const response = await fetch(url);
         if (response.ok) {
           const blob = await response.blob();
           await StorageService.uploadFile(blob, newOriginal);
-          await StorageService.deleteFile(oldOriginal).catch(() => {}); // silent: best-effort old backup cleanup
+          await StorageService.deleteFile(oldOriginal, { quietOn404: true }).catch(() => {}); // silent: best-effort old backup cleanup
         }
       } catch {
         // silent: no `_original` backup at the old path — nothing to migrate
       }
       await Promise.all([
-        StorageService.deleteFile(oldOriginalOpt400).catch(() => {}), // silent: best-effort old backup variant cleanup
-        StorageService.deleteFile(oldOriginalOpt1080).catch(() => {}), // silent: best-effort old backup variant cleanup
+        StorageService.deleteFile(oldOriginalOpt400, { quietOn404: true }).catch(() => {}), // silent: best-effort old backup variant cleanup
+        StorageService.deleteFile(oldOriginalOpt1080, { quietOn404: true }).catch(() => {}), // silent: best-effort old backup variant cleanup
       ]);
 
       return {
