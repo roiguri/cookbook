@@ -1,6 +1,9 @@
 import styles from './pizzatron.css?inline';
 
-const TOPPING_POOL = ['tomato', 'mushroom', 'olive', 'pepper', 'sausage', 'basil'];
+// Order matters: only the first TUNING.order.activeIngredients items appear
+// in the tray. Items beyond that index are kept as a deferred reserve so they
+// can be promoted into the active set later by reordering this array.
+const TOPPING_POOL = ['basil', 'mushroom', 'olive', 'pepper', 'sausage', 'tomato'];
 
 // One-stop gameplay tuning. Visual sizing of the order label lives in
 // pizzatron.css (.pizzatron-pizza-order*). Pizza diameter is tuned here AND
@@ -23,11 +26,12 @@ const TUNING = {
   pizza: { sizePx: 110, holdMsOnArrival: 900, fadeOutMs: 220 },
   order: {
     // Only the first `activeIngredients` items of TOPPING_POOL appear in
-    // orders AND in the tray. Lower it to make the game easier / less crowded.
+    // the tray. typesCap limits how many distinct types appear in any single
+    // ORDER (independent of how many baskets are in the tray).
     activeIngredients: 5,
     baseTypes: 2,
     rampPerSpawns: 4, // +1 topping type every N spawns
-    typesCap: 5,
+    typesCap: 3,
     perTypeMin: 1,
     perTypeRange: 2, // result is perTypeMin..(perTypeMin + perTypeRange - 1)
   },
@@ -90,7 +94,11 @@ export class PizzatronGame {
   }
 
   start() {
-    this.isRunning = true;
+    // start() does layout + listener setup only. The actual gameplay loops
+    // don't fire until the player presses the Start overlay button — that
+    // way they have a beat to read the controls and we sync the wrapper
+    // timer to "press to begin" rather than "first drag".
+    this.isRunning = false;
     this.render();
     this.beltEl = this.container.querySelector('#pizzatron-belt');
     this.beltTrackEl = this.container.querySelector('.pizzatron-belt-track');
@@ -104,6 +112,44 @@ export class PizzatronGame {
     };
     window.addEventListener('resize', this._onResize);
     this.trayEl.addEventListener('pointerdown', this._onTrayPointerDown);
+    this.showStartOverlay();
+  }
+
+  showStartOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'pizzatron-start-overlay';
+    overlay.innerHTML = `
+      <div class="pizzatron-start-card">
+        <div class="pizzatron-start-emoji" aria-hidden="true">🍕</div>
+        <h3 class="pizzatron-start-title">הפיצריה</h3>
+        <p class="pizzatron-start-instructions">
+          גררו את המרכיבים מהסלסלות לפיצות כדי להשלים הזמנות.
+          השלימו 10 הזמנות מהר ככל האפשר.
+        </p>
+        <button class="pizzatron-start-btn" type="button">התחל</button>
+      </div>
+    `;
+    const gameEl = this.container.querySelector('.pizzatron-game');
+    if (!gameEl) return;
+    gameEl.appendChild(overlay);
+    this.startOverlayEl = overlay;
+    this._onStartClick = () => this.beginPlay();
+    overlay.querySelector('.pizzatron-start-btn').addEventListener('click', this._onStartClick);
+  }
+
+  beginPlay() {
+    if (this.startOverlayEl) {
+      this.startOverlayEl.remove();
+      this.startOverlayEl = null;
+    }
+    if (this.isRunning) return;
+    this.isRunning = true;
+    // Fire onInteraction here so the wrapper timer starts at "press Start"
+    // rather than waiting for the first topping drag.
+    if (!this.firstInteractionFired && this.config.onInteraction) {
+      this.firstInteractionFired = true;
+      this.config.onInteraction();
+    }
     this.startGameLoop();
     this.startSpawner();
     this.spawnPizza();
@@ -486,6 +532,10 @@ export class PizzatronGame {
     }
     if (this.trayEl) {
       this.trayEl.removeEventListener('pointerdown', this._onTrayPointerDown);
+    }
+    if (this.startOverlayEl) {
+      this.startOverlayEl.remove();
+      this.startOverlayEl = null;
     }
     if (this.drag) {
       this.drag.ghost.remove();
