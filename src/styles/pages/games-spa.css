@@ -162,3 +162,22 @@
   box-shadow: var(--shadow-1, 0 1px 4px rgba(31, 29, 24, 0.08));
   box-sizing: border-box;
 }
+
+/* ---- Mobile fullscreen modal ---- */
+
+/* The game-hosting modal kills the modal-slot's default 28/32 padding so the
+   game fills the available space. The host page picks this up via CSS var
+   inheritance into the modal's shadow DOM. */
+#games-page-modal {
+  --modal-slot-padding: 0;
+}
+
+#games-page-modal .games-page-modal-game {
+  background: var(--surface-1, #fff);
+  flex: 1 1 auto;
+  min-height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}

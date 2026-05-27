@@ -3,6 +3,10 @@ import '../../styles/pages/games-spa.css';
 import '../../lib/games/game_wrapper.css';
 import '../../lib/games/memory_game.css';
 import '../../lib/games/burger_stacker.css';
+import '../../lib/utilities/modal/modal.js';
+
+// Mobile breakpoint matches the modal's fullscreen-mobile activation (≤768px).
+const MOBILE_QUERY = '(max-width: 768px)';
 
 export default {
   async render() {
@@ -46,6 +50,14 @@ export default {
 
     this._onBackClick = () => this._returnToChooser();
     backBtn.addEventListener('click', this._onBackClick);
+
+    // Modal lifecycle: on mobile we host the game inside <custom-modal>.
+    // modal-closed (X / Escape / backdrop click) tears down the active game.
+    this._modal = document.getElementById('games-page-modal');
+    if (this._modal) {
+      this._onModalClosed = () => this._destroyWrapper();
+      this._modal.addEventListener('modal-closed', this._onModalClosed);
+    }
   },
 
   async unmount() {
@@ -57,21 +69,37 @@ export default {
     if (backBtn && this._onBackClick) {
       backBtn.removeEventListener('click', this._onBackClick);
     }
+    if (this._modal && this._onModalClosed) {
+      this._modal.removeEventListener('modal-closed', this._onModalClosed);
+    }
     this._chooser = null;
     this._gameView = null;
+    this._modal = null;
     this._GameWrapper = null;
   },
 
+  _isMobile() {
+    return window.matchMedia(MOBILE_QUERY).matches;
+  },
+
   _startGame(key) {
-    const container = document.getElementById('games-page-container');
-    if (!container || !this._GameWrapper) return;
-
+    if (!this._GameWrapper) return;
     this._destroyWrapper();
-    this._chooser.hidden = true;
-    this._gameView.hidden = false;
 
-    this._wrapper = this._GameWrapper.create(key, container);
-    this._wrapper.init();
+    if (this._isMobile() && this._modal) {
+      const container = document.getElementById('games-page-modal-container');
+      if (!container) return;
+      this._wrapper = this._GameWrapper.create(key, container);
+      this._wrapper.init();
+      this._modal.open();
+    } else {
+      const container = document.getElementById('games-page-container');
+      if (!container) return;
+      this._chooser.hidden = true;
+      this._gameView.hidden = false;
+      this._wrapper = this._GameWrapper.create(key, container);
+      this._wrapper.init();
+    }
   },
 
   _returnToChooser() {
