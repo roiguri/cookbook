@@ -2,6 +2,8 @@
 
 A Hebrew recipe sharing application built to preserve and share family culinary traditions.
 
+> **Live demo:** [cookbook.roiguri.com](https://cookbook.roiguri.com)
+
 > **Project Context:**
 > This project represents my **first deep dive into full-stack web development**.
 > It was built with a deliberate educational goal: to master the fundamentals of web development (DOM manipulation, state management, routing) by building them from scratch using **Vanilla JavaScript** and **Web Components**, rather than relying on frameworks like React or Angular from the start.
