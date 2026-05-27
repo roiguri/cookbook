@@ -42,6 +42,10 @@ const REGISTRY = [
     // during async waits in other modals — it's an explicit-choice game
     // and only meant to be launched from /games.
     excludeFromRandom: true,
+    // When set, the wrapper shows a rotation prompt on portrait phones
+    // (with a "המשך בכל זאת" escape hatch). Pizzatron's belt is inherently
+    // horizontal so portrait makes it nearly unplayable.
+    requiresLandscape: true,
   },
 ];
 
@@ -63,6 +67,7 @@ export class GameWrapper {
       ...overrides,
       successMessage: pick.successMessage,
       loadingText: pick.loadingText,
+      requiresLandscape: !!pick.requiresLandscape,
     });
   }
 
@@ -81,6 +86,9 @@ export class GameWrapper {
     this.timerInterval = null;
     this.hasStarted = false;
     this._asyncReadyShown = false;
+    this._mqlPortrait = null;
+    this._rotationDismissed = false;
+    this._onOrientationChange = () => this._evaluateRotationPrompt();
   }
 
   init() {
@@ -97,6 +105,10 @@ export class GameWrapper {
     if (this._asyncReadyShown) this._applyAsyncReady();
 
     this.game.start();
+
+    if (this.config.requiresLandscape) {
+      this._setupRotationPrompt();
+    }
   }
 
   renderWrapper() {
@@ -121,6 +133,19 @@ export class GameWrapper {
       `
       : '';
 
+    const rotateBlock = this.config.requiresLandscape
+      ? `
+        <div class="game-rotate-prompt" hidden role="dialog" aria-modal="true" aria-labelledby="game-rotate-title">
+          <div class="game-rotate-content">
+            <div class="game-rotate-icon" aria-hidden="true">📱</div>
+            <h3 id="game-rotate-title">סובב את המסך לרוחב</h3>
+            <p>המשחק עוצב למצב אופקי. סובב את המכשיר לרוחב כדי להמשיך.</p>
+            <button class="game-rotate-skip" type="button">המשך בכל זאת</button>
+          </div>
+        </div>
+      `
+      : '';
+
     this.container.innerHTML = `
       <div class="game-wrapper">
         ${statusBlock}
@@ -128,6 +153,8 @@ export class GameWrapper {
           <div class="timer">⏱️ <span id="game-timer">00:00</span></div>
         </div>
         <div class="game-content"></div>
+
+        ${rotateBlock}
 
         <div class="game-overlay" style="display: none;">
           <div class="overlay-content">
@@ -157,6 +184,33 @@ export class GameWrapper {
 
     const btn = this.container.querySelector('.overlay-btn');
     if (btn) btn.onclick = () => this.restart();
+  }
+
+  _setupRotationPrompt() {
+    const promptEl = this.container.querySelector('.game-rotate-prompt');
+    if (!promptEl) return;
+    const skipBtn = promptEl.querySelector('.game-rotate-skip');
+    if (skipBtn) {
+      skipBtn.onclick = () => {
+        this._rotationDismissed = true;
+        this._evaluateRotationPrompt();
+      };
+    }
+    this._mqlPortrait = window.matchMedia('(orientation: portrait) and (max-width: 768px)');
+    if (this._mqlPortrait.addEventListener) {
+      this._mqlPortrait.addEventListener('change', this._onOrientationChange);
+    } else if (this._mqlPortrait.addListener) {
+      // Safari < 14 fallback
+      this._mqlPortrait.addListener(this._onOrientationChange);
+    }
+    this._evaluateRotationPrompt();
+  }
+
+  _evaluateRotationPrompt() {
+    const promptEl = this.container.querySelector('.game-rotate-prompt');
+    if (!promptEl || !this._mqlPortrait) return;
+    const shouldShow = this._mqlPortrait.matches && !this._rotationDismissed;
+    promptEl.hidden = !shouldShow;
   }
 
   markAsyncReady() {
@@ -255,6 +309,14 @@ export class GameWrapper {
 
   destroy() {
     this.stopTimer();
+    if (this._mqlPortrait) {
+      if (this._mqlPortrait.removeEventListener) {
+        this._mqlPortrait.removeEventListener('change', this._onOrientationChange);
+      } else if (this._mqlPortrait.removeListener) {
+        this._mqlPortrait.removeListener(this._onOrientationChange);
+      }
+      this._mqlPortrait = null;
+    }
     if (this.game && typeof this.game.destroy === 'function') {
       this.game.destroy();
     }

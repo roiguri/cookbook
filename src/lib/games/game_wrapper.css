@@ -257,3 +257,86 @@
     transform: translate3d(4px, 0, 0);
   }
 }
+
+/* When the wrapper is inside the games fullscreen modal, fill the modal
+   vertically so the rotation prompt (and the game itself) cover edge-to-edge. */
+#games-page-modal .game-wrapper {
+  height: 100%;
+  flex: 1;
+}
+
+#games-page-modal .game-wrapper .game-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Rotation prompt: shown by wrapper when the active game has
+   requiresLandscape: true AND viewport is portrait + ≤768px. */
+.game-rotate-prompt {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(31, 29, 24, 0.86);
+  color: #fff;
+  font-family: var(--font-ui-he, var(--font-ui, sans-serif));
+}
+
+.game-rotate-prompt[hidden] {
+  display: none;
+}
+
+.game-rotate-content {
+  text-align: center;
+  padding: 24px;
+  max-width: 280px;
+}
+
+.game-rotate-icon {
+  font-size: 64px;
+  line-height: 1;
+  display: inline-block;
+  animation: game-rotate-spin 2.4s ease-in-out infinite;
+}
+
+@keyframes game-rotate-spin {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-90deg);
+  }
+}
+
+.game-rotate-content h3 {
+  margin: 14px 0 8px;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.game-rotate-content p {
+  margin: 0 0 18px;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+}
+
+.game-rotate-skip {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: background-color 120ms var(--ease, ease-out);
+}
+
+.game-rotate-skip:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
