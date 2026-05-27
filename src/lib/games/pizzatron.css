@@ -272,17 +272,27 @@
   justify-content: center;
   align-items: center;
   flex: 1 1 auto;
-  gap: 20px;
-  padding: 16px 12px;
-  min-height: 140px;
+  padding: 14px 12px;
+  min-height: 160px;
   background-color: var(--surface-1);
   border-top: 1px solid var(--ink-4);
   touch-action: none;
 }
 
+.pizzatron-tray-content {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px 18px;
+  /* 3 baskets * 150px + 2 gaps * 18px = 486px; max-width forces a 3+2 wrap
+     when activeIngredients == 5 and fits-3-per-row layout otherwise. */
+  max-width: 540px;
+}
+
 .pizzatron-tray-basket {
-  width: 124px;
-  height: 124px;
+  width: 150px;
+  height: 150px;
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;

@@ -112,14 +112,17 @@ export class PizzatronGame {
   renderTray() {
     if (!this.trayEl) return;
     this.trayEl.innerHTML = '';
+    const content = document.createElement('div');
+    content.className = 'pizzatron-tray-content';
     for (const type of getActiveToppings()) {
       const basket = document.createElement('div');
       basket.className = `pizzatron-tray-basket pizzatron-tray-basket--${type}`;
       basket.dataset.topping = type;
       basket.setAttribute('role', 'button');
       basket.setAttribute('aria-label', `סלסלת ${type}`);
-      this.trayEl.appendChild(basket);
+      content.appendChild(basket);
     }
+    this.trayEl.appendChild(content);
   }
 
   computeArrivalX() {
