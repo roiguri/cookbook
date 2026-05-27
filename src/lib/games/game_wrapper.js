@@ -38,6 +38,10 @@ const REGISTRY = [
     defaultConfig: { ordersToWin: 10 },
     successMessage: 'כל הכבוד! משלוחים הושלמו',
     loadingText: 'מחממים את התנור... תפסו הזמנות בינתיים!',
+    // Excluded from GameWrapper.random() so it never shows as a filler
+    // during async waits in other modals — it's an explicit-choice game
+    // and only meant to be launched from /games.
+    excludeFromRandom: true,
   },
 ];
 
@@ -63,7 +67,8 @@ export class GameWrapper {
   }
 
   static random(container, overrides = {}) {
-    const pick = REGISTRY[Math.floor(Math.random() * REGISTRY.length)];
+    const pool = REGISTRY.filter((g) => !g.excludeFromRandom);
+    const pick = pool[Math.floor(Math.random() * pool.length)];
     return GameWrapper.create(pick.key, container, overrides);
   }
 
