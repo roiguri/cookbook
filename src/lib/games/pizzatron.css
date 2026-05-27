@@ -382,7 +382,10 @@
   transition: transform 120ms var(--ease, ease-out);
 }
 
-@media (max-width: 768px) {
+/* Phone sized viewport — width-narrow OR height-short. The OR is here so
+   landscape phones (width > 768 but height < 500) also collapse the basket
+   tray to a single row instead of falling back to the 3+2 desktop wrap. */
+@media (max-width: 768px), (max-height: 500px) {
   .pizzatron-tray-content {
     flex-wrap: nowrap;
     gap: 10px;
@@ -397,6 +400,55 @@
     aspect-ratio: 1 / 1;
     min-width: 0;
     max-width: 110px;
+  }
+}
+
+/* Short viewport (landscape phone): compress the vertical layout so the
+   whole game — including the start overlay card — fits in ~390px tall
+   without clipping at the bottom edge. */
+@media (max-height: 500px) {
+  .pizzatron-game {
+    min-height: 0;
+  }
+
+  .pizzatron-belt-zone {
+    min-height: 100px;
+    padding: 12px 12px 2px;
+  }
+
+  .pizzatron-tray {
+    min-height: 140px;
+    padding: 10px 12px;
+  }
+
+  .pizzatron-tray-basket {
+    max-width: 120px;
+  }
+
+  .pizzatron-start-card {
+    padding: 16px 24px;
+    max-width: 340px;
+  }
+
+  .pizzatron-start-emoji {
+    font-size: 30px;
+    margin-bottom: 4px;
+  }
+
+  .pizzatron-start-title {
+    font-size: 1.2rem;
+    margin: 0 0 6px;
+  }
+
+  .pizzatron-start-instructions {
+    font-size: 0.85rem;
+    margin: 0 0 12px;
+    line-height: 1.3;
+  }
+
+  .pizzatron-start-btn {
+    font-size: 1rem;
+    padding: 8px 24px;
   }
 }
 
