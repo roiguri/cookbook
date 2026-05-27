@@ -267,6 +267,10 @@
   height: 100%;
   flex: 1;
   justify-content: center;
+  /* Trap overlays painted inside the wrapper (rotate-prompt, game start
+     screen, win/lose overlay) so their z-index can't escape and cover the
+     modal's close button. */
+  isolation: isolate;
 }
 
 #games-page-modal .game-wrapper .game-content {
