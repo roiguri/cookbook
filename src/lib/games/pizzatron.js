@@ -160,6 +160,13 @@ export class PizzatronGame {
       this.startOverlayEl = null;
     }
     if (this.isRunning) return;
+    // Recompute the arrival point right before play starts. When the games
+    // page launches us inside a fullscreen modal, init() runs while the
+    // modal is still display:none, so the box element reports width=0 and
+    // pizzaArrivalX gets pinned to a small negative value. By the time the
+    // player presses Start the modal is open and layout is settled, so
+    // this read finally returns the real position.
+    this.pizzaArrivalX = this.computeArrivalX();
     this.isRunning = true;
     // Fire onInteraction here so the wrapper timer starts at "press Start"
     // rather than waiting for the first topping drag.
