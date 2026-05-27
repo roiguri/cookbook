@@ -105,7 +105,11 @@ export class Modal extends HTMLElement {
         --modal-max-width: 90vw;
       }
 
-      @media (max-width: 768px) {
+      /* Phone-sized viewports — both portrait (narrow width) and landscape
+         (short height) so rotating a phone doesn't drop fullscreen modals
+         back to a centered card. Tablets have height ≥ 768 in landscape,
+         so the max-height clause excludes them. */
+      @media (max-width: 768px), (max-height: 500px) {
         :host {
           --modal-outer-padding: 4px;
           --modal-max-width: 100vw;
@@ -198,7 +202,7 @@ export class Modal extends HTMLElement {
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        padding: 28px 32px 32px;
+        padding: var(--modal-slot-padding, 28px 32px 32px);
       }
     `;
   }

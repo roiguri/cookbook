@@ -114,6 +114,7 @@
 .game-header {
   display: flex;
   justify-content: center;
+  padding-top: 14px;
   margin-bottom: 5px;
 }
 
@@ -256,4 +257,22 @@
   60% {
     transform: translate3d(4px, 0, 0);
   }
+}
+
+/* When the wrapper is inside the games fullscreen modal, fill the modal
+   vertically so the rotation prompt overlay can cover edge-to-edge, AND
+   center the wrapper's contents (timer header + game body) as a single
+   group so the game doesn't pin to the top with empty space below it. */
+#games-page-modal .game-wrapper {
+  height: 100%;
+  flex: 1;
+  justify-content: center;
+}
+
+#games-page-modal .game-wrapper .game-content {
+  /* Take the game's natural height so the wrapper's justify-content: center
+     actually has room to push everything toward the middle. */
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
 }

@@ -394,6 +394,7 @@ feature/bug branch → development → staging → main (production)
 **⚠️ STAGING IS MANDATORY before production deployment**
 
 1. **Staging (REQUIRED)** - Complete testing before merging to main
+
    - Run ALL 🆕 NEW features test suite (comprehensive)
    - Run ALL 🔴 Critical EXISTING features (regression)
    - Run 🟡 High priority tests if time permits

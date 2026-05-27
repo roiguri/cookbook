@@ -69,3 +69,4 @@ dev-debug.log
 *.sw?
 playwright-report/
 test-results/
+.playwright-mcp/

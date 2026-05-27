@@ -1,0 +1,481 @@
+.pizzatron-game {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  font-family: var(--font-ui-he);
+  color: var(--ink);
+  background-color: var(--surface-2);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  user-select: none;
+}
+
+.pizzatron-start-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(31, 29, 24, 0.5);
+  backdrop-filter: blur(3px);
+  /* In-game overlay; sits above belt/pizza/tray inside the wrapper but
+     stays below the rotate-prompt (--z-page-overlay) sibling. */
+  z-index: var(--z-elevated, 10);
+  animation: pizzatron-overlay-in 200ms var(--ease, ease-out);
+}
+
+@keyframes pizzatron-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pizzatron-start-card {
+  background-color: var(--surface-1, #ffffff);
+  border-radius: var(--r-lg, 20px);
+  padding: 28px 36px;
+  text-align: center;
+  box-shadow: var(--shadow-3, 0 6px 18px -6px rgba(31, 29, 24, 0.12));
+  max-width: 360px;
+  width: calc(100% - 48px);
+}
+
+.pizzatron-start-emoji {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.pizzatron-start-title {
+  font-family: var(--font-display-he, var(--font-display, serif));
+  font-size: var(--step-4, 1.75rem);
+  margin: 0 0 10px;
+  color: var(--ink, #1f1d18);
+  font-weight: 700;
+}
+
+.pizzatron-start-instructions {
+  color: var(--ink-3, #6b6a63);
+  margin: 0 0 20px;
+  font-size: var(--step-1, 1rem);
+  line-height: 1.4;
+}
+
+.pizzatron-start-btn {
+  background-color: var(--primary, #6a994e);
+  color: #ffffff;
+  border: none;
+  font-family: inherit;
+  font-size: var(--step-2, 1.15rem);
+  font-weight: 700;
+  padding: 10px 32px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 120ms var(--ease, ease-out),
+    transform 120ms var(--ease, ease-out);
+}
+
+.pizzatron-start-btn:hover {
+  background-color: var(--primary-dark, #386641);
+}
+
+.pizzatron-start-btn:active {
+  transform: scale(0.96);
+}
+
+.pizzatron-hud {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: var(--step-1);
+  font-weight: 600;
+  background-color: var(--surface-1);
+  border-bottom: 1px solid var(--ink-4);
+}
+
+.pizzatron-counter {
+  font-variant-numeric: tabular-nums;
+}
+
+.pizzatron-counter-sep {
+  margin: 0 4px;
+  color: var(--ink-3);
+}
+
+.pizzatron-belt-zone {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  padding: 22px 12px 4px;
+  color: var(--ink-3);
+  touch-action: none;
+}
+
+.pizzatron-belt-track {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+}
+
+.pizzatron-belt {
+  --belt-tile-w: 192px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -20px;
+  right: 120px;
+  background-image: url('./assets/pizzatron/pizza_belt_small.png');
+  background-repeat: repeat-x;
+  background-size: var(--belt-tile-w) 100%;
+  background-position: 0 0;
+  border-radius: 4px;
+}
+
+.pizzatron-pizza {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 110px;
+  height: 110px;
+  margin-top: -55px;
+  background-image: url('./assets/pizzatron/pizza_base_small.png');
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 3;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3));
+  transition: opacity 220ms var(--ease, ease-out);
+}
+
+.pizzatron-pizza.leaving {
+  opacity: 0;
+}
+
+.pizzatron-pizza-order {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink, #1f1d18);
+}
+
+.pizzatron-pizza-order-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.pizzatron-pizza-order-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.pizzatron-pizza-order-icon--tomato {
+  background-image: url('./assets/pizzatron/pizza_tomato_small.png');
+}
+.pizzatron-pizza-order-icon--mushroom {
+  background-image: url('./assets/pizzatron/pizza_mushroom_small.png');
+}
+.pizzatron-pizza-order-icon--olive {
+  background-image: url('./assets/pizzatron/pizza_olive_small.png');
+}
+.pizzatron-pizza-order-icon--pepper {
+  background-image: url('./assets/pizzatron/pizza_pepper_small.png');
+}
+.pizzatron-pizza-order-icon--sausage {
+  background-image: url('./assets/pizzatron/pizza_sausage_small.png');
+}
+.pizzatron-pizza-order-icon--basil {
+  background-image: url('./assets/pizzatron/pizza_basil_small.png');
+}
+
+.pizzatron-pizza.arrived .pizzatron-pizza-order {
+  opacity: 0;
+  transition: opacity 160ms var(--ease, ease-out);
+}
+
+.pizzatron-pizza-order-item.fulfilled {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.pizzatron-topping {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  will-change: transform;
+}
+
+.pizzatron-topping--tomato {
+  background-image: url('./assets/pizzatron/pizza_tomato_small.png');
+}
+.pizzatron-topping--mushroom {
+  background-image: url('./assets/pizzatron/pizza_mushroom_small.png');
+}
+.pizzatron-topping--olive {
+  background-image: url('./assets/pizzatron/pizza_olive_small.png');
+}
+.pizzatron-topping--pepper {
+  background-image: url('./assets/pizzatron/pizza_pepper_small.png');
+}
+.pizzatron-topping--sausage {
+  background-image: url('./assets/pizzatron/pizza_sausage_small.png');
+}
+.pizzatron-topping--basil {
+  background-image: url('./assets/pizzatron/pizza_basil_small.png');
+}
+
+.pizzatron-drag-ghost {
+  position: fixed;
+  width: 64px;
+  height: 64px;
+  pointer-events: none;
+  /* Lives in the document stacking context (position: fixed on body) and
+     must stay above the games modal (--z-modal) while a drag is in flight. */
+  z-index: var(--z-fullscreen, 10000);
+  opacity: 0.92;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+}
+
+.pizzatron-drag-ghost--tomato {
+  background-image: url('./assets/pizzatron/pizza_tomato_small.png');
+}
+.pizzatron-drag-ghost--mushroom {
+  background-image: url('./assets/pizzatron/pizza_mushroom_small.png');
+}
+.pizzatron-drag-ghost--olive {
+  background-image: url('./assets/pizzatron/pizza_olive_small.png');
+}
+.pizzatron-drag-ghost--pepper {
+  background-image: url('./assets/pizzatron/pizza_pepper_small.png');
+}
+.pizzatron-drag-ghost--sausage {
+  background-image: url('./assets/pizzatron/pizza_sausage_small.png');
+}
+.pizzatron-drag-ghost--basil {
+  background-image: url('./assets/pizzatron/pizza_basil_small.png');
+}
+
+.pizzatron-pizza-mark {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  margin-left: -18px;
+  border-radius: 50%;
+  background-color: var(--primary, #6a994e);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 36px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 160ms var(--ease, ease-out),
+    transform 160ms var(--ease, ease-out);
+  pointer-events: none;
+}
+
+.pizzatron-pizza-mark--bad {
+  background-color: var(--secondary, #bc4749);
+}
+
+.pizzatron-pizza.arrived .pizzatron-pizza-mark {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pizzatron-box {
+  position: absolute;
+  top: 40%;
+  right: -32px;
+  width: 170px;
+  height: 170px;
+  transform: translateY(-50%);
+  background-image: url('./assets/pizzatron/pizza_box_small.png');
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pizzatron-tray {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1 1 auto;
+  padding: 14px 12px;
+  min-height: 160px;
+  background-color: var(--surface-1);
+  border-top: 1px solid var(--ink-4);
+  touch-action: none;
+}
+
+.pizzatron-tray-content {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px 18px;
+  /* Desktop: 3 baskets * 150px + 2 gaps * 18px = 486px; max-width forces a
+     3+2 wrap when activeIngredients == 5. Overridden to a single-line nowrap
+     layout on mobile (see the @media block below). */
+  max-width: 540px;
+}
+
+.pizzatron-tray-basket {
+  width: 150px;
+  height: 150px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  cursor: grab;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+  transition: transform 120ms var(--ease, ease-out);
+}
+
+/* Phone sized viewport — width-narrow OR height-short. The OR is here so
+   landscape phones (width > 768 but height < 500) also collapse the basket
+   tray to a single row instead of falling back to the 3+2 desktop wrap. */
+@media (max-width: 768px), (max-height: 500px) {
+  .pizzatron-tray-content {
+    flex-wrap: nowrap;
+    gap: 10px;
+    max-width: none;
+    width: 100%;
+  }
+
+  .pizzatron-tray-basket {
+    flex: 1 1 0;
+    width: auto;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+    max-width: 110px;
+  }
+}
+
+/* Short viewport (landscape phone): compress the vertical layout so the
+   whole game — including the start overlay card — fits in ~390px tall
+   without clipping at the bottom edge. */
+@media (max-height: 500px) {
+  .pizzatron-game {
+    min-height: 0;
+  }
+
+  .pizzatron-belt-zone {
+    min-height: 100px;
+    padding: 12px 12px 2px;
+  }
+
+  .pizzatron-tray {
+    min-height: 140px;
+    padding: 10px 12px;
+  }
+
+  .pizzatron-tray-basket {
+    max-width: 120px;
+  }
+
+  .pizzatron-start-card {
+    padding: 16px 24px;
+    max-width: 340px;
+  }
+
+  .pizzatron-start-emoji {
+    font-size: 30px;
+    margin-bottom: 4px;
+  }
+
+  .pizzatron-start-title {
+    font-size: 1.2rem;
+    margin: 0 0 6px;
+  }
+
+  .pizzatron-start-instructions {
+    font-size: 0.85rem;
+    margin: 0 0 12px;
+    line-height: 1.3;
+  }
+
+  .pizzatron-start-btn {
+    font-size: 1rem;
+    padding: 8px 24px;
+  }
+}
+
+.pizzatron-tray-basket:hover {
+  transform: translateY(-2px);
+}
+
+.pizzatron-tray-basket:active {
+  cursor: grabbing;
+  transform: translateY(0) scale(0.96);
+}
+
+.pizzatron-tray-basket--tomato {
+  background-image: url('./assets/pizzatron/basket_tomato_medium.png');
+}
+.pizzatron-tray-basket--mushroom {
+  background-image: url('./assets/pizzatron/basket_mushroom_medium.png');
+}
+.pizzatron-tray-basket--olive {
+  background-image: url('./assets/pizzatron/basket_olive_medium.png');
+}
+.pizzatron-tray-basket--pepper {
+  background-image: url('./assets/pizzatron/basket_pepper_medium.png');
+}
+.pizzatron-tray-basket--sausage {
+  background-image: url('./assets/pizzatron/basket_sausage_medium.png');
+}
+.pizzatron-tray-basket--basil {
+  background-image: url('./assets/pizzatron/basket_basil_medium.png');
+}

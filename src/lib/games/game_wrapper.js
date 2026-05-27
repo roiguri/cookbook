@@ -1,10 +1,13 @@
 import { CookingMemoryGame } from './memory_game.js';
 import { BurgerStackerGame } from './burger_stacker.js';
+import { PizzatronGame } from './pizzatron.js';
+import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
 import burgerCss from './burger_stacker.css?inline';
+import pizzatronCss from './pizzatron.css?inline';
 
-export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}`;
+export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}\n${pizzatronCss}`;
 
 const REGISTRY = [
   {
@@ -26,6 +29,24 @@ const REGISTRY = [
     defaultConfig: { targetHeight: 5 },
     successMessage: 'כל הכבוד! ההמבוגר מוכן',
     loadingText: 'מכין את המטבח... תפוס את המרכיבים!',
+    // Falling items want vertical real estate — recommend portrait on phones.
+    preferredOrientation: 'portrait',
+  },
+  {
+    key: 'pizza',
+    name: 'הפיצריה',
+    icon: '🍕',
+    description: 'הרכיבו פיצות לפי ההזמנה',
+    GameClass: PizzatronGame,
+    defaultConfig: { ordersToWin: 10 },
+    successMessage: 'כל הכבוד! משלוחים הושלמו',
+    loadingText: 'מחממים את התנור... תפסו הזמנות בינתיים!',
+    // Excluded from GameWrapper.random() so it never shows as a filler
+    // during async waits in other modals — it's an explicit-choice game
+    // and only meant to be launched from /games.
+    excludeFromRandom: true,
+    // Horizontal conveyor belt — recommend landscape on phones.
+    preferredOrientation: 'landscape',
   },
 ];
 
@@ -42,16 +63,24 @@ export class GameWrapper {
   static create(key, container, overrides = {}) {
     const pick = REGISTRY.find((g) => g.key === key);
     if (!pick) throw new Error(`Unknown game key: ${key}`);
+    // Optional hook: per-game session-scoped state (e.g. "show intro once"
+    // flags) is reset here so it re-applies on every fresh tile click but
+    // NOT on wrapper.restart() (which destroys+inits the same wrapper).
+    if (typeof pick.GameClass.resetSession === 'function') {
+      pick.GameClass.resetSession();
+    }
     return new GameWrapper(container, pick.GameClass, {
       ...pick.defaultConfig,
       ...overrides,
       successMessage: pick.successMessage,
       loadingText: pick.loadingText,
+      preferredOrientation: pick.preferredOrientation || null,
     });
   }
 
   static random(container, overrides = {}) {
-    const pick = REGISTRY[Math.floor(Math.random() * REGISTRY.length)];
+    const pool = REGISTRY.filter((g) => !g.excludeFromRandom);
+    const pick = pool[Math.floor(Math.random() * pool.length)];
     return GameWrapper.create(pick.key, container, overrides);
   }
 
@@ -104,6 +133,32 @@ export class GameWrapper {
       `
       : '';
 
+    // Match the game's preferred orientation to a rotate-prompt config.
+    // Activated on phone-sized viewports only (modal also activates on
+    // max-height: 500 to catch landscape phones).
+    const rotateBlock = (() => {
+      const pref = this.config.preferredOrientation;
+      if (pref === 'landscape') {
+        return `
+          <rotate-prompt
+            active-media="(orientation: portrait) and (max-width: 768px)"
+            title-text="סובב את המסך לרוחב"
+            body-text="המשחק עוצב למצב אופקי. סובב את המכשיר לרוחב כדי להמשיך."
+          ></rotate-prompt>
+        `;
+      }
+      if (pref === 'portrait') {
+        return `
+          <rotate-prompt
+            active-media="(orientation: landscape) and (max-height: 500px)"
+            title-text="סובב את המסך לאורך"
+            body-text="המשחק עוצב למצב אנכי. סובב את המכשיר לאורך כדי להמשיך."
+          ></rotate-prompt>
+        `;
+      }
+      return '';
+    })();
+
     this.container.innerHTML = `
       <div class="game-wrapper">
         ${statusBlock}
@@ -111,6 +166,8 @@ export class GameWrapper {
           <div class="timer">⏱️ <span id="game-timer">00:00</span></div>
         </div>
         <div class="game-content"></div>
+
+        ${rotateBlock}
 
         <div class="game-overlay" style="display: none;">
           <div class="overlay-content">
@@ -238,6 +295,14 @@ export class GameWrapper {
 
   destroy() {
     this.stopTimer();
+    if (this._mqlPortrait) {
+      if (this._mqlPortrait.removeEventListener) {
+        this._mqlPortrait.removeEventListener('change', this._onOrientationChange);
+      } else if (this._mqlPortrait.removeListener) {
+        this._mqlPortrait.removeListener(this._onOrientationChange);
+      }
+      this._mqlPortrait = null;
+    }
     if (this.game && typeof this.game.destroy === 'function') {
       this.game.destroy();
     }
