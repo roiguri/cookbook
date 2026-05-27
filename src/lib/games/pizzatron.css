@@ -361,8 +361,9 @@
   justify-content: center;
   align-items: center;
   gap: 12px 18px;
-  /* 3 baskets * 150px + 2 gaps * 18px = 486px; max-width forces a 3+2 wrap
-     when activeIngredients == 5 and fits-3-per-row layout otherwise. */
+  /* Desktop: 3 baskets * 150px + 2 gaps * 18px = 486px; max-width forces a
+     3+2 wrap when activeIngredients == 5. Overridden to a single-line nowrap
+     layout on mobile (see the @media block below). */
   max-width: 540px;
 }
 
@@ -375,6 +376,24 @@
   cursor: grab;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
   transition: transform 120ms var(--ease, ease-out);
+}
+
+@media (max-width: 768px) {
+  .pizzatron-tray-content {
+    flex-wrap: nowrap;
+    gap: 10px;
+    max-width: none;
+    width: 100%;
+  }
+
+  .pizzatron-tray-basket {
+    flex: 1 1 0;
+    width: auto;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+    max-width: 110px;
+  }
 }
 
 .pizzatron-tray-basket:hover {
