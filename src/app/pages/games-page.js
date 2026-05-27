@@ -5,8 +5,11 @@ import '../../lib/games/memory_game.css';
 import '../../lib/games/burger_stacker.css';
 import '../../lib/utilities/modal/modal.js';
 
-// Mobile breakpoint matches the modal's fullscreen-mobile activation (≤768px).
-const MOBILE_QUERY = '(max-width: 768px)';
+// Phone-sized viewport — matches the modal's fullscreen-mobile activation.
+// Includes both portrait (narrow width) and landscape (short height) so a
+// landscape phone still goes through the modal path instead of falling back
+// to the desktop inline view.
+const MOBILE_QUERY = '(max-width: 768px), (max-height: 500px)';
 
 export default {
   async render() {
