@@ -1,13 +1,15 @@
 import { CookingMemoryGame } from './memory_game.js';
 import { BurgerStackerGame } from './burger_stacker.js';
 import { PizzatronGame } from './pizzatron.js';
+import { KnifeSkillsGame } from './knife_skills.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
 import burgerCss from './burger_stacker.css?inline';
 import pizzatronCss from './pizzatron.css?inline';
+import knifeCss from './knife_skills.css?inline';
 
-export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}\n${pizzatronCss}`;
+export const GAME_STYLES = `${wrapperCss}\n${memoryCss}\n${burgerCss}\n${pizzatronCss}\n${knifeCss}`;
 
 const REGISTRY = [
   {
@@ -47,6 +49,16 @@ const REGISTRY = [
     excludeFromRandom: true,
     // Horizontal conveyor belt — recommend landscape on phones.
     preferredOrientation: 'landscape',
+  },
+  {
+    key: 'knife',
+    name: 'אמן הסכין',
+    icon: '🔪',
+    description: 'חתכו את הפירות, היזהרו מהמכשולים',
+    GameClass: KnifeSkillsGame,
+    defaultConfig: { toSlice: 30, maxStrikes: 3 },
+    successMessage: 'כל הכבוד! חיתוך מושלם',
+    loadingText: 'משחיזים את הסכינים... חכה רגע!',
   },
 ];
 
