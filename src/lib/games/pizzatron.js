@@ -44,6 +44,11 @@ const TUNING = {
 
 const GOLDEN_ANGLE = (137.5 * Math.PI) / 180;
 
+// Module-level: the start overlay is an onboarding cue, not a per-game gate.
+// Show it the first time Pizzatron mounts in a page session; restarts via
+// "שחק שוב" (which destroy+re-init the game instance) skip straight into play.
+let pizzatronIntroPending = true;
+
 function getActiveToppings() {
   return TOPPING_POOL.slice(0, TUNING.order.activeIngredients);
 }
@@ -112,7 +117,12 @@ export class PizzatronGame {
     };
     window.addEventListener('resize', this._onResize);
     this.trayEl.addEventListener('pointerdown', this._onTrayPointerDown);
-    this.showStartOverlay();
+    if (pizzatronIntroPending) {
+      pizzatronIntroPending = false;
+      this.showStartOverlay();
+    } else {
+      this.beginPlay();
+    }
   }
 
   showStartOverlay() {
