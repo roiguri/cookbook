@@ -59,6 +59,8 @@ const REGISTRY = [
     defaultConfig: { toSlice: 30, maxStrikes: 3 },
     successMessage: 'כל הכבוד! חיתוך מושלם',
     loadingText: 'משחיזים את הסכינים... חכה רגע!',
+    // Fruits arc up from the bottom — recommend portrait on phones.
+    preferredOrientation: 'portrait',
   },
 ];
 
