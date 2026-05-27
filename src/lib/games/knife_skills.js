@@ -32,8 +32,8 @@ const TUNING = {
   physics: {
     gravity: 0.18, // px/frame^2
     spawnMargin: 0.1, // % of field width kept clear at each edge
-    minUpwardVel: 8.2, // base upward velocity (px/frame)
-    upwardVelJitter: 3, // additional random upward velocity
+    minUpwardVel: 10.5, // base upward velocity (px/frame)
+    upwardVelJitter: 4, // additional random upward velocity
     angularVelMax: 4, // deg/frame
     sliceKick: 1.2, // perpendicular velocity added to each half on slice
     halfAngularBoost: 1.5,
