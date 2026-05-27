@@ -62,6 +62,12 @@ export class GameWrapper {
   static create(key, container, overrides = {}) {
     const pick = REGISTRY.find((g) => g.key === key);
     if (!pick) throw new Error(`Unknown game key: ${key}`);
+    // Optional hook: per-game session-scoped state (e.g. "show intro once"
+    // flags) is reset here so it re-applies on every fresh tile click but
+    // NOT on wrapper.restart() (which destroys+inits the same wrapper).
+    if (typeof pick.GameClass.resetSession === 'function') {
+      pick.GameClass.resetSession();
+    }
     return new GameWrapper(container, pick.GameClass, {
       ...pick.defaultConfig,
       ...overrides,

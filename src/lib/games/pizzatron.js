@@ -62,6 +62,13 @@ function shuffleInPlace(arr) {
 }
 
 export class PizzatronGame {
+  // GameWrapper.create() calls this on every fresh tile click so the intro
+  // overlay re-appears on each new entry to the game. wrapper.restart()
+  // doesn't call this — restarts within a session stay intro-free.
+  static resetSession() {
+    pizzatronIntroPending = true;
+  }
+
   constructor(container, config = {}) {
     this.container = container;
     this.config = Object.assign(
