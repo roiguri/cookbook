@@ -21,7 +21,9 @@
   justify-content: center;
   background-color: rgba(31, 29, 24, 0.5);
   backdrop-filter: blur(3px);
-  z-index: 100;
+  /* In-game overlay; sits above belt/pizza/tray inside the wrapper but
+     stays below the rotate-prompt (--z-page-overlay) sibling. */
+  z-index: var(--z-elevated, 10);
   animation: pizzatron-overlay-in 200ms var(--ease, ease-out);
 }
 
@@ -268,7 +270,9 @@
   width: 64px;
   height: 64px;
   pointer-events: none;
-  z-index: 9999;
+  /* Lives in the document stacking context (position: fixed on body) and
+     must stay above the games modal (--z-modal) while a drag is in flight. */
+  z-index: var(--z-fullscreen, 10000);
   opacity: 0.92;
   background-repeat: no-repeat;
   background-position: center;

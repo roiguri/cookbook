@@ -1,6 +1,7 @@
 import { CookingMemoryGame } from './memory_game.js';
 import { BurgerStackerGame } from './burger_stacker.js';
 import { PizzatronGame } from './pizzatron.js';
+import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
 import burgerCss from './burger_stacker.css?inline';
@@ -92,9 +93,6 @@ export class GameWrapper {
     this.timerInterval = null;
     this.hasStarted = false;
     this._asyncReadyShown = false;
-    this._mqlPortrait = null;
-    this._rotationDismissed = false;
-    this._onOrientationChange = () => this._evaluateRotationPrompt();
   }
 
   init() {
@@ -111,10 +109,6 @@ export class GameWrapper {
     if (this._asyncReadyShown) this._applyAsyncReady();
 
     this.game.start();
-
-    if (this.config.requiresLandscape) {
-      this._setupRotationPrompt();
-    }
   }
 
   renderWrapper() {
@@ -141,14 +135,10 @@ export class GameWrapper {
 
     const rotateBlock = this.config.requiresLandscape
       ? `
-        <div class="game-rotate-prompt" hidden role="dialog" aria-modal="true" aria-labelledby="game-rotate-title">
-          <div class="game-rotate-content">
-            <div class="game-rotate-icon" aria-hidden="true">📱</div>
-            <h3 id="game-rotate-title">סובב את המסך לרוחב</h3>
-            <p>המשחק עוצב למצב אופקי. סובב את המכשיר לרוחב כדי להמשיך.</p>
-            <button class="game-rotate-skip" type="button">המשך בכל זאת</button>
-          </div>
-        </div>
+        <rotate-prompt
+          active-media="(orientation: portrait) and (max-width: 768px)"
+          body-text="המשחק עוצב למצב אופקי. סובב את המכשיר לרוחב כדי להמשיך."
+        ></rotate-prompt>
       `
       : '';
 
@@ -190,33 +180,6 @@ export class GameWrapper {
 
     const btn = this.container.querySelector('.overlay-btn');
     if (btn) btn.onclick = () => this.restart();
-  }
-
-  _setupRotationPrompt() {
-    const promptEl = this.container.querySelector('.game-rotate-prompt');
-    if (!promptEl) return;
-    const skipBtn = promptEl.querySelector('.game-rotate-skip');
-    if (skipBtn) {
-      skipBtn.onclick = () => {
-        this._rotationDismissed = true;
-        this._evaluateRotationPrompt();
-      };
-    }
-    this._mqlPortrait = window.matchMedia('(orientation: portrait) and (max-width: 768px)');
-    if (this._mqlPortrait.addEventListener) {
-      this._mqlPortrait.addEventListener('change', this._onOrientationChange);
-    } else if (this._mqlPortrait.addListener) {
-      // Safari < 14 fallback
-      this._mqlPortrait.addListener(this._onOrientationChange);
-    }
-    this._evaluateRotationPrompt();
-  }
-
-  _evaluateRotationPrompt() {
-    const promptEl = this.container.querySelector('.game-rotate-prompt');
-    if (!promptEl || !this._mqlPortrait) return;
-    const shouldShow = this._mqlPortrait.matches && !this._rotationDismissed;
-    promptEl.hidden = !shouldShow;
   }
 
   markAsyncReady() {
