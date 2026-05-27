@@ -1,0 +1,451 @@
+/* Knife Skills — Fruit-Ninja-style mini-game. Companion to knife_skills.js.
+   Pointer-tracked swipe slices fruits arcing up from the bottom; hazards
+   (chili, onion) end the run; missed fruits fill strike pips. */
+
+.knife-game {
+  position: relative;
+  width: 100%;
+  min-height: 480px;
+  height: calc(100vh - 200px);
+  max-height: 720px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-0) 100%);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-ui-he, var(--font-ui));
+}
+
+/* ---- HUD ---- */
+
+.knife-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--hairline);
+  z-index: 1;
+}
+
+.knife-strikes {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.knife-strike-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: rgba(31, 29, 24, 0.12);
+  border: 1px solid var(--hairline-strong);
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+
+.knife-strike-pip--filled {
+  background: var(--secondary);
+  border-color: var(--secondary-dark);
+  animation: knife-pip-pop var(--dur-2) var(--ease-out);
+}
+
+@keyframes knife-pip-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.knife-counter {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.knife-counter-sep {
+  margin: 0 2px;
+  color: var(--ink-3);
+}
+
+/* ---- Field — pointer surface ---- */
+
+.knife-field {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.knife-field--shake {
+  animation: knife-shake 320ms var(--ease);
+}
+
+@keyframes knife-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-6px, 2px);
+  }
+  40% {
+    transform: translate(5px, -3px);
+  }
+  60% {
+    transform: translate(-4px, 3px);
+  }
+  80% {
+    transform: translate(3px, -2px);
+  }
+}
+
+/* ---- Slash trail ---- */
+
+.knife-trail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#knife-trail-path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6))
+    drop-shadow(0 0 14px rgba(106, 153, 78, 0.4));
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+
+#knife-trail-path.knife-trail-path--active {
+  opacity: 1;
+  transition: none;
+}
+
+/* ---- Fruits ---- */
+
+.knife-fruit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 72px;
+  height: 72px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 6px 10px rgba(31, 29, 24, 0.22));
+  z-index: 3;
+}
+
+.knife-fruit--apple {
+  background-image: url('./assets/knife/apple.svg');
+}
+.knife-fruit--lemon {
+  background-image: url('./assets/knife/lemon.svg');
+}
+.knife-fruit--watermelon {
+  background-image: url('./assets/knife/watermelon.svg');
+}
+.knife-fruit--strawberry {
+  background-image: url('./assets/knife/strawberry.svg');
+}
+.knife-fruit--kiwi {
+  background-image: url('./assets/knife/kiwi.svg');
+}
+.knife-fruit--banana {
+  background-image: url('./assets/knife/banana.svg');
+}
+.knife-fruit--orange {
+  background-image: url('./assets/knife/orange.svg');
+}
+.knife-fruit--pineapple {
+  background-image: url('./assets/knife/pineapple.svg');
+}
+.knife-fruit--bomb {
+  background-image: url('./assets/knife/hazard_bomb.svg');
+}
+.knife-fruit--boot {
+  background-image: url('./assets/knife/hazard_boot.svg');
+}
+
+/* Subtle pulsing tint on hazards so they read as "danger" without being a
+   visual mismatch with the rest of the produce. */
+.knife-fruit--hazard {
+  filter: drop-shadow(0 0 6px rgba(188, 71, 73, 0.55))
+    drop-shadow(0 6px 10px rgba(31, 29, 24, 0.22));
+  animation: knife-hazard-pulse 900ms var(--ease) infinite;
+}
+
+@keyframes knife-hazard-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(188, 71, 73, 0.45))
+      drop-shadow(0 6px 10px rgba(31, 29, 24, 0.22));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(188, 71, 73, 0.85))
+      drop-shadow(0 6px 10px rgba(31, 29, 24, 0.22));
+  }
+}
+
+/* ---- Halves — clip-path trick ----
+   Each half: an outer wrapper at the fruit position (carries world rotation),
+   a mask rotated to the cut angle (gives the clip its diagonal orientation),
+   and a sprite counter-rotated to stay upright in screen space. */
+
+.knife-fruit-half {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 72px;
+  height: 72px;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 2;
+  filter: drop-shadow(0 6px 10px rgba(31, 29, 24, 0.22));
+}
+
+.knife-fruit-half-mask {
+  width: 100%;
+  height: 100%;
+  transform: rotate(var(--cut-angle));
+}
+
+.knife-fruit-half--top .knife-fruit-half-mask {
+  clip-path: inset(0 0 50% 0);
+}
+
+.knife-fruit-half--bottom .knife-fruit-half-mask {
+  clip-path: inset(50% 0 0 0);
+}
+
+.knife-fruit-half-sprite {
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  transform: rotate(calc(-1 * var(--cut-angle)));
+}
+
+.knife-fruit-half-sprite--apple {
+  background-image: url('./assets/knife/apple.svg');
+}
+.knife-fruit-half-sprite--lemon {
+  background-image: url('./assets/knife/lemon.svg');
+}
+.knife-fruit-half-sprite--watermelon {
+  background-image: url('./assets/knife/watermelon.svg');
+}
+.knife-fruit-half-sprite--strawberry {
+  background-image: url('./assets/knife/strawberry.svg');
+}
+.knife-fruit-half-sprite--kiwi {
+  background-image: url('./assets/knife/kiwi.svg');
+}
+.knife-fruit-half-sprite--banana {
+  background-image: url('./assets/knife/banana.svg');
+}
+.knife-fruit-half-sprite--orange {
+  background-image: url('./assets/knife/orange.svg');
+}
+.knife-fruit-half-sprite--pineapple {
+  background-image: url('./assets/knife/pineapple.svg');
+}
+.knife-fruit-half-sprite--bomb {
+  background-image: url('./assets/knife/hazard_bomb.svg');
+}
+.knife-fruit-half-sprite--boot {
+  background-image: url('./assets/knife/hazard_boot.svg');
+}
+
+/* ---- Juice particles ---- */
+
+.knife-juice {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  pointer-events: none;
+  z-index: 4;
+  animation: knife-juice-fly 360ms var(--ease-out) forwards;
+  --juice-dx: 0px;
+  --juice-dy: 0px;
+}
+
+@keyframes knife-juice-fly {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--juice-dx)), calc(-50% + var(--juice-dy))) scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* Per-fruit juice colors. Stay within the warm palette so splashes feel
+   on-brand even though Twemoji's saturation is higher than our usual ink. */
+.knife-juice--apple,
+.knife-juice--strawberry {
+  background: var(--secondary);
+}
+.knife-juice--watermelon {
+  background: var(--secondary-light);
+}
+.knife-juice--lemon,
+.knife-juice--banana,
+.knife-juice--pineapple {
+  background: #e6c34a;
+}
+.knife-juice--orange {
+  background: #e69138;
+}
+.knife-juice--kiwi {
+  background: var(--primary-bright);
+}
+.knife-juice--hazard {
+  background: var(--secondary-dark);
+}
+
+/* ---- Combo float ---- */
+
+.knife-combo {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--primary-dark);
+  font-family: var(--font-display);
+  font-size: var(--step-3);
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 6;
+  text-shadow:
+    0 1px 0 #fff,
+    0 0 12px rgba(255, 255, 255, 0.75),
+    0 0 18px rgba(167, 201, 87, 0.6);
+  animation: knife-combo-float 720ms var(--ease-out) forwards;
+}
+
+@keyframes knife-combo-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -60%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -130%) scale(1);
+  }
+}
+
+/* ---- Start overlay ---- */
+
+.knife-start-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(31, 29, 24, 0.55);
+  backdrop-filter: blur(8px);
+  z-index: 20;
+  padding: 16px;
+}
+
+.knife-start-card {
+  background: var(--surface-1);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-3);
+  padding: 28px 24px 22px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+}
+
+.knife-start-emoji {
+  font-size: clamp(2.4rem, 6vw, 3rem);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.knife-start-title {
+  font-family: var(--font-display-he, var(--font-display));
+  font-size: var(--step-4);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+
+.knife-start-instructions {
+  font-size: var(--step-1);
+  color: var(--ink-2);
+  margin: 0 0 18px;
+  line-height: 1.55;
+}
+
+.knife-start-btn {
+  background: var(--primary);
+  color: var(--button-color);
+  border: none;
+  padding: 12px 32px;
+  border-radius: var(--r-pill);
+  font-family: inherit;
+  font-size: var(--step-2);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition:
+    transform var(--dur-1) var(--ease-out),
+    background-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-1) var(--ease-out);
+}
+
+.knife-start-btn:hover,
+.knife-start-btn:focus-visible {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+  outline: none;
+}
+
+.knife-start-btn:focus-visible {
+  box-shadow: var(--shadow-2), var(--ring);
+}
+
+.knife-start-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---- Mobile tweaks ---- */
+
+@media (max-width: 600px) {
+  .knife-game {
+    min-height: 420px;
+    height: calc(100vh - 160px);
+  }
+
+  .knife-start-card {
+    padding: 22px 18px 18px;
+  }
+}
