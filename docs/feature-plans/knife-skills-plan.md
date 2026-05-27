@@ -23,18 +23,18 @@ A future v2 may extend the wrapper to surface combo bonuses or a high-score numb
 
 ## 2. Locked decisions
 
-| #   | Decision                                                                                                                                                                           |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Game model: slice 30 produce, fastest wins. Hazard touched = instant fail. 3 missed items = fail.                                                                                  |
-| 2   | Input: Pointer Events (same as pizzatron — unifies mouse + touch, no Touch Events).                                                                                                |
-| 3   | Field orientation: produce arcs up from bottom (gravity pulls back down). Fixed origin band along the bottom edge with random x.                                                   |
-| 4   | Slice detection: pointer-path segment must intersect a fruit's bounding circle AND meet a minimum velocity threshold. No "tap to slice" — the swipe must travel through the fruit. |
-| 5   | Halves: one sprite per fruit, split visually with `clip-path: inset(...)` along the cut line. Saves ~2/3 of art budget vs separate half sprites.                                   |
-| 6   | Hazards: 2 types — bomb 💣 (Twemoji) and boot 👞 (reused from `burger_stacker`'s `boot_small.png`). Same physics as fruit. Sliced hazard = game over.                              |
-| 7   | Audio: silent in v1 (matches pizzatron). Sound infra deferred to a shared pass later.                                                                                              |
-| 8   | Assets: Twemoji set (CC-BY-4.0, SVG) for fruits + bomb. Boot hazard reuses `boot_small.png` from `burger_stacker`. Side-on view, no AI-generation cost.                            |
-| 9   | Combo: a "combo" is N≥2 items sliced within a single pointerdown→pointerup session. Shown as floating text `קומבו! ×N`. No score impact in v1.                                     |
-| 10  | Game start: same start overlay pattern as pizzatron — title, instructions, start button. Timer starts on press, not on first slice.                                                |
+| #   | Decision                                                                                                                                                                                                                                                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Game model: slice 30 produce, fastest wins. Hazard touched = instant fail. 3 missed items = fail.                                                                                                                                                                                                        |
+| 2   | Input: Pointer Events (same as pizzatron — unifies mouse + touch, no Touch Events).                                                                                                                                                                                                                      |
+| 3   | Field orientation: produce arcs up from bottom (gravity pulls back down). Fixed origin band along the bottom edge with random x.                                                                                                                                                                         |
+| 4   | Slice detection: pointer-path segment must intersect a fruit's bounding circle AND meet a minimum velocity threshold. No "tap to slice" — the swipe must travel through the fruit.                                                                                                                       |
+| 5   | Halves: one sprite per fruit, split visually with `clip-path: inset(...)` along the cut line. Saves ~2/3 of art budget vs separate half sprites.                                                                                                                                                         |
+| 6   | Hazards: 2 types — bomb 💣 and hiking boot 🥾, both Twemoji. Same physics as fruit. Sliced hazard = game over.                                                                                                                                                                                           |
+| 7   | Audio: silent in v1 (matches pizzatron). Sound infra deferred to a shared pass later.                                                                                                                                                                                                                    |
+| 8   | Assets: Twemoji set (CC-BY-4.0, SVG) — 8 fruits + 2 hazards. Side-on view, no AI-generation cost.                                                                                                                                                                                                        |
+| 9   | Combo: a "combo" is N≥2 items sliced in the **same direction** within a single pointerdown→pointerup session. A direction change >45° between successive slices closes the current run and starts a new one. Shown as floating text `קומבו! ×N` at the end of each completed run. No score impact in v1. |
+| 10  | Game start: same start overlay pattern as pizzatron — title, instructions, start button. Timer starts on press, not on first slice.                                                                                                                                                                      |
 
 ---
 
@@ -153,7 +153,7 @@ Use **Pointer Events** (`pointerdown` / `pointermove` / `pointerup`), consistent
 
 ### pointerup / pointercancel
 
-- If `stroke.slicedThisStroke ≥ 2`, fire a combo: `showCombo(stroke.slicedThisStroke)`.
+- The stroke holds a direction-locked combo run (`runDir` unit vector, `runCount`, `runLastPoint`). Each new slice compares its motion direction to `runDir`; same direction (cos angle ≥ `combo.sameDirCosMin`, default ~45°) accumulates, a direction change finalizes the run (firing a combo float if `runCount ≥ minToShow`) and starts a fresh one. `pointerup` also finalizes the open run.
 - Clear the slash trail (fade it out).
 - Release the pointer, drop the stroke.
 
@@ -310,18 +310,18 @@ Hazards that fall off-screen unsliced are **not** counted as missed (they're a t
 
 [Twemoji](https://github.com/twitter/twemoji) — CC-BY-4.0 SVGs. Drop the SVG files directly into `src/lib/games/assets/knife/`. SVG keeps file sizes tiny (~3–8 KB each), scales cleanly to any size, and renders consistently across platforms (vs platform-specific native emoji rendering).
 
-| Asset        | Filename            | Unicode | Notes                              |
-| ------------ | ------------------- | ------- | ---------------------------------- |
-| Apple        | `apple.svg`         | 1f34e   | Red apple, side view               |
-| Lemon        | `lemon.svg`         | 1f34b   |                                    |
-| Watermelon   | `watermelon.svg`    | 1f349   | High-contrast, ideal for slice viz |
-| Strawberry   | `strawberry.svg`    | 1f353   |                                    |
-| Kiwi         | `kiwi.svg`          | 1f95d   | (kiwifruit)                        |
-| Banana       | `banana.svg`        | 1f34c   |                                    |
-| Orange       | `orange.svg`        | 1f34a   | (tangerine)                        |
-| Pineapple    | `pineapple.svg`     | 1f34d   |                                    |
-| Hazard: bomb | `hazard_bomb.svg`   | 1f4a3   |                                    |
-| Hazard: boot | `../boot_small.png` | n/a     | Reused from `burger_stacker`       |
+| Asset        | Filename          | Unicode | Notes                              |
+| ------------ | ----------------- | ------- | ---------------------------------- |
+| Apple        | `apple.svg`       | 1f34e   | Red apple, side view               |
+| Lemon        | `lemon.svg`       | 1f34b   |                                    |
+| Watermelon   | `watermelon.svg`  | 1f349   | High-contrast, ideal for slice viz |
+| Strawberry   | `strawberry.svg`  | 1f353   |                                    |
+| Kiwi         | `kiwi.svg`        | 1f95d   | (kiwifruit)                        |
+| Banana       | `banana.svg`      | 1f34c   |                                    |
+| Orange       | `orange.svg`      | 1f34a   | (tangerine)                        |
+| Pineapple    | `pineapple.svg`   | 1f34d   |                                    |
+| Hazard: bomb | `hazard_bomb.svg` | 1f4a3   |                                    |
+| Hazard: boot | `hazard_boot.svg` | 1f97e   | Hiking boot                        |
 
 **Total: 10 SVGs.** Free, instant, no generation step.
 
@@ -427,7 +427,7 @@ src/lib/games/
       orange.svg
       pineapple.svg
       hazard_bomb.svg
-      # (boot reused from src/lib/games/assets/boot_small.png)
+      hazard_boot.svg
 ```
 
 `game_wrapper.js` change:
@@ -455,7 +455,7 @@ Built as one PR — no phase gating. Sub-bullets are the acceptance criteria.
 - **Slice input** — Pointer Events with stroke tracking; segment-circle intersection + min-velocity gate; slash trail rendered live.
 - **Halves via clip-path** — single sprite per fruit, two halves diverge with kick perpendicular to cut angle, both fall under physics.
 - **Hazards** — 2 types in spawn pool; slicing one ends the run instantly.
-- **Combo** — per-stroke count, floating "קומבו! ×N" text on stroke end.
+- **Combo** — direction-locked run inside a stroke; floating "קומבו! ×N" text fires when each same-direction run closes (on direction change >45° or pointerup).
 - **Difficulty curve** — spawn interval, hazard odds, multi-spawn chance scale with `spawnCounter`.
 - **Polish** — juice particles per fruit, strike-pip flash, hazard field flash, `touch-action: none` on the field.
 - **Hebrew strings** — start overlay, hazard fail, miss fail, combo text.

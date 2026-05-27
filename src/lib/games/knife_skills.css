@@ -182,7 +182,7 @@
   background-image: url('./assets/knife/hazard_bomb.svg');
 }
 .knife-fruit--boot {
-  background-image: url('./assets/boot_small.png');
+  background-image: url('./assets/knife/hazard_boot.svg');
 }
 
 /* Subtle pulsing tint on hazards so they read as "danger" without being a
@@ -273,7 +273,7 @@
   background-image: url('./assets/knife/hazard_bomb.svg');
 }
 .knife-fruit-half-sprite--boot {
-  background-image: url('./assets/boot_small.png');
+  background-image: url('./assets/knife/hazard_boot.svg');
 }
 
 /* ---- Juice particles ---- */

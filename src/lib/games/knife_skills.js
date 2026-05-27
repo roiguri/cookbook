@@ -66,6 +66,10 @@ const TUNING = {
   combo: {
     minToShow: 2,
     floatMs: 720,
+    // Two consecutive slices belong to the same combo only if their motion
+    // direction vectors point roughly the same way. cos(45°) ≈ 0.707, so any
+    // direction-change >45° starts a fresh run.
+    sameDirCosMin: 0.707,
   },
 };
 
@@ -166,10 +170,10 @@ export class KnifeSkillsGame {
 
   async preloadAssets() {
     const urls = [...PRODUCE_POOL, ...HAZARD_POOL].map((type) => {
-      // Boot is reused from the burger game; bomb is local to knife. Other
-      // produce sits alongside knife in its own subfolder.
-      if (type === 'boot') return new URL(`./assets/boot_small.png`, import.meta.url).href;
-      if (type === 'bomb') return new URL(`./assets/knife/hazard_bomb.svg`, import.meta.url).href;
+      // Hazards use the hazard_ prefix; produce sits flat in the knife folder.
+      if (HAZARD_POOL.includes(type)) {
+        return new URL(`./assets/knife/hazard_${type}.svg`, import.meta.url).href;
+      }
       return new URL(`./assets/knife/${type}.svg`, import.meta.url).href;
     });
     await Promise.all(
@@ -408,8 +412,13 @@ export class KnifeSkillsGame {
     this.stroke = {
       pointerId: e.pointerId,
       points: [{ x: local.x, y: local.y, t: performance.now() }],
-      slicedThisStroke: 0,
-      lastSlicePoint: null,
+      // direction-locked combo run inside the stroke. Slices in the same
+      // direction (cos angle ≥ combo.sameDirCosMin) accumulate into runCount;
+      // a direction change finalizes the run (firing the combo float if
+      // runCount ≥ combo.minToShow) and starts a fresh one.
+      runDir: null,
+      runCount: 0,
+      runLastPoint: null,
     };
     this.trailPathEl.setAttribute('d', '');
     this.trailPathEl.classList.add('knife-trail-path--active');
@@ -445,8 +454,10 @@ export class KnifeSkillsGame {
 
   onPointerUp(e) {
     if (!this.stroke || e.pointerId !== this.stroke.pointerId) return;
-    const slicedThisStroke = this.stroke.slicedThisStroke;
-    const lastPoint = this.stroke.lastSlicePoint;
+
+    // Finalize whatever combo run is still open at the moment the player
+    // lifts their finger.
+    this.finalizeRun();
 
     try {
       this.fieldEl.releasePointerCapture(this.stroke.pointerId);
@@ -464,10 +475,38 @@ export class KnifeSkillsGame {
     }, TUNING.stroke.trailFadeMs);
 
     this.stroke = null;
+  }
 
-    if (slicedThisStroke >= TUNING.combo.minToShow && lastPoint) {
-      this.showCombo(slicedThisStroke, lastPoint);
+  recordSliceInRun(angleRad, centerX, centerY) {
+    const stroke = this.stroke;
+    if (!stroke) return;
+    const dirX = Math.cos(angleRad);
+    const dirY = Math.sin(angleRad);
+    if (stroke.runDir) {
+      const dot = stroke.runDir.x * dirX + stroke.runDir.y * dirY;
+      if (dot >= TUNING.combo.sameDirCosMin) {
+        // Same direction — keep accumulating into the current run.
+        stroke.runCount += 1;
+        stroke.runLastPoint = { x: centerX, y: centerY };
+        return;
+      }
+      // Direction changed — close out the run before starting a new one.
+      this.finalizeRun();
     }
+    stroke.runDir = { x: dirX, y: dirY };
+    stroke.runCount = 1;
+    stroke.runLastPoint = { x: centerX, y: centerY };
+  }
+
+  finalizeRun() {
+    const stroke = this.stroke;
+    if (!stroke) return;
+    if (stroke.runCount >= TUNING.combo.minToShow && stroke.runLastPoint) {
+      this.showCombo(stroke.runCount, stroke.runLastPoint);
+    }
+    stroke.runDir = null;
+    stroke.runCount = 0;
+    stroke.runLastPoint = null;
   }
 
   toFieldLocal(clientX, clientY) {
@@ -537,9 +576,8 @@ export class KnifeSkillsGame {
     const centerY = fruit.y + TUNING.fruit.sizePx / 2;
     this.spawnJuiceParticles(centerX, centerY, fruit.type, fruit.isHazard);
 
-    if (this.stroke) {
-      this.stroke.slicedThisStroke += 1;
-      this.stroke.lastSlicePoint = { x: centerX, y: centerY };
+    if (this.stroke && !fruit.isHazard) {
+      this.recordSliceInRun(angleRad, centerX, centerY);
     }
 
     if (fruit.isHazard) {

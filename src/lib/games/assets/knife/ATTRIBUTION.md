@@ -19,7 +19,6 @@ Files (Unicode codepoint → local name):
 | 1f34a     | `orange.svg`      | 🍊    |
 | 1f34d     | `pineapple.svg`   | 🍍    |
 | 1f4a3     | `hazard_bomb.svg` | 💣    |
+| 1f97e     | `hazard_boot.svg` | 🥾    |
 
 No modifications have been made to the source SVGs other than renaming.
-
-The other hazard sprite, `boot_small.png`, is **reused** from `src/lib/games/assets/boot_small.png` (originally added for the Burger Stacker game) and is **not** sourced from Twemoji or covered by the licence above.
