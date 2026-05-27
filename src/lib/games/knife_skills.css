@@ -178,11 +178,11 @@
 .knife-fruit--pineapple {
   background-image: url('./assets/knife/pineapple.svg');
 }
-.knife-fruit--chili {
-  background-image: url('./assets/knife/hazard_chili.svg');
+.knife-fruit--bomb {
+  background-image: url('./assets/knife/hazard_bomb.svg');
 }
-.knife-fruit--onion {
-  background-image: url('./assets/knife/hazard_onion.svg');
+.knife-fruit--boot {
+  background-image: url('./assets/boot_small.png');
 }
 
 /* Subtle pulsing tint on hazards so they read as "danger" without being a
@@ -269,11 +269,11 @@
 .knife-fruit-half-sprite--pineapple {
   background-image: url('./assets/knife/pineapple.svg');
 }
-.knife-fruit-half-sprite--chili {
-  background-image: url('./assets/knife/hazard_chili.svg');
+.knife-fruit-half-sprite--bomb {
+  background-image: url('./assets/knife/hazard_bomb.svg');
 }
-.knife-fruit-half-sprite--onion {
-  background-image: url('./assets/knife/hazard_onion.svg');
+.knife-fruit-half-sprite--boot {
+  background-image: url('./assets/boot_small.png');
 }
 
 /* ---- Juice particles ---- */

@@ -12,12 +12,12 @@ const PRODUCE_POOL = [
   'orange',
   'pineapple',
 ];
-const HAZARD_POOL = ['chili', 'onion'];
+const HAZARD_POOL = ['bomb', 'boot'];
 
 // Hebrew display names — used in failure reasons.
 const HAZARD_HE = {
-  chili: 'פלפל חריף',
-  onion: 'בצל',
+  bomb: 'פצצה',
+  boot: 'נעל',
 };
 
 // One-stop gameplay tuning. Visual sizes (fruit width/height) live in
@@ -165,11 +165,13 @@ export class KnifeSkillsGame {
   }
 
   async preloadAssets() {
-    const urls = [...PRODUCE_POOL, ...HAZARD_POOL].map((type) =>
-      type === 'chili' || type === 'onion'
-        ? new URL(`./assets/knife/hazard_${type}.svg`, import.meta.url).href
-        : new URL(`./assets/knife/${type}.svg`, import.meta.url).href,
-    );
+    const urls = [...PRODUCE_POOL, ...HAZARD_POOL].map((type) => {
+      // Boot is reused from the burger game; bomb is local to knife. Other
+      // produce sits alongside knife in its own subfolder.
+      if (type === 'boot') return new URL(`./assets/boot_small.png`, import.meta.url).href;
+      if (type === 'bomb') return new URL(`./assets/knife/hazard_bomb.svg`, import.meta.url).href;
+      return new URL(`./assets/knife/${type}.svg`, import.meta.url).href;
+    });
     await Promise.all(
       urls.map(
         (url) =>
@@ -192,7 +194,7 @@ export class KnifeSkillsGame {
         <h3 class="knife-start-title">אמן הסכין</h3>
         <p class="knife-start-instructions">
           החליקו את האצבע על הפירות כדי לחתוך אותם.
-          היזהרו מהפלפל החריף והבצל — חתיכה אחת והמשחק נגמר.
+          היזהרו מהפצצה והנעל — חתיכה אחת והמשחק נגמר.
         </p>
         <button class="knife-start-btn" type="button">התחל</button>
       </div>

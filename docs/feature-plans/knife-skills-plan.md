@@ -3,7 +3,7 @@
 Tracking issue: [#266](https://github.com/roiguri/My-Cook-Book/issues/266)
 Umbrella: [#263](https://github.com/roiguri/My-Cook-Book/issues/263)
 
-A Fruit-Ninja-style slicing mini-game. Produce arcs up from the bottom of the play field; the player swipes a finger / mouse across them to slice them in half; hazards (chili, onion) end the run. The game tests pointer-path tracking, simple physics, and a clip-path trick that gives us two halves per ingredient from a single sprite.
+A Fruit-Ninja-style slicing mini-game. Produce arcs up from the bottom of the play field; the player swipes a finger / mouse across them to slice them in half; hazards (bomb, boot) end the run. The game tests pointer-path tracking, simple physics, and a clip-path trick that gives us two halves per ingredient from a single sprite.
 
 ---
 
@@ -30,9 +30,9 @@ A future v2 may extend the wrapper to surface combo bonuses or a high-score numb
 | 3   | Field orientation: produce arcs up from bottom (gravity pulls back down). Fixed origin band along the bottom edge with random x.                                                   |
 | 4   | Slice detection: pointer-path segment must intersect a fruit's bounding circle AND meet a minimum velocity threshold. No "tap to slice" — the swipe must travel through the fruit. |
 | 5   | Halves: one sprite per fruit, split visually with `clip-path: inset(...)` along the cut line. Saves ~2/3 of art budget vs separate half sprites.                                   |
-| 6   | Hazards: 2 types — chili 🌶️ and onion 🧅. Same physics as fruit. Sliced hazard = game over.                                                                                        |
+| 6   | Hazards: 2 types — bomb 💣 (Twemoji) and boot 👞 (reused from `burger_stacker`'s `boot_small.png`). Same physics as fruit. Sliced hazard = game over.                              |
 | 7   | Audio: silent in v1 (matches pizzatron). Sound infra deferred to a shared pass later.                                                                                              |
-| 8   | Assets: Twemoji set (CC-BY-4.0, SVG). ~8 fruits + 2 hazards. Side-on view, no AI-generation cost. Falls back to text emoji if SVG loading fails.                                   |
+| 8   | Assets: Twemoji set (CC-BY-4.0, SVG) for fruits + bomb. Boot hazard reuses `boot_small.png` from `burger_stacker`. Side-on view, no AI-generation cost.                            |
 | 9   | Combo: a "combo" is N≥2 items sliced within a single pointerdown→pointerup session. Shown as floating text `קומבו! ×N`. No score impact in v1.                                     |
 | 10  | Game start: same start overlay pattern as pizzatron — title, instructions, start button. Timer starts on press, not on first slice.                                                |
 
@@ -297,7 +297,7 @@ Three terminal conditions:
 | Condition                                      | Outcome                                                                     |
 | ---------------------------------------------- | --------------------------------------------------------------------------- |
 | `sliced >= toWin`                              | `onComplete()` — game won, wrapper shows time                               |
-| Hazard sliced                                  | `onGameOver('פגעת בפלפל חריף!')` — instant fail                             |
+| Hazard sliced                                  | `onGameOver('פגעת בפצצה!')` / `'פגעת בנעל!'` — instant fail                 |
 | Unsliced produce reaches `y > fieldHeight + N` | `strikes++`; if `strikes >= maxStrikes` → `onGameOver('פספסת יותר מדי...')` |
 
 Hazards that fall off-screen unsliced are **not** counted as missed (they're a trap, not a target). Implementation: `cullOffscreen()` only increments `strikes` for non-hazard, non-sliced fruits.
@@ -310,18 +310,18 @@ Hazards that fall off-screen unsliced are **not** counted as missed (they're a t
 
 [Twemoji](https://github.com/twitter/twemoji) — CC-BY-4.0 SVGs. Drop the SVG files directly into `src/lib/games/assets/knife/`. SVG keeps file sizes tiny (~3–8 KB each), scales cleanly to any size, and renders consistently across platforms (vs platform-specific native emoji rendering).
 
-| Asset         | Filename           | Unicode | Notes                              |
-| ------------- | ------------------ | ------- | ---------------------------------- |
-| Apple         | `apple.svg`        | 1f34e   | Red apple, side view               |
-| Lemon         | `lemon.svg`        | 1f34b   |                                    |
-| Watermelon    | `watermelon.svg`   | 1f349   | High-contrast, ideal for slice viz |
-| Strawberry    | `strawberry.svg`   | 1f353   |                                    |
-| Kiwi          | `kiwi.svg`         | 1f95d   | (kiwifruit)                        |
-| Banana        | `banana.svg`       | 1f34c   |                                    |
-| Orange        | `orange.svg`       | 1f34a   | (tangerine)                        |
-| Pineapple     | `pineapple.svg`    | 1f34d   |                                    |
-| Hazard: chili | `hazard_chili.svg` | 1f336   |                                    |
-| Hazard: onion | `hazard_onion.svg` | 1f9c5   |                                    |
+| Asset        | Filename            | Unicode | Notes                              |
+| ------------ | ------------------- | ------- | ---------------------------------- |
+| Apple        | `apple.svg`         | 1f34e   | Red apple, side view               |
+| Lemon        | `lemon.svg`         | 1f34b   |                                    |
+| Watermelon   | `watermelon.svg`    | 1f349   | High-contrast, ideal for slice viz |
+| Strawberry   | `strawberry.svg`    | 1f353   |                                    |
+| Kiwi         | `kiwi.svg`          | 1f95d   | (kiwifruit)                        |
+| Banana       | `banana.svg`        | 1f34c   |                                    |
+| Orange       | `orange.svg`        | 1f34a   | (tangerine)                        |
+| Pineapple    | `pineapple.svg`     | 1f34d   |                                    |
+| Hazard: bomb | `hazard_bomb.svg`   | 1f4a3   |                                    |
+| Hazard: boot | `../boot_small.png` | n/a     | Reused from `burger_stacker`       |
 
 **Total: 10 SVGs.** Free, instant, no generation step.
 
@@ -402,8 +402,8 @@ Register in `GameWrapper`'s `REGISTRY`:
 Hebrew strings used in-game:
 
 - Start title: `"אמן הסכין"`
-- Start instructions: `"החליקו את האצבע על הפירות לחתוך אותם. היזהרו מהפלפל החריף והבצל!"`
-- Game over (hazard): `"פגעת בפלפל חריף!"` / `"פגעת בבצל!"`
+- Start instructions: `"החליקו את האצבע על הפירות כדי לחתוך אותם. היזהרו מהפצצה והנעל — חתיכה אחת והמשחק נגמר."`
+- Game over (hazard): `"פגעת בפצצה!"` / `"פגעת בנעל!"`
 - Game over (misses): `"פספסת יותר מדי פירות!"`
 - Combo: `"קומבו! ×N"`
 
@@ -426,8 +426,8 @@ src/lib/games/
       banana.svg
       orange.svg
       pineapple.svg
-      hazard_chili.svg
-      hazard_onion.svg
+      hazard_bomb.svg
+      # (boot reused from src/lib/games/assets/boot_small.png)
 ```
 
 `game_wrapper.js` change:
