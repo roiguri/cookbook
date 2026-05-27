@@ -29,6 +29,8 @@ const REGISTRY = [
     defaultConfig: { targetHeight: 5 },
     successMessage: 'כל הכבוד! ההמבוגר מוכן',
     loadingText: 'מכין את המטבח... תפוס את המרכיבים!',
+    // Falling items want vertical real estate — recommend portrait on phones.
+    preferredOrientation: 'portrait',
   },
   {
     key: 'pizza',
@@ -43,10 +45,8 @@ const REGISTRY = [
     // during async waits in other modals — it's an explicit-choice game
     // and only meant to be launched from /games.
     excludeFromRandom: true,
-    // When set, the wrapper shows a rotation prompt on portrait phones
-    // (with a "המשך בכל זאת" escape hatch). Pizzatron's belt is inherently
-    // horizontal so portrait makes it nearly unplayable.
-    requiresLandscape: true,
+    // Horizontal conveyor belt — recommend landscape on phones.
+    preferredOrientation: 'landscape',
   },
 ];
 
@@ -74,7 +74,7 @@ export class GameWrapper {
       ...overrides,
       successMessage: pick.successMessage,
       loadingText: pick.loadingText,
-      requiresLandscape: !!pick.requiresLandscape,
+      preferredOrientation: pick.preferredOrientation || null,
     });
   }
 
@@ -133,14 +133,31 @@ export class GameWrapper {
       `
       : '';
 
-    const rotateBlock = this.config.requiresLandscape
-      ? `
-        <rotate-prompt
-          active-media="(orientation: portrait) and (max-width: 768px)"
-          body-text="המשחק עוצב למצב אופקי. סובב את המכשיר לרוחב כדי להמשיך."
-        ></rotate-prompt>
-      `
-      : '';
+    // Match the game's preferred orientation to a rotate-prompt config.
+    // Activated on phone-sized viewports only (modal also activates on
+    // max-height: 500 to catch landscape phones).
+    const rotateBlock = (() => {
+      const pref = this.config.preferredOrientation;
+      if (pref === 'landscape') {
+        return `
+          <rotate-prompt
+            active-media="(orientation: portrait) and (max-width: 768px)"
+            title-text="סובב את המסך לרוחב"
+            body-text="המשחק עוצב למצב אופקי. סובב את המכשיר לרוחב כדי להמשיך."
+          ></rotate-prompt>
+        `;
+      }
+      if (pref === 'portrait') {
+        return `
+          <rotate-prompt
+            active-media="(orientation: landscape) and (max-height: 500px)"
+            title-text="סובב את המסך לאורך"
+            body-text="המשחק עוצב למצב אנכי. סובב את המכשיר לאורך כדי להמשיך."
+          ></rotate-prompt>
+        `;
+      }
+      return '';
+    })();
 
     this.container.innerHTML = `
       <div class="game-wrapper">
