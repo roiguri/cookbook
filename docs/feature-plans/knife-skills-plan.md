@@ -389,7 +389,7 @@ Register in `GameWrapper`'s `REGISTRY`:
 ```js
 {
   key: 'knife',
-  name: 'אמן הסכין',
+  name: 'אמנות הסכין',
   icon: '🔪',
   description: 'חתכו את הפירות, היזהרו מהמכשולים',
   GameClass: KnifeSkillsGame,
@@ -401,7 +401,7 @@ Register in `GameWrapper`'s `REGISTRY`:
 
 Hebrew strings used in-game:
 
-- Start title: `"אמן הסכין"`
+- Start title: `"אמנות הסכין"`
 - Start instructions: `"החליקו את האצבע על הפירות כדי לחתוך אותם. היזהרו מהפצצה והנעל — חתיכה אחת והמשחק נגמר."`
 - Game over (hazard): `"פגעת בפצצה!"` / `"פגעת בנעל!"`
 - Game over (misses): `"פספסת יותר מדי פירות!"`
@@ -477,7 +477,7 @@ Built as one PR — no phase gating. Sub-bullets are the acceptance criteria.
 
 ## 15. Open / deferred decisions
 
-- **Hebrew name** — placeholder is `"אמן הסכין"` (Knife Master). Alternatives: `"סושי שף"`, `"חיתוך מהיר"`. Park for now.
+- **Hebrew name** — `"אמנות הסכין"` (The Art of the Knife). Locked.
 - **Strike count** — 3 is the default. Some Fruit-Ninja variants use 0 (any miss = fail). Worth a tuning pass after first playtest.
 - **Combo display position** — floating from the slice end-point vs fixed center of HUD. Trying floating first; revisit if it competes with the slash trail.
 - **Hazard slice fail vs hazard touch fail** — currently fail only on slice (requires min-velocity, so accidental hovers don't fail). If players complain "I didn't mean to swipe through it", we keep the velocity gate strict. If they complain "I dodged it and still failed", we may need a "did the segment cross with intent" heuristic. Park; iterate after playtest.

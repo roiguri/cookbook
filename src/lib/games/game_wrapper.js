@@ -52,7 +52,7 @@ const REGISTRY = [
   },
   {
     key: 'knife',
-    name: 'אמן הסכין',
+    name: 'אמנות הסכין',
     icon: '🔪',
     description: 'חתכו את הפירות, היזהרו מהמכשולים',
     GameClass: KnifeSkillsGame,

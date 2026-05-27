@@ -195,7 +195,7 @@ export class KnifeSkillsGame {
     overlay.innerHTML = `
       <div class="knife-start-card">
         <div class="knife-start-emoji" aria-hidden="true">🔪</div>
-        <h3 class="knife-start-title">אמן הסכין</h3>
+        <h3 class="knife-start-title">אמנות הסכין</h3>
         <p class="knife-start-instructions">
           החליקו את האצבע על הפירות כדי לחתוך אותם.
           היזהרו מהפצצה והנעל — חתיכה אחת והמשחק נגמר.
