@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document defines the testing strategy, tools, and protocols for the My-Cook-Book project.
+This document defines the testing strategy, tools, and protocols for the Cookbook project.
 
 ## 1. Overview
 

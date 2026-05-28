@@ -1,7 +1,7 @@
 # Pizzatron — Design & Build Plan
 
-Tracking issue: [#266](https://github.com/roiguri/My-Cook-Book/issues/266)
-Umbrella: [#263](https://github.com/roiguri/My-Cook-Book/issues/263)
+Tracking issue: [#266](https://github.com/roiguri/cookbook/issues/266)
+Umbrella: [#263](https://github.com/roiguri/cookbook/issues/263)
 
 A Club-Penguin-Pizzatron-style conveyor builder mini-game. Empty pizzas ride a conveyor; the player drags toppings from a tray onto each pizza to match the order; pizzas ship when they reach the box at the end of the belt.
 

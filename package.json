@@ -1,5 +1,5 @@
 {
-  "name": "my-cook-book",
+  "name": "cookbook",
   "version": "1.0.0",
   "description": "This is a my first web project.",
   "type": "module",
@@ -18,15 +18,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/roiguri/My-Cook-Book.git"
+    "url": "git+https://github.com/roiguri/cookbook.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/roiguri/My-Cook-Book/issues"
+    "url": "https://github.com/roiguri/cookbook/issues"
   },
-  "homepage": "https://github.com/roiguri/My-Cook-Book#readme",
+  "homepage": "https://github.com/roiguri/cookbook#readme",
   "devDependencies": {
     "@babel/core": "^7.27.1",
     "@babel/plugin-transform-modules-commonjs": "^7.27.1",

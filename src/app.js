@@ -1,5 +1,5 @@
 /**
- * @fileoverview Main entry point for the My-Cook-Book Single Page Application (SPA).
+ * @fileoverview Main entry point for the Cookbook Single Page Application (SPA).
  * This file handles the initialization of the application, including:
  * - Firebase service initialization
  * - Core dependency loading (Auth, Search, etc.)

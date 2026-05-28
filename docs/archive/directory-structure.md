@@ -1,9 +1,9 @@
-# Directory Structure - My Cook Book SPA
+# Directory Structure - Cookbook SPA
 
 ## Current Architecture: Single Page Application (SPA)
 
 ```
-My-Cook-Book/
+cookbook/
 │
 ├── .vscode/
 │   └── settings.json                    # VS Code settings

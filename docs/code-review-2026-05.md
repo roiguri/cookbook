@@ -1,6 +1,6 @@
 # Deep Code Review — May 2026
 
-> Expert review across architecture, performance, and security for the My-Cook-Book vanilla JS SPA. Findings are prioritized P0 → P4 with file:line references and concrete fixes. Nothing in this document has been implemented yet.
+> Expert review across architecture, performance, and security for the Cookbook vanilla JS SPA. Findings are prioritized P0 → P4 with file:line references and concrete fixes. Nothing in this document has been implemented yet.
 
 ## Scope
 

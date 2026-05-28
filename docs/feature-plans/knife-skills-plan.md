@@ -1,7 +1,7 @@
 # Knife Skills — Design & Build Plan
 
-Tracking issue: [#266](https://github.com/roiguri/My-Cook-Book/issues/266)
-Umbrella: [#263](https://github.com/roiguri/My-Cook-Book/issues/263)
+Tracking issue: [#266](https://github.com/roiguri/cookbook/issues/266)
+Umbrella: [#263](https://github.com/roiguri/cookbook/issues/263)
 
 A Fruit-Ninja-style slicing mini-game. Produce arcs up from the bottom of the play field; the player swipes a finger / mouse across them to slice them in half; hazards (bomb, boot) end the run. The game tests pointer-path tracking, simple physics, and a clip-path trick that gives us two halves per ingredient from a single sprite.
 

@@ -1,6 +1,6 @@
 # Test Coverage Checklist
 
-This document tracks the testing status of the My-Cook-Book integration. Use this to identify gaps and plan future work.
+This document tracks the testing status of the Cookbook integration. Use this to identify gaps and plan future work.
 
 ## 🚦 Application Flows (E2E)
 
