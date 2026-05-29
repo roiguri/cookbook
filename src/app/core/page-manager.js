@@ -241,13 +241,13 @@ export class PageManager {
     console.error('Page load error:', error);
 
     this.contentContainer.innerHTML = `
-      <div class="page-error">
+      <div class="page-error" dir="rtl">
         <div class="error-card">
-          <h2>Page Load Error</h2>
-          <p>Sorry, there was an error loading this page.</p>
+          <h2>שגיאה בטעינת הדף</h2>
+          <p>אירעה שגיאה בטעינת הדף. אנא נסו שוב.</p>
           <div class="error-details" id="error-details"></div>
           <button class="reload-button" id="reload-button">
-            Reload Page
+            טען מחדש
           </button>
         </div>
       </div>
