@@ -59,6 +59,10 @@ const REGISTRY = [
     defaultConfig: { toSlice: 30, maxStrikes: 3 },
     successMessage: 'כל הכבוד! חיתוך מושלם',
     loadingText: 'משחיזים את הסכינים... חכה רגע!',
+    // Excluded from GameWrapper.random() so it never shows as a filler during
+    // async waits (e.g. the recipe import modal) — it's an explicit-choice game
+    // launched from /games.
+    excludeFromRandom: true,
     // Fruits arc up from the bottom — recommend portrait on phones.
     preferredOrientation: 'portrait',
   },
