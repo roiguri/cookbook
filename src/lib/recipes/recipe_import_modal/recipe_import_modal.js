@@ -1,5 +1,6 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { icons } from '../../../js/icons.js';
+import { parseYouTubeUrl } from '../../../js/utils/youtube-url.js';
 import Cropper from 'cropperjs';
 import '../../modals/confirmation_modal/confirmation_modal.js';
 import styles from './recipe_import_modal.css?inline';
@@ -17,7 +18,7 @@ class RecipeImportModal extends HTMLElement {
     this.gameWrapper = null;
     this.game = null;
     this.extractedData = null;
-    this.importMode = 'image'; // 'image' or 'url'
+    this.importMode = 'image'; // 'image' | 'url' | 'video'
     this.importUrl = null; // URL used for extraction, included in recipe-extracted event
     this.requestId = 0; // Incremented on reset to invalidate in-flight responses
     this.abortController = null; // Aborts client-side wait when modal is reset mid-flight
@@ -49,6 +50,7 @@ class RecipeImportModal extends HTMLElement {
             <div class="import-tabs">
               <button class="tab-btn active" id="tab-image">מתמונה</button>
               <button class="tab-btn" id="tab-url">מכתובת URL</button>
+              <button class="tab-btn" id="tab-video">מסרטון YouTube</button>
             </div>
 
             <!-- Initial State: Upload -->
@@ -63,6 +65,14 @@ class RecipeImportModal extends HTMLElement {
               <label for="url-input" class="url-label">הכנס כתובת URL של מתכון:</label>
               <input type="url" id="url-input" class="url-input" placeholder="https://example.com/recipe" dir="ltr">
               <p class="url-help-text">הדבק קישור למתכון מאתר בישול כלשהו</p>
+            </div>
+
+            <!-- Video Input View (YouTube) -->
+            <div id="video-view" style="display: none;" class="url-input-container">
+              <label for="video-input" class="url-label">הכנס קישור לסרטון YouTube:</label>
+              <input type="url" id="video-input" class="url-input" placeholder="https://www.youtube.com/watch?v=..." dir="ltr">
+              <p class="url-help-text">תמיכה בסרטונים רגילים וב-Shorts. קישורי youtu.be מתקבלים גם הם.</p>
+              <p class="url-error-text" id="video-error" style="display: none;"></p>
             </div>
 
             <!-- Preview State: List & Reorder -->
@@ -124,8 +134,10 @@ class RecipeImportModal extends HTMLElement {
     // Tab switching
     const tabImage = this.shadowRoot.getElementById('tab-image');
     const tabUrl = this.shadowRoot.getElementById('tab-url');
+    const tabVideo = this.shadowRoot.getElementById('tab-video');
     const urlView = this.shadowRoot.getElementById('url-view');
     const urlInput = this.shadowRoot.getElementById('url-input');
+    const videoInput = this.shadowRoot.getElementById('video-input');
 
     // Tools
     const rotateLeftBtn = this.shadowRoot.getElementById('rotate-left');
@@ -139,9 +151,11 @@ class RecipeImportModal extends HTMLElement {
     // Tab switching
     tabImage.addEventListener('click', () => this.switchToTab('image'));
     tabUrl.addEventListener('click', () => this.switchToTab('url'));
+    tabVideo.addEventListener('click', () => this.switchToTab('video'));
 
     // URL input validation
     urlInput.addEventListener('input', () => this.validateUrlInput());
+    videoInput.addEventListener('input', () => this.validateVideoInput());
 
     // Close Actions
     const close = () => modal.close({ byUser: true });
@@ -200,6 +214,8 @@ class RecipeImportModal extends HTMLElement {
     extractBtn.addEventListener('click', () => {
       if (this.importMode === 'image') {
         this.extractRecipe();
+      } else if (this.importMode === 'video') {
+        this.extractRecipeFromVideo();
       } else {
         this.extractRecipeFromUrl();
       }
@@ -406,6 +422,7 @@ class RecipeImportModal extends HTMLElement {
       this.shadowRoot.getElementById('loading-view').style.display = 'none';
       this.shadowRoot.getElementById('error-view').style.display = 'none';
       this.shadowRoot.getElementById('url-view').style.display = 'none';
+      this.shadowRoot.getElementById('video-view').style.display = 'none';
       // Reset Inline Error
       this.shadowRoot.getElementById('inline-error-container').style.display = 'none';
 
@@ -417,14 +434,20 @@ class RecipeImportModal extends HTMLElement {
       this.shadowRoot.getElementById('extract-btn').disabled = true;
       this.shadowRoot.getElementById('file-input').value = '';
       this.shadowRoot.getElementById('url-input').value = '';
+      const videoInput = this.shadowRoot.getElementById('video-input');
+      videoInput.value = '';
+      videoInput.classList.remove('invalid');
+      this.shadowRoot.getElementById('video-error').style.display = 'none';
 
       // Reset tab to image mode
       this.importMode = 'image';
       const tabImage = this.shadowRoot.getElementById('tab-image');
       const tabUrl = this.shadowRoot.getElementById('tab-url');
-      if (tabImage && tabUrl) {
+      const tabVideo = this.shadowRoot.getElementById('tab-video');
+      if (tabImage && tabUrl && tabVideo) {
         tabImage.classList.add('active');
         tabUrl.classList.remove('active');
+        tabVideo.classList.remove('active');
       }
     }
   }
@@ -504,6 +527,7 @@ class RecipeImportModal extends HTMLElement {
       // editorView.style.display = 'none'; // Editor is already closed or irrelevant
       this.shadowRoot.getElementById('preview-view').style.display = 'none'; // Hide preview
       this.shadowRoot.getElementById('url-view').style.display = 'none'; // Hide URL input
+      this.shadowRoot.getElementById('video-view').style.display = 'none'; // Hide video input
       if (importTabs) importTabs.style.display = 'none'; // Hide tabs
       footer.style.display = 'none';
 
@@ -542,21 +566,35 @@ class RecipeImportModal extends HTMLElement {
     const inlineErrorText = this.shadowRoot.getElementById('inline-error-text');
     const loadingView = this.shadowRoot.getElementById('loading-view');
 
-    // Determine if we're in URL or image mode
-    const isUrlMode = this.importMode === 'url';
+    // Determine current import mode
+    const mode = this.importMode; // 'image' | 'url' | 'video'
 
     // Error mapping - mode aware
-    let displayMessage = isUrlMode
-      ? 'אירעה שגיאה בייבוא המתכון מהכתובת. אנא נסה שוב.'
-      : 'אירעה שגיאה בעיבוד התמונה. אנא נסה שוב.';
+    const defaultByMode = {
+      image: 'אירעה שגיאה בעיבוד התמונה. אנא נסה שוב.',
+      url: 'אירעה שגיאה בייבוא המתכון מהכתובת. אנא נסה שוב.',
+      video: 'אירעה שגיאה בייבוא המתכון מהסרטון. אנא נסה שוב.',
+    };
+    const invalidArgByMode = {
+      image: 'התמונה שנשלחה אינה תקינה.',
+      url: 'כתובת ה-URL אינה תקינה.',
+      video: 'הקישור אינו סרטון YouTube תקין.',
+    };
+    const couldNotExtractByMode = {
+      image: 'לא ניתן לחלץ מתכון מהתמונה.',
+      url: 'לא ניתן לחלץ מתכון מכתובת זו.',
+      video: 'לא ניתן לחלץ מתכון מסרטון זה. ייתכן שהוא פרטי, מוגבל גיל, או אינו מכיל מתכון.',
+    };
+
+    let displayMessage = defaultByMode[mode] || defaultByMode.image;
     const rawMessage = error.message || '';
 
     if (rawMessage.includes('permission-denied') || rawMessage.includes('unauthenticated')) {
       displayMessage = 'אין לך הרשאה לבצע פעולה זו.';
     } else if (rawMessage.includes('invalid-argument')) {
-      displayMessage = isUrlMode ? 'כתובת ה-URL אינה תקינה.' : 'התמונה שנשלחה אינה תקינה.';
+      displayMessage = invalidArgByMode[mode] || invalidArgByMode.image;
     } else if (rawMessage.includes('Could not extract')) {
-      displayMessage = isUrlMode ? 'לא ניתן לחלץ מתכון מכתובת זו.' : 'לא ניתן לחלץ מתכון מהתמונה.';
+      displayMessage = couldNotExtractByMode[mode] || couldNotExtractByMode.image;
     } else if (rawMessage.includes('internal')) {
       displayMessage = 'שגיאה בשרת העיבוד.';
     } else if (rawMessage.includes('quota-exceeded')) {
@@ -606,35 +644,43 @@ class RecipeImportModal extends HTMLElement {
 
     const tabImage = this.shadowRoot.getElementById('tab-image');
     const tabUrl = this.shadowRoot.getElementById('tab-url');
+    const tabVideo = this.shadowRoot.getElementById('tab-video');
     const uploadView = this.shadowRoot.getElementById('upload-view');
     const urlView = this.shadowRoot.getElementById('url-view');
+    const videoView = this.shadowRoot.getElementById('video-view');
     const previewView = this.shadowRoot.getElementById('preview-view');
     const extractBtn = this.shadowRoot.getElementById('extract-btn');
     const extractBtnText = this.shadowRoot.getElementById('extract-btn-text');
 
+    // Default: hide everything; the branch below shows the right one.
+    tabImage.classList.remove('active');
+    tabUrl.classList.remove('active');
+    tabVideo.classList.remove('active');
+    uploadView.style.display = 'none';
+    urlView.style.display = 'none';
+    videoView.style.display = 'none';
+    previewView.style.display = 'none';
+
     if (mode === 'image') {
       tabImage.classList.add('active');
-      tabUrl.classList.remove('active');
-      urlView.style.display = 'none';
       extractBtnText.textContent = 'חלץ מתכון';
 
       if (this.images.length === 0) {
         uploadView.style.display = 'block';
-        previewView.style.display = 'none';
         extractBtn.disabled = true;
       } else {
-        uploadView.style.display = 'none';
         previewView.style.display = 'block';
         extractBtn.disabled = false;
       }
+    } else if (mode === 'video') {
+      tabVideo.classList.add('active');
+      videoView.style.display = 'block';
+      extractBtnText.textContent = 'ייבא מסרטון';
+      this.validateVideoInput();
     } else {
-      tabImage.classList.remove('active');
       tabUrl.classList.add('active');
-      uploadView.style.display = 'none';
-      previewView.style.display = 'none';
       urlView.style.display = 'block';
       extractBtnText.textContent = 'ייבא מכתובת';
-
       this.validateUrlInput();
     }
   }
@@ -657,6 +703,33 @@ class RecipeImportModal extends HTMLElement {
       extractBtn.disabled = true;
       return false;
     }
+  }
+
+  validateVideoInput() {
+    const videoInput = this.shadowRoot.getElementById('video-input');
+    const extractBtn = this.shadowRoot.getElementById('extract-btn');
+    const errorEl = this.shadowRoot.getElementById('video-error');
+    const url = videoInput.value.trim();
+
+    // Empty: neutral state — disabled button, no error shown yet.
+    if (url === '') {
+      extractBtn.disabled = true;
+      videoInput.classList.remove('invalid');
+      errorEl.style.display = 'none';
+      return false;
+    }
+
+    const parsed = parseYouTubeUrl(url);
+    extractBtn.disabled = !parsed;
+    if (parsed) {
+      videoInput.classList.remove('invalid');
+      errorEl.style.display = 'none';
+    } else {
+      videoInput.classList.add('invalid');
+      errorEl.textContent = 'הקישור אינו סרטון YouTube תקין. הדבק קישור watch, Shorts או youtu.be.';
+      errorEl.style.display = 'block';
+    }
+    return Boolean(parsed);
   }
 
   async extractRecipeFromUrl() {
@@ -689,6 +762,41 @@ class RecipeImportModal extends HTMLElement {
     } catch (error) {
       if (error.name === 'AbortError' || this.requestId !== myRequestId) return;
       console.error('URL extraction failed:', error);
+      this.isLoading = false;
+      this.setError(error);
+    }
+  }
+
+  async extractRecipeFromVideo() {
+    const videoInput = this.shadowRoot.getElementById('video-input');
+    const url = videoInput.value.trim();
+
+    if (!this.validateVideoInput()) {
+      return;
+    }
+
+    this.importUrl = url;
+    this.setLoading(true);
+    const myRequestId = this.requestId;
+    this.abortController = new AbortController();
+    const { signal } = this.abortController;
+
+    try {
+      const functions = getFunctions();
+      const extractRecipeFromVideoFn = httpsCallable(functions, 'extractRecipeFromVideo');
+
+      const abortPromise = new Promise((_, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      });
+
+      const result = await Promise.race([extractRecipeFromVideoFn({ url }), abortPromise]);
+
+      if (this.requestId !== myRequestId) return;
+
+      this.showSuccessState(result.data);
+    } catch (error) {
+      if (error.name === 'AbortError' || this.requestId !== myRequestId) return;
+      console.error('Video extraction failed:', error);
       this.isLoading = false;
       this.setError(error);
     }

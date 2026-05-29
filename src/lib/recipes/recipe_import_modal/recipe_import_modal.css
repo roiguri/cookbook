@@ -113,6 +113,12 @@
   box-shadow: var(--ring);
 }
 
+.url-input.invalid,
+.url-input.invalid:focus {
+  border-color: var(--secondary, #bc4749);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--secondary, #bc4749) 20%, transparent);
+}
+
 .url-input::placeholder {
   color: var(--ink-3, #7c7562);
 }
@@ -122,6 +128,13 @@
   font-family: var(--font-ui-he, system-ui, sans-serif);
   color: var(--ink-3, #7c7562);
   margin: 0;
+}
+
+.url-error-text {
+  font-size: 12px;
+  font-family: var(--font-ui-he, system-ui, sans-serif);
+  color: var(--secondary-dark, #9a3a3c);
+  margin: 4px 0 0;
 }
 
 /* ---- Upload drop area ---- */

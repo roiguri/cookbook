@@ -5,9 +5,11 @@ const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestor
 const {
   extractRecipeFromImage,
   extractRecipeFromUrl,
+  extractRecipeFromVideo,
   enhanceFoodImage,
   PARAMETER_TAXONOMY,
 } = require('./utils/gemini-service');
+const { withAuthAndRole } = require('./utils/guards');
 const { sendNotificationToRole } = require('./notifications');
 
 // Initialize Firebase Admin
@@ -18,7 +20,7 @@ const db = getFirestore();
 // implementation lives in ./recipe-transfer.js so this file stays lean.
 exports.processRecipeTransfer = require('./recipe-transfer.js').processRecipeTransfer;
 
-async function logFailedUrlExtraction(url, error, userId) {
+async function logFailedUrlExtraction(url, error, userId, kind = 'url') {
   try {
     const collectionRef = db.collection('failed_url_extractions');
     const snapshot = await collectionRef.where('url', '==', url).limit(1).get();
@@ -36,6 +38,7 @@ async function logFailedUrlExtraction(url, error, userId) {
         lastAttempt: Timestamp.now(),
         error: errorData,
         lastUserId: userId,
+        kind,
       });
     } else {
       await collectionRef.add({
@@ -45,6 +48,7 @@ async function logFailedUrlExtraction(url, error, userId) {
         lastAttempt: Timestamp.now(),
         error: errorData,
         lastUserId: userId,
+        kind,
       });
     }
   } catch (logError) {
@@ -52,52 +56,24 @@ async function logFailedUrlExtraction(url, error, userId) {
   }
 }
 
-exports.extractRecipeFromImage = onCall({ secrets: ['GEMINI_API_KEY'] }, async (request) => {
-  // Check if user is authenticated
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
-  }
+exports.extractRecipeFromImage = onCall(
+  { secrets: ['GEMINI_API_KEY'] },
+  withAuthAndRole(['approved', 'manager'], async (request) => {
+    const { images } = request.data;
 
-  const { uid, token } = request.auth;
-  const { images } = request.data;
-
-  // Verify inputs
-  if (!images || !Array.isArray(images) || images.length === 0) {
-    throw new HttpsError('invalid-argument', 'The function must be called with an images array.');
-  }
-
-  try {
-    // Check for approved/manager role
-    // We can check the custom claims in the token or fetch the user from Firestore
-    // For performance, checking claims is better if they are set.
-    // Fallback to Firestore if needed or if claims aren't fully trusted for this op.
-
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) {
-      throw new HttpsError('permission-denied', 'User not found.');
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      throw new HttpsError('invalid-argument', 'The function must be called with an images array.');
     }
 
-    const userData = userDoc.data();
-    const role = userData.role;
-
-    if (role !== 'approved' && role !== 'manager') {
-      throw new HttpsError(
-        'permission-denied',
-        'User must be approved or a manager to use this feature.',
-      );
+    try {
+      return await extractRecipeFromImage(images);
+    } catch (error) {
+      console.error('Error extracting recipe:', error);
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError('internal', 'Recipe extraction failed', error.message);
     }
-
-    const recipeData = await extractRecipeFromImage(images);
-    return recipeData;
-  } catch (error) {
-    console.error('Error extracting recipe:', error);
-    // Re-throw HTTPS errors as-is
-    if (error.code && error.details) {
-      throw error;
-    }
-    throw new HttpsError('internal', 'Recipe extraction failed', error.message);
-  }
-});
+  }),
+);
 
 const MAX_INSTRUCTION_LENGTH = 500;
 
@@ -130,100 +106,86 @@ function validateInstruction(instruction) {
   }
 }
 
-exports.enhanceFoodImage = onCall({ secrets: ['GEMINI_API_KEY'] }, async (request) => {
-  // Check if user is authenticated
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
-  }
+exports.enhanceFoodImage = onCall(
+  { secrets: ['GEMINI_API_KEY'] },
+  withAuthAndRole(['manager'], async (request) => {
+    const { image, parameters, instruction } = request.data || {};
 
-  const { uid } = request.auth;
-  const { image, parameters, instruction } = request.data || {};
-
-  if (!image || typeof image !== 'object' || typeof image.base64 !== 'string' || !image.base64) {
-    throw new HttpsError(
-      'invalid-argument',
-      'image must be an object of shape { base64, mimeType? }.',
-    );
-  }
-  validateEnhancementParameters(parameters);
-  validateInstruction(instruction);
-
-  try {
-    // Role gate — managers only.
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) {
-      throw new HttpsError('permission-denied', 'User not found.');
-    }
-
-    const role = userDoc.data().role;
-    if (role !== 'manager') {
-      throw new HttpsError('permission-denied', 'User must be a manager to use this feature.');
-    }
-
-    return await enhanceFoodImage({ image, parameters, instruction });
-  } catch (error) {
-    console.error('Error enhancing image:', error);
-    if (error instanceof HttpsError) throw error;
-    throw new HttpsError('internal', 'Image enhancement failed');
-  }
-});
-
-exports.extractRecipeFromUrl = onCall({ secrets: ['GEMINI_API_KEY'] }, async (request) => {
-  // Check if user is authenticated
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
-  }
-
-  const { uid } = request.auth;
-  const { url } = request.data;
-
-  // Verify inputs
-  if (!url || typeof url !== 'string') {
-    throw new HttpsError(
-      'invalid-argument',
-      'The function must be called with a valid URL string.',
-    );
-  }
-
-  // Validate URL format
-  try {
-    new URL(url);
-  } catch (urlError) {
-    throw new HttpsError('invalid-argument', 'Invalid URL format provided.');
-  }
-
-  try {
-    // Check for approved/manager role
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) {
-      throw new HttpsError('permission-denied', 'User not found.');
-    }
-
-    const userData = userDoc.data();
-    const role = userData.role;
-
-    if (role !== 'approved' && role !== 'manager') {
+    if (!image || typeof image !== 'object' || typeof image.base64 !== 'string' || !image.base64) {
       throw new HttpsError(
-        'permission-denied',
-        'User must be approved or a manager to use this feature.',
+        'invalid-argument',
+        'image must be an object of shape { base64, mimeType? }.',
+      );
+    }
+    validateEnhancementParameters(parameters);
+    validateInstruction(instruction);
+
+    try {
+      return await enhanceFoodImage({ image, parameters, instruction });
+    } catch (error) {
+      console.error('Error enhancing image:', error);
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError('internal', 'Image enhancement failed');
+    }
+  }),
+);
+
+exports.extractRecipeFromUrl = onCall(
+  { secrets: ['GEMINI_API_KEY'] },
+  withAuthAndRole(['approved', 'manager'], async (request, { uid }) => {
+    const { url } = request.data;
+
+    if (!url || typeof url !== 'string') {
+      throw new HttpsError(
+        'invalid-argument',
+        'The function must be called with a valid URL string.',
       );
     }
 
-    const recipeData = await extractRecipeFromUrl(url);
-    return recipeData;
-  } catch (error) {
-    console.error('Error extracting recipe from URL:', error);
-
-    // Log the failure
-    await logFailedUrlExtraction(url, error, uid);
-
-    // Re-throw HTTPS errors as-is
-    if (error.code && error.details) {
-      throw error;
+    try {
+      new URL(url);
+    } catch (urlError) {
+      throw new HttpsError('invalid-argument', 'Invalid URL format provided.');
     }
-    throw new HttpsError('internal', 'Recipe extraction from URL failed', error.message);
-  }
-});
+
+    try {
+      return await extractRecipeFromUrl(url);
+    } catch (error) {
+      console.error('Error extracting recipe from URL:', error);
+      await logFailedUrlExtraction(url, error, uid, 'url');
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError('internal', 'Recipe extraction from URL failed', error.message);
+    }
+  }),
+);
+
+exports.extractRecipeFromVideo = onCall(
+  { secrets: ['GEMINI_API_KEY'], timeoutSeconds: 300 },
+  withAuthAndRole(['approved', 'manager'], async (request, { uid }) => {
+    const { url } = request.data || {};
+
+    if (!url || typeof url !== 'string') {
+      throw new HttpsError(
+        'invalid-argument',
+        'The function must be called with a YouTube URL string.',
+      );
+    }
+
+    try {
+      return await extractRecipeFromVideo(url);
+    } catch (error) {
+      console.error('Error extracting recipe from video:', error);
+      await logFailedUrlExtraction(url, error, uid, 'video');
+      if (error instanceof HttpsError) throw error;
+      // Surface "not a YouTube URL" as invalid-argument so the client can show
+      // a precise message instead of a generic internal error.
+      if (error.message && error.message.includes('is not a valid YouTube URL')) {
+        throw new HttpsError('invalid-argument', error.message);
+      }
+      throw new HttpsError('internal', 'Recipe extraction from video failed', error.message);
+    }
+  }),
+);
 
 /**
  * Notify managers when a new recipe is submitted for approval.
