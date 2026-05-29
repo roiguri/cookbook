@@ -72,6 +72,7 @@ class RecipeImportModal extends HTMLElement {
               <label for="video-input" class="url-label">הכנס קישור לסרטון YouTube:</label>
               <input type="url" id="video-input" class="url-input" placeholder="https://www.youtube.com/watch?v=..." dir="ltr">
               <p class="url-help-text">תמיכה בסרטונים רגילים וב-Shorts. קישורי youtu.be מתקבלים גם הם.</p>
+              <p class="url-error-text" id="video-error" style="display: none;"></p>
             </div>
 
             <!-- Preview State: List & Reorder -->
@@ -433,7 +434,10 @@ class RecipeImportModal extends HTMLElement {
       this.shadowRoot.getElementById('extract-btn').disabled = true;
       this.shadowRoot.getElementById('file-input').value = '';
       this.shadowRoot.getElementById('url-input').value = '';
-      this.shadowRoot.getElementById('video-input').value = '';
+      const videoInput = this.shadowRoot.getElementById('video-input');
+      videoInput.value = '';
+      videoInput.classList.remove('invalid');
+      this.shadowRoot.getElementById('video-error').style.display = 'none';
 
       // Reset tab to image mode
       this.importMode = 'image';
@@ -704,15 +708,27 @@ class RecipeImportModal extends HTMLElement {
   validateVideoInput() {
     const videoInput = this.shadowRoot.getElementById('video-input');
     const extractBtn = this.shadowRoot.getElementById('extract-btn');
+    const errorEl = this.shadowRoot.getElementById('video-error');
     const url = videoInput.value.trim();
 
+    // Empty: neutral state — disabled button, no error shown yet.
     if (url === '') {
       extractBtn.disabled = true;
+      videoInput.classList.remove('invalid');
+      errorEl.style.display = 'none';
       return false;
     }
 
     const parsed = parseYouTubeUrl(url);
     extractBtn.disabled = !parsed;
+    if (parsed) {
+      videoInput.classList.remove('invalid');
+      errorEl.style.display = 'none';
+    } else {
+      videoInput.classList.add('invalid');
+      errorEl.textContent = 'הקישור אינו סרטון YouTube תקין. הדבק קישור watch, Shorts או youtu.be.';
+      errorEl.style.display = 'block';
+    }
     return Boolean(parsed);
   }
 
