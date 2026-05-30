@@ -30,7 +30,7 @@ export class SectionedListComponent extends DynamicListComponent {
   template() {
     return `
       <div class="${this.containerClass}">
-        <label class="recipe-form__label">${this.listTitle}</label>
+        <label class="recipe-form__label">${this.listTitle}${this.requiredMark()}</label>
         <div id="items-container" class="recipe-form__items-list">
           ${this.createInitialItem()}
         </div>
@@ -393,23 +393,12 @@ export class SectionedListComponent extends DynamicListComponent {
   }
 
   /**
-   * Dispatches a change event.
+   * Dispatches the unified form-field contract events for the orchestrator.
    * @param {string} action - The action that triggered the event.
-   * @param {object} additionalData - Additional data to include in the event detail.
    */
-  dispatchChangeEvent(action, additionalData = {}) {
-    this.dispatchEvent(
-      new CustomEvent('change', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          action,
-          data: this.getData(),
-          isSectionMode: this.isSectionMode,
-          ...additionalData,
-        },
-      }),
-    );
+  dispatchChangeEvent(action) {
+    this._emitValueChanged({ action, isSectionMode: this.isSectionMode });
+    this._emitDirtyChanged();
   }
 
   /**
@@ -507,7 +496,7 @@ export class SectionedListComponent extends DynamicListComponent {
   }
 
   /**
-   * Clears the list.
+   * Clears the list and resets the pristine baseline (unified contract).
    */
   clear() {
     this.isSectionMode = false;
@@ -517,6 +506,9 @@ export class SectionedListComponent extends DynamicListComponent {
     inputs.forEach((input) => {
       input.value = '';
     });
+    this.markPristine();
+    this._emitValueChanged({ action: 'clear', isSectionMode: false });
+    this._emitDirtyChanged();
   }
 
   /**

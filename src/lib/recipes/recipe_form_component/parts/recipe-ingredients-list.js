@@ -15,6 +15,7 @@ class RecipeIngredientsList extends SectionedListComponent {
   constructor() {
     super();
     this.listTitle = this.getAttribute('title') || 'מצרכים:';
+    this.requiredField = true;
     this.containerClass = 'recipe-form__ingredients';
     this.itemClass = 'recipe-form__ingredient-entry';
     this.addButtonClass = 'recipe-form__button--add-ingredient';

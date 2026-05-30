@@ -256,17 +256,15 @@ class ImageApprovalMulti extends HTMLElement {
     rejectAllBtn.addEventListener('click', () => this.handleRejectAll());
     cancelBtn.addEventListener('click', () => this.close());
 
-    // Listen for image selection changes
+    // Listen for image selection changes via the unified value-changed event.
     const imageHandler = this.shadowRoot.querySelector('image-handler');
     if (imageHandler) {
-      imageHandler.addEventListener('images-reordered', () => {
-        console.log('Images reordered by user');
-      });
-
-      // Listen for primary image changes
-      imageHandler.addEventListener('primary-image-changed', (event) => {
-        this.primaryImageId = event.detail.imageId;
-        console.log('Primary image set to:', this.primaryImageId);
+      imageHandler.addEventListener('value-changed', (event) => {
+        const { action, value } = event.detail;
+        if (action === 'primary-image-changed') {
+          const primary = (value.images || []).find((img) => img.isPrimary);
+          this.primaryImageId = primary ? primary.id : null;
+        }
       });
     }
   }

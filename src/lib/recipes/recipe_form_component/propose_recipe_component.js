@@ -64,6 +64,7 @@ class ProposeRecipeComponent extends HTMLElement {
         images: formImages,
         mediaInstructions: _m,
         toDelete: _td,
+        mediaToDelete: _mtd,
         ...baseFields
       } = recipeData;
       const imagesToUpload = (formImages || []).map(({ file, isPrimary }) => ({ file, isPrimary }));

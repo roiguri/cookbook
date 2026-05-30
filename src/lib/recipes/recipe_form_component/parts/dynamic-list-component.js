@@ -11,8 +11,9 @@
  */
 
 import styles from '../recipe_form_component.css?inline';
+import { FormFieldMixin } from '../../../forms/form-field-base.js';
 
-export class DynamicListComponent extends HTMLElement {
+export class DynamicListComponent extends FormFieldMixin(HTMLElement) {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -24,6 +25,12 @@ export class DynamicListComponent extends HTMLElement {
     this.itemClass = 'dynamic-list-item';
     this.addButtonClass = 'dynamic-list-add-button';
     this.removeButtonClass = 'dynamic-list-remove-button';
+    this.requiredField = false; // subclasses set true to render a required asterisk
+  }
+
+  /** Required-field asterisk markup for the list label (empty when optional). */
+  requiredMark() {
+    return this.requiredField ? ' <span class="recipe-form__req">*</span>' : '';
   }
 
   connectedCallback() {
@@ -41,7 +48,7 @@ export class DynamicListComponent extends HTMLElement {
   template() {
     return `
       <div class="${this.containerClass}">
-        <label class="recipe-form__label">${this.listTitle}</label>
+        <label class="recipe-form__label">${this.listTitle}${this.requiredMark()}</label>
         <div class="list-items-container">
           ${this.createInitialItem()}
         </div>
@@ -182,17 +189,12 @@ export class DynamicListComponent extends HTMLElement {
   }
 
   /**
-   * Dispatches change events for parent component
+   * Dispatches the unified form-field contract events for the orchestrator.
    * @param {string} action - The action that occurred ('item-added', 'item-removed', etc.)
    */
   dispatchChangeEvent(action) {
-    this.dispatchEvent(
-      new CustomEvent('list-changed', {
-        bubbles: true,
-        composed: true,
-        detail: { action, data: this.getData() },
-      }),
-    );
+    this._emitValueChanged({ action });
+    this._emitDirtyChanged();
   }
 
   /**
@@ -201,6 +203,27 @@ export class DynamicListComponent extends HTMLElement {
    */
   getData() {
     throw new Error('getData() must be implemented by extending class');
+  }
+
+  // --- Unified form-field contract (see FormFieldMixin) ---
+
+  /** @returns {*} the list's data; alias for getData() */
+  getValue() {
+    return this.getData();
+  }
+
+  /**
+   * Populates the list and resets the pristine baseline.
+   * @param {*} value
+   */
+  setValue(value) {
+    this.populateData(value);
+    this.markPristine();
+  }
+
+  /** @returns {Array} the empty value for a list */
+  _getEmptyValue() {
+    return [];
   }
 
   /**

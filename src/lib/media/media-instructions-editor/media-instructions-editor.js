@@ -6,8 +6,9 @@
  * @attribute {string} media-data - JSON string of media instructions array
  * @attribute {string} recipe-id - The recipe ID for storage paths
  *
- * @fires media-changed - Dispatched when media instructions change
- *   detail: { mediaInstructions: Array, hasPendingFiles: boolean }
+ * Implements the unified form-field contract (see FormFieldMixin).
+ * @fires value-changed - On any media change; detail: { value: { all, pending }, hasPendingFiles }
+ * @fires dirty-changed - When the dirty state flips; detail: { isDirty }
  *
  * @example
  * <media-instructions-editor
@@ -18,6 +19,7 @@
 
 import { validateMediaFile } from '../../../js/utils/recipes/recipe-media-utils.js';
 import { MediaInstructionService } from '../../../js/services/recipes/media-instruction-service.js';
+import { FormFieldMixin } from '../../forms/form-field-base.js';
 import '../upload-zone/upload-zone.js';
 
 const ACCEPT_MIME =
@@ -26,19 +28,21 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const UPLOAD_LABEL = 'גרור תמונות או סרטונים לכאן או לחץ להעלאה';
 const UPLOAD_HINT = '(תמונות: JPEG, PNG, WebP, GIF | סרטונים: MP4, WebM, MOV | מקסימום: 50MB)';
 
-class MediaInstructionsEditor extends HTMLElement {
+class MediaInstructionsEditor extends FormFieldMixin(HTMLElement) {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
 
     // State - unified array for both existing and pending media
     this.mediaItems = []; // Contains both uploaded media and pending files
+    this.removedMedia = []; // Storage paths of removed uploaded items (deleted on save)
     this.recipeId = '';
     this.uploading = false;
     this.errors = [];
     this.draggedIndex = null;
     this.touchDragging = false;
     this.currentDropIndex = null;
+    this._isDisabled = false; // persists across re-renders
 
     this.handleAccepted = this.handleAccepted.bind(this);
     this.handleRejected = this.handleRejected.bind(this);
@@ -155,33 +159,28 @@ class MediaInstructionsEditor extends HTMLElement {
     const confirmDelete = confirm(`האם למחוק את "${item.caption || 'פריט זה'}"?`);
     if (!confirmDelete) return;
 
-    try {
-      // Delete from storage if it's an uploaded item (has path)
-      if (item.path) {
-        await MediaInstructionService.delete(item.path);
-      }
-
-      // Clean up blob URL if it's a pending file
-      if (item.preview && item.file) {
-        URL.revokeObjectURL(item.preview);
-      }
-
-      // Remove from unified array
-      this.mediaItems.splice(index, 1);
-
-      // Update order field for remaining uploaded items
-      this.mediaItems.forEach((media, idx) => {
-        if (!media.file && media.order !== undefined) {
-          media.order = idx;
-        }
-      });
-
-      this.emitChange();
-      await this.renderMediaList();
-    } catch (error) {
-      console.error('Error deleting media:', error);
-      this.showError(`שגיאה במחיקה: ${error.message}`);
+    // Deferred deletion (unified contract): an uploaded item's storage file is
+    // not deleted here — its path is queued and removed on save, so a form reset
+    // can restore it. Pending (un-uploaded) items just have their blob released.
+    if (item.path && !item.file) {
+      this.removedMedia.push(item.path);
     }
+    if (item.preview && item.file) {
+      URL.revokeObjectURL(item.preview);
+    }
+
+    // Remove from unified array
+    this.mediaItems.splice(index, 1);
+
+    // Update order field for remaining uploaded items
+    this.mediaItems.forEach((media, idx) => {
+      if (!media.file && media.order !== undefined) {
+        media.order = idx;
+      }
+    });
+
+    this.emitChange();
+    await this.renderMediaList();
   }
 
   handleCaptionChange(index, newCaption) {
@@ -660,6 +659,9 @@ class MediaInstructionsEditor extends HTMLElement {
 
     // Attach event listeners to new elements
     this.attachMediaItemListeners();
+
+    // Re-apply the form-level disabled state to freshly-rendered controls.
+    if (this._isDisabled) this.setDisabled(true);
   }
 
   attachMediaItemListeners() {
@@ -738,29 +740,19 @@ class MediaInstructionsEditor extends HTMLElement {
 
   // --- Communication with Parent ---
 
+  /**
+   * Emits the unified contract events (replaces the legacy 'media-changed').
+   * The value-changed detail carries the full { all, pending } value plus a
+   * hasPendingFiles convenience flag.
+   */
   emitChange() {
-    this.dispatchEvent(
-      new CustomEvent('media-changed', {
-        detail: {
-          mediaInstructions: this.mediaInstructions,
-          hasPendingFiles: this.pendingFiles.length > 0,
-        },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this._emitValueChanged({ hasPendingFiles: this.pendingFiles.length > 0 });
+    this._emitDirtyChanged();
   }
 
   // --- Public API ---
 
   // --- Compatibility Getters (for external code) ---
-
-  /**
-   * Gets uploaded media instructions (items without 'file' property)
-   */
-  get mediaInstructions() {
-    return this.mediaItems.filter((item) => !item.file);
-  }
 
   /**
    * Gets pending files (items with 'file' property)
@@ -780,6 +772,76 @@ class MediaInstructionsEditor extends HTMLElement {
     }));
   }
 
+  // --- Unified form-field contract (see FormFieldMixin) ---
+
+  /**
+   * @returns {{ all: Array, pending: Array, removed: Array }} all media in order,
+   * the subset still pending upload, and the storage paths queued for deletion on
+   * save. `uploadPendingFiles`/`applyUploadResults` remain the I/O actions that
+   * reconcile pending items after upload.
+   */
+  getValue() {
+    return {
+      all: this.getAllMediaInOrder(),
+      pending: this.pendingFiles,
+      removed: [...this.removedMedia],
+    };
+  }
+
+  /**
+   * Populates the editor from a { mediaData, recipeId } value and resets the
+   * pristine baseline. Applies the media items directly (and re-renders) rather
+   * than relying on the media-data attribute change — on a form reset the JSON is
+   * identical to the current attribute value, so attributeChangedCallback would
+   * early-return (oldValue === newValue) and the items would be lost.
+   * @param {{ mediaData?: Array, recipeId?: string }|null} value
+   */
+  setValue(value) {
+    const v = value || {};
+    if (v.recipeId !== undefined) {
+      this.recipeId = v.recipeId || '';
+      this.setAttribute('recipe-id', this.recipeId);
+    }
+    if (v.mediaData !== undefined) {
+      const existingMedia = Array.isArray(v.mediaData) ? v.mediaData : [];
+      const pendingItems = this.mediaItems.filter((item) => item.file);
+      this.mediaItems = [...existingMedia, ...pendingItems];
+      // Fresh baseline — drop any queued deletions (e.g. on a form reset).
+      this.removedMedia = [];
+      // Keep the attribute in sync without depending on it to trigger a render.
+      this.setAttribute('media-data', JSON.stringify(existingMedia));
+      if (this.isConnected && this.shadowRoot?.querySelector('.media-list-container')) {
+        this.renderMediaList();
+      }
+    }
+    this.markPristine();
+  }
+
+  /** @returns {{ mediaData: Array, recipeId: string }} */
+  _getEmptyValue() {
+    return { mediaData: [], recipeId: this.recipeId };
+  }
+
+  /**
+   * Enables/disables the upload zone and per-item controls. Persists across
+   * re-renders so a later renderMediaList() does not re-enable the controls.
+   * @param {boolean} disabled
+   */
+  setDisabled(disabled) {
+    this._isDisabled = disabled;
+    const uploadZone = this.shadowRoot.querySelector('upload-zone');
+    if (uploadZone) uploadZone.toggleAttribute('disabled', disabled);
+    this.shadowRoot.querySelectorAll('.caption-input').forEach((input) => {
+      input.disabled = disabled;
+    });
+    this.shadowRoot.querySelectorAll('.delete-button').forEach((btn) => {
+      btn.disabled = disabled;
+    });
+    this.shadowRoot.querySelectorAll('.drag-handle').forEach((handle) => {
+      handle.setAttribute('draggable', String(!disabled));
+    });
+  }
+
   /**
    * Sync editor state with the result of an external upload (RecipeService).
    * Replaces pending entries at the recorded position with their uploaded
@@ -791,6 +853,9 @@ class MediaInstructionsEditor extends HTMLElement {
   applyUploadResults(uploadResults) {
     if (!uploadResults) return;
     const { uploaded = [], failed = [] } = uploadResults;
+
+    // Queued deletions were applied by the save; clear them.
+    this.removedMedia = [];
 
     for (const { position, metadata } of uploaded) {
       const item = this.mediaItems[position];
@@ -831,10 +896,13 @@ class MediaInstructionsEditor extends HTMLElement {
     });
 
     this.mediaItems = [];
+    this.removedMedia = [];
     this.errors = [];
     this.emitChange();
     this.renderMediaList();
     this.renderErrors();
+    this.markPristine();
+    this._emitDirtyChanged();
   }
 }
 
