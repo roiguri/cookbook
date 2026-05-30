@@ -393,24 +393,10 @@ export class SectionedListComponent extends DynamicListComponent {
   }
 
   /**
-   * Dispatches a change event.
+   * Dispatches the unified form-field contract events for the orchestrator.
    * @param {string} action - The action that triggered the event.
-   * @param {object} additionalData - Additional data to include in the event detail.
    */
-  dispatchChangeEvent(action, additionalData = {}) {
-    this.dispatchEvent(
-      new CustomEvent('change', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          action,
-          data: this.getData(),
-          isSectionMode: this.isSectionMode,
-          ...additionalData,
-        },
-      }),
-    );
-    // Unified contract events alongside the legacy 'change' event.
+  dispatchChangeEvent(action) {
     this._emitValueChanged({ action, isSectionMode: this.isSectionMode });
     this._emitDirtyChanged();
   }

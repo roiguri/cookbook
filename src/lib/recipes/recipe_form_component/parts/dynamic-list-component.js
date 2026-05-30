@@ -189,18 +189,10 @@ export class DynamicListComponent extends FormFieldMixin(HTMLElement) {
   }
 
   /**
-   * Dispatches change events for parent component
+   * Dispatches the unified form-field contract events for the orchestrator.
    * @param {string} action - The action that occurred ('item-added', 'item-removed', etc.)
    */
   dispatchChangeEvent(action) {
-    this.dispatchEvent(
-      new CustomEvent('list-changed', {
-        bubbles: true,
-        composed: true,
-        detail: { action, data: this.getData() },
-      }),
-    );
-    // Unified contract events alongside the legacy list-changed event.
     this._emitValueChanged({ action });
     this._emitDirtyChanged();
   }

@@ -755,13 +755,6 @@ class MediaInstructionsEditor extends FormFieldMixin(HTMLElement) {
   // --- Compatibility Getters (for external code) ---
 
   /**
-   * Gets uploaded media instructions (items without 'file' property)
-   */
-  get mediaInstructions() {
-    return this.mediaItems.filter((item) => !item.file);
-  }
-
-  /**
    * Gets pending files (items with 'file' property)
    */
   get pendingFiles() {
