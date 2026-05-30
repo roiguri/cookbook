@@ -5,9 +5,25 @@
  */
 
 import styles from '../recipe_form_component.css?inline';
-import { CATEGORY_MAP } from '../../../../js/utils/recipes/recipe-data-utils.js';
+import {
+  CATEGORY_MAP,
+  validateRecipeData,
+} from '../../../../js/utils/recipes/recipe-data-utils.js';
+import { FormFieldMixin } from '../../../forms/form-field-base.js';
 
-class RecipeMetadataFields extends HTMLElement {
+/** Recipe-data keys this component owns (for filtering validation results). */
+const METADATA_KEYS = [
+  'name',
+  'category',
+  'prepTime',
+  'waitTime',
+  'difficulty',
+  'mainIngredient',
+  'servings',
+  'tags',
+];
+
+class RecipeMetadataFields extends FormFieldMixin(HTMLElement) {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -79,7 +95,7 @@ class RecipeMetadataFields extends HTMLElement {
             <input type="number" id="prep-time" name="prep-time" class="recipe-form__input" min="0" placeholder="45" />
           </div>
           <div class="recipe-form__group">
-            <label for="wait-time" class="recipe-form__label">זמן המתנה (דקות) <span class="recipe-form__req">*</span></label>
+            <label for="wait-time" class="recipe-form__label">זמן המתנה (דקות)</label>
             <input type="number" id="wait-time" name="wait-time" class="recipe-form__input" min="0" placeholder="360" />
           </div>
         </div>
@@ -120,6 +136,76 @@ class RecipeMetadataFields extends HTMLElement {
     `;
   }
 
+  // --- Unified form-field contract (see FormFieldMixin) ---
+
+  /**
+   * Populates the metadata fields from a recipe-data object and resets the
+   * pristine baseline.
+   * @param {Object} value
+   */
+  setValue(value) {
+    this.populateFields(value);
+    this.markPristine();
+  }
+
+  /** @returns {Object} an empty recipe-metadata value */
+  _getEmptyValue() {
+    return {
+      name: '',
+      category: '',
+      description: null,
+      prepTime: 0,
+      waitTime: 0,
+      servings: 0,
+      servingsUnit: '',
+      difficulty: '',
+      mainIngredient: null,
+      tags: [],
+    };
+  }
+
+  /**
+   * Clears all metadata fields and resets the pristine baseline (unified contract).
+   * Overrides the mixin default because an empty value object would leave the DOM
+   * untouched (populateFields only writes defined keys).
+   */
+  clear() {
+    const inputs = this.shadowRoot.querySelectorAll('input, select, textarea');
+    inputs.forEach((input) => {
+      input.value = '';
+      if (input.tagName === 'SELECT') input.selectedIndex = 0;
+      input.classList.remove('recipe-form__input--invalid');
+    });
+    this.markPristine();
+    this._emitValueChanged({ action: 'clear' });
+    this._emitDirtyChanged();
+  }
+
+  /**
+   * Validates the metadata fields by delegating to the central recipe-data
+   * validator and surfacing only the keys this component owns. This keeps the
+   * canonical rule definitions in one place while honoring the per-component
+   * validate() contract.
+   * @returns {{ isValid: boolean, errors: Object }}
+   */
+  validate() {
+    const { errors } = validateRecipeData(this.getValue());
+    const filtered = {};
+    METADATA_KEYS.forEach((key) => {
+      if (errors[key]) filtered[key] = errors[key];
+    });
+
+    // Prep time is required and must be positive. The central validator accepts
+    // 0 (>= 0), and an empty field coerces to 0 in getValue(), so enforce the
+    // required-positive rule at the form level. Wait time stays optional (0 ok).
+    const prepRaw = this.shadowRoot.getElementById('prep-time').value.trim();
+    if (!prepRaw || Number(prepRaw) <= 0) {
+      filtered.prepTime = 'חובה למלא זמן הכנה.';
+    }
+
+    return { isValid: Object.keys(filtered).length === 0, errors: filtered };
+  }
+
   populateFields(data) {
     if (!data) return;
 
@@ -148,15 +234,6 @@ class RecipeMetadataFields extends HTMLElement {
     });
   }
 
-  clearFields() {
-    const inputs = this.shadowRoot.querySelectorAll('input, select, textarea');
-    inputs.forEach((input) => {
-      input.value = '';
-      if (input.tagName === 'SELECT') input.selectedIndex = 0;
-      input.classList.remove('recipe-form__input--invalid');
-    });
-  }
-
   setDisabled(disabled) {
     const inputs = this.shadowRoot.querySelectorAll('input, select, textarea');
     inputs.forEach((input) => {
@@ -164,7 +241,7 @@ class RecipeMetadataFields extends HTMLElement {
     });
   }
 
-  getFormData() {
+  getValue() {
     const data = {};
 
     const fieldMappings = [
@@ -217,6 +294,8 @@ class RecipeMetadataFields extends HTMLElement {
       const target = event.target;
       if (target.matches('input, select, textarea')) {
         target.classList.remove('recipe-form__input--invalid');
+        this._emitValueChanged({ field: target.id });
+        this._emitDirtyChanged();
       }
     });
   }

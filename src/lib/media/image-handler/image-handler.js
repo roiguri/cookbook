@@ -1,10 +1,11 @@
 import { generateImageId } from '../../../js/utils/recipes/recipe-image-utils.js';
+import { FormFieldMixin, deepEqual, deepClone } from '../../forms/form-field-base.js';
 import '../upload-zone/upload-zone.js';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-class ImageHandler extends HTMLElement {
+class ImageHandler extends FormFieldMixin(HTMLElement) {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -12,9 +13,22 @@ class ImageHandler extends HTMLElement {
     this.maxImages = 5;
     this.draggedImage = null;
     this.removedImages = [];
+    this._isDisabled = false; // persists across re-renders
 
     this.handleAccepted = this.handleAccepted.bind(this);
     this.handleRejected = this.handleRejected.bind(this);
+  }
+
+  /**
+   * Emits the unified contract events. Replaces the five legacy events
+   * (file-added, images-changed, images-reordered, primary-image-changed,
+   * images-cleared) with a single value-changed (action in detail) plus
+   * dirty-changed.
+   * @param {string} action
+   */
+  _emitChange(action) {
+    this._emitValueChanged({ action });
+    this._emitDirtyChanged();
   }
 
   static get observedAttributes() {
@@ -386,14 +400,7 @@ class ImageHandler extends HTMLElement {
         };
 
         this.addImage(imageData);
-
-        this.dispatchEvent(
-          new CustomEvent('file-added', {
-            detail: { imageData },
-            bubbles: true,
-            composed: true,
-          }),
-        );
+        this._emitChange('file-added');
       } catch (error) {
         this.showError('שגיאה בטעינת התמונה');
       }
@@ -430,14 +437,7 @@ class ImageHandler extends HTMLElement {
     const image = this.images.splice(fromIndex, 1)[0];
     this.images.splice(toIndex, 0, image);
     this.updatePreviewContainer();
-
-    this.dispatchEvent(
-      new CustomEvent('images-reordered', {
-        detail: { images: this.images },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this._emitChange('images-reordered');
   }
 
   createImagePreview(file) {
@@ -484,13 +484,7 @@ class ImageHandler extends HTMLElement {
       this.updateSelectedFiles();
     }
 
-    this.dispatchEvent(
-      new CustomEvent('images-changed', {
-        detail: { images: this.images },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this._emitChange('images-changed');
   }
 
   setPrimaryImage(imageId) {
@@ -499,14 +493,7 @@ class ImageHandler extends HTMLElement {
       isPrimary: img.id === imageId,
     }));
     this.updatePreviewContainer();
-
-    this.dispatchEvent(
-      new CustomEvent('primary-image-changed', {
-        detail: { imageId },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this._emitChange('primary-image-changed');
   }
 
   updatePreviewContainer() {
@@ -562,6 +549,9 @@ class ImageHandler extends HTMLElement {
       container.appendChild(preview);
     });
     this.updateSelectedFiles();
+
+    // Re-apply the form-level disabled state to freshly-rendered controls.
+    if (this._isDisabled) this.setDisabled(true);
   }
 
   updateUploadAreaState() {
@@ -661,14 +651,97 @@ class ImageHandler extends HTMLElement {
   }
 
   /**
-   * Clear all images
+   * Clear all images. Resets both the selected and removed lists and emits the
+   * unified change events (previously dispatched a non-bubbling 'images-cleared'
+   * that silently skipped dirty detection).
    */
   clearImages() {
     this.images = [];
     this.removedImages = [];
     this.updatePreviewContainer();
     this.updateUploadAreaState();
-    this.dispatchEvent(new CustomEvent('images-cleared'));
+    this._emitChange('images-cleared');
+  }
+
+  // --- Unified form-field contract (see FormFieldMixin) ---
+
+  /**
+   * @returns {{ images: Array, removed: Array }} the current selection and the
+   * list of images marked for deletion.
+   */
+  getValue() {
+    return { images: this.getImages(), removed: this.getRemovedImages() };
+  }
+
+  /**
+   * Populates the handler from a { images, removed } value and resets the
+   * pristine baseline. Existing images keep their preview/url; a primary is
+   * ensured if none is flagged.
+   * @param {{ images?: Array, removed?: Array }|null} value
+   */
+  setValue(value) {
+    const v = value || {};
+    this.images = (Array.isArray(v.images) ? v.images : []).map((img) => ({ ...img }));
+    this.removedImages = Array.isArray(v.removed) ? [...v.removed] : [];
+    if (this.images.length && !this.images.some((img) => img.isPrimary)) {
+      this.images[0].isPrimary = true;
+    }
+    this.updatePreviewContainer();
+    this.updateUploadAreaState();
+    this.updateSelectedFiles();
+    this.markPristine();
+  }
+
+  /** @returns {{ images: Array, removed: Array }} */
+  _getEmptyValue() {
+    return { images: [], removed: [] };
+  }
+
+  /**
+   * Clears all images and resets the pristine baseline (unified contract).
+   */
+  clear() {
+    this.clearImages();
+    this.markPristine();
+    this._emitDirtyChanged();
+  }
+
+  /**
+   * Compact signature used for dirty tracking — avoids snapshotting megabytes of
+   * base64 preview data. Only identity, primary flag, persisted URL, and the
+   * removed set affect dirtiness.
+   * @returns {Object}
+   */
+  _dirtySignature() {
+    return {
+      images: this.images.map((img) => ({
+        id: img.id,
+        isPrimary: !!img.isPrimary,
+        url: img.full || img.uploadedUrl || null,
+      })),
+      removed: this.removedImages.map((r) => r.id),
+    };
+  }
+
+  /** @override - compare the compact signature rather than the full value */
+  markPristine() {
+    this._pristineValue = deepClone(this._dirtySignature());
+  }
+
+  /** @override */
+  isDirty() {
+    if (this._pristineValue === undefined) return false;
+    return !deepEqual(this._pristineValue, this._dirtySignature());
+  }
+
+  /**
+   * Reflects validation errors on the upload zone.
+   * @param {Object} errors
+   */
+  setValidationState(errors = {}) {
+    const uploadZone = this.shadowRoot.querySelector('upload-zone');
+    if (!uploadZone) return;
+    uploadZone.classList.toggle('recipe-form__input--invalid', !!errors.images);
   }
 
   /**
@@ -684,6 +757,7 @@ class ImageHandler extends HTMLElement {
   }
 
   setDisabled(isDisabled) {
+    this._isDisabled = isDisabled;
     const uploadZone = this.shadowRoot.querySelector('upload-zone');
     if (uploadZone) {
       uploadZone.toggleAttribute('disabled', isDisabled);

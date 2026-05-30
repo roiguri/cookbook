@@ -1,7 +1,6 @@
 import authService from '../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
-import { collectRecipeFormData } from '../../js/utils/form/form-data-collector.js';
 import '../../styles/pages/propose-recipe-spa.css';
 
 export default {
@@ -239,7 +238,7 @@ export default {
       // Switching to Preview mode
       const formComponent =
         this.proposeRecipeForm.shadowRoot.querySelector('recipe-form-component');
-      const recipeData = collectRecipeFormData(formComponent.shadowRoot);
+      const recipeData = formComponent.getRecipeData();
 
       if (previewComponent) {
         previewComponent.setData(recipeData);

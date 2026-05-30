@@ -243,6 +243,8 @@ export class RecipeService {
    *        without re-writing the array.
    * @param {Array<Object>} [params.mediaItemsOrdered] - Ordered media items.
    *        Omit to leave media unchanged.
+   * @param {Array<string>} [params.mediaToDelete] - Storage paths of media files
+   *        removed in the editor, deleted on save (deferred-delete contract).
    * @param {string} [params.uploadedBy] - User UID for new uploads.
    * @param {boolean} [params.approved] - Pass `true` to auto-approve (e.g.
    *        manager edits). Omit to leave the approval flag untouched.
@@ -250,7 +252,15 @@ export class RecipeService {
    */
   static async update(
     recipeId,
-    { changes = {}, images, imagesToDelete, mediaItemsOrdered, uploadedBy, approved } = {},
+    {
+      changes = {},
+      images,
+      imagesToDelete,
+      mediaItemsOrdered,
+      mediaToDelete,
+      uploadedBy,
+      approved,
+    } = {},
   ) {
     if (!recipeId) {
       throw new Error('RecipeService.update: recipeId is required');
@@ -281,6 +291,13 @@ export class RecipeService {
           );
         }
       }
+    }
+
+    // 1b. Delete removed media files (best-effort, deferred from the editor).
+    if (Array.isArray(mediaToDelete) && mediaToDelete.length > 0) {
+      await MediaInstructionService.deleteMany(mediaToDelete).catch((e) =>
+        console.warn('Failed to delete removed media:', e),
+      );
     }
 
     // 2. Process images only when explicitly provided.

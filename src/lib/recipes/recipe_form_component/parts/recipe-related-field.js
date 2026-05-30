@@ -4,17 +4,19 @@ import {
   getLocalizedCategoryName,
 } from '../../../../js/utils/recipes/recipe-data-utils.js';
 import styles from '../recipe_form_component.css?inline';
+import { FormFieldMixin } from '../../../forms/form-field-base.js';
 
 const MAX_RELATED = 4;
 const SEARCH_DELAY_MS = 300;
 
-class RecipeRelatedField extends HTMLElement {
+class RecipeRelatedField extends FormFieldMixin(HTMLElement) {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this._selected = []; // [{id, name}]
     this._searchTimeout = null;
     this._excludeId = null; // current recipe's own ID (set by parent)
+    this._isDisabled = false; // form-level disabled state (persists across re-renders)
   }
 
   connectedCallback() {
@@ -271,7 +273,9 @@ class RecipeRelatedField extends HTMLElement {
   }
 
   _dispatchChange() {
-    this.dispatchEvent(new CustomEvent('related-changed', { bubbles: true, composed: true }));
+    // Unified form-field contract events (replaces the legacy 'related-changed').
+    this._emitValueChanged();
+    this._emitDirtyChanged();
   }
 
   _renderChips() {
@@ -288,17 +292,53 @@ class RecipeRelatedField extends HTMLElement {
       container.appendChild(chip);
     });
 
-    // Disable search input when at max
+    // Disable search input when at max, or when the form is disabled.
     const input = this.shadowRoot.getElementById('related-search-input');
-    input.disabled = this._selected.length >= MAX_RELATED;
-    input.placeholder =
-      this._selected.length >= MAX_RELATED
-        ? `הגעת למקסימום (${MAX_RELATED})`
-        : 'הקלד שם מתכון לחיפוש...';
+    const atMax = this._selected.length >= MAX_RELATED;
+    input.disabled = this._isDisabled || atMax;
+    input.placeholder = atMax ? `הגעת למקסימום (${MAX_RELATED})` : 'הקלד שם מתכון לחיפוש...';
+  }
+
+  // --- Unified form-field contract (see FormFieldMixin) ---
+
+  /**
+   * Returns the selected recipe IDs — the shape stored in recipeData.relatedRecipes.
+   * @returns {string[]}
+   */
+  getValue() {
+    return this._selected.map((s) => s.id);
   }
 
   /**
-   * Clears all selected recipes and resets the search input.
+   * Populates the field from recipe IDs (or {id,name} objects) and resets the
+   * pristine baseline once names have been resolved. Asynchronous because edit-mode
+   * population fetches recipe names for chip display.
+   * @param {Array<string|{id:string,name?:string}>|null} value
+   * @returns {Promise<void>}
+   */
+  async setValue(value) {
+    const ids = Array.isArray(value)
+      ? value.map((v) => (typeof v === 'string' ? v : v && v.id)).filter(Boolean)
+      : [];
+
+    if (!ids.length) {
+      this._selected = [];
+      this._renderChips();
+    } else {
+      await this.populateData(ids);
+    }
+    this.markPristine();
+  }
+
+  /** @returns {Array} the empty value */
+  _getEmptyValue() {
+    return [];
+  }
+
+  /**
+   * Clears all selected recipes, resets the search input, and resets the pristine
+   * baseline (unified contract). Fires value-changed / dirty-changed so the form's
+   * dirty state tracks the reset.
    */
   clear() {
     this._selected = [];
@@ -307,19 +347,42 @@ class RecipeRelatedField extends HTMLElement {
     const dropdown = this.shadowRoot.getElementById('related-dropdown');
     if (input) input.value = '';
     if (dropdown) dropdown.hidden = true;
+    this.markPristine();
+    this._emitValueChanged({ action: 'clear' });
+    this._emitDirtyChanged();
   }
 
   /**
-   * Returns the selected recipe IDs.
-   * @returns {string[]}
+   * Enables/disables the search input and chip remove buttons. Persists across
+   * re-renders so a later _renderChips() does not silently re-enable the input.
+   * @param {boolean} disabled
    */
-  getData() {
-    return this._selected.map((s) => s.id);
+  setDisabled(disabled) {
+    this._isDisabled = disabled;
+    const input = this.shadowRoot.getElementById('related-search-input');
+    if (input) input.disabled = disabled || this._selected.length >= MAX_RELATED;
+    this.shadowRoot.querySelectorAll('.chip__remove').forEach((btn) => {
+      btn.disabled = disabled;
+    });
   }
 
   /**
-   * Populate from existing recipe IDs (edit mode).
-   * Fetches recipe names for display.
+   * Reflects validation errors on the search input.
+   * @param {Object} errors
+   */
+  setValidationState(errors = {}) {
+    const input = this.shadowRoot.getElementById('related-search-input');
+    if (!input) return;
+    if (errors.relatedRecipes) {
+      input.classList.add('recipe-form__input--invalid');
+    } else {
+      input.classList.remove('recipe-form__input--invalid');
+    }
+  }
+
+  /**
+   * Populate from existing recipe IDs (edit mode). Fetches recipe names for display.
+   * Does not reset the pristine baseline — callers use setValue() for that.
    * @param {string[]} ids
    */
   async populateData(ids) {

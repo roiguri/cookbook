@@ -14,6 +14,7 @@ class RecipeInstructionsList extends SectionedListComponent {
 
     // Configure for Hebrew instructions (matching existing styles exactly)
     this.listTitle = this.getAttribute('title') || 'תהליך הכנה:';
+    this.requiredField = true;
     this.containerClass = 'recipe-form__stages';
     this.itemClass = 'recipe-form__step';
     this.addButtonClass = 'recipe-form__button--add-step';
@@ -333,51 +334,48 @@ class RecipeInstructionsList extends SectionedListComponent {
   }
 
   /**
-   * Legacy method: Get current instructions data (compatible with existing form API)
+   * Populates instructions, accepting the legacy input shapes the form may hold,
+   * and resets the pristine baseline (unified form-field contract):
+   *   - flat array of strings:        ['step 1', 'step 2']
+   *   - flat array of {text} objects:  [{ text: 'step 1' }, …]
+   *   - staged object:                 { stages: [{ title, instructions: [] }] }
+   *   - sectioned object:              { sections: [{ title, items: [{text}] }] }
+   * Empty/nullish input resets to a single empty step.
+   * @param {Array|Object|null} value
    */
-  getInstructions() {
-    return this.getData();
-  }
+  setValue(value) {
+    if (value == null || (Array.isArray(value) && value.length === 0)) {
+      this.clear();
+      return;
+    }
 
-  /**
-   * Legacy method: Populate instructions (compatible with existing form API)
-   */
-  populateInstructions(data) {
-    if (Array.isArray(data)) {
-      const instructionObjects = data.map((text) => ({ text: text || '' }));
-      this.populateSimpleData(instructionObjects);
-    } else if (data && Array.isArray(data.stages)) {
-      const sections = data.stages.map((stage) => ({
+    if (Array.isArray(value)) {
+      const items = value.map((v) => ({
+        text: typeof v === 'string' ? v : (v && v.text) || '',
+      }));
+      this.populateSimpleData(items);
+    } else if (Array.isArray(value.stages)) {
+      const sections = value.stages.map((stage) => ({
         title: stage.title || '',
-        items: (stage.instructions || []).map((text) => ({ text: text || '' })),
+        items: (stage.instructions || []).map((text) => ({
+          text: typeof text === 'string' ? text : (text && text.text) || '',
+        })),
       }));
       this.populateSectionsData(sections);
+    } else if (Array.isArray(value.sections)) {
+      this.populateSectionsData(value.sections);
     }
+
+    this.markPristine();
   }
 
   /**
-   * Legacy method: Clear instructions (compatible with existing form API)
-   */
-  clearInstructions() {
-    this.clear();
-  }
-
-  /**
-   * Override dispatchChangeEvent to emit instructions-changed event for compatibility
+   * Emits the unified contract events. Replaces the legacy 'instructions-changed'
+   * event (the orchestrator now listens for value-changed / dirty-changed).
    */
   dispatchChangeEvent(action, additionalData = {}) {
-    this.dispatchEvent(
-      new CustomEvent('instructions-changed', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          action,
-          data: this.getData(),
-          isStageMode: this.isStageMode,
-          ...additionalData,
-        },
-      }),
-    );
+    this._emitValueChanged({ action, isStageMode: this.isStageMode, ...additionalData });
+    this._emitDirtyChanged();
   }
 
   /**

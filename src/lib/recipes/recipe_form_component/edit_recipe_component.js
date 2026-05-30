@@ -51,6 +51,7 @@ class EditRecipeComponent extends HTMLElement {
         images: formImages = [],
         toDelete: imagesToDelete = [],
         mediaInstructions: _m,
+        mediaToDelete = [],
         ...changes
       } = recipeData;
 
@@ -63,6 +64,7 @@ class EditRecipeComponent extends HTMLElement {
         images: formImages,
         imagesToDelete,
         mediaItemsOrdered,
+        mediaToDelete,
         uploadedBy,
         approved: true,
       });
@@ -71,6 +73,9 @@ class EditRecipeComponent extends HTMLElement {
         'media-instructions-editor',
       );
       mediaEditor?.applyUploadResults?.(mediaUploadResults);
+
+      // Re-baseline dirty tracking so the save button disables after a clean save.
+      this.formComponent?.markSaved?.();
 
       for (const warning of migrationWarnings) {
         this.showWarningMessage(
