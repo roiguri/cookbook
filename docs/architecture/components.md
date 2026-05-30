@@ -8,8 +8,9 @@ UI is composed of **custom Web Components** living under `src/lib/`. Most use Sh
 src/lib/
 ├── auth/            # auth-controller, auth-avatar, auth-content, sign-in/up forms
 ├── collections/     # recipe-card, recipe-list, filter-modal, pagination
+├── forms/           # form-field contract (FormFieldMixin) shared by recipe form fields
 ├── games/           # interactive widgets used on home / category pages
-├── media/           # image carousel, image upload, video player
+├── media/           # image carousel, image upload, video player (form fields via FormFieldMixin)
 ├── modals/          # message-modal, confirmation-modal, custom-modal
 ├── notifications/   # toast / notification surface
 ├── recipes/         # recipe-component (detail view), ingredient list, instructions
@@ -34,8 +35,62 @@ Components do **not** import each other for coordination. They dispatch `CustomE
 - `recipe-favorite-changed` — favourite button → auth service (refreshes cached user data)
 - `auth-state-changed` — auth controller → header nav (adds/removes role-specific tabs)
 - `spa-navigation` — router → navigation script (link interception)
+- `value-changed` / `dirty-changed` — form field → recipe-form orchestrator (see "Form-field contract" below)
+- `form-dirty-changed` — recipe-form orchestrator → parent (e.g. edit-modal save-button gating)
 
 Page modules subscribe in `mount()` and unsubscribe in `unmount()`. If a listener is attached to the container element rather than `window`/`document`, the container's `innerHTML = ''` in `PageManager.unloadCurrentPage()` will clean it up automatically — but explicit removal is still the right habit because it covers listeners on `window`/`document` too.
+
+## Form-field contract
+
+The recipe form is an **orchestrator over a set of field components**. Rather than each field exposing its own ad-hoc value/dirty/validation API, every form field mixes in a single shared contract so the orchestrator can fan one loop out over all of them.
+
+### `FormFieldMixin` — `src/lib/forms/form-field-base.js`
+
+A **class mixin** (`FormFieldMixin(Base)`), not a base class. The form sub-components live on several inheritance chains (`DynamicListComponent → SectionedListComponent → lists`, plus components that extend `HTMLElement` directly), so a mixin composes the contract onto any rung without rewriting constructors or `super()` call sites:
+
+```js
+import { FormFieldMixin } from '../../../forms/form-field-base.js';
+
+class RecipeMetadataFields extends FormFieldMixin(HTMLElement) { ... }
+```
+
+The contract every field exposes:
+
+| Method                       | Purpose                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `getValue()`                 | the field's value (shape is field-specific) — **must override**                   |
+| `setValue(value)`            | populate the field; resets the pristine baseline — **must override**              |
+| `clear()`                    | reset to the empty value (pristine) — provided                                    |
+| `isDirty()`                  | has the value changed since the last `markPristine()`? — provided                 |
+| `markPristine()`             | snapshot the current value as the clean baseline — provided                       |
+| `validate()`                 | `{ isValid, errors }` — defaults to always-valid; override if the field validates |
+| `setValidationState(errors)` | reflect errors in the UI — default no-op; override to surface per-field errors    |
+| `setDisabled(disabled)`      | enable/disable controls — default no-op; override if interactive                  |
+
+Two standardized events, dispatched **on the host** with `{ bubbles: true, composed: true }`:
+
+- `value-changed` — on every value mutation; `detail: { value, ...extra }`
+- `dirty-changed` — only when `isDirty()` flips; `detail: { isDirty }` (deduped via `_lastEmittedDirty`)
+
+Dirty tracking is form-friendly: `null`, `undefined`, `''`, and `[]` are all treated as "no data" and compared equal (`deepEqual`). The pristine snapshot uses `deepClone`, which **drops `File`/`Blob` values** — only the surrounding metadata participates in dirty comparison, so image fields holding raw `File` references can still be snapshotted.
+
+### Orchestrator — `recipe_form_component.js`
+
+The orchestrator collects field refs once into a `_fields` map (keyed by logical name) and exposes `_fieldList` to iterate. It then:
+
+- **aggregates values** — `buildRecipeData()` calls each field's `getValue()`;
+- **fans out validation** — collects every `validate()`, then calls each `setValidationState(allErrors)`;
+- **listens** for `value-changed` / `dirty-changed` bubbling up from any field (debounced), recomputes form-level dirtiness, and re-emits `form-dirty-changed` to its parent (e.g. an edit modal gating its save button).
+
+### How to add a new form field
+
+1. Create the component under `src/lib/<area>/` and extend `FormFieldMixin(HTMLElement)` (or `FormFieldMixin(YourBaseList)`).
+2. **Override `getValue()` and `setValue(value)`.** `setValue` should populate the UI and call `markPristine()` so the new value becomes the clean baseline.
+3. Override `_getEmptyValue()` if the empty state isn't `null` (e.g. `[]` for a list, `{}` for a record).
+4. **Call `_emitValueChanged({ ...extra })` and `_emitDirtyChanged()` at every mutation point** (input handlers, add/remove row, etc.). This is what lets the orchestrator notice changes — the mixin does not auto-wire DOM listeners.
+5. Override `validate()` / `setValidationState()` only if the field has its own validation; override `setDisabled()` only if it has interactive controls.
+6. Register with `customElements.define('your-field', YourField)` and add it to the orchestrator's `collectFieldRefs()` `_fields` map under a logical key. Aggregation in `buildRecipeData()` reads that key.
+7. Add a sibling test under `tests/lib/...` exercising the contract (`getValue`/`setValue` round-trip, `isDirty` after mutation, events fired).
 
 ## Dynamic import pattern
 
