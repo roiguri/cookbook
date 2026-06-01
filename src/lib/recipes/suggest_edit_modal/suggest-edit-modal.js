@@ -146,16 +146,27 @@ class SuggestEditModal extends HTMLElement {
 
   /**
    * Open the modal for a given recipe, seeding the form with its current data.
+   * Resets first so reopening doesn't append images onto the previous load
+   * (the form/image-handler is created once and reused).
    * @param {string} recipeId
    */
   openForRecipe(recipeId) {
     this.recipeId = recipeId;
+    this.reset();
     this.form.setRecipeData(recipeId);
     this.modal.open();
   }
 
   close() {
     this.modal.close();
+    this.reset();
+  }
+
+  /** Clear the form fields (incl. images) and the note, releasing the seeded state. */
+  reset() {
+    this.form?.clearForm?.();
+    const note = this.shadowRoot.getElementById('suggest-note');
+    if (note) note.value = '';
   }
 
   async handleRecipeData(event) {

@@ -9,6 +9,8 @@ let RecipeEditSuggestionService;
 const firestoreMocks = {
   getDocument: jest.fn(),
   setDocument: jest.fn(),
+  updateDocument: jest.fn(),
+  queryDocuments: jest.fn(),
   generateId: jest.fn(() => 'sug-1'),
 };
 
@@ -167,5 +169,71 @@ describe('RecipeEditSuggestionService.create', () => {
     expect(doc.storagePaths).toEqual([
       { type: 'media', path: 'recipes/r1/media-instructions/med-1_a.mp4' },
     ]);
+  });
+});
+
+describe('RecipeEditSuggestionService.listPending', () => {
+  it('queries pending suggestions and sorts newest first', async () => {
+    firestoreMocks.queryDocuments.mockResolvedValue([
+      { id: 's1', createdAt: { seconds: 100 } },
+      { id: 's2', createdAt: { seconds: 300 } },
+      { id: 's3', createdAt: { seconds: 200 } },
+    ]);
+
+    const result = await RecipeEditSuggestionService.listPending();
+
+    expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipe_edit_suggestions', {
+      where: [['status', '==', 'pending']],
+    });
+    expect(result.map((s) => s.id)).toEqual(['s2', 's3', 's1']);
+  });
+});
+
+describe('RecipeEditSuggestionService.approve', () => {
+  it('stamps the suggestion approved with reviewer + timestamp', async () => {
+    await RecipeEditSuggestionService.approve('sug-1', { reviewedBy: 'mgr' });
+    expect(firestoreMocks.updateDocument).toHaveBeenCalledWith('recipe_edit_suggestions', 'sug-1', {
+      status: 'approved',
+      reviewedBy: 'mgr',
+      reviewedAt: 'mock-timestamp-now',
+    });
+  });
+
+  it('throws without a suggestionId', async () => {
+    await expect(RecipeEditSuggestionService.approve()).rejects.toThrow('suggestionId is required');
+  });
+});
+
+describe('RecipeEditSuggestionService.reject', () => {
+  it('deletes suggestion-owned image and media files, then stamps rejected', async () => {
+    firestoreMocks.getDocument.mockResolvedValue({
+      id: 'sug-1',
+      storagePaths: [
+        { type: 'image', path: 'img/recipes/full/cat/r1/img-new.jpg' },
+        { type: 'media', path: 'recipes/r1/media-instructions/med-1.mp4' },
+      ],
+    });
+
+    await RecipeEditSuggestionService.reject('sug-1', { reviewedBy: 'mgr', rejectionReason: 'no' });
+
+    expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
+      full: 'img/recipes/full/cat/r1/img-new.jpg',
+    });
+    expect(mediaInstructionServiceMocks.delete).toHaveBeenCalledWith(
+      'recipes/r1/media-instructions/med-1.mp4',
+    );
+    expect(firestoreMocks.updateDocument).toHaveBeenCalledWith('recipe_edit_suggestions', 'sug-1', {
+      status: 'rejected',
+      rejectionReason: 'no',
+      reviewedBy: 'mgr',
+      reviewedAt: 'mock-timestamp-now',
+    });
+  });
+
+  it('throws when the suggestion does not exist', async () => {
+    firestoreMocks.getDocument.mockResolvedValue(null);
+    await expect(RecipeEditSuggestionService.reject('missing')).rejects.toThrow(
+      'Suggestion not found',
+    );
   });
 });

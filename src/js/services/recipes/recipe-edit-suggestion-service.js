@@ -43,9 +43,12 @@ function stripUndefinedDeep(value) {
  * Storage area at suggestion time (mirroring RecipeImageProposalService) and
  * recorded in `storagePaths[]` for orphan cleanup on rejection.
  *
- * Public API (Milestone 1, Slice 1):
+ * Public API:
  *   - create({ recipeId, suggestedBy, proposedChanges, mediaItemsOrdered, note })
- * Review methods (listPending / approve / reject) are added in Slice 2.
+ *   - listPending()
+ *   - get(suggestionId)
+ *   - approve(suggestionId, { reviewedBy })
+ *   - reject(suggestionId, { reviewedBy, rejectionReason })
  */
 export class RecipeEditSuggestionService {
   /**
@@ -177,6 +180,81 @@ export class RecipeEditSuggestionService {
       });
       throw error;
     }
+  }
+
+  /**
+   * List all pending suggestions, newest first. Sorted client-side to avoid a
+   * composite Firestore index on (status, createdAt).
+   * @returns {Promise<Array<Object>>}
+   */
+  static async listPending() {
+    const suggestions = await FirestoreService.queryDocuments(COLLECTION, {
+      where: [['status', '==', 'pending']],
+    });
+    return suggestions.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  }
+
+  /**
+   * Fetch a single suggestion by ID.
+   * @param {string} suggestionId
+   * @returns {Promise<Object|null>}
+   */
+  static async get(suggestionId) {
+    return await FirestoreService.getDocument(COLLECTION, suggestionId);
+  }
+
+  /**
+   * Stamp a suggestion as approved. The edit itself is applied to the recipe by
+   * the caller via `RecipeService.update`; this only records the outcome.
+   *
+   * @param {string} suggestionId
+   * @param {Object} [params]
+   * @param {string} [params.reviewedBy] - Manager UID.
+   * @returns {Promise<void>}
+   */
+  static async approve(suggestionId, { reviewedBy } = {}) {
+    if (!suggestionId) {
+      throw new Error('RecipeEditSuggestionService.approve: suggestionId is required');
+    }
+    await FirestoreService.updateDocument(COLLECTION, suggestionId, {
+      status: 'approved',
+      reviewedBy: reviewedBy || null,
+      reviewedAt: Timestamp.now(),
+    });
+  }
+
+  /**
+   * Reject a suggestion: delete its suggestion-owned Storage files (no orphans)
+   * and stamp the document as rejected.
+   *
+   * @param {string} suggestionId
+   * @param {Object} [params]
+   * @param {string} [params.reviewedBy] - Manager UID.
+   * @param {string} [params.rejectionReason] - Optional reason shown to the suggester.
+   * @returns {Promise<void>}
+   */
+  static async reject(suggestionId, { reviewedBy, rejectionReason } = {}) {
+    if (!suggestionId) {
+      throw new Error('RecipeEditSuggestionService.reject: suggestionId is required');
+    }
+    const suggestion = await FirestoreService.getDocument(COLLECTION, suggestionId);
+    if (!suggestion) throw new Error('Suggestion not found');
+
+    const paths = Array.isArray(suggestion.storagePaths) ? suggestion.storagePaths : [];
+    await Promise.all(
+      paths.map((entry) =>
+        entry.type === 'media'
+          ? MediaInstructionService.delete(entry.path).catch(() => {}) // silent: best-effort cleanup
+          : RecipeImageService.deleteFiles({ full: entry.path }).catch(() => {}),
+      ),
+    );
+
+    await FirestoreService.updateDocument(COLLECTION, suggestionId, {
+      status: 'rejected',
+      rejectionReason: rejectionReason || null,
+      reviewedBy: reviewedBy || null,
+      reviewedAt: Timestamp.now(),
+    });
   }
 }
 
