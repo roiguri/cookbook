@@ -95,6 +95,32 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // RECIPE EDIT SUGGESTIONS
+    // =========================================================================
+    // Moderation queue for "suggest an edit". A separate collection (not a field
+    // on the recipe) so a normal user can never self-approve: the live recipe is
+    // only written by a manager via RecipeService.update on approval.
+    match /recipe_edit_suggestions/{suggestionId} {
+      // READ: managers (dashboard) + the suggester (to see their own status)
+      allow read: if isManager()
+                  || (isAuthenticated() && resource.data.suggestedBy == request.auth.uid);
+
+      // CREATE: any signed-in user, but only as a pending suggestion they authored
+      allow create: if isAuthenticated()
+                    && request.resource.data.suggestedBy == request.auth.uid
+                    && request.resource.data.status == 'pending';
+
+      // UPDATE: managers only (approve/reject)
+      allow update: if isManager();
+
+      // DELETE: managers, or the suggester withdrawing their own pending suggestion
+      allow delete: if isManager()
+                    || (isAuthenticated()
+                        && resource.data.suggestedBy == request.auth.uid
+                        && resource.data.status == 'pending');
+    }
+
+    // =========================================================================
     // FAILED URL EXTRACTIONS
     // =========================================================================
     match /failed_url_extractions/{document=**} {

@@ -28,6 +28,7 @@ src/js/services/
 │   ├── recipe-service.js                    # owns recipes/{id}; composes image + media services
 │   ├── recipe-image-service.js              # image Storage ops + URL reads; ZERO Firestore
 │   ├── recipe-image-proposal-service.js     # propose/approve/reject pending images (bounded recipes/{id} writes)
+│   ├── recipe-edit-suggestion-service.js    # suggest recipe edits (owns recipe_edit_suggestions)
 │   ├── media-instruction-service.js         # cooking-step media Storage ops; ZERO Firestore
 │   └── ai-enhancement-service.js            # Gemini-backed recipe extraction (callable function)
 ├── pdf/
@@ -44,19 +45,20 @@ Firebase configuration is in `src/js/config/firebase-config.js`. Firestore secur
 
 Reference only — the JSDoc on each service class is canonical.
 
-| Service                      | Methods                                                                                                                 |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `RecipeService`              | `get`, `list`, `generateId`, `create`, `update`, `delete`, `setPrimaryImage`, `replaceImage`                            |
-| `RecipeImageService`         | `uploadFile`, `replaceFiles`, `deleteFiles`, `migrateFilesToCategory`, `getOptimizedUrl`, `getPrimaryUrl`, `getFullUrl` |
-| `RecipeImageProposalService` | `propose`, `approve`, `reject`, `listPending`                                                                           |
-| `MediaInstructionService`    | `upload`, `delete`, `deleteMany`, `removeAll`, `getUrl`                                                                 |
-| `PdfService`                 | `getPageIndex`, `getPageImageUrl`                                                                                       |
-| `UserService`                | (user-doc CRUD; canonical reference: JSDoc on the class)                                                                |
-| `ActiveMealService`          | (active_meals lifecycle)                                                                                                |
-| `FavoritesService`           | favorites toggle (delegates to `UserService`)                                                                           |
-| `AuthService`                | sign-in/out, current user, `waitForAuth()`, role                                                                        |
-| `FailedUrlExtractionService` | failed-URL admin queue                                                                                                  |
-| `NotificationService`        | toast UI surface                                                                                                        |
+| Service                       | Methods                                                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `RecipeService`               | `get`, `list`, `generateId`, `create`, `update`, `delete`, `setPrimaryImage`, `replaceImage`                            |
+| `RecipeImageService`          | `uploadFile`, `replaceFiles`, `deleteFiles`, `migrateFilesToCategory`, `getOptimizedUrl`, `getPrimaryUrl`, `getFullUrl` |
+| `RecipeImageProposalService`  | `propose`, `approve`, `reject`, `listPending`                                                                           |
+| `RecipeEditSuggestionService` | `create` (review methods added in a later slice)                                                                        |
+| `MediaInstructionService`     | `upload`, `delete`, `deleteMany`, `removeAll`, `getUrl`                                                                 |
+| `PdfService`                  | `getPageIndex`, `getPageImageUrl`                                                                                       |
+| `UserService`                 | (user-doc CRUD; canonical reference: JSDoc on the class)                                                                |
+| `ActiveMealService`           | (active_meals lifecycle)                                                                                                |
+| `FavoritesService`            | favorites toggle (delegates to `UserService`)                                                                           |
+| `AuthService`                 | sign-in/out, current user, `waitForAuth()`, role                                                                        |
+| `FailedUrlExtractionService`  | failed-URL admin queue                                                                                                  |
+| `NotificationService`         | toast UI surface                                                                                                        |
 
 ## Load-bearing conventions
 
@@ -194,19 +196,20 @@ captureError(error, {
 
 Pick a kebab-case domain name per file and stick with it.
 
-| File                                      | `service` tag       |
-| ----------------------------------------- | ------------------- |
-| `_firebase/firestore-service.js`          | `firestore`         |
-| `_firebase/storage-service.js`            | `storage`           |
-| `auth/auth-service.js`                    | `auth`              |
-| `users/favorites-service.js`              | `favorites`         |
-| `users/notification-service.js`           | `notification`      |
-| `recipes/recipe-service.js`               | `recipe`            |
-| `recipes/recipe-image-service.js`         | `recipe-image`      |
-| `recipes/media-instruction-service.js`    | `media-instruction` |
-| `meals/active-meal-service.js`            | `active-meal`       |
-| (SPA core) `src/app/core/router.js`       | `router`            |
-| (SPA core) `src/app/core/page-manager.js` | `page-manager`      |
+| File                                        | `service` tag            |
+| ------------------------------------------- | ------------------------ |
+| `_firebase/firestore-service.js`            | `firestore`              |
+| `_firebase/storage-service.js`              | `storage`                |
+| `auth/auth-service.js`                      | `auth`                   |
+| `users/favorites-service.js`                | `favorites`              |
+| `users/notification-service.js`             | `notification`           |
+| `recipes/recipe-service.js`                 | `recipe`                 |
+| `recipes/recipe-image-service.js`           | `recipe-image`           |
+| `recipes/recipe-edit-suggestion-service.js` | `recipe-edit-suggestion` |
+| `recipes/media-instruction-service.js`      | `media-instruction`      |
+| `meals/active-meal-service.js`              | `active-meal`            |
+| (SPA core) `src/app/core/router.js`         | `router`                 |
+| (SPA core) `src/app/core/page-manager.js`   | `page-manager`           |
 
 When adding a new service, add a row.
 
