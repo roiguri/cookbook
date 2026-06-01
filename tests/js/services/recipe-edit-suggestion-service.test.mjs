@@ -68,10 +68,12 @@ describe('RecipeEditSuggestionService.create', () => {
       name: 'Old Name',
       category: 'desserts',
     });
+    // Real uploadFile returns isPrimary per the flag it was called with — the
+    // service forces non-primary uploads, so the mock mirrors that.
     recipeImageServiceMocks.uploadFile.mockResolvedValue({
       id: 'img-new',
-      full: 'img/recipes/full/desserts/r1/img-new.jpg',
-      isPrimary: true,
+      full: 'img/recipes/full/desserts/r1/1700000000000.jpg',
+      isPrimary: false,
     });
 
     const proposedChanges = {
@@ -94,6 +96,13 @@ describe('RecipeEditSuggestionService.create', () => {
 
     expect(result).toEqual({ suggestionId: 'sug-1' });
     expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledTimes(1);
+    // Never upload as primary — that would clobber the live recipe's primary.jpg.
+    expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledWith(
+      'r1',
+      'desserts',
+      expect.anything(),
+      expect.objectContaining({ isPrimary: false }),
+    );
 
     const write = firestoreMocks.setDocument.mock.calls[0];
     expect(write[0]).toBe('recipe_edit_suggestions');
@@ -113,7 +122,9 @@ describe('RecipeEditSuggestionService.create', () => {
 
     // Uploaded image becomes a plain metadata entry; existing kept without form-internal fields.
     expect(doc.proposedChanges.images).toHaveLength(2);
-    expect(doc.proposedChanges.images[0]).toMatchObject({ id: 'img-new' });
+    // "Make primary" intent is preserved on the stored metadata (realized at approval),
+    // even though the file itself was uploaded non-primary.
+    expect(doc.proposedChanges.images[0]).toMatchObject({ id: 'img-new', isPrimary: true });
     expect(doc.proposedChanges.images[1]).toEqual({
       id: 'keep',
       full: 'img/keep.jpg',
@@ -123,7 +134,7 @@ describe('RecipeEditSuggestionService.create', () => {
 
     // Uploaded image path is tracked for cleanup-on-reject.
     expect(doc.storagePaths).toEqual([
-      { type: 'image', path: 'img/recipes/full/desserts/r1/img-new.jpg' },
+      { type: 'image', path: 'img/recipes/full/desserts/r1/1700000000000.jpg' },
     ]);
   });
 

@@ -98,10 +98,17 @@ export class RecipeEditSuggestionService {
       const processedImages = [];
       for (const img of formImages) {
         if (img && img.source === 'new' && img.file) {
+          // Always upload as NON-primary: RecipeImageService names a primary
+          // upload `primary.jpg`, which would overwrite the live recipe's
+          // primary image at the shared category path before any approval.
+          // The "make this primary" intent is preserved on the stored metadata
+          // and only realized when a manager approves (primary is determined by
+          // the isPrimary flag, not the filename).
           const meta = await RecipeImageService.uploadFile(recipeId, category, img.file, {
-            isPrimary: !!img.isPrimary,
+            isPrimary: false,
             uploadedBy,
           });
+          meta.isPrimary = !!img.isPrimary;
           uploadedThisCall.push(meta);
           if (meta.full) storagePaths.push({ type: 'image', path: meta.full });
           processedImages.push(meta);
