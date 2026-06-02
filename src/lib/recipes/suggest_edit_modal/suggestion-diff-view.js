@@ -162,7 +162,9 @@ class SuggestionDiffView extends HTMLElement {
 
   // ---- media instructions ----
   mediaSectionShell(media) {
-    if (!media.added.length && !media.removed.length) return '';
+    if (!media.added.length && !media.removed.length && !(media.captionChanged?.length || 0)) {
+      return '';
+    }
     return `<section class="sec"><h3 class="sec-title">מדיה (הוראות מצולמות)</h3><div class="thumbs" id="media-thumbs"></div></section>`;
   }
 
@@ -172,9 +174,15 @@ class SuggestionDiffView extends HTMLElement {
     const groups = [
       ...media.removed.map((m) => ({ m, kind: 'removed' })),
       ...media.added.map((m) => ({ m, kind: 'added' })),
+      ...(media.captionChanged || []).map((c) => ({
+        m: c.item,
+        kind: 'changed',
+        captionBefore: c.before,
+        captionAfter: c.after,
+      })),
     ];
     const html = await Promise.all(
-      groups.map(async ({ m, kind }) => {
+      groups.map(async ({ m, kind, captionBefore, captionAfter }) => {
         let url = '';
         try {
           url = await MediaInstructionService.getUrl(m.path);
@@ -188,8 +196,15 @@ class SuggestionDiffView extends HTMLElement {
         const badge =
           kind === 'added'
             ? '<span class="badge add">נוסף</span>'
-            : '<span class="badge rem">הוסר</span>';
-        const cap = m.caption ? `<div class="cap">${this.esc(m.caption)}</div>` : '';
+            : kind === 'removed'
+              ? '<span class="badge rem">הוסר</span>'
+              : '<span class="badge changed">כיתוב עודכן</span>';
+        const cap =
+          kind === 'changed'
+            ? `<div class="cap cap-diff"><span class="before">${this.esc(captionBefore) || '—'}</span><span class="arrow">←</span><span class="after">${this.esc(captionAfter) || '—'}</span></div>`
+            : m.caption
+              ? `<div class="cap">${this.esc(m.caption)}</div>`
+              : '';
         return `<div class="thumb ${kind}">${el}${badge}${cap}</div>`;
       }),
     );
@@ -262,11 +277,14 @@ class SuggestionDiffView extends HTMLElement {
       .thumb img, .thumb video { width:120px; height:90px; object-fit:cover; border-radius: var(--r-sm,10px); display:block; border:2px solid var(--hairline, rgba(31,29,24,0.12)); background: var(--surface-2,#f0ede6); }
       .thumb.added img, .thumb.added video { border-color: var(--primary,#6a994e); }
       .thumb.removed img, .thumb.removed video { border-color: var(--secondary-dark,#bc4749); opacity:0.85; }
+      .thumb.changed img, .thumb.changed video { border-color: var(--hairline-strong, rgba(31,29,24,0.25)); }
       .badge { position:absolute; top:5px; inset-inline-start:5px; font-size:10px; font-weight:600; padding:1px 7px; border-radius: var(--r-pill,999px); color:#fff; }
       .badge.add { background: var(--primary,#6a994e); }
       .badge.rem { background: var(--secondary-dark,#bc4749); }
+      .badge.changed { background: var(--ink-3, rgba(31,29,24,0.55)); }
       .badge.primary { inset-inline-start:auto; inset-inline-end:5px; background: var(--ink, #1f1d18); opacity:0.75; }
       .cap { font-size:11px; color: var(--ink-3, rgba(31,29,24,0.55)); margin-top:3px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cap-diff { display:flex; gap:4px; flex-wrap:wrap; align-items:baseline; white-space:normal; overflow:visible; max-width:128px; }
 
       /* related */
       .related { display:flex; gap:12px; flex-wrap:wrap; }

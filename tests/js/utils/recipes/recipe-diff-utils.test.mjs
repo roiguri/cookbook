@@ -213,6 +213,22 @@ describe('buildRecipeDiffModel', () => {
     expect(byField.tags).toMatchObject({ before: 'חלבי', after: 'חלבי, חגיגי', changed: true });
   });
 
+  it('detects a media caption change as captionChanged, not remove+add', () => {
+    const model = buildRecipeDiffModel(
+      { mediaInstructions: [{ id: '1', path: 'p/a', type: 'image', caption: 'ישן' }] },
+      { mediaInstructions: [{ id: '1', path: 'p/a', type: 'image', caption: 'חדש' }] },
+    );
+    expect(model.media.added).toEqual([]);
+    expect(model.media.removed).toEqual([]);
+    expect(model.media.captionChanged).toHaveLength(1);
+    expect(model.media.captionChanged[0]).toMatchObject({
+      path: 'p/a',
+      before: 'ישן',
+      after: 'חדש',
+    });
+    expect(model.hasChange).toBe(true);
+  });
+
   it('splits related recipes into added/removed by id', () => {
     const model = buildRecipeDiffModel(
       { relatedRecipes: ['r1', 'r2'] },

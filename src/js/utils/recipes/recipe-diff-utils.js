@@ -414,10 +414,29 @@ export function buildRecipeDiffModel(current = {}, proposed = {}) {
   };
 
   const mediaArr = (r) => (Array.isArray(r?.mediaInstructions) ? r.mediaInstructions : []);
-  const media =
-    'mediaInstructions' in proposed
-      ? splitByKey(mediaArr(current), mediaArr(proposed), (m) => m.path)
-      : { kept: mediaArr(current), added: [], removed: [] };
+  const carriesMedia = 'mediaInstructions' in proposed;
+  const beforeMedia = mediaArr(current);
+  const afterMedia = mediaArr(proposed);
+  const mediaSplit = carriesMedia
+    ? splitByKey(beforeMedia, afterMedia, (m) => m.path)
+    : { kept: beforeMedia, added: [], removed: [] };
+  // Caption-only edits keep the same path (file identity) — detect them among
+  // the matched items so a relabel isn't read as remove+add.
+  let captionChanged = [];
+  if (carriesMedia) {
+    const beforeByPath = new Map(beforeMedia.map((m) => [m.path, m]));
+    captionChanged = afterMedia
+      .filter((m) => beforeByPath.has(m.path))
+      .map((m) => ({
+        path: m.path,
+        type: m.type,
+        before: beforeByPath.get(m.path).caption || '',
+        after: m.caption || '',
+        item: m,
+      }))
+      .filter((c) => c.before !== c.after);
+  }
+  const media = { ...mediaSplit, captionChanged };
 
   const relArr = (r) => (Array.isArray(r?.relatedRecipes) ? r.relatedRecipes : []);
   const related =
@@ -435,6 +454,7 @@ export function buildRecipeDiffModel(current = {}, proposed = {}) {
     images.primaryChanged ||
     media.added.length > 0 ||
     media.removed.length > 0 ||
+    media.captionChanged.length > 0 ||
     related.added.length > 0 ||
     related.removed.length > 0;
 
