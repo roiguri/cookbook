@@ -82,22 +82,25 @@ class SuggestEditModal extends HTMLElement {
           overflow-y: auto;
           min-height: 0;
         }
-        .note-group {
-          margin-bottom: 16px;
+
+        /* Always-visible action bar pinned to the modal bottom (mirrors the
+           recipe-proposal action bar). Note + Clear + Submit live here. */
+        .suggest-bar {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 12px;
+          padding: 12px 14px;
+          background: var(--surface-1, #fff);
+          border: 1px solid var(--hairline, rgba(31, 29, 24, 0.12));
+          border-radius: var(--r-lg, 16px);
+          box-shadow: var(--shadow-2, 0 6px 20px rgba(31, 29, 24, 0.1));
         }
-        .note-group label {
-          display: block;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--ink, #1f1d18);
-          margin-bottom: 6px;
-        }
-        .note-group textarea {
-          width: 100%;
-          box-sizing: border-box;
-          min-height: 56px;
-          resize: vertical;
-          padding: 10px 12px;
+        .note-input {
+          flex: 1;
+          min-width: 0;
+          padding: 9px 12px;
           border: 1.5px solid var(--hairline-strong, rgba(31, 29, 24, 0.15));
           border-radius: var(--r-sm, 10px);
           font-family: var(--font-ui-he, sans-serif);
@@ -105,9 +108,59 @@ class SuggestEditModal extends HTMLElement {
           color: var(--ink, #1f1d18);
           background: var(--surface-0, #fafaf8);
         }
-        .note-group textarea:focus {
+        .note-input:focus {
           outline: none;
           border-color: var(--primary, #6a994e);
+        }
+        .suggest-bar__actions {
+          display: flex;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+        .btn {
+          font-family: var(--font-ui-he, sans-serif);
+          font-size: 13.5px;
+          font-weight: 500;
+          padding: 10px 22px;
+          border-radius: var(--r-sm, 8px);
+          cursor: pointer;
+          border: 1px solid transparent;
+          white-space: nowrap;
+        }
+        .btn-clear {
+          background: transparent;
+          color: var(--ink-2, #3a3a3a);
+          border-color: var(--hairline-strong, rgba(31, 29, 24, 0.2));
+        }
+        .btn-clear:hover {
+          background: var(--surface-2, #f0ede6);
+        }
+        .btn-submit {
+          background: var(--primary, #6a994e);
+          color: #fff;
+        }
+        .btn-submit:hover {
+          background: var(--primary-dark, #386641);
+        }
+
+        /* Mobile: note takes the full top row, buttons split the row below. */
+        @media (max-width: 768px) {
+          .suggest-bar {
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0; /* float the rounded card off the fullscreen edges */
+          }
+          .note-input {
+            flex: 1 1 100%;
+          }
+          .suggest-bar__actions {
+            width: 100%;
+          }
+          .suggest-bar__actions .btn {
+            flex: 1;
+            text-align: center;
+            padding: 12px 16px;
+          }
         }
       </style>
 
@@ -119,15 +172,19 @@ class SuggestEditModal extends HTMLElement {
               <p>השינויים שלך יישלחו לאישור מנהל לפני שיופיעו במתכון.</p>
             </div>
             <div class="suggest-body">
-              <div class="note-group">
-                <label for="suggest-note">הערה למנהל (אופציונלי)</label>
-                <textarea id="suggest-note" placeholder="למשל: תיקנתי כמות בשלב 3"></textarea>
+              <recipe-form-component disable-form-protection hide-actions></recipe-form-component>
+            </div>
+            <div class="suggest-bar">
+              <input
+                type="text"
+                class="note-input"
+                id="suggest-note"
+                placeholder="הערה למנהל (אופציונלי)"
+              />
+              <div class="suggest-bar__actions">
+                <button type="button" class="btn btn-clear" id="suggest-clear">איפוס</button>
+                <button type="button" class="btn btn-submit" id="suggest-submit">שלח לאישור</button>
               </div>
-              <recipe-form-component
-                disable-form-protection
-                clear-button-text="איפוס"
-                submit-button-text="שלח לאישור">
-              </recipe-form-component>
             </div>
           </div>
         </custom-modal>
@@ -141,6 +198,13 @@ class SuggestEditModal extends HTMLElement {
     // Clear resets the form back to the recipe's current data (not empty).
     this.form.addEventListener('clear-button-clicked', () => {
       if (this.recipeId) this.form.setRecipeData(this.recipeId);
+    });
+    // Action bar drives the (hidden) form's submit/clear.
+    this.shadowRoot.getElementById('suggest-submit').addEventListener('click', () => {
+      this.form.submitForm();
+    });
+    this.shadowRoot.getElementById('suggest-clear').addEventListener('click', () => {
+      this.form.requestClear();
     });
   }
 
