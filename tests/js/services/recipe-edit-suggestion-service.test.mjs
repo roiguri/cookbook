@@ -140,6 +140,33 @@ describe('RecipeEditSuggestionService.create', () => {
     ]);
   });
 
+  it('uploads new images under the CURRENT category even when the suggestion changes category', async () => {
+    firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'mains' });
+    recipeImageServiceMocks.uploadFile.mockResolvedValue({
+      id: 'img-x',
+      full: 'img/recipes/full/mains/r1/1700000000000.jpg',
+      isPrimary: false,
+    });
+
+    await RecipeEditSuggestionService.create({
+      recipeId: 'r1',
+      suggestedBy: 'u1',
+      proposedChanges: {
+        category: 'desserts', // suggestion changes the category
+        images: [{ source: 'new', file: makeFile(), isPrimary: false }],
+      },
+    });
+
+    // Uploaded to 'mains' (current), not 'desserts' (proposed) — approval will
+    // migrate it to the new category through the normal path.
+    expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledWith(
+      'r1',
+      'mains',
+      expect.anything(),
+      expect.objectContaining({ isPrimary: false }),
+    );
+  });
+
   it('uploads pending media items and records their paths', async () => {
     firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'cat' });
     mediaInstructionServiceMocks.upload.mockResolvedValue({

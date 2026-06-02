@@ -79,7 +79,11 @@ export class RecipeEditSuggestionService {
     if (!recipe) {
       throw new Error(`RecipeEditSuggestionService.create: recipe ${recipeId} not found`);
     }
-    const category = proposedChanges.category ?? recipe.category;
+    // Upload new images under the recipe's CURRENT category (not the proposed
+    // one). If the suggestion also changes the category, approval migrates every
+    // image (existing + these) from the current category to the new one through
+    // the same path — avoids uploading into a category the recipe isn't in yet.
+    const category = recipe.category ?? proposedChanges.category;
 
     // Separate the image/media payload from the plain recipe fields. toDelete /
     // mediaToDelete are intentionally dropped: deletions are reconstructed at
