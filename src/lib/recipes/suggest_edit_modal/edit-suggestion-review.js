@@ -70,7 +70,7 @@ class EditSuggestionReview extends HTMLElement {
         .btn-approve:hover { background:var(--primary-dark,#386641); }
       </style>
 
-      <loading-spinner overlay border-radius="10px" size="60px" color="#ffffff">
+      <loading-spinner overlay border-radius="10px" size="60px" color="var(--primary, #6a994e)">
         <custom-modal height="80vh" width="50vw" fullscreen-mobile>
           <div class="review-wrap" dir="rtl">
             <div class="review-header">

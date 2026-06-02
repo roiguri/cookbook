@@ -164,7 +164,7 @@ class SuggestEditModal extends HTMLElement {
         }
       </style>
 
-      <loading-spinner overlay border-radius="10px" size="60px" color="#ffffff">
+      <loading-spinner overlay border-radius="10px" size="60px" color="var(--primary, #6a994e)">
         <custom-modal height="90vh" width="60vw" fullscreen-mobile>
           <div class="suggest-wrap" dir="rtl">
             <div class="suggest-header">
