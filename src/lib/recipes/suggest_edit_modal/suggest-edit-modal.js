@@ -248,6 +248,7 @@ class SuggestEditModal extends HTMLElement {
       await RecipeEditSuggestionService.create({
         recipeId: this.recipeId,
         suggestedBy: user.uid,
+        suggestedByName: user.displayName || user.email || '',
         proposedChanges: recipeData,
         mediaItemsOrdered,
         note,

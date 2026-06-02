@@ -636,7 +636,7 @@ export default {
       'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
 
     const by = document.createElement('span');
-    by.textContent = `הוצע על ידי ${suggestion.suggestedBy}`;
+    by.textContent = `הוצע על ידי ${suggestion.suggestedByName || suggestion.suggestedBy}`;
     by.style.cssText = 'font-family:var(--font-mono); font-size:11px; color:var(--ink-3);';
 
     info.appendChild(name);

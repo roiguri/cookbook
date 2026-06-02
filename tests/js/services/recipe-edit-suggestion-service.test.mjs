@@ -167,6 +167,26 @@ describe('RecipeEditSuggestionService.create', () => {
     );
   });
 
+  it('denormalizes the suggester name (null when not provided)', async () => {
+    firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'cat' });
+
+    await RecipeEditSuggestionService.create({
+      recipeId: 'r1',
+      suggestedBy: 'u1',
+      suggestedByName: 'רות',
+      proposedChanges: { name: 'R', images: [] },
+    });
+    expect(firestoreMocks.setDocument.mock.calls[0][2].suggestedByName).toBe('רות');
+
+    firestoreMocks.setDocument.mockClear();
+    await RecipeEditSuggestionService.create({
+      recipeId: 'r1',
+      suggestedBy: 'u1',
+      proposedChanges: { name: 'R', images: [] },
+    });
+    expect(firestoreMocks.setDocument.mock.calls[0][2].suggestedByName).toBeNull();
+  });
+
   it('stores an empty mediaInstructions array when the suggestion clears all media', async () => {
     firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'cat' });
 

@@ -126,7 +126,7 @@ class EditSuggestionReview extends HTMLElement {
 
   renderMeta() {
     const meta = this.shadowRoot.getElementById('review-meta');
-    meta.textContent = `מתכון: ${this.suggestion.recipeName || this.suggestion.recipeId} · הוצע על ידי ${this.suggestion.suggestedBy}`;
+    meta.textContent = `מתכון: ${this.suggestion.recipeName || this.suggestion.recipeId} · הוצע על ידי ${this.suggestion.suggestedByName || this.suggestion.suggestedBy}`;
     const note = this.shadowRoot.getElementById('review-note');
     if (this.suggestion.note) {
       note.textContent = `הערה: ${this.suggestion.note}`;

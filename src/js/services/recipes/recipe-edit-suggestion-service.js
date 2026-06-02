@@ -60,6 +60,9 @@ export class RecipeEditSuggestionService {
    * @param {Object} params
    * @param {string} params.recipeId - Target recipe.
    * @param {string} params.suggestedBy - UID of the suggester.
+   * @param {string} [params.suggestedByName] - Display name (or email) snapshot
+   *        of the suggester, denormalized for the dashboard. Falls back to the
+   *        uid at display time when absent.
    * @param {Object} params.proposedChanges - Form-collected payload from
    *        `recipe-form-component` (same shape edit_recipe_component destructures):
    *        base fields + `images` (form shape) [+ `toDelete`/`mediaToDelete`, ignored].
@@ -68,7 +71,14 @@ export class RecipeEditSuggestionService {
    * @param {string} [params.note] - Optional free-text note to the manager.
    * @returns {Promise<{ suggestionId: string }>}
    */
-  static async create({ recipeId, suggestedBy, proposedChanges, mediaItemsOrdered, note } = {}) {
+  static async create({
+    recipeId,
+    suggestedBy,
+    suggestedByName,
+    proposedChanges,
+    mediaItemsOrdered,
+    note,
+  } = {}) {
     if (!recipeId) throw new Error('RecipeEditSuggestionService.create: recipeId is required');
     if (!proposedChanges || typeof proposedChanges !== 'object') {
       throw new Error('RecipeEditSuggestionService.create: proposedChanges is required');
@@ -161,6 +171,7 @@ export class RecipeEditSuggestionService {
         recipeId,
         recipeName: recipe.name || '',
         suggestedBy: uploadedBy,
+        suggestedByName: suggestedByName || null,
         status: 'pending',
         proposedChanges: storedChanges,
         storagePaths,
