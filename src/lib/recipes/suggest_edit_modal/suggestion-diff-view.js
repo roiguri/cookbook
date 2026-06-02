@@ -29,10 +29,12 @@ class SuggestionDiffView extends HTMLElement {
     this.attachShadow({ mode: 'open' });
   }
 
+  // Escapes for both text and attribute contexts (values are interpolated into
+  // src="…" attributes), so quotes are escaped too — not just &<>.
   esc(v) {
     return String(v ?? '').replace(
-      /[&<>]/g,
-      (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[s],
+      /[&<>"']/g,
+      (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[s],
     );
   }
 
