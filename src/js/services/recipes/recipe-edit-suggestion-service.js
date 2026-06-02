@@ -2,12 +2,12 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
+import { RecipeService } from './recipe-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
 import { MediaInstructionService } from './media-instruction-service.js';
 import { captureError } from '../logger.js';
 
 const COLLECTION = 'recipe_edit_suggestions';
-const RECIPES_COLLECTION = 'recipes';
 
 /**
  * Recursively drop `undefined` values — Firestore (no
@@ -98,7 +98,7 @@ export class RecipeEditSuggestionService {
     }
 
     const uploadedBy = suggestedBy || 'anonymous';
-    const recipe = await FirestoreService.getDocument(RECIPES_COLLECTION, recipeId);
+    const recipe = await RecipeService.get(recipeId);
     if (!recipe) {
       throw new Error(`RecipeEditSuggestionService.create: recipe ${recipeId} not found`);
     }
