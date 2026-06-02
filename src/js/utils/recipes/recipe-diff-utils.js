@@ -6,7 +6,7 @@
  * into an apply payload. No I/O, no service/SDK imports.
  *
  * Exported:
- *   - diffRecipe(current, proposed): changed-field descriptors (for the review UI).
+ *   - buildRecipeDiffModel(current, proposed): structured model for the review UI.
  *   - buildApplyPayload(current, proposed): RecipeService.update args to apply a suggestion.
  *
  * Used by the manager dashboard to review and apply an edit suggestion.
@@ -36,59 +36,14 @@ function instructionToText(ins) {
   return String(ins ?? '').trim();
 }
 
-/** Flatten ingredients (flat array or `ingredientSections`) to readable string[]. */
-function flattenIngredients(recipe) {
-  if (Array.isArray(recipe?.ingredientSections) && recipe.ingredientSections.length > 0) {
-    const out = [];
-    for (const section of recipe.ingredientSections) {
-      if (section?.title) out.push(`— ${section.title} —`);
-      for (const item of section?.items || []) out.push(ingredientToText(item));
-    }
-    return out;
-  }
-  return Array.isArray(recipe?.ingredients) ? recipe.ingredients.map(ingredientToText) : [];
-}
-
-/** Flatten instructions (flat array or staged `stages`) to readable string[]. */
-function flattenInstructions(recipe) {
-  if (Array.isArray(recipe?.stages) && recipe.stages.length > 0) {
-    const out = [];
-    for (const stage of recipe.stages) {
-      if (stage?.title) out.push(`— ${stage.title} —`);
-      for (const ins of stage?.instructions || []) out.push(instructionToText(ins));
-    }
-    return out;
-  }
-  return Array.isArray(recipe?.instructions) ? recipe.instructions.map(instructionToText) : [];
-}
-
-function listsEqual(a = [], b = []) {
-  if (a.length !== b.length) return false;
-  return a.every((v, i) => v === b[i]);
-}
-
-function imageIds(recipe) {
-  return Array.isArray(recipe?.images) ? recipe.images.map((img) => img.id).filter(Boolean) : [];
-}
-
 function primaryId(recipe) {
   if (!Array.isArray(recipe?.images)) return null;
   const primary = recipe.images.find((img) => img.isPrimary);
   return primary?.id || recipe.images[0]?.id || null;
 }
 
-const SCALAR_FIELDS = [
-  { field: 'name', label: 'שם' },
-  { field: 'description', label: 'תיאור' },
-  { field: 'category', label: 'קטגוריה' },
-  { field: 'prepTime', label: 'זמן הכנה' },
-  { field: 'waitTime', label: 'זמן המתנה' },
-  { field: 'servings', label: 'מנות' },
-  { field: 'attribution', label: 'קרדיט' },
-];
-
 /**
- * Metadata fields for the full diff model — richer than SCALAR_FIELDS:
+ * Metadata fields for the full diff model:
  *   - `unit`     appended to the value (e.g. minutes)
  *   - `unitFrom` pulls the unit from another field (servings + servingsUnit)
  *   - `join`     renders an array field as a comma-joined string (tags)
@@ -121,110 +76,6 @@ function metaValue(recipe, spec) {
   }
   if (spec.unit) return `${raw} ${spec.unit}`;
   return `${raw}`;
-}
-
-/**
- * Compare a live recipe against a proposed edit and return only the fields that
- * changed. Each descriptor is one of:
- *   - { field, label, type: 'scalar', before, after }
- *   - { field, label, type: 'list', before: string[], after: string[] }
- *   - { field: 'images', label, type: 'images', before, after, primaryChanged }
- *
- * @param {Object} current - The live recipe (raw Firestore shape).
- * @param {Object} proposed - The suggested recipe state (proposedChanges).
- * @returns {Array<Object>} changed-field descriptors (empty if nothing changed).
- */
-export function diffRecipe(current = {}, proposed = {}) {
-  const changes = [];
-
-  for (const { field, label } of SCALAR_FIELDS) {
-    if (!(field in proposed)) continue; // only compare fields the suggestion carries
-    const before = current[field] ?? '';
-    const after = proposed[field] ?? '';
-    if (before !== after) changes.push({ field, label, type: 'scalar', before, after });
-  }
-
-  const beforeIng = flattenIngredients(current);
-  const afterIng = flattenIngredients(proposed);
-  if (!listsEqual(beforeIng, afterIng)) {
-    changes.push({
-      field: 'ingredients',
-      label: 'מצרכים',
-      type: 'list',
-      before: beforeIng,
-      after: afterIng,
-    });
-  }
-
-  const beforeIns = flattenInstructions(current);
-  const afterIns = flattenInstructions(proposed);
-  if (!listsEqual(beforeIns, afterIns)) {
-    changes.push({
-      field: 'instructions',
-      label: 'הוראות הכנה',
-      type: 'list',
-      before: beforeIns,
-      after: afterIns,
-    });
-  }
-
-  if ('comments' in proposed) {
-    const b = Array.isArray(current.comments) ? current.comments : [];
-    const a = Array.isArray(proposed.comments) ? proposed.comments : [];
-    if (!listsEqual(b, a)) {
-      changes.push({ field: 'comments', label: 'הערות', type: 'list', before: b, after: a });
-    }
-  }
-
-  if ('relatedRecipes' in proposed) {
-    const b = Array.isArray(current.relatedRecipes) ? current.relatedRecipes : [];
-    const a = Array.isArray(proposed.relatedRecipes) ? proposed.relatedRecipes : [];
-    if (!listsEqual(b, a)) {
-      changes.push({
-        field: 'relatedRecipes',
-        label: 'מתכונים קשורים',
-        type: 'list',
-        before: b,
-        after: a,
-      });
-    }
-  }
-
-  if ('images' in proposed) {
-    const beforeIds = imageIds(current);
-    const afterIds = imageIds(proposed);
-    const primaryChanged = primaryId(current) !== primaryId(proposed);
-    if (!listsEqual(beforeIds, afterIds) || primaryChanged) {
-      changes.push({
-        field: 'images',
-        label: 'תמונות',
-        type: 'images',
-        before: beforeIds.length,
-        after: afterIds.length,
-        primaryChanged,
-      });
-    }
-  }
-
-  if ('mediaInstructions' in proposed) {
-    const bPaths = (Array.isArray(current.mediaInstructions) ? current.mediaInstructions : []).map(
-      (m) => m.path,
-    );
-    const aPaths = (
-      Array.isArray(proposed.mediaInstructions) ? proposed.mediaInstructions : []
-    ).map((m) => m.path);
-    if (!listsEqual(bPaths, aPaths)) {
-      changes.push({
-        field: 'media',
-        label: 'מדיה (הוראות מצולמות)',
-        type: 'media',
-        before: bPaths.length,
-        after: aPaths.length,
-      });
-    }
-  }
-
-  return changes;
 }
 
 /**
