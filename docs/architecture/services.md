@@ -50,7 +50,7 @@ Reference only — the JSDoc on each service class is canonical.
 | `RecipeService`               | `get`, `list`, `generateId`, `create`, `update`, `delete`, `setPrimaryImage`, `replaceImage`                            |
 | `RecipeImageService`          | `uploadFile`, `replaceFiles`, `deleteFiles`, `migrateFilesToCategory`, `getOptimizedUrl`, `getPrimaryUrl`, `getFullUrl` |
 | `RecipeImageProposalService`  | `propose`, `approve`, `reject`, `listPending`                                                                           |
-| `RecipeEditSuggestionService` | `create`, `listPending`, `get`, `approve`, `reject`                                                                     |
+| `RecipeEditSuggestionService` | `create`, `listPending`, `get`, `approve`, `supersedePending`, `reject`                                                 |
 | `MediaInstructionService`     | `upload`, `delete`, `deleteMany`, `removeAll`, `getUrl`                                                                 |
 | `PdfService`                  | `getPageIndex`, `getPageImageUrl`                                                                                       |
 | `UserService`                 | (user-doc CRUD; canonical reference: JSDoc on the class)                                                                |
