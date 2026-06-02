@@ -56,42 +56,92 @@ feature/bug branch → development → staging → main (production)
 **Release Info:**
 
 - **Key areas affected**:
-  - **Performance**: Optimize URL caching with LRU policy for images.
-  - **Auth/UI**: visual tests for forgot password, toast notifications.
-  - **Auth/Roles**: improve user role fetching, refine auth service role caching.
-  - **Recipe Import**: refine recipe import modal UI flows.
+  - **Recipes**: "Suggest an Edit" — users propose edits to existing recipes; managers review a full contextual diff and approve/reject (new `recipe_edit_suggestions` collection + firestore rules).
+  - **Recipe Import**: YouTube video extraction in the import modal; backend `gemini-service` refactor.
+  - **Recipe Forms**: unified form-field contract refactor across all recipe form components (high regression surface on Propose Recipe + Manager edit).
+  - **Games**: two new mini-games — Knife Skills and Pizzatron — plus a portrait-orientation rotate prompt.
+  - **My Meal**: ingredients drawer migrated to the shared `app-drawer` component.
+  - **i18n/Fixes**: router error message localized to Hebrew; category-change image migration fix.
 
 ---
 
-### 1. URL Caching Optimization (LRU Policy)
+### 1. Suggest an Edit — User Flow (Create)
 
-**Impact**: Image loading across the application
+**Impact**: Recipe Detail page, new moderation collection
 
-- [ ] 🔴 **Image Loading** - Scroll through Home Page, Categories, and Recipe Viewer. Verify images load correctly without excessive memory or errors.
+- [ ] 🔴 **Entry Point (auth-gated)** - As a **logged-in** user, open a recipe → menu shows "הצע עריכה". As a **guest**, the item is hidden.
+- [ ] 🔴 **Modal Seeds Recipe** - Click "הצע עריכה". Modal opens with the recipe-form pre-filled with the current recipe (name, ingredients, instructions, images, media).
+- [ ] 🔴 **Submit Suggestion** - Change a field (e.g. fix a typo in an ingredient), submit. Success toast appears; the **live recipe is NOT changed**.
+- [ ] 🟡 **Reopen Resets** - Close and reopen the modal. Verify the form re-seeds cleanly (no duplicated images / leftover edits from the previous open).
+- [ ] 🟡 **Add Image/Media** - Suggest adding a new image and a new media instruction; submit. Verify it uploads without errors (and without replacing the recipe's primary image).
 
-### 2. Forgot Password Refinements
+### 2. Suggest an Edit — Manager Review (Approve / Reject)
 
-**Impact**: Authentication
+**Impact**: Manager Dashboard
 
-- [ ] 🔴 **Forgot Password UI** - Access forgot password, check UI correctness and the email sending flow.
+- [ ] 🔴 **Pending Edits Section** - As **Manager**, open Dashboard. "הצעות עריכה ממתינות" section lists pending suggestions (empty-state message when none).
+- [ ] 🔴 **Contextual Diff View** - Open a suggestion. The whole recipe renders in the recipe-display language with changes highlighted in context: metadata rows show `before ← after`; added/removed ingredient & instruction lines marked `+/−`; added images green, removed red.
+- [ ] 🔴 **Approve Applies Changes** - Approve a suggestion. Verify the live recipe now reflects the changes and the suggestion leaves the pending list.
+- [ ] 🔴 **Reject Discards** - Reject a suggestion. Verify the recipe is unchanged and any uploaded suggestion images/media are cleaned up (not orphaned).
+- [ ] 🟡 **Suggester Name** - Verify the review header shows who submitted the suggestion.
+- [ ] 🟡 **Supersede Other Pendings** - With two pending suggestions on the **same recipe**, approve one. Verify the other is superseded (no longer applies a stale diff).
+- [ ] 🟡 **Media Caption Change** - Suggest a media caption-only change and verify the diff surfaces the caption change.
+- [ ] 🟡 **Clear All Media** - Suggest removing all media instructions; approve. Verify the recipe ends with no media.
+- [ ] 🟢 **Section Refresh** - Use the section refresh icon; pending edits reload without a full-page reload.
 
-### 3. Toast Notifications
+### 3. Suggest an Edit — Security
 
-**Impact**: Global Alerts
+**Impact**: Firestore rules (`recipe_edit_suggestions`)
 
-- [ ] 🟡 **Toast Triggers** - Trigger toast notifications (e.g., via "Copy to clipboard" or search results) and verify they appear and disappear correctly.
+- [ ] 🔴 **No Self-Approve** - As a regular user, confirm there is no path to approve your own suggestion (approval lives only behind the manager dashboard / rules).
+- [ ] 🔴 **Guest Blocked** - As a guest, attempt to create a suggestion → permission denied.
+- [ ] 🟢 **Production Rules Deploy** - ⚠️ `firestore.rules` for the new collection must be deployed to **production** before/at release (`firebase deploy --only firestore:rules`). Confirm before running.
 
-### 4. User Role Fetching
+### 4. YouTube Video Recipe Import
 
-**Impact**: Authentication, Authorization
+**Impact**: Propose Recipe → Import Modal
 
-- [ ] 🔴 **Role Assignment** - Login as regular user, verify lack of Manager Dashboard access. Login as Manager, verify access is granted correctly.
+- [ ] 🔴 **Video Tab** - Open the Import Modal. A "מסרטון YouTube" tab is present alongside Image/URL.
+- [ ] 🔴 **Extract From Video** - Paste a valid YouTube URL and run extraction. Loading state shows; recipe fields populate from the video.
+- [ ] 🟡 **Invalid URL** - Paste a non-YouTube / malformed URL. Verify the inline error appears and extraction is blocked.
+- [ ] 🟡 **Existing Image/URL Modes** - Verify Image upload and generic URL import still work (regression — backend gemini-service was refactored).
 
-### 5. Recipe Import Modal UI Flows
+### 5. Recipe Form Refactor (Unified Field Contract)
 
-**Impact**: Propose Recipe / Import Modal
+**Impact**: Propose Recipe page + Manager recipe edit modal — broad regression surface
 
-- [ ] 🟡 **Modal Flow** - Verify the improved layouts and flows when opening and using the Recipe Import modal.
+- [ ] 🔴 **Propose Recipe (full)** - Re-run the core Propose Recipe checks (flat & sectioned ingredients, flat & multi-stage instructions, metadata, related field, validation, submit). All must still pass.
+- [ ] 🔴 **Manager Edit Recipe** - Open the edit modal in the dashboard, change fields across all component types, save. Verify changes persist correctly.
+- [ ] 🟡 **Validation Parity** - Verify per-field validation, error highlighting, and clear-on-typing still behave per the EXISTING Propose Recipe checklist.
+- [ ] 🟡 **Mode Toggles** - Toggle flat↔sectioned (ingredients) and flat↔staged (instructions); data persists across toggles.
+
+### 6. New Mini-Games (Easter Egg `/games`)
+
+**Impact**: Games page (unlock via 7 logo taps in 2s)
+
+- [ ] 🟢 **Knife Skills** - Launch "אמנות הסכין" 🔪. Swipe to slice produce; hazards (bomb/boot) end the run; 3 misses end the run; timer scores the run.
+- [ ] 🟢 **Pizzatron** - Launch "הפיצריה" 🍕. Assemble pizzas per the order on the conveyor.
+- [ ] 🟢 **Rotate Prompt** - On a mobile **portrait** device, opening Knife Skills shows the rotate-to-landscape recommendation; rotating dismisses it.
+- [ ] 🟢 **Game Wrapper** - Start overlay, timer HUD, game-over and completion screens behave for both new games.
+
+### 7. My Meal Drawer Migration
+
+**Impact**: Ingredients drawer (`/my-meal`)
+
+- [ ] 🟡 **Shared Drawer** - Open/close the ingredients drawer via button and backdrop (now uses the shared `app-drawer`). Verify it owns its own backdrop and does not overlap nav/header.
+- [ ] 🟡 **View Switching & Copy** - "Current Recipe" vs "All Ingredients" switching works; Copy-to-clipboard still shows the feedback toast.
+
+### 8. Localized Router Error
+
+**Impact**: Routing
+
+- [ ] 🟢 **Hebrew Route Error** - Trigger a routing error (e.g. a bad direct URL). Verify the error message is shown in Hebrew.
+
+### 9. Category-Change Image Migration Fix
+
+**Impact**: Manager Dashboard recipe edit
+
+- [ ] 🟡 **No Image Loss on Category Change** - Edit a recipe and change its category (with images). Verify images are NOT deleted and still display after save (migration no-ops when source === target category).
 
 ---
 
@@ -114,6 +164,7 @@ feature/bug branch → development → staging → main (production)
 #### 🟡 High
 
 - [ ] **Recipe Grid Performance** - Load Home Page. Verify no "waterfall" of individual requests for recipe favorites (N+1 probem fixed).
+- [ ] **Image Loading (LRU cache)** - Scroll through Home, Categories, and a Recipe page. Verify images load correctly with no console errors and no runaway memory growth (URL cache uses an LRU policy).
 - [ ] **3D Auth Avatar** - Hover over user avatar. Verify 3D tilt effect. Click and verify menu opens.
 - [ ] **Recipe Card** - Hover over any part of a recipe card. Verify pointer cursor. Click anywhere on card -> navigates to recipe.
 - [ ] **Layout Stability** - Open a modal (e.g., Login). Verify page background does not shift (check scrollbar gutter).
@@ -476,7 +527,8 @@ After this release is deployed to production:
 ## Release Tracking
 
 **Release Version**: development → staging
-**Last Updated**: 2026-03-23
+**Commits since main**: 30
+**Last Updated**: 2026-06-02
 
 ### Testing Sign-Off
 
