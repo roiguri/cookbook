@@ -247,6 +247,23 @@ describe('RecipeImageService', () => {
       ).rejects.toThrow('image.full is required');
     });
 
+    it('is a no-op when the file is already in the target category (no self-delete)', async () => {
+      const sameCategoryImage = {
+        id: 'img-1',
+        full: 'img/recipes/full/mains/recipe-9/keep.jpg',
+        isPrimary: false,
+      };
+      const result = await RecipeImageService.migrateFilesToCategory(
+        'recipe-9',
+        sameCategoryImage,
+        'mains',
+      );
+      expect(result).toEqual(sameCategoryImage);
+      // Critically: must NOT delete (or re-upload) — that would lose the image.
+      expect(storageMocks.deleteFile).not.toHaveBeenCalled();
+      expect(storageMocks.uploadFile).not.toHaveBeenCalled();
+    });
+
     it('copies the full bytes to the new path, deletes the old, returns image with updated full', async () => {
       const fullBytes = new Blob(['full'], { type: 'image/jpeg' });
       // 1st getFileUrl = full; 2nd = _original lookup (will throw -> no backup)

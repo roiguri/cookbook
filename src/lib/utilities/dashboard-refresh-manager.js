@@ -7,6 +7,7 @@ export const DASHBOARD_SECTIONS = {
   USERS: 'users',
   ALL_RECIPES: 'all-recipes',
   PENDING_RECIPES: 'pending-recipes',
+  PENDING_EDITS: 'pending-edits',
   PENDING_IMAGES: 'pending-images',
   IMAGE_ENHANCEMENT: 'image-enhancement',
   FAILED_URLS: 'failed-urls',
@@ -121,6 +122,9 @@ export class DashboardRefreshManager {
       case DASHBOARD_SECTIONS.PENDING_RECIPES:
         await this.controller.loadPendingRecipes();
         break;
+      case DASHBOARD_SECTIONS.PENDING_EDITS:
+        await this.controller.loadPendingEdits();
+        break;
       case DASHBOARD_SECTIONS.PENDING_IMAGES:
         await this.controller.loadPendingImages();
         break;
@@ -149,6 +153,15 @@ export class DashboardRefreshManager {
       ],
       delay,
     );
+  }
+
+  /**
+   * Convenience method: Refresh only pending edits
+   * @param {number} delay - Optional delay in milliseconds
+   * @returns {Promise<void>}
+   */
+  async refreshPendingEdits(delay = 0) {
+    await this.refreshDashboards([DASHBOARD_SECTIONS.PENDING_EDITS], delay);
   }
 
   /**

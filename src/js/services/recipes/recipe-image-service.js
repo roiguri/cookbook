@@ -181,6 +181,13 @@ export class RecipeImageService {
       const fileName = image.full.split('/').pop();
       const newFullPath = getImageStoragePath(recipeId, newCategory, fileName, 'full');
 
+      // No-op if the file is already at the target path. Without this guard the
+      // copy-then-delete-source sequence below would delete the file we just
+      // wrote (source === target), losing the image.
+      if (image.full === newFullPath) {
+        return { ...image };
+      }
+
       const fullUrl = await StorageService.getFileUrl(image.full);
       const fullResponse = await fetch(fullUrl);
 

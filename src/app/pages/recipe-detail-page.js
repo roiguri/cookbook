@@ -73,6 +73,7 @@ export default {
     await import('../../lib/utilities/loading-spinner/loading-spinner.js');
     await import('../../lib/media/image-handler/image-handler.js');
     await import('../../lib/media/image-proposal-modal/image-proposal-modal.js');
+    await import('../../lib/recipes/suggest_edit_modal/suggest-edit-modal.js');
     await import('../../lib/modals/message-modal/message-modal.js');
   },
 
@@ -80,6 +81,7 @@ export default {
     const menuButton = container.querySelector('.recipe-menu-button');
     const menuDropdown = container.querySelector('.recipe-menu-dropdown');
     const suggestImagesBtn = container.querySelector('#suggest-images-btn');
+    const suggestEditBtn = container.querySelector('#suggest-edit-btn');
     const addToMealBtn = container.querySelector('#add-to-meal-btn');
 
     if (!menuButton || !menuDropdown || !suggestImagesBtn) {
@@ -87,10 +89,13 @@ export default {
       return;
     }
 
-    // Show "Add to Meal" only if user is logged in
+    // Show login-gated actions only if the user is signed in.
     const user = authService.getCurrentUser();
     if (user && addToMealBtn) {
       addToMealBtn.style.display = 'flex';
+    }
+    if (user && suggestEditBtn) {
+      suggestEditBtn.style.display = 'flex';
     }
 
     // Toggle dropdown on button click
@@ -122,6 +127,19 @@ export default {
         console.error('Image proposal modal not found');
       }
     });
+
+    // Handle "Suggest Edit" click
+    if (suggestEditBtn) {
+      suggestEditBtn.addEventListener('click', () => {
+        menuDropdown.classList.remove('open');
+        const modal = container.querySelector('suggest-edit-modal');
+        if (modal) {
+          modal.openForRecipe(recipeId);
+        } else {
+          console.error('Suggest edit modal not found');
+        }
+      });
+    }
 
     // Handle "Add to Meal" click
     if (addToMealBtn) {
@@ -172,6 +190,14 @@ export default {
         count === 1 ? 'התמונה נשלחה לאישור מנהל' : `${count} תמונות נשלחו לאישור מנהל`;
       messageModal.show(message, 'העלאה הצליחה');
     });
+
+    // Listen for successfully submitted edit suggestions
+    const suggestEditModal = container.querySelector('suggest-edit-modal');
+    if (suggestEditModal) {
+      suggestEditModal.addEventListener('edit-suggested', () => {
+        messageModal.show('העריכה נשלחה לאישור מנהל', 'נשלח לאישור');
+      });
+    }
   },
 
   showError(container, message) {

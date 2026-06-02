@@ -1,5 +1,6 @@
 import { FailedUrlExtractionService } from '../../js/services/admin/failed-url-extraction-service.js';
 import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import { RecipeEditSuggestionService } from '../../js/services/recipes/recipe-edit-suggestion-service.js';
 import { UserService } from '../../js/services/users/user-service.js';
 import authService from '../../js/services/auth/auth-service.js';
 import notificationService from '../../js/services/users/notification-service.js';
@@ -70,6 +71,7 @@ export default {
       import('../../lib/utilities/scrolling_list/scroll_list.js'),
       import('../../lib/recipes/recipe_preview_modal/edit_preview_recipe.js'),
       import('../../lib/recipes/recipe_preview_modal/recipe_preview_modal.js'),
+      import('../../lib/recipes/suggest_edit_modal/edit-suggestion-review.js'),
       import('../../lib/modals/image-approval-multi/image-approval-multi.js'),
       import('../../lib/modals/confirmation_modal/confirmation_modal.js'),
       import('../../lib/modals/message-modal/message-modal.js'),
@@ -233,6 +235,7 @@ export default {
       this.loadUserList(),
       this.loadAllRecipes(),
       this.loadPendingRecipes(),
+      this.loadPendingEdits(),
       this.loadPendingImages(),
       this.loadFailedUrls(),
     ]);
@@ -584,6 +587,123 @@ export default {
         // Refresh the recipe dashboards with delay to allow animation to complete
         this.refreshManager.refreshRecipes(600);
       });
+    });
+  },
+
+  /**
+   * Pending Edit Suggestions
+   */
+  async loadPendingEdits() {
+    const pendingEditsList = document.getElementById('pending-edits-list');
+    const pendingEditsSection = document.getElementById('pending-edits');
+    const noPendingMessage = pendingEditsSection.querySelector('.no-pending-message');
+
+    try {
+      const suggestions = await RecipeEditSuggestionService.listPending();
+      // Count pending suggestions per recipe (from the already-fetched list) so
+      // the manager knows when approving one will supersede others.
+      const perRecipe = suggestions.reduce((map, s) => {
+        map[s.recipeId] = (map[s.recipeId] || 0) + 1;
+        return map;
+      }, {});
+      const items = suggestions.map((suggestion) => ({
+        header: this.createPendingEditHeader(suggestion, perRecipe[suggestion.recipeId] || 1),
+        content: this.createPendingEditContent(suggestion),
+      }));
+
+      if (items.length === 0) {
+        noPendingMessage.textContent = 'אין הצעות עריכה הממתינות לאישור';
+      } else {
+        noPendingMessage.textContent = '';
+      }
+
+      if (pendingEditsList) {
+        pendingEditsList.setItems(items);
+      } else {
+        console.error('Cannot find pending edits list element');
+      }
+    } catch (error) {
+      this.handleError(error);
+    }
+  },
+
+  createPendingEditHeader(suggestion, pendingCount = 1) {
+    const header = document.createElement('div');
+    header.style.cssText =
+      'display:flex; align-items:center; justify-content:space-between; gap:8px;';
+
+    const info = document.createElement('div');
+    info.style.cssText = 'display:flex; flex-direction:column; gap:2px; min-width:0;';
+
+    const nameRow = document.createElement('div');
+    nameRow.style.cssText = 'display:flex; align-items:center; gap:6px; min-width:0;';
+
+    const name = document.createElement('span');
+    name.textContent = suggestion.recipeName || suggestion.recipeId;
+    name.style.cssText =
+      'font-family:var(--font-ui-he); font-size:14px; color:var(--ink);' +
+      'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+    nameRow.appendChild(name);
+
+    // When a recipe has several pending suggestions, flag it — approving one
+    // supersedes the rest.
+    if (pendingCount > 1) {
+      const chip = document.createElement('span');
+      chip.textContent = `${pendingCount} הצעות`;
+      chip.title = 'אישור הצעה אחת ידחה את היתר עבור מתכון זה';
+      chip.style.cssText =
+        'flex-shrink:0; background:rgba(188,71,73,0.1); color:var(--secondary-dark,#bc4749);' +
+        'border-radius:var(--r-pill,999px); padding:1px 8px; font-family:var(--font-ui-he);' +
+        'font-size:11px; font-weight:600;';
+      nameRow.appendChild(chip);
+    }
+
+    const by = document.createElement('span');
+    by.textContent = `הוצע על ידי ${suggestion.suggestedByName || suggestion.suggestedBy}`;
+    by.style.cssText = 'font-family:var(--font-mono); font-size:11px; color:var(--ink-3);';
+
+    info.appendChild(nameRow);
+    info.appendChild(by);
+
+    const btn = this._ghostPillBtn('הצג');
+    btn.addEventListener('click', () => this.reviewSuggestion(suggestion));
+
+    header.appendChild(info);
+    header.appendChild(btn);
+    return header;
+  },
+
+  createPendingEditContent(suggestion) {
+    const content = document.createElement('div');
+    content.style.cssText =
+      'font-family:var(--font-ui-he); font-size:13px; color:var(--ink-3); font-style:italic;';
+    content.textContent = suggestion.note
+      ? `הערה: ${suggestion.note}`
+      : 'לחץ על "הצג" לסקירת השינויים המוצעים';
+    return content;
+  },
+
+  reviewSuggestion(suggestion) {
+    const container = document.querySelector('.edit-suggestion-review-container');
+    container.innerHTML = '';
+    const review = document.createElement('edit-suggestion-review');
+    container.appendChild(review);
+
+    review.addEventListener('suggestion-approved', () => {
+      this.showSuccess('הצעת העריכה אושרה והוחלה', 'אושר');
+      this.refreshManager.refreshDashboards([
+        DASHBOARD_SECTIONS.PENDING_EDITS,
+        DASHBOARD_SECTIONS.ALL_RECIPES,
+      ]);
+    });
+
+    review.addEventListener('suggestion-rejected', () => {
+      this.showSuccess('הצעת העריכה נדחתה', 'נדחה');
+      this.refreshManager.refreshPendingEdits(600);
+    });
+
+    customElements.whenDefined('edit-suggestion-review').then(() => {
+      review.openForSuggestion(suggestion);
     });
   },
 
