@@ -29,6 +29,18 @@ function stripUndefinedDeep(value) {
   return value;
 }
 
+/** Best-effort delete of a suggestion's uploaded Storage files (images + media). */
+async function deleteSuggestionStorage(storagePaths) {
+  const paths = Array.isArray(storagePaths) ? storagePaths : [];
+  await Promise.all(
+    paths.map((entry) =>
+      entry.type === 'media'
+        ? MediaInstructionService.delete(entry.path).catch(() => {}) // silent: best-effort cleanup
+        : RecipeImageService.deleteFiles({ full: entry.path }).catch(() => {}),
+    ),
+  );
+}
+
 /**
  * RecipeEditSuggestionService — Edit Suggestion & Moderation
  *
@@ -47,7 +59,8 @@ function stripUndefinedDeep(value) {
  *   - create({ recipeId, suggestedBy, proposedChanges, mediaItemsOrdered, note })
  *   - listPending()
  *   - get(suggestionId)
- *   - approve(suggestionId, { reviewedBy })
+ *   - approve(suggestionId, { reviewedBy, recipeId })  // supersedes sibling pendings
+ *   - supersedePending(recipeId, { exceptId, reviewedBy })
  *   - reject(suggestionId, { reviewedBy, rejectionReason })
  */
 export class RecipeEditSuggestionService {
@@ -228,12 +241,18 @@ export class RecipeEditSuggestionService {
    * Stamp a suggestion as approved. The edit itself is applied to the recipe by
    * the caller via `RecipeService.update`; this only records the outcome.
    *
+   * When `recipeId` is passed, the other pending suggestions for that recipe are
+   * superseded (see supersedePending): each suggestion is a full-recipe snapshot,
+   * so applying a second would revert the just-approved one (and could delete its
+   * images).
+   *
    * @param {string} suggestionId
    * @param {Object} [params]
    * @param {string} [params.reviewedBy] - Manager UID.
+   * @param {string} [params.recipeId] - Recipe of the approved suggestion; enables superseding siblings.
    * @returns {Promise<void>}
    */
-  static async approve(suggestionId, { reviewedBy } = {}) {
+  static async approve(suggestionId, { reviewedBy, recipeId } = {}) {
     if (!suggestionId) {
       throw new Error('RecipeEditSuggestionService.approve: suggestionId is required');
     }
@@ -242,6 +261,43 @@ export class RecipeEditSuggestionService {
       reviewedBy: reviewedBy || null,
       reviewedAt: Timestamp.now(),
     });
+    if (recipeId) {
+      await RecipeEditSuggestionService.supersedePending(recipeId, {
+        exceptId: suggestionId,
+        reviewedBy,
+      });
+    }
+  }
+
+  /**
+   * Mark all OTHER pending suggestions for a recipe as `superseded` (terminal)
+   * and clean their uploaded Storage files. Called on approval so a second
+   * full-recipe snapshot can't be applied and revert the approved one.
+   *
+   * @param {string} recipeId
+   * @param {Object} [params]
+   * @param {string} [params.exceptId] - Suggestion to leave untouched (the approved one).
+   * @param {string} [params.reviewedBy] - Manager UID.
+   * @returns {Promise<number>} number of suggestions superseded
+   */
+  static async supersedePending(recipeId, { exceptId, reviewedBy } = {}) {
+    if (!recipeId) return 0;
+    // Single-field query (no composite index); filter to pending client-side.
+    const all = await FirestoreService.queryDocuments(COLLECTION, {
+      where: [['recipeId', '==', recipeId]],
+    });
+    const others = all.filter((s) => s.id !== exceptId && s.status === 'pending');
+    await Promise.all(
+      others.map(async (s) => {
+        await deleteSuggestionStorage(s.storagePaths);
+        await FirestoreService.updateDocument(COLLECTION, s.id, {
+          status: 'superseded',
+          reviewedBy: reviewedBy || null,
+          reviewedAt: Timestamp.now(),
+        });
+      }),
+    );
+    return others.length;
   }
 
   /**
@@ -261,14 +317,7 @@ export class RecipeEditSuggestionService {
     const suggestion = await FirestoreService.getDocument(COLLECTION, suggestionId);
     if (!suggestion) throw new Error('Suggestion not found');
 
-    const paths = Array.isArray(suggestion.storagePaths) ? suggestion.storagePaths : [];
-    await Promise.all(
-      paths.map((entry) =>
-        entry.type === 'media'
-          ? MediaInstructionService.delete(entry.path).catch(() => {}) // silent: best-effort cleanup
-          : RecipeImageService.deleteFiles({ full: entry.path }).catch(() => {}),
-      ),
-    );
+    await deleteSuggestionStorage(suggestion.storagePaths);
 
     await FirestoreService.updateDocument(COLLECTION, suggestionId, {
       status: 'rejected',

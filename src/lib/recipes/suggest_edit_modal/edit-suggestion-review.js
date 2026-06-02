@@ -151,7 +151,10 @@ class EditSuggestionReview extends HTMLElement {
         uploadedBy,
         approved: true,
       });
-      await RecipeEditSuggestionService.approve(this.suggestion.id, { reviewedBy: uploadedBy });
+      await RecipeEditSuggestionService.approve(this.suggestion.id, {
+        reviewedBy: uploadedBy,
+        recipeId: this.suggestion.recipeId,
+      });
 
       spinner.removeAttribute('active');
       this.modal.close();

@@ -259,6 +259,35 @@ describe('RecipeEditSuggestionService.approve', () => {
       reviewedBy: 'mgr',
       reviewedAt: 'mock-timestamp-now',
     });
+    // No recipeId → no sibling query/supersede.
+    expect(firestoreMocks.queryDocuments).not.toHaveBeenCalled();
+  });
+
+  it('supersedes other pending suggestions for the recipe when recipeId is given', async () => {
+    firestoreMocks.queryDocuments.mockResolvedValue([
+      { id: 'sug-1', status: 'pending', storagePaths: [] },
+      { id: 'sug-2', status: 'pending', storagePaths: [{ type: 'image', path: 'img/x.jpg' }] },
+      { id: 'sug-3', status: 'approved', storagePaths: [] },
+    ]);
+
+    await RecipeEditSuggestionService.approve('sug-1', { reviewedBy: 'mgr', recipeId: 'r1' });
+
+    // Queried siblings by recipeId (single field — no composite index).
+    expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipe_edit_suggestions', {
+      where: [['recipeId', '==', 'r1']],
+    });
+    // sug-2 (other pending) superseded + its storage cleaned; sug-1 (approved) and
+    // sug-3 (already terminal) untouched by supersede.
+    expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({ full: 'img/x.jpg' });
+    expect(firestoreMocks.updateDocument).toHaveBeenCalledWith('recipe_edit_suggestions', 'sug-2', {
+      status: 'superseded',
+      reviewedBy: 'mgr',
+      reviewedAt: 'mock-timestamp-now',
+    });
+    const supersededIds = firestoreMocks.updateDocument.mock.calls
+      .filter((c) => c[2].status === 'superseded')
+      .map((c) => c[1]);
+    expect(supersededIds).toEqual(['sug-2']);
   });
 
   it('throws without a suggestionId', async () => {
