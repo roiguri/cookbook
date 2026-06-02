@@ -147,8 +147,14 @@ export class RecipeEditSuggestionService {
         }
       }
 
-      const storedChanges = { ...baseFields, images: processedImages };
-      if (processedMedia.length > 0) storedChanges.mediaInstructions = processedMedia;
+      // Always store images AND mediaInstructions (even when empty) so that
+      // "removed everything" is distinguishable from "untouched" at approval —
+      // an absent field would otherwise be read as "leave unchanged".
+      const storedChanges = {
+        ...baseFields,
+        images: processedImages,
+        mediaInstructions: processedMedia,
+      };
 
       const suggestionId = FirestoreService.generateId(COLLECTION);
       const docPayload = stripUndefinedDeep({

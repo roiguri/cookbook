@@ -125,6 +125,21 @@ describe('buildApplyPayload', () => {
     expect(mediaToDelete).toEqual(['p/a']);
   });
 
+  it('clears all media when the suggestion carries an empty mediaInstructions array', () => {
+    const current = {
+      mediaInstructions: [
+        { id: '1', path: 'p/a' },
+        { id: '2', path: 'p/b' },
+      ],
+    };
+    const { mediaItemsOrdered, mediaToDelete } = buildApplyPayload(current, {
+      images: [],
+      mediaInstructions: [],
+    });
+    expect(mediaItemsOrdered).toEqual([]);
+    expect(mediaToDelete).toEqual(['p/a', 'p/b']);
+  });
+
   it('leaves media untouched when the suggestion does not carry mediaInstructions', () => {
     const { mediaItemsOrdered, mediaToDelete } = buildApplyPayload(
       { mediaInstructions: [{ id: '1', path: 'p/a' }] },

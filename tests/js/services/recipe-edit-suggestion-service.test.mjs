@@ -167,6 +167,21 @@ describe('RecipeEditSuggestionService.create', () => {
     );
   });
 
+  it('stores an empty mediaInstructions array when the suggestion clears all media', async () => {
+    firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'cat' });
+
+    await RecipeEditSuggestionService.create({
+      recipeId: 'r1',
+      suggestedBy: 'u1',
+      proposedChanges: { name: 'R', images: [] },
+      mediaItemsOrdered: [], // suggester removed all media
+    });
+
+    const doc = firestoreMocks.setDocument.mock.calls[0][2];
+    // Present (not absent) so approval can tell "cleared" from "untouched".
+    expect(doc.proposedChanges.mediaInstructions).toEqual([]);
+  });
+
   it('uploads pending media items and records their paths', async () => {
     firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'cat' });
     mediaInstructionServiceMocks.upload.mockResolvedValue({
