@@ -244,7 +244,6 @@ class SuggestionDiffView extends HTMLElement {
     return `
       .diff { font-family: var(--font-ui-he, sans-serif); display:flex; flex-direction:column; gap:18px; color: var(--ink, #1f1d18); }
       .empty { text-align:center; color: var(--ink-3, rgba(31,29,24,0.55)); font-style:italic; padding:24px 0; }
-      .sec { }
       .sec-title { font-family: var(--font-display, serif); font-size:18px; margin:0 0 10px; color: var(--ink, #1f1d18); display:flex; align-items:center; gap:8px; }
       .note { font-size:12px; font-style:italic; color: var(--ink-3, rgba(31,29,24,0.55)); font-family: var(--font-ui-he, sans-serif); }
 

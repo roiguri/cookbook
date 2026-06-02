@@ -5,8 +5,8 @@
  *
  * @description
  * Manager-facing review modal for a pending recipe edit suggestion (Milestone 1:
- * display-only). Shows a field-by-field diff of the live recipe vs the suggested
- * state, with Approve (applies the suggestion as-is via RecipeService.update) and
+ * display-only). Shows a full-recipe contextual diff of the live recipe vs the
+ * suggested state, with Approve (applies the suggestion as-is via RecipeService.update) and
  * Reject (with an optional reason). Editing a suggestion before applying is a
  * later milestone.
  *
