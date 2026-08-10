@@ -47,9 +47,8 @@ beforeEach(async () => {
   Object.values(mediaInstructionServiceMocks).forEach((m) => m.mockReset?.());
   mediaInstructionServiceMocks.delete.mockResolvedValue(undefined);
 
-  ({ RecipeEditSuggestionService } = await import(
-    'src/js/services/recipes/recipe-edit-suggestion-service.js'
-  ));
+  ({ RecipeEditSuggestionService } =
+    await import('src/js/services/recipes/recipe-edit-suggestion-service.js'));
 });
 
 describe('RecipeEditSuggestionService.create', () => {

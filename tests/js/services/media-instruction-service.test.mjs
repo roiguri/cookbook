@@ -33,9 +33,8 @@ beforeEach(async () => {
   jest.resetModules();
   Object.values(storageMocks).forEach((m) => m.mockReset?.());
   storageMocks.deleteFile.mockImplementation(() => Promise.resolve());
-  ({ MediaInstructionService } = await import(
-    'src/js/services/recipes/media-instruction-service.js'
-  ));
+  ({ MediaInstructionService } =
+    await import('src/js/services/recipes/media-instruction-service.js'));
 });
 
 describe('MediaInstructionService', () => {

@@ -41,9 +41,8 @@ beforeEach(async () => {
   Object.values(recipeImageServiceMocks).forEach((m) => m.mockReset?.());
   recipeImageServiceMocks.deleteFiles.mockImplementation(() => Promise.resolve());
 
-  ({ RecipeImageProposalService } = await import(
-    'src/js/services/recipes/recipe-image-proposal-service.js'
-  ));
+  ({ RecipeImageProposalService } =
+    await import('src/js/services/recipes/recipe-image-proposal-service.js'));
 });
 
 describe('RecipeImageProposalService', () => {

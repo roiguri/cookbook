@@ -19,9 +19,8 @@ beforeEach(async () => {
   Object.values(firestoreMocks).forEach((m) => m.mockReset());
   firestoreMocks.deleteDocument.mockResolvedValue();
 
-  ({ FailedUrlExtractionService } = await import(
-    'src/js/services/admin/failed-url-extraction-service.js'
-  ));
+  ({ FailedUrlExtractionService } =
+    await import('src/js/services/admin/failed-url-extraction-service.js'));
 });
 
 describe('FailedUrlExtractionService.list', () => {
