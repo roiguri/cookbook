@@ -53,12 +53,6 @@
   },
   "overrides": {
     "@eslint/plugin-kit": "^0.3.4",
-    "@tootallnate/once": "^3.0.1",
-    "protobufjs": "7.6.3",
-    "@grpc/grpc-js": "1.9.16",
-    "form-data": "4.0.6",
-    "ws": "8.21.0",
-    "js-yaml@3": "3.15.0",
-    "js-yaml@4": "4.2.0"
+    "@tootallnate/once": "^3.0.1"
   }
 }
