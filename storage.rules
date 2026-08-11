@@ -13,13 +13,36 @@ service firebase.storage {
           && (resource.contentType.matches('image/.*') || resource.contentType.matches('video/.*'));
     }
 
+    // Owner/manager check against Firestore for a recipe's Storage files.
+    // The !exists branch covers RecipeService.create's window: images upload
+    // (and, on failure, get cleaned up) BEFORE the recipe doc is written.
+    function canTouchRecipeFiles(recipeId) {
+      return !firestore.exists(/databases/(default)/documents/recipes/$(recipeId))
+          || firestore.get(/databases/(default)/documents/recipes/$(recipeId)).data.userId == request.auth.uid
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'manager';
+    }
+
     // ========================================
     // RECIPE IMAGES
     // ========================================
+    // Read stays public at any depth (legacy layouts, resize variants).
     match /img/recipes/{allPaths=**} {
       allow read: if true;
-      allow create, update: if isAuthenticated() && isValidMediaFile(request.resource);
-      allow delete: if isAuthenticated();
+    }
+
+    // Writes only at the canonical depth used by getImageStoragePath():
+    // img/recipes/{type}/{category}/{recipeId}/{fileName}.
+    match /img/recipes/{type}/{category}/{recipeId}/{fileName} {
+      // NEW files: any signed-in user — recipe creation uploads before the
+      // doc exists, and image proposals upload new files into recipes the
+      // uploader does not own. Proposals never overwrite.
+      allow create: if isAuthenticated() && isValidMediaFile(request.resource);
+      // OVERWRITING or DELETING existing bytes is the vandalism vector:
+      // recipe owner or manager only (plus the pre-create window above).
+      allow update: if isAuthenticated()
+                    && isValidMediaFile(request.resource)
+                    && canTouchRecipeFiles(recipeId);
+      allow delete: if isAuthenticated() && canTouchRecipeFiles(recipeId);
     }
 
     // ========================================
@@ -41,8 +64,11 @@ service firebase.storage {
     // ========================================
     match /recipes/{recipeId}/media-instructions/{fileName} {
       allow read: if true;
-      allow create, update: if isAuthenticated() && isValidMediaFile(request.resource);
-      allow delete: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidMediaFile(request.resource);
+      allow update: if isAuthenticated()
+                    && isValidMediaFile(request.resource)
+                    && canTouchRecipeFiles(recipeId);
+      allow delete: if isAuthenticated() && canTouchRecipeFiles(recipeId);
     }
   }
 }
