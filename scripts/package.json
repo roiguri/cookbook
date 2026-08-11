@@ -1,0 +1,12 @@
+{
+  "name": "cookbook-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-off Admin SDK maintenance scripts for the cookbook Firestore data. Kept separate from the app's root package.json — see README.md. No \"type\": \"module\" here: legacy .js scripts in backfill/ are CommonJS; new ESM scripts use the .mjs extension.",
+  "scripts": {
+    "backfill-visibility": "node backfill/backfill-visibility.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}
