@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="he">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>המתכונים שלי — UI prototype</title>
+
+    <!-- The real design system. Edit tokens.css / cards.css and this page follows. -->
+    <link rel="stylesheet" href="../../../src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../../src/styles/components/cards.css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Hebrew:wght@300;400;500;600;700&family=Noto+Serif+Hebrew:wght@400;600&display=swap"
+    />
+
+    <style>
+      /* ===================================================================
+         PROPOSED ADDITIONS TO src/styles/components/cards.css
+         Everything in this block is new. Copy into cards.css for Stage 1.
+         =================================================================== */
+
+      /* Private: the recipe exists only for its owner. Reads as "not out yet"
+         — quieter than pending, which is actively awaiting someone. */
+      .recipe-card__stamp--private {
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--ink-3);
+      }
+
+      /* Authored-by-me marker. Provenance is metadata, so it sits in the body
+         next to the category rather than competing with the stamp. */
+      .recipe-card__mine {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-4);
+      }
+      .recipe-card__cat-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* FINDING 1 — cards.css uses physical `left`/`right` for the stamp and
+         favourite button, so they do not mirror under dir="rtl". In an RTL
+         page the stamp lands on the visual left. These two rules fix it with
+         logical properties and are direction-agnostic. */
+      .recipe-card__stamp {
+        left: auto;
+        inset-inline-start: 12px;
+      }
+      .recipe-card__fav {
+        right: auto;
+        inset-inline-end: 12px;
+      }
+
+      /* Tombstone — a saved recipe whose source was deleted by a manager.
+         Renders from the entry's denormalised `card` map, so it degrades
+         instead of vanishing. */
+      .recipe-card--tombstone {
+        opacity: 0.55;
+      }
+      .recipe-card--tombstone .recipe-card__photo {
+        background: var(--surface-2);
+        display: grid;
+        place-items: center;
+      }
+
+      /* ===================================================================
+         COLLECTION PAGE — proposed component CSS
+         =================================================================== */
+
+      .collection {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+
+      /* Rail. In RTL the grid places the first column on the right
+         automatically — no mirroring rules needed. */
+      .rail {
+        position: sticky;
+        top: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .rail__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: var(--r-sm);
+        border: none;
+        background: none;
+        font-family: var(--font-ui-he);
+        font-size: var(--step-0);
+        color: var(--text-color);
+        cursor: pointer;
+        text-align: start;
+        transition: background var(--dur-1) var(--ease);
+      }
+      .rail__item:hover {
+        background: var(--surface-2);
+      }
+      .rail__item[aria-current='true'] {
+        background: var(--primary-dark);
+        color: #fff;
+        font-weight: 600;
+      }
+      .rail__count {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        opacity: 0.7;
+      }
+      .rail__divider {
+        height: 1px;
+        background: var(--hairline);
+        margin: 12px 14px;
+      }
+      .rail__future {
+        opacity: 0.4;
+        pointer-events: none;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 20px;
+      }
+
+      /* Empty state */
+      .empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 56px 24px;
+        border: 1px dashed var(--hairline-strong);
+        border-radius: var(--r-lg);
+        background: var(--surface-1);
+      }
+      .empty__art {
+        font-size: 40px;
+        line-height: 1;
+        margin-bottom: 16px;
+        filter: grayscale(0.3);
+      }
+      .empty__title {
+        font-family: var(--font-display-he);
+        font-size: var(--step-3);
+        color: var(--text-strong);
+        margin: 0 0 8px;
+      }
+      .empty__body {
+        font-family: var(--font-ui-he);
+        color: var(--text-muted);
+        max-width: 42ch;
+        margin: 0 auto 24px;
+      }
+      .empty__actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      /* ===================================================================
+         PROTOTYPE PAGE CHROME — not part of the app
+         =================================================================== */
+
+      body {
+        font-family: var(--font-ui-he);
+        background: var(--surface-2);
+      }
+      .doc {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: var(--gutter);
+      }
+      .doc > header {
+        margin-bottom: 48px;
+        padding-bottom: 24px;
+        border-bottom: 2px solid var(--hairline-strong);
+      }
+      .doc h1 {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: var(--step-4);
+        color: var(--text-strong);
+        margin: 0 0 8px;
+      }
+      .doc .sub {
+        color: var(--text-muted);
+        font-size: var(--step-0);
+        margin: 0;
+      }
+
+      .frame {
+        margin-bottom: 56px;
+      }
+      .frame__label {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--primary-dark);
+        margin-bottom: 6px;
+      }
+      .frame__title {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: var(--step-3);
+        color: var(--text-strong);
+        margin: 0 0 6px;
+      }
+      .frame__note {
+        color: var(--text-muted);
+        font-size: var(--step-0);
+        max-width: 72ch;
+        margin: 0 0 20px;
+      }
+      .screen {
+        background: var(--surface-0);
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--r-lg);
+        padding: 28px;
+        box-shadow: var(--shadow-1);
+      }
+      .screen--phone {
+        max-width: 390px;
+        padding: 20px;
+      }
+      .screens-row {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+
+      /* App-ish bits reused across frames */
+      .page-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .page-head h2 {
+        font-family: var(--font-display-he);
+        font-weight: 600;
+        font-size: var(--step-3);
+        color: var(--text-strong);
+        margin: 0;
+      }
+      .btn {
+        font-family: var(--font-ui-he);
+        font-size: var(--step-0);
+        padding: 9px 18px;
+        border-radius: var(--r-pill);
+        border: 1px solid transparent;
+        background: var(--primary);
+        color: var(--button-color);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .btn--ghost {
+        background: transparent;
+        border-color: var(--hairline-strong);
+        color: var(--text-color);
+      }
+      .btn--sm {
+        padding: 6px 14px;
+        font-size: var(--step--1);
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: var(--r-pill);
+      }
+      .chip--private {
+        background: var(--surface-2);
+        color: var(--ink-3);
+      }
+      .chip--pending {
+        background: var(--neutral);
+        color: var(--secondary-dark);
+      }
+      .chip--public {
+        background: var(--primary-dark);
+        color: #fff;
+      }
+
+      .callout {
+        border-inline-start: 3px solid var(--secondary);
+        background: var(--surface-1);
+        padding: 14px 18px;
+        border-radius: var(--r-sm);
+        margin-top: 20px;
+        font-size: var(--step-0);
+        color: var(--text-color);
+      }
+      .callout strong {
+        color: var(--secondary-dark);
+      }
+      .callout code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--surface-2);
+        padding: 1px 5px;
+        border-radius: var(--r-xs);
+      }
+
+      @media (max-width: 720px) {
+        .collection {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="doc">
+      <header>
+        <h1>המתכונים שלי — UI prototype</h1>
+        <p class="sub">
+          Stage 1–3 screens, built on the real <code>tokens.css</code> and <code>cards.css</code>.
+          Everything is <code>dir="rtl"</code> with real Hebrew, so mirroring and font problems show
+          up here rather than in review. Proposed CSS additions are isolated in one block at the top
+          of this file's <code>&lt;style&gt;</code>.
+        </p>
+      </header>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Screen 1 · Stage 1</div>
+        <h2 class="frame__title">Collection page — populated</h2>
+        <p class="frame__note">
+          Lifecycle is the navigation axis; provenance is metadata on the card. The rail sits on the
+          right because the page is RTL and it is the first grid column — no mirroring rules
+          required. The greyed rows below the divider are the deferred user-lists feature, shown
+          here only to prove the rail has somewhere to grow.
+        </p>
+
+        <div class="screen" dir="rtl">
+          <div class="page-head">
+            <h2>המתכונים שלי</h2>
+            <button class="btn">+ הוספת מתכון</button>
+          </div>
+
+          <div class="collection">
+            <nav class="rail">
+              <button class="rail__item" aria-current="true">
+                <span>במטבח</span><span class="rail__count">24</span>
+              </button>
+              <button class="rail__item">
+                <span>לנסות</span><span class="rail__count">7</span>
+              </button>
+              <div class="rail__divider"></div>
+              <div class="rail__future">
+                <button class="rail__item">
+                  <span>שבת</span><span class="rail__count">12</span>
+                </button>
+                <button class="rail__item">
+                  <span>מהיר</span><span class="rail__count">8</span>
+                </button>
+                <button class="rail__item"><span>+ רשימה חדשה</span></button>
+              </div>
+            </nav>
+
+            <div class="grid">
+              <article class="recipe-card">
+                <div class="recipe-card__photo recipe-card__photo--main-courses">
+                  <span class="recipe-card__stamp recipe-card__stamp--approved">משותף</span>
+                </div>
+                <div class="recipe-card__body">
+                  <div class="recipe-card__cat-row">
+                    <span class="recipe-card__cat">מנות עיקריות</span>
+                    <span class="recipe-card__mine">· שלי</span>
+                  </div>
+                  <h4 class="recipe-card__title">קובה סלק</h4>
+                  <div class="recipe-card__meta"><span>1 ש׳ 30 · בינוני</span><span>—</span></div>
+                </div>
+              </article>
+
+              <article class="recipe-card">
+                <div class="recipe-card__photo recipe-card__photo--soups-stews"></div>
+                <div class="recipe-card__body">
+                  <span class="recipe-card__cat">מרקים</span>
+                  <h4 class="recipe-card__title">מרק עדשים</h4>
+                  <div class="recipe-card__meta"><span>45 דק׳ · קל</span><span>סבתא רחל</span></div>
+                </div>
+              </article>
+
+              <article class="recipe-card">
+                <div class="recipe-card__photo recipe-card__photo--salads">
+                  <span class="recipe-card__stamp recipe-card__stamp--private">פרטי</span>
+                </div>
+                <div class="recipe-card__body">
+                  <div class="recipe-card__cat-row">
+                    <span class="recipe-card__cat">סלטים</span>
+                    <span class="recipe-card__mine">· שלי</span>
+                  </div>
+                  <h4 class="recipe-card__title">סלט חצילים של אמא</h4>
+                  <div class="recipe-card__meta"><span>25 דק׳ · קל</span><span>—</span></div>
+                </div>
+              </article>
+
+              <article class="recipe-card recipe-card--pending">
+                <div class="recipe-card__photo">
+                  <span class="recipe-card__stamp recipe-card__stamp--pending">בבדיקה</span>
+                </div>
+                <div class="recipe-card__body">
+                  <div class="recipe-card__cat-row">
+                    <span class="recipe-card__cat">קינוחים</span>
+                    <span class="recipe-card__mine">· שלי</span>
+                  </div>
+                  <h4 class="recipe-card__title">עוגת דבש</h4>
+                  <div class="recipe-card__meta">
+                    <span>1 ש׳ · בינוני</span><span>ממתין לאישור</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Finding 1 — RTL mirroring.</strong> <code>cards.css</code> positions
+          <code>.recipe-card__stamp</code> with <code>left: 12px</code> and
+          <code>.recipe-card__fav</code> with <code>right: 12px</code>. Physical properties do not
+          mirror under <code>dir="rtl"</code>, so in Hebrew the stamp lands on the visual left, away
+          from the reading edge. This page patches both to
+          <code>inset-inline-start / inset-inline-end</code>. There are no
+          <code>[dir="rtl"]</code> overrides anywhere in <code>src/styles/</code>, so this pattern
+          is likely repeated elsewhere and is worth a sweep.
+        </div>
+
+        <div class="callout">
+          <strong>Finding 2 — Hebrew titles use a Latin display font.</strong>
+          <code>recipe-card-styles.js:137</code> sets the title to
+          <code>var(--font-display)</code> — Instrument Serif, <em>italic</em>. Recipe titles are
+          Hebrew, which that font does not cover, so they fall back per-glyph and the italic is
+          typographically meaningless in Hebrew. <code>--font-display-he</code> (Noto Serif Hebrew)
+          exists in <code>tokens.css</code> and appears unused. Pre-existing, not caused by this
+          feature — but every card on this new page inherits it.
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Screen 2 · Stage 1</div>
+        <h2 class="frame__title">Empty states</h2>
+        <p class="frame__note">
+          Three distinct ones, not one. An empty personal cookbook on first sign-in is the user's
+          introduction to the whole feature, so each routes somewhere specific rather than just
+          stating a fact.
+        </p>
+
+        <div class="screen" dir="rtl" style="margin-bottom: 20px">
+          <div class="empty">
+            <div class="empty__art">📖</div>
+            <h3 class="empty__title">הספר שלך עדיין ריק</h3>
+            <p class="empty__body">
+              אפשר לשמור מתכונים מכל המתכונים, או להוסיף מתכון משלך — הוא יישאר פרטי עד שתחליט לשתף.
+            </p>
+            <div class="empty__actions">
+              <button class="btn">+ הוספת מתכון</button>
+              <button class="btn btn--ghost">עיון בכל המתכונים</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="screens-row">
+          <div class="screen" dir="rtl" style="flex: 1; min-width: 320px">
+            <div class="empty">
+              <div class="empty__art">🍳</div>
+              <h3 class="empty__title">המטבח שלך עדיין ריק</h3>
+              <p class="empty__body">
+                יש לך 7 מתכונים ברשימת לנסות. כשתחליט שמתכון נשאר — אפשר להעביר אותו לכאן.
+              </p>
+              <div class="empty__actions">
+                <button class="btn btn--ghost">לרשימת לנסות</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="screen" dir="rtl" style="flex: 1; min-width: 320px">
+            <div class="empty">
+              <div class="empty__art">✳️</div>
+              <h3 class="empty__title">אין כאן מתכונים לנסות</h3>
+              <p class="empty__body">כל מה ששמרת כבר עבר למטבח שלך.</p>
+              <div class="empty__actions">
+                <button class="btn btn--ghost">עיון בכל המתכונים</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          The middle state is the one that matters most:
+          <strong>במטבח empty while לנסות is full</strong> is the normal condition for a new user
+          who has saved things but not cooked yet. Because graduation is manual, this state can
+          persist indefinitely — so it points at the queue rather than at discovery.
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Screen 3 · Stage 1</div>
+        <h2 class="frame__title">Mobile — the rail becomes a scroller</h2>
+        <p class="frame__note">
+          Decided rather than left open: a horizontal scroller, not a drawer. The rail has two
+          entries at Stage 1 and only grows to a handful with user lists, so hiding it behind a
+          drawer would cost a tap to reach the primary navigation of the page. Drawers stay for
+          content that is genuinely secondary, as in <code>/my-meal</code>'s ingredients panel.
+        </p>
+
+        <div class="screens-row">
+          <div class="screen screen--phone" dir="rtl">
+            <div class="page-head" style="margin-bottom: 16px">
+              <h2 style="font-size: var(--step-2)">המתכונים שלי</h2>
+              <button class="btn btn--sm">+ הוספה</button>
+            </div>
+
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                overflow-x: auto;
+                padding-bottom: 14px;
+                margin-bottom: 4px;
+              "
+            >
+              <button class="rail__item" aria-current="true" style="flex: 0 0 auto">
+                <span>במטבח</span><span class="rail__count">24</span>
+              </button>
+              <button class="rail__item" style="flex: 0 0 auto">
+                <span>לנסות</span><span class="rail__count">7</span>
+              </button>
+              <button class="rail__item rail__future" style="flex: 0 0 auto">
+                <span>שבת</span><span class="rail__count">12</span>
+              </button>
+            </div>
+
+            <div class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px">
+              <article class="recipe-card">
+                <div class="recipe-card__photo recipe-card__photo--main-courses">
+                  <span class="recipe-card__stamp recipe-card__stamp--approved">משותף</span>
+                </div>
+                <div class="recipe-card__body" style="padding: 14px">
+                  <span class="recipe-card__cat">מנות עיקריות</span>
+                  <h4 class="recipe-card__title" style="font-size: 17px">קובה סלק</h4>
+                </div>
+              </article>
+              <article class="recipe-card">
+                <div class="recipe-card__photo recipe-card__photo--salads">
+                  <span class="recipe-card__stamp recipe-card__stamp--private">פרטי</span>
+                </div>
+                <div class="recipe-card__body" style="padding: 14px">
+                  <span class="recipe-card__cat">סלטים</span>
+                  <h4 class="recipe-card__title" style="font-size: 17px">סלט חצילים</h4>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Screen 4 · Stage 2</div>
+        <h2 class="frame__title">Search — grouped across both scopes</h2>
+        <p class="frame__note">
+          One box, results grouped by scope with yours first. This is the main way a private recipe
+          becomes findable — otherwise it is reachable only by scrolling the collection page. Note
+          the query cost: the header currently loads the whole public corpus client-side
+          (<code>header-search-bar.js:162</code>), and this adds a second source on top.
+        </p>
+
+        <div class="screen" dir="rtl" style="max-width: 520px">
+          <div
+            style="
+              border: 1px solid var(--hairline-strong);
+              border-radius: var(--r-pill);
+              padding: 10px 18px;
+              background: var(--surface-1);
+              margin-bottom: 18px;
+              color: var(--text-muted);
+            "
+          >
+            🔍 עוגה
+          </div>
+
+          <div
+            style="
+              font-family: var(--font-mono);
+              font-size: 10px;
+              letter-spacing: 0.1em;
+              text-transform: uppercase;
+              color: var(--primary-dark);
+              margin-bottom: 8px;
+            "
+          >
+            המתכונים שלי
+          </div>
+          <div style="margin-bottom: 20px">
+            <div
+              style="
+                padding: 10px 12px;
+                border-radius: var(--r-sm);
+                background: var(--surface-2);
+                margin-bottom: 4px;
+                display: flex;
+                justify-content: space-between;
+              "
+            >
+              <span>עוגת גזר</span
+              ><span class="chip chip--private" style="background: transparent">לנסות</span>
+            </div>
+            <div
+              style="
+                padding: 10px 12px;
+                border-radius: var(--r-sm);
+                display: flex;
+                justify-content: space-between;
+              "
+            >
+              <span>עוגת דבש</span
+              ><span class="chip chip--pending" style="background: transparent">בבדיקה</span>
+            </div>
+          </div>
+
+          <div
+            style="
+              font-family: var(--font-mono);
+              font-size: 10px;
+              letter-spacing: 0.1em;
+              text-transform: uppercase;
+              color: var(--ink-4);
+              margin-bottom: 8px;
+            "
+          >
+            כל המתכונים
+          </div>
+          <div>
+            <div style="padding: 10px 12px">עוגת שוקולד קלה</div>
+            <div style="padding: 10px 12px">עוגיות חמאה</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Screen 5 · Stage 3</div>
+        <h2 class="frame__title">Ownership states on the recipe page</h2>
+        <p class="frame__note">
+          Status is not an action, so it sits as a chip beside the title while actions stay in the
+          existing 3-dot dropdown. The owner sees Edit in every state — including public, per Slice
+          3.4 — and there is no unpublish action anywhere.
+        </p>
+
+        <div class="screens-row">
+          <div class="screen" dir="rtl" style="flex: 1; min-width: 280px">
+            <span class="chip chip--private">רק אתה</span>
+            <h3 style="font-family: var(--font-display-he); margin: 10px 0 6px">
+              סלט חצילים של אמא
+            </h3>
+            <p style="color: var(--text-muted); font-size: var(--step-0); margin: 0 0 14px">
+              המתכון פרטי. אף אחד חוץ ממך לא רואה אותו.
+            </p>
+            <button class="btn btn--sm">בקשה לשיתוף</button>
+            <button class="btn btn--ghost btn--sm">עריכה</button>
+          </div>
+
+          <div class="screen" dir="rtl" style="flex: 1; min-width: 280px">
+            <span class="chip chip--pending">בבדיקה</span>
+            <h3 style="font-family: var(--font-display-he); margin: 10px 0 6px">עוגת דבש</h3>
+            <p style="color: var(--text-muted); font-size: var(--step-0); margin: 0 0 14px">
+              נשלח לאישור. נעדכן אותך כשהמתכון יאושר.
+            </p>
+            <button class="btn btn--ghost btn--sm">ביטול הבקשה</button>
+            <button class="btn btn--ghost btn--sm">עריכה</button>
+          </div>
+
+          <div class="screen" dir="rtl" style="flex: 1; min-width: 280px">
+            <span class="chip chip--public">משותף</span>
+            <h3 style="font-family: var(--font-display-he); margin: 10px 0 6px">קובה סלק</h3>
+            <p style="color: var(--text-muted); font-size: var(--step-0); margin: 0 0 14px">
+              המתכון מופיע בכל המתכונים.
+            </p>
+            <button class="btn btn--ghost btn--sm">עריכה</button>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Open — notification on approval.</strong> The pending copy above promises “נעדכן
+          אותך”. <code>notification-service.js</code> exists but nothing currently tells a user
+          their submission was accepted; the suggest-edit plan flagged the same gap as unresolved.
+          Either wire it in Stage 3 or change the copy so it does not promise something the app will
+          not do.
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Screen 6 · Stage 1</div>
+        <h2 class="frame__title">Adding a recipe — and the role branch</h2>
+        <p class="frame__note">
+          The one flow the plan never described. AI extraction is gated to
+          <code>approved</code> + <code>manager</code> by
+          <code>functions/index.js:61,135,164</code>, so the entry point differs by role. Hiding the
+          AI options from plain users is better than showing them and failing on click, which is
+          what would happen today — <code>recipe_form_component.js:111</code> renders the import
+          modal for everyone.
+        </p>
+
+        <div class="screens-row">
+          <div class="screen" dir="rtl" style="flex: 1; min-width: 300px">
+            <div
+              style="
+                font-family: var(--font-mono);
+                font-size: 10px;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--ink-4);
+                margin-bottom: 12px;
+              "
+            >
+              role: user
+            </div>
+            <h3 style="font-family: var(--font-display-he); margin: 0 0 16px">הוספת מתכון</h3>
+            <button class="btn" style="width: 100%; margin-bottom: 8px">✍️ כתיבה ידנית</button>
+            <p style="color: var(--text-muted); font-size: var(--step--1); margin: 12px 0 0">
+              המתכון יישמר כפרטי ברשימת “לנסות”.
+            </p>
+          </div>
+
+          <div class="screen" dir="rtl" style="flex: 1; min-width: 300px">
+            <div
+              style="
+                font-family: var(--font-mono);
+                font-size: 10px;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--primary-dark);
+                margin-bottom: 12px;
+              "
+            >
+              role: approved / manager
+            </div>
+            <h3 style="font-family: var(--font-display-he); margin: 0 0 16px">הוספת מתכון</h3>
+            <button class="btn" style="width: 100%; margin-bottom: 8px">✍️ כתיבה ידנית</button>
+            <button class="btn btn--ghost" style="width: 100%; margin-bottom: 8px">
+              🔗 ייבוא מקישור
+            </button>
+            <button class="btn btn--ghost" style="width: 100%">📷 ייבוא מתמונה</button>
+            <p style="color: var(--text-muted); font-size: var(--step--1); margin: 12px 0 0">
+              המתכון יישמר כפרטי ברשימת “לנסות”.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Screen 7 · edge case</div>
+        <h2 class="frame__title">Tombstone — a saved recipe that was deleted</h2>
+        <p class="frame__note">
+          There is no unpublish, but a manager can still delete a public recipe. Because the
+          collection entry carries its own denormalised <code>card</code> data, it degrades to a
+          dismissible tombstone instead of a broken tile — a free payoff from a decision made for
+          read performance.
+        </p>
+
+        <div class="screen" dir="rtl" style="max-width: 300px">
+          <article class="recipe-card recipe-card--tombstone">
+            <div class="recipe-card__photo" style="font-size: 28px">🗑️</div>
+            <div class="recipe-card__body">
+              <span class="recipe-card__cat">קינוחים</span>
+              <h4 class="recipe-card__title">מלבי של דודה</h4>
+              <div class="recipe-card__meta">
+                <span>אינו זמין עוד</span><span style="cursor: pointer">הסרה</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <section class="frame">
+        <div class="frame__label">Still open</div>
+        <h2 class="frame__title">What this prototype does not answer</h2>
+        <div class="callout" style="border-inline-start-color: var(--ink-4)">
+          <strong>The migration moment.</strong> A user with 40 favourites signs in after Stage 1
+          and sees both a מועדפים tab and a new המתכונים שלי page showing the same recipes. Needs
+          either a one-time explanation or a decision to remove the מועדפים tab in Stage 1 rather
+          than Stage 4.
+        </div>
+        <div class="callout" style="border-inline-start-color: var(--ink-4)">
+          <strong>Loading states.</strong> <code>page-manager</code> has an explicit spinner
+          contract (render → showLoading → mount → hideLoading). The collection page reads the
+          subcollection and may also run the orphan self-heal query, so it has two sources to
+          resolve before it can hide the spinner.
+        </div>
+        <div class="callout" style="border-inline-start-color: var(--ink-4)">
+          <strong>Add-to-meal from the collection.</strong> The grid already supports
+          <code>show-add-to-meal</code>. Whether it stays on in the collection context — and how it
+          reads next to the lifecycle actions — is undecided.
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
