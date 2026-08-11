@@ -57,7 +57,12 @@ class ProposeRecipeComponent extends HTMLElement {
     try {
       spinner.setAttribute('active', '');
       const user = authService.getCurrentUser();
-      const uploadedBy = user?.uid || 'anonymous';
+      if (!user?.uid) {
+        const authError = new Error('User must be authenticated to propose a recipe');
+        authError.code = 'auth/user-not-found';
+        throw authError;
+      }
+      const uploadedBy = user.uid;
       const formComponent = this.shadowRoot.querySelector('recipe-form-component');
 
       const {
@@ -73,6 +78,7 @@ class ProposeRecipeComponent extends HTMLElement {
         ...baseFields,
         userId: uploadedBy,
         approved: false,
+        visibility: 'pending',
       };
 
       const mediaItemsOrdered = formComponent?.getAllMediaInOrder?.() || [];
