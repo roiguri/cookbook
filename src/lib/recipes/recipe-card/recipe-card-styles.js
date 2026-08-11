@@ -210,7 +210,7 @@ export const recipeCardStyles = `
 .favorite-btn {
     position: absolute;
     top: 10px;
-    right: 10px;
+    inset-inline-end: 10px;
     width: 32px;
     height: 32px;
     padding: 6px;

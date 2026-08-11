@@ -89,7 +89,7 @@
 .recipe-card__fav {
   position: absolute;
   top: 12px;
-  right: 12px;
+  inset-inline-end: 12px;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -119,7 +119,7 @@
 .recipe-card__stamp {
   position: absolute;
   top: 12px;
-  left: 12px;
+  inset-inline-start: 12px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
