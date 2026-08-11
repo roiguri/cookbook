@@ -34,16 +34,16 @@ Every line is one commit. Tick as they land. Repo convention merges feature bran
 
 **Groundwork** — pre-existing bugs surfaced by the prototype; Stage 1 inherits both.
 
-- [ ] `fix(styles): mirror recipe-card stamp and fav with logical properties`
-- [ ] `fix(styles): use --font-display-he for Hebrew recipe titles`
+- [x] `fix(styles): mirror recipe-card stamp and fav with logical properties`
+- [x] `fix(styles): use --font-display-he for Hebrew recipe titles`
 
 **Stage 0 — backfill + rules lockdown.** Ships alone; the only visible change is the intended one — unapproved recipes stop being readable by direct link.
 
-- [ ] `fix(recipes): write visibility in propose flow, drop anonymous fallback` ← before the rules
-- [ ] `fix(recipes): tolerate per-recipe read failures in related recipes` ← before the rules
-- [ ] `chore(recipes): backfill visibility from approved on all recipes`
-- [ ] `fix(rules): gate recipe reads on approved and guard recipe writes`
-- [ ] `fix(rules): stop signed-in users deleting or replacing recipe images` ← approve rule diff before deploy
+- [x] `fix(recipes): write visibility in propose flow, drop anonymous fallback` ← before the rules
+- [x] `fix(recipes): tolerate per-recipe read failures in related recipes` ← before the rules
+- [x] `chore(recipes): backfill visibility from approved on all recipes` (script committed — production run still pending)
+- [x] `fix(rules): gate recipe reads on approved and guard recipe writes` (committed, NOT deployed)
+- [x] `fix(rules): stop signed-in users deleting or replacing recipe images` (committed, NOT deployed — approve rule diff before deploy)
 
 **Stage 1 — personal collection.** Shared corpus untouched.
 
