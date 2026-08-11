@@ -134,8 +134,8 @@ export const recipeCardStyles = `
 /* Title */
 .recipe-title {
     margin: 0;
-    font-family: var(--font-display, serif);
-    font-style: italic;
+    font-family: var(--font-display-he, serif);
+    font-style: normal;
     font-weight: 400;
     font-size: clamp(1rem, 0.9rem + 0.5vw, 1.2rem);
     line-height: 1.25;

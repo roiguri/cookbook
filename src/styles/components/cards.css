@@ -167,8 +167,8 @@
 }
 
 .recipe-card__title {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-display-he);
+  font-style: normal;
   font-weight: 400;
   font-size: 22px;
   line-height: 1.15;
