@@ -1264,7 +1264,14 @@ class RecipeComponent extends HTMLElement {
     }
 
     const fetched = await Promise.all(
-      ids.map(async (id) => formatRecipeData(await RecipeService.get(id))),
+      ids.map(async (id) => {
+        try {
+          return formatRecipeData(await RecipeService.get(id));
+        } catch (error) {
+          console.error(`Failed to fetch related recipe ${id}`, error);
+          return null;
+        }
+      }),
     );
     const valid = fetched.filter((r) => r && r.approved);
 
