@@ -75,23 +75,59 @@ service cloud.firestore {
     // RECIPES COLLECTION
     // =========================================================================
     match /recipes/{recipeId} {
-      // READ:
-      // - Public access allowed (viewing recipes)
-      allow read: if true;
-      
+      // READ (Stage 0 of the personal-collections plan):
+      // Gates on `approved`, NOT `visibility` — every live list query filters
+      // `where approved == true`, and Firestore list rules must be provable
+      // from the query's own constraints. The visibility-keyed rule arrives
+      // in Stage 4 via a bridge rule. Owners see their own unapproved
+      // recipes; managers see everything.
+      allow read: if resource.data.approved == true
+                  || isOwner(resource.data.userId) || isManager();
+
       // CREATE:
-      // - "Propose a recipe": Any authenticated user can suggest a recipe
-      allow create: if isAuthenticated();
-      
+      // Any authenticated user, but only as themselves and never published.
+      // `in ['private', 'pending']`, not == 'private': the propose flow keeps
+      // creating at 'pending' until it is retired (plan Slice 3.3) — tighten
+      // to 'private' there.
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.visibility in ['private', 'pending']
+                    && request.resource.data.approved == false;
+
       // UPDATE:
       // - Managers can edit any recipe
-      // - Users can update their own recipes (e.g., adding images after creation)
-      allow update: if isManager() 
-                    || (isAuthenticated() && resource.data.userId == request.auth.uid);
-      
+      // - Owners can edit their own, but only within transitionOk()'s bounds
+      allow update: if isManager()
+                    || (isOwner(resource.data.userId) && transitionOk());
+
       // DELETE:
-      // - Managers only
-      allow delete: if isManager();
+      // - Managers always; owners only while unpublished (`approved` is the
+      //   live publication flag until Stage 4 — others may have saved a
+      //   public recipe, so published deletion stays manager-only).
+      allow delete: if isManager()
+                    || (isOwner(resource.data.userId) && resource.data.approved == false);
+
+      // Owner-update guard. `.get()` with a default so a doc the backfill
+      // missed cannot brick its owner's updates (bare missing-key access
+      // denies in rules).
+      function transitionOk() {
+        let from = resource.data.get('visibility', 'pending');
+        let to = request.resource.data.get('visibility', 'pending');
+        return request.resource.data.userId == resource.data.userId
+            // an owner may NEVER touch `approved` — it is the live
+            // publication flag until Stage 4, and omitting this reopens
+            // the self-publish bug this rule exists to close
+            && request.resource.data.approved == resource.data.approved
+            // review metadata is manager-authored. The owner may REMOVE
+            // `shareReview` (withdraw must) but never write or alter it,
+            // and may never touch `publishedAt`.
+            && (request.resource.data.get('shareReview', null) == null
+                || request.resource.data.shareReview == resource.data.get('shareReview', null))
+            && request.resource.data.get('publishedAt', null) == resource.data.get('publishedAt', null)
+            && (to == from
+                || (from == 'private' && to == 'pending')
+                || (from == 'pending' && to == 'private'));
+      }
     }
 
     // =========================================================================
