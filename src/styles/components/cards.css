@@ -138,6 +138,13 @@
   color: #fff;
 }
 
+/* Private: the recipe exists only for its owner. Reads as "not out yet" —
+   quieter than pending, which is actively awaiting someone. */
+.recipe-card__stamp--private {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink-3);
+}
+
 /* Pending state photo */
 .recipe-card--pending .recipe-card__photo {
   background: repeating-linear-gradient(

@@ -61,6 +61,7 @@ import { parseAmount } from './recipe-ingredients-utils.js';
  * @property {Array<{ file: string, isPrimary: boolean, access: string, uploadedBy: string }>} [images]
  * @property {string[]} [comments]
  * @property {boolean} [approved]
+ * @property {'private'|'pending'|'public'} [visibility]
  * @property {Date|string|number} [creationTime]
  * @property {Date|string|number} [updatedAt]
  * @property {string[]} [relatedRecipes] - IDs of complementary recipes
@@ -172,6 +173,7 @@ export function formatRecipeData(rawData) {
     mediaInstructions: Array.isArray(rawData.mediaInstructions) ? rawData.mediaInstructions : [],
     comments: Array.isArray(rawData.comments) ? rawData.comments : [],
     approved: typeof rawData.approved === 'boolean' ? rawData.approved : false,
+    visibility: rawData.visibility,
     creationTime: rawData.creationTime || null,
     updatedAt: rawData.updatedAt || null,
     relatedRecipes: Array.isArray(rawData.relatedRecipes) ? rawData.relatedRecipes : [],

@@ -8,7 +8,10 @@ global.fetch = jest.fn(() =>
       Promise.resolve(`
       <template id="recipe-card-template">
         <div class="recipe-card">
-          <img class="recipe-image" />
+          <div class="photo">
+            <span class="stamp" hidden></span>
+            <img class="recipe-image" />
+          </div>
           <div class="recipe-content">
              <a class="recipe-link"></a>
              <div class="recipe-details"></div>
@@ -148,5 +151,64 @@ describe('RecipeCard Component', () => {
 
     const recipeImage = element.shadowRoot.querySelector('.recipe-image');
     expect(recipeImage.getAttribute('data-src')).toBe('http://example.com/img.jpg');
+  });
+
+  describe('visibility stamp', () => {
+    it('renders no stamp when show-visibility is absent, even with visibility data', async () => {
+      element.recipeData = { ...mockRecipeData, visibility: 'private' };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      element._render();
+
+      expect(element.shadowRoot.querySelector('.stamp')).toBeNull();
+    });
+
+    it.each([
+      ['private', 'private', 'פרטי'],
+      ['pending', 'pending', 'בבדיקה'],
+      ['public', 'approved', 'משותף'],
+    ])(
+      'renders the %s stamp with the correct class and label when show-visibility is set',
+      async (visibility, expectedClass, expectedLabel) => {
+        element.setAttribute('show-visibility', 'true');
+        element.recipeData = { ...mockRecipeData, visibility };
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        element._render();
+
+        const stamp = element.shadowRoot.querySelector('.stamp');
+        expect(stamp).toBeTruthy();
+        expect(stamp.hidden).toBe(false);
+        expect(stamp.classList.contains(expectedClass)).toBe(true);
+        expect(stamp.textContent).toBe(expectedLabel);
+      },
+    );
+
+    it('applies the pending treatment class to the card when pending', async () => {
+      element.setAttribute('show-visibility', 'true');
+      element.recipeData = { ...mockRecipeData, visibility: 'pending' };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      element._render();
+
+      const card = element.shadowRoot.querySelector('.recipe-card');
+      expect(card.classList.contains('pending')).toBe(true);
+    });
+
+    it('does not apply the pending treatment class for other visibility states', async () => {
+      element.setAttribute('show-visibility', 'true');
+      element.recipeData = { ...mockRecipeData, visibility: 'public' };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      element._render();
+
+      const card = element.shadowRoot.querySelector('.recipe-card');
+      expect(card.classList.contains('pending')).toBe(false);
+    });
+
+    it('renders no stamp when visibility is missing, even with show-visibility set', async () => {
+      element.setAttribute('show-visibility', 'true');
+      element.recipeData = { ...mockRecipeData };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      element._render();
+
+      expect(element.shadowRoot.querySelector('.stamp')).toBeNull();
+    });
   });
 });

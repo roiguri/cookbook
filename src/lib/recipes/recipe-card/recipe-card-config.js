@@ -16,6 +16,7 @@ export const RECIPE_CARD_CONFIG = {
   // CSS Classes
   CSS_CLASSES: {
     card: 'recipe-card',
+    cardPending: 'pending',
     loading: 'loading',
     error: 'error-state',
     favoriteBtn: 'favorite-btn',
@@ -31,6 +32,16 @@ export const RECIPE_CARD_CONFIG = {
     badgeCategory: 'category',
     badgeTime: 'time',
     badgeDifficulty: 'difficulty',
+    stamp: 'stamp',
+  },
+
+  // Visibility stamp shown on the photo when the `show-visibility` attribute
+  // is present. Keyed by recipe.visibility; a value with no entry (or a
+  // missing/unrecognized field) renders no stamp.
+  VISIBILITY_STAMPS: {
+    private: { className: 'private', label: 'פרטי' },
+    pending: { className: 'pending', label: 'בבדיקה' },
+    public: { className: 'approved', label: 'משותף' },
   },
 
   // Template IDs

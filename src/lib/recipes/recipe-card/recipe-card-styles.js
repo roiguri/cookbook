@@ -206,6 +206,51 @@ export const recipeCardStyles = `
     text-transform: capitalize;
 }
 
+/* ---- Visibility stamp ---- */
+/* Ported from src/styles/components/cards.css .recipe-card__stamp; Shadow DOM
+   can still read the global custom properties defined on :root/tokens.css. */
+.stamp {
+    position: absolute;
+    top: 10px;
+    inset-inline-start: 10px;
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: var(--r-xs, 6px);
+    z-index: 10;
+}
+
+.stamp.pending {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--secondary-dark, #9a3a3c);
+}
+
+.stamp.approved {
+    background: var(--primary-dark, #386641);
+    color: #fff;
+}
+
+/* Private: quieter than pending, which is actively awaiting someone.
+   Translucent white with no dedicated surface token, matching the
+   favorite-btn's own rgba(255,255,255,*) overlay above. */
+.stamp.private {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--ink-3, #6b6a63);
+}
+
+/* Pending-card photo treatment, ported from cards.css .recipe-card--pending */
+.recipe-card.pending .photo {
+    background: repeating-linear-gradient(
+        135deg,
+        var(--surface-2, #f6eed6),
+        var(--surface-2, #f6eed6) 10px,
+        #eedfb3 10px,
+        #eedfb3 20px
+    );
+}
+
 /* ---- Favorite button ---- */
 .favorite-btn {
     position: absolute;

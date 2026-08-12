@@ -11,6 +11,9 @@
  * @attributes
  * - recipe-id: ID of the recipe to fetch from Firestore (required)
  * - show-favorites: Whether to show the favorite button (optional)
+ * - show-visibility: Whether to render the private/pending/public stamp on
+ *   the photo, driven by recipeData.visibility (optional, opt-in — existing
+ *   surfaces that don't set it render no stamp)
  * - card-width: Width of the card (default: 200px)
  * - card-height: Height of the card (default: 300px)
  *
@@ -663,10 +666,40 @@ class RecipeCard extends HTMLElement {
       }
     }
 
+    this._renderVisibilityStamp(clone);
+
     this.shadowRoot.appendChild(clone);
     this._setupEventListeners();
 
     initLazyLoading(this.shadowRoot);
+  }
+
+  /**
+   * Populate or remove the visibility stamp in a cloned template.
+   * Opt-in via `show-visibility`; missing/unrecognized visibility renders no stamp.
+   * @param {DocumentFragment} clone - The cloned template about to be appended
+   */
+  _renderVisibilityStamp(clone) {
+    const stampEl = clone.querySelector(`.${RECIPE_CARD_CONFIG.CSS_CLASSES.stamp}`);
+    if (!stampEl) return;
+
+    const stampInfo = this.hasAttribute('show-visibility')
+      ? RECIPE_CARD_CONFIG.VISIBILITY_STAMPS[this._recipeData?.visibility]
+      : null;
+
+    if (!stampInfo) {
+      stampEl.remove();
+      return;
+    }
+
+    stampEl.hidden = false;
+    stampEl.classList.add(stampInfo.className);
+    stampEl.textContent = stampInfo.label;
+
+    if (stampInfo.className === RECIPE_CARD_CONFIG.CSS_CLASSES.cardPending) {
+      const cardEl = clone.querySelector(`.${RECIPE_CARD_CONFIG.CSS_CLASSES.card}`);
+      if (cardEl) cardEl.classList.add(RECIPE_CARD_CONFIG.CSS_CLASSES.cardPending);
+    }
   }
 
   _clearShadowRoot() {
