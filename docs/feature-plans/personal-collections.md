@@ -47,9 +47,9 @@ Every line is one commit. Tick as they land. Repo convention merges feature bran
 
 **Stage 1 — personal collection.** Shared corpus untouched.
 
-- [ ] `feat(collections): CollectionService + users/{uid}/collection rules`
+- [x] `feat(collections): CollectionService + users/{uid}/collection rules`
 - [ ] `refactor(favorites): migrate favorites array to collection entries`
-- [ ] `fix(dashboard): key the pending queue on visibility, not approved` ← before private authoring
+- [x] `fix(dashboard): key the pending queue on visibility, not approved` ← before private authoring
 - [ ] `feat(collections): /my-recipes page with lifecycle rail and empty states`
 - [ ] `fix(recipes): designed unavailable state for unreadable recipes`
 - [ ] `feat(recipes): wire card stamps for private/pending/public`
