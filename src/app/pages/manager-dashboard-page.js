@@ -500,7 +500,7 @@ export default {
 
     try {
       const pendingRecipes = await RecipeService.list({
-        where: [['approved', '==', false]],
+        where: [['visibility', '==', 'pending']],
       });
       const recipeItems = pendingRecipes.map((recipe) => ({
         header: this.createPendingRecipeHeader(recipe),
