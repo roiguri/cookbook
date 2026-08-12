@@ -61,6 +61,21 @@ beforeEach(async () => {
     () => ({}),
   );
   jest.unstable_mockModule('src/lib/modals/message-modal/message-modal.js', () => ({}));
+  // The real component drags in recipe_form_component (image handler, media
+  // editor, import modal, firebase...) — stub a minimal custom element with
+  // just the surface my-recipes-page.js calls, mirroring the "the orchestrator
+  // only needs the element to exist" pattern used for other heavy components.
+  jest.unstable_mockModule('src/lib/recipes/recipe_form_component/private_recipe_modal.js', () => {
+    if (!customElements.get('private-recipe-modal')) {
+      class FakePrivateRecipeModal extends HTMLElement {
+        openModal() {
+          this.openModalCalled = (this.openModalCalled || 0) + 1;
+        }
+      }
+      customElements.define('private-recipe-modal', FakePrivateRecipeModal);
+    }
+    return {};
+  });
   jest.unstable_mockModule('src/js/config/app-config.js', () => ({
     AppConfig: {
       getPageTitle: (title) => title,
@@ -168,6 +183,63 @@ describe('my-recipes-page: empty-state selection', () => {
 
   test('returns null (render the grid) when the active bucket has items', () => {
     expect(myRecipesPage.determineEmptyState({ rotation: 24, 'to-try': 7 }, 'rotation')).toBeNull();
+  });
+});
+
+describe('my-recipes-page: add-recipe flow', () => {
+  test('the header add button lazily loads and opens the private-authoring modal', async () => {
+    const container = buildContainer();
+    await myRecipesPage.mount(container);
+
+    const addBtn = container.querySelector('#add-recipe-btn');
+    addBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const modal = document.querySelector('private-recipe-modal');
+    expect(modal).not.toBeNull();
+    expect(modal.openModalCalled).toBe(1);
+  });
+
+  test('re-clicking add reuses the same modal instance instead of creating another', async () => {
+    const container = buildContainer();
+    await myRecipesPage.mount(container);
+
+    const addBtn = container.querySelector('#add-recipe-btn');
+    addBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    addBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.querySelectorAll('private-recipe-modal').length).toBe(1);
+    expect(document.querySelector('private-recipe-modal').openModalCalled).toBe(2);
+  });
+
+  test('a recipe-added event from the modal refreshes the collection and re-renders', async () => {
+    collectionServiceMock.list.mockImplementation((uid, filters) => {
+      if (filters?.state === 'to-try') return Promise.resolve([entry('t1', 'to-try')]);
+      return Promise.resolve([]);
+    });
+    const container = buildContainer();
+    await myRecipesPage.mount(container);
+
+    const addBtn = container.querySelector('#add-recipe-btn');
+    addBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    collectionServiceMock.list.mockClear();
+    collectionServiceMock.list.mockImplementation((uid, filters) => {
+      if (filters?.state === 'to-try') {
+        return Promise.resolve([entry('t1', 'to-try'), entry('new-1', 'to-try')]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const modal = document.querySelector('private-recipe-modal');
+    modal.dispatchEvent(new CustomEvent('recipe-added', { detail: { recipeId: 'new-1' } }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(collectionServiceMock.list).toHaveBeenCalled();
+    expect(container.querySelector('#rail-count-to-try').textContent).toBe('2');
   });
 });
 

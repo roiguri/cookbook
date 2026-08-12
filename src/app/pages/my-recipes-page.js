@@ -8,33 +8,11 @@ import authService from '../../js/services/auth/auth-service.js';
 import { CollectionService } from '../../js/services/users/collection-service.js';
 import { RecipeService } from '../../js/services/recipes/recipe-service.js';
 import { formatRecipeData } from '../../js/utils/recipes/recipe-data-utils.js';
-import { getPrimaryImage } from '../../js/utils/recipes/recipe-image-utils.js';
+import { buildCardFromRecipe } from '../../js/utils/recipes/recipe-card-utils.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import '../../styles/pages/my-recipes-page.css';
 
 const RAIL_STATES = ['rotation', 'to-try'];
-
-/**
- * Denormalised card map for a newly self-healed owned recipe, matching the
- * shape CollectionService documents: `{ name, category, primaryImage,
- * prepTime }`. Mirrors favorites-service.js's buildCard() — duplicated
- * locally rather than imported because favorites-service.js and
- * collection-service.js are out of scope for this slice (owned elsewhere).
- * @param {Object} recipe
- * @returns {Object}
- */
-function buildCardFromRecipe(recipe) {
-  const card = {
-    name: recipe.name ?? null,
-    category: recipe.category ?? null,
-    prepTime: recipe.prepTime ?? null,
-  };
-  const primary = getPrimaryImage(recipe);
-  if (primary?.full) {
-    card.primaryImage = primary.full;
-  }
-  return card;
-}
 
 export default {
   async render() {
@@ -151,24 +129,33 @@ export default {
 
   setupAddRecipeButton() {
     if (!this.addBtn) return;
-    this.addBtn.addEventListener('click', () => this.handleAddRecipeStub());
+    this.addBtn.addEventListener('click', () => this.openAddRecipeModal());
   },
 
-  // STUB: private recipe authoring ships in Slice 1.5. Until then, the
-  // add-recipe entry point (header button + both empty states) surfaces a
-  // "coming soon" message instead of failing silently or routing somewhere
-  // misleading.
-  async handleAddRecipeStub() {
-    await import('../../lib/modals/message-modal/message-modal.js');
-    let modal = document.querySelector('message-modal');
+  /**
+   * Lazily loads and opens the private-authoring modal (Slice 1.5). The
+   * modal is a singleton appended to `document.body` — like message-modal
+   * and confirmation-modal elsewhere in the app — so repeated opens reuse
+   * the same element and listener registration.
+   */
+  async openAddRecipeModal() {
+    await import('../../lib/recipes/recipe_form_component/private_recipe_modal.js');
+    let modal = document.querySelector('private-recipe-modal');
     if (!modal) {
-      modal = document.createElement('message-modal');
+      modal = document.createElement('private-recipe-modal');
       document.body.appendChild(modal);
+      modal.addEventListener('recipe-added', () => this.handleRecipeAdded());
     }
-    modal.show(
-      'הוספת מתכון פרטי תתאפשר מכאן בקרוב. בינתיים אפשר לשמור מתכונים מ״כל המתכונים״.',
-      'בקרוב',
-    );
+    modal.openModal();
+  },
+
+  /**
+   * Re-runs the same load the page does on mount so the newly-authored
+   * recipe appears without a full page reload.
+   */
+  async handleRecipeAdded() {
+    await this.loadCollection();
+    this.renderActiveState();
   },
 
   /**
@@ -285,7 +272,7 @@ export default {
   getEmptyStateConfig(type) {
     const goToCategories = () => this.navigate('/categories');
     const goToToTry = () => this.selectState('to-try');
-    const stubAdd = () => this.handleAddRecipeStub();
+    const addRecipe = () => this.openAddRecipeModal();
 
     switch (type) {
       case 'whole-book':
@@ -294,7 +281,7 @@ export default {
           title: 'הספר שלך עדיין ריק',
           body: 'אפשר לשמור מתכונים מכל המתכונים, או להוסיף מתכון משלך — הוא יישאר פרטי עד שתחליט לשתף.',
           actions: [
-            { label: '+ הוספת מתכון', primary: true, onClick: stubAdd },
+            { label: '+ הוספת מתכון', primary: true, onClick: addRecipe },
             { label: 'עיון בכל המתכונים', primary: false, onClick: goToCategories },
           ],
         };
