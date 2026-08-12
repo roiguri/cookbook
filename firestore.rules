@@ -54,6 +54,30 @@ service cloud.firestore {
       // - Users can delete their own account
       // - Managers can delete users
       allow delete: if isOwner(userId) || isManager();
+
+      // =========================================================================
+      // USER COLLECTION (personal recipe collection — see
+      // docs/feature-plans/personal-collections.md, "The core model")
+      // =========================================================================
+      match /collection/{recipeId} {
+        // READ / DELETE: owner only. A personal overlay (notes, lifecycle
+        // state) is private — managers are deliberately excluded here,
+        // unlike the parent users doc which they can read for the
+        // dashboard.
+        allow read, delete: if isOwner(userId);
+
+        // CREATE: owner only. Create-only ("save is create-only") is
+        // enforced by CollectionService, not here — a blind overwrite of
+        // an existing entry is classified by Firestore as an update, not
+        // a create, so it falls through to the update rule below.
+        allow create: if isOwner(userId);
+
+        // UPDATE: owner only, and `source` ('owned' | 'saved') is set once
+        // at create and must never change — cheap to prove without an
+        // extra read.
+        allow update: if isOwner(userId)
+                      && request.resource.data.source == resource.data.source;
+      }
     }
 
     // =========================================================================
