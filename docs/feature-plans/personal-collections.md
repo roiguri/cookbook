@@ -50,7 +50,7 @@ Every line is one commit. Tick as they land. Repo convention merges feature bran
 - [x] `feat(collections): CollectionService + users/{uid}/collection rules`
 - [x] `refactor(favorites): migrate favorites array to collection entries`
 - [x] `fix(dashboard): key the pending queue on visibility, not approved` ← before private authoring
-- [ ] `feat(collections): /my-recipes page with lifecycle rail and empty states`
+- [x] `feat(collections): /my-recipes page with lifecycle rail and empty states`
 - [ ] `fix(recipes): designed unavailable state for unreadable recipes`
 - [x] `feat(recipes): wire card stamps for private/pending/public`
 - [ ] `feat(collections): create private recipes from the collection page`
