@@ -16,10 +16,12 @@ service firebase.storage {
     // Owner/manager check against Firestore for a recipe's Storage files.
     // The !exists branch covers RecipeService.create's window: images upload
     // (and, on failure, get cleaned up) BEFORE the recipe doc is written.
+    // `.data.get('userId', '')` tolerates recipes lacking a userId field
+    // rather than erroring the whole rule (which would deny even a manager).
     function canTouchRecipeFiles(recipeId) {
       return !firestore.exists(/databases/(default)/documents/recipes/$(recipeId))
-          || firestore.get(/databases/(default)/documents/recipes/$(recipeId)).data.userId == request.auth.uid
-          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'manager';
+          || firestore.get(/databases/(default)/documents/recipes/$(recipeId)).data.get('userId', '') == request.auth.uid
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'manager';
     }
 
     // ========================================
@@ -32,13 +34,22 @@ service firebase.storage {
 
     // Writes only at the canonical depth used by getImageStoragePath():
     // img/recipes/{type}/{category}/{recipeId}/{fileName}.
+    //
+    // CRITICAL: in Storage rules, overwriting an existing object fires
+    // `create` (not `update` — that is metadata-only). So `create` must
+    // itself distinguish a brand-new file from an overwrite via
+    // `resource == null`, or a non-owner can replace any recipe's images.
+    // Verified against live infrastructure: the operation-name split alone
+    // let a non-owner overwrite succeed. `update`/`delete` keep the guard
+    // too, in case a client ever issues a genuine metadata update.
     match /img/recipes/{type}/{category}/{recipeId}/{fileName} {
-      // NEW files: any signed-in user — recipe creation uploads before the
-      // doc exists, and image proposals upload new files into recipes the
-      // uploader does not own. Proposals never overwrite.
-      allow create: if isAuthenticated() && isValidMediaFile(request.resource);
-      // OVERWRITING or DELETING existing bytes is the vandalism vector:
-      // recipe owner or manager only (plus the pre-create window above).
+      allow create: if isAuthenticated()
+                    && isValidMediaFile(request.resource)
+                    // NEW file → any signed-in user (recipe creation uploads
+                    // before the doc exists; image proposals add new files to
+                    // recipes the uploader does not own). OVERWRITE existing
+                    // bytes → recipe owner or manager only.
+                    && (resource == null || canTouchRecipeFiles(recipeId));
       allow update: if isAuthenticated()
                     && isValidMediaFile(request.resource)
                     && canTouchRecipeFiles(recipeId);
@@ -64,7 +75,10 @@ service firebase.storage {
     // ========================================
     match /recipes/{recipeId}/media-instructions/{fileName} {
       allow read: if true;
-      allow create: if isAuthenticated() && isValidMediaFile(request.resource);
+      // Same overwrite-is-create rule as recipe images above.
+      allow create: if isAuthenticated()
+                    && isValidMediaFile(request.resource)
+                    && (resource == null || canTouchRecipeFiles(recipeId));
       allow update: if isAuthenticated()
                     && isValidMediaFile(request.resource)
                     && canTouchRecipeFiles(recipeId);
