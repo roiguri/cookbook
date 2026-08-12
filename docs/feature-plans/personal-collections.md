@@ -51,10 +51,10 @@ Every line is one commit. Tick as they land. Repo convention merges feature bran
 - [x] `refactor(favorites): migrate favorites array to collection entries`
 - [x] `fix(dashboard): key the pending queue on visibility, not approved` ← before private authoring
 - [x] `feat(collections): /my-recipes page with lifecycle rail and empty states`
-- [ ] `fix(recipes): designed unavailable state for unreadable recipes`
+- [x] `fix(recipes): designed unavailable state for unreadable recipes`
 - [x] `feat(recipes): wire card stamps for private/pending/public`
-- [ ] `feat(collections): create private recipes from the collection page`
-- [ ] `fix(recipes): hide AI import from users without the approved role`
+- [x] `feat(collections): create private recipes from the collection page`
+- [x] `fix(recipes): hide AI import from users without the approved role` (folded into private authoring — /propose-recipe already gated since May, new modal gated from the start)
 
 **Stage 2 — save from the shared corpus.**
 
