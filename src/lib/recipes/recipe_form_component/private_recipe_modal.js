@@ -189,32 +189,37 @@ class PrivateRecipeModal extends HTMLElement {
   }
 
   template() {
+    // .modal-wrap is the DIRECT slot child of custom-modal (whose .modal-slot
+    // is a bounded flex column) — the same structure the working edit modal
+    // uses. The loading-spinner is a sibling, NOT a wrapper: its .overlay is
+    // position:fixed regardless, and a block-level spinner in the flex chain
+    // would break the wrap's height and let the toolbar scroll away instead
+    // of staying pinned.
     return `
       <custom-modal width="60vw" height="90vh" fullscreen-mobile>
-        <loading-spinner overlay border-radius="10px">
-          <div class="modal-wrap">
-            <h2 class="modal-title">הוספת מתכון</h2>
-            <div class="modal-body">
-              <recipe-form-component hide-actions></recipe-form-component>
-            </div>
-            <div class="toolbar">
-              <button type="button" class="toolbar-btn toolbar-btn--ghost" id="toolbar-import" aria-label="ייבוא מתכון">
-                ${icons.link}
-                <span class="btn-label">ייבוא מתכון</span>
+        <div class="modal-wrap">
+          <h2 class="modal-title">הוספת מתכון</h2>
+          <div class="modal-body">
+            <recipe-form-component hide-actions></recipe-form-component>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="toolbar-btn toolbar-btn--ghost" id="toolbar-import" aria-label="ייבוא מתכון">
+              ${icons.link}
+              <span class="btn-label">ייבוא מתכון</span>
+            </button>
+            <div class="toolbar-actions">
+              <button type="button" class="toolbar-btn toolbar-btn--clear" id="toolbar-clear" aria-label="נקה">
+                ${icons.closeX}
+                <span class="btn-label">נקה</span>
               </button>
-              <div class="toolbar-actions">
-                <button type="button" class="toolbar-btn toolbar-btn--clear" id="toolbar-clear" aria-label="נקה">
-                  ${icons.closeX}
-                  <span class="btn-label">נקה</span>
-                </button>
-                <button type="button" class="toolbar-btn toolbar-btn--submit" id="toolbar-submit" aria-label="שמירה">
-                  ${icons.floppyDisk}
-                  <span class="btn-label">שמירה</span>
-                </button>
-              </div>
+              <button type="button" class="toolbar-btn toolbar-btn--submit" id="toolbar-submit" aria-label="שמירה">
+                ${icons.floppyDisk}
+                <span class="btn-label">שמירה</span>
+              </button>
             </div>
           </div>
-        </loading-spinner>
+        </div>
+        <loading-spinner overlay border-radius="10px"></loading-spinner>
       </custom-modal>
     `;
   }

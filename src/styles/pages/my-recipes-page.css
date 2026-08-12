@@ -37,8 +37,14 @@
   align-items: start;
 }
 
+/* Reserve a stable canvas so switching lifecycle entries never collapses the
+ * column from a full grid to a short empty box (and back) — the empty state
+ * centers within the reserved height instead of jumping the page. */
 .spa-content .my-recipes-page .collection__main {
   min-width: 0;
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---- Rail ----
@@ -110,6 +116,9 @@
 /* ---- Empty states ---- */
 
 .spa-content .my-recipes-page .empty {
+  /* Center within the reserved main-column height rather than sitting as a
+   * short box at the top — keeps the page steady across tab switches. */
+  margin: auto 0;
   text-align: center;
   padding: 56px 24px;
   border: 1px dashed var(--hairline-strong);
