@@ -45,9 +45,15 @@ export default {
 
       const recipeComponent = document.createElement('recipe-component');
 
-      // Set up the listener before attaching to DOM and triggering fetch
+      // Set up the listener before attaching to DOM and triggering fetch.
+      // Resolves with the event's `detail` — { ok: false, reason } when the
+      // recipe is missing or unreadable (permission-denied on a private/
+      // pending doc), so waitForReady can render the unavailable state
+      // instead of leaving the blank shell recipe_component fetches into.
       this._readyPromise = new Promise((resolve) => {
-        recipeComponent.addEventListener('recipe-data-loaded', resolve, { once: true });
+        recipeComponent.addEventListener('recipe-data-loaded', (event) => resolve(event?.detail), {
+          once: true,
+        });
       });
 
       recipeComponent.setAttribute('recipe-id', recipeId);
@@ -200,6 +206,53 @@ export default {
     }
   },
 
+  /**
+   * Designed state for a recipe that can't be read — missing, deleted, or
+   * private/pending and not owned by the viewer. Deliberately generic
+   * (never distinguishes "private" from "deleted") so a non-owner can't use
+   * the message to infer that a private recipe exists. See the plan's
+   * "What a locked-down link looks like" (Slice 0.2) and Slice 1.3.
+   */
+  showUnavailable(container) {
+    if (this._menuCleanup) {
+      this._menuCleanup();
+      this._menuCleanup = null;
+    }
+
+    // Reuses .recipe-detail-error, which the page's own stylesheet already
+    // defines (RTL, --font-display-he heading) but nothing renders today —
+    // least-invasive fit for this state rather than a new visual pattern.
+    container.innerHTML = `
+      <div class="recipe-detail" dir="rtl">
+        <div class="recipe-container">
+          <div class="recipe-detail-error">
+            <h2>המתכון אינו זמין</h2>
+            <p>ייתכן שהמתכון פרטי, ממתין לאישור, או שהוסר.</p>
+            <div class="recipe-detail-error__actions">
+              <button type="button" id="unavailable-categories-btn">חזרה לכל המתכונים</button>
+              <button type="button" class="secondary" id="unavailable-home-btn">לדף הבית</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelector('#unavailable-categories-btn')
+      ?.addEventListener('click', () => this.navigate('/categories'));
+    container
+      .querySelector('#unavailable-home-btn')
+      ?.addEventListener('click', () => this.navigate('/home'));
+  },
+
+  navigate(path) {
+    if (window.spa?.router) {
+      window.spa.router.navigate(path);
+    } else {
+      window.location.href = `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
+    }
+  },
+
   showError(container, message) {
     container.innerHTML = `
       <div class="page-error">
@@ -232,8 +285,10 @@ export default {
   },
 
   async waitForReady(container) {
-    if (this._readyPromise) {
-      await this._readyPromise;
+    if (!this._readyPromise) return;
+    const detail = await this._readyPromise;
+    if (detail && detail.ok === false) {
+      this.showUnavailable(container);
     }
   },
 

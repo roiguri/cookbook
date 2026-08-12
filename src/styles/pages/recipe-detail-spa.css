@@ -145,6 +145,23 @@
   background: var(--primary);
 }
 
+.spa-content .recipe-detail .recipe-detail-error__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.spa-content .recipe-detail .recipe-detail-error button.secondary {
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--hairline-strong);
+}
+
+.spa-content .recipe-detail .recipe-detail-error button.secondary:hover {
+  background: var(--surface-2);
+}
+
 /* ---- Mobile ---- */
 @media (max-width: 768px) {
   .spa-content .recipe-detail .recipe-container {

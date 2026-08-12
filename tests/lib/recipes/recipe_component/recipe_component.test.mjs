@@ -138,3 +138,79 @@ describe('RecipeComponent — related recipes', () => {
     expect(section.style.display).toBe('none');
   });
 });
+
+describe('RecipeComponent — recipe-data-loaded detail payload', () => {
+  let element;
+
+  function waitForLoad(el) {
+    return new Promise((resolve) => {
+      el.addEventListener('recipe-data-loaded', (event) => resolve(event.detail), { once: true });
+    });
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    element = document.createElement('recipe-component');
+    document.body.appendChild(element);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  it('dispatches { ok: true } when the recipe loads successfully', async () => {
+    mockRecipeGet.mockResolvedValue({
+      id: 'r1',
+      name: 'מרק ירקות',
+      category: 'soups-stews',
+      prepTime: 20,
+      instructions: [],
+      approved: true,
+    });
+
+    const detailPromise = waitForLoad(element);
+    element.setAttribute('recipe-id', 'r1');
+    const detail = await detailPromise;
+
+    expect(detail).toEqual({ ok: true });
+  });
+
+  it('dispatches { ok: false, reason: "missing" } when RecipeService.get returns null', async () => {
+    mockRecipeGet.mockResolvedValue(null);
+
+    const detailPromise = waitForLoad(element);
+    element.setAttribute('recipe-id', 'missing-id');
+    const detail = await detailPromise;
+
+    expect(detail).toEqual({ ok: false, reason: 'missing' });
+  });
+
+  it('dispatches { ok: false, reason: "error" } when the fetch throws (permission-denied)', async () => {
+    mockRecipeGet.mockRejectedValue(new Error('permission-denied'));
+
+    const detailPromise = waitForLoad(element);
+    element.setAttribute('recipe-id', 'private-id');
+    const detail = await detailPromise;
+
+    expect(detail).toEqual({ ok: false, reason: 'error' });
+  });
+
+  it('fires recipe-data-loaded exactly once for a successful load', async () => {
+    mockRecipeGet.mockResolvedValue({
+      id: 'r1',
+      name: 'מרק ירקות',
+      instructions: [],
+      approved: true,
+    });
+    const spy = jest.fn();
+    element.addEventListener('recipe-data-loaded', spy);
+
+    element.setAttribute('recipe-id', 'r1');
+    await waitForLoad(element).catch(() => {});
+    // Give any second (unwanted) dispatch a turn to happen before asserting.
+    await Promise.resolve();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});

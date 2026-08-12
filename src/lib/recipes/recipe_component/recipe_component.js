@@ -855,7 +855,7 @@ class RecipeComponent extends HTMLElement {
    * Public API: Directly set recipe data to display (e.g., for preview mode)
    * @param {Object} recipe - Formatted recipe data object
    */
-  async setData(recipe) {
+  async setData(recipe, { dispatchEvent = true } = {}) {
     if (!recipe) return;
 
     try {
@@ -875,27 +875,45 @@ class RecipeComponent extends HTMLElement {
     } catch (error) {
       console.error('Error setting recipe data:', error);
     } finally {
-      this.dispatchEvent(new CustomEvent('recipe-data-loaded', { bubbles: false, composed: true }));
+      if (dispatchEvent) {
+        this.dispatchEvent(
+          new CustomEvent('recipe-data-loaded', {
+            detail: { ok: true },
+            bubbles: false,
+            composed: true,
+          }),
+        );
+      }
     }
   }
 
   async fetchAndPopulateRecipeData() {
     if (!this.recipeId) return;
 
+    // `detail` tells listeners (recipe-detail-page.js's waitForReady) whether
+    // the load actually succeeded, so a missing/unreadable recipe can render
+    // a designed unavailable state instead of a silent blank shell. Dispatch
+    // exactly once here — setData's own dispatch is suppressed for this
+    // internal call — so the event always carries the real outcome instead
+    // of whichever of two dispatches a once:true listener happened to catch
+    // first.
+    let detail = { ok: true };
     try {
       const recipe = formatRecipeData(await RecipeService.get(this.recipeId));
       if (recipe) {
         this.updatePageTitle(recipe.name);
-        await this.setData(recipe);
+        await this.setData(recipe, { dispatchEvent: false });
       } else {
         console.warn('No such document!');
-        // TODO: Handle the case where the recipe doesn't exist
+        detail = { ok: false, reason: 'missing' };
       }
     } catch (error) {
       console.error('Error getting recipe: ', error);
-      // TODO: Handle potential errors during data fetching
+      detail = { ok: false, reason: 'error' };
     } finally {
-      this.dispatchEvent(new CustomEvent('recipe-data-loaded', { bubbles: false, composed: true }));
+      this.dispatchEvent(
+        new CustomEvent('recipe-data-loaded', { detail, bubbles: false, composed: true }),
+      );
     }
   }
 
