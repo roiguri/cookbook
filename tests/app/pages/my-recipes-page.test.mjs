@@ -93,6 +93,7 @@ describe('my-recipes-page: auth guard', () => {
     const container = buildContainer();
 
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     expect(window.spa.router.navigate).toHaveBeenCalledWith('/');
     expect(collectionServiceMock.list).not.toHaveBeenCalled();
@@ -102,6 +103,7 @@ describe('my-recipes-page: auth guard', () => {
     const container = buildContainer();
 
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     expect(window.spa.router.navigate).not.toHaveBeenCalled();
   });
@@ -117,6 +119,7 @@ describe('my-recipes-page: rail state switching', () => {
     const container = buildContainer();
 
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     expect(collectionServiceMock.list).toHaveBeenCalledWith('user-1', { state: 'rotation' });
     expect(collectionServiceMock.list).toHaveBeenCalledWith('user-1', { state: 'to-try' });
@@ -130,6 +133,7 @@ describe('my-recipes-page: rail state switching', () => {
     });
     const container = buildContainer();
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     const rotationBtn = container.querySelector('.rail__item[data-state="rotation"]');
     const toTryBtn = container.querySelector('.rail__item[data-state="to-try"]');
@@ -153,6 +157,7 @@ describe('my-recipes-page: rail state switching', () => {
     const container = buildContainer();
 
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     expect(container.querySelector('#rail-count-rotation').textContent).toBe('2');
     expect(container.querySelector('#rail-count-to-try').textContent).toBe('1');
@@ -190,6 +195,7 @@ describe('my-recipes-page: add-recipe flow', () => {
   test('the header add button lazily loads and opens the private-authoring modal', async () => {
     const container = buildContainer();
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     const addBtn = container.querySelector('#add-recipe-btn');
     addBtn.click();
@@ -203,6 +209,7 @@ describe('my-recipes-page: add-recipe flow', () => {
   test('re-clicking add reuses the same modal instance instead of creating another', async () => {
     const container = buildContainer();
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     const addBtn = container.querySelector('#add-recipe-btn');
     addBtn.click();
@@ -221,6 +228,7 @@ describe('my-recipes-page: add-recipe flow', () => {
     });
     const container = buildContainer();
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     const addBtn = container.querySelector('#add-recipe-btn');
     addBtn.click();
@@ -257,6 +265,7 @@ describe('my-recipes-page: orphan self-heal', () => {
     const container = buildContainer();
 
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     expect(recipeServiceMock.list).toHaveBeenCalledWith({ where: [['userId', '==', 'user-1']] });
     expect(collectionServiceMock.create).toHaveBeenCalledWith(
@@ -278,6 +287,7 @@ describe('my-recipes-page: orphan self-heal', () => {
     const container = buildContainer();
 
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     expect(collectionServiceMock.create).not.toHaveBeenCalled();
   });
@@ -291,7 +301,25 @@ describe('my-recipes-page: orphan self-heal', () => {
     const container = buildContainer();
 
     await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
 
     expect(container.querySelector('#rail-count-rotation').textContent).toBe('1');
+  });
+
+  test('an owned recipe still renders even when persisting its entry fails', async () => {
+    // The entry write is best-effort — an owned recipe must appear whether or
+    // not the write lands (e.g. collection rules not yet deployed). Regression
+    // guard: a rejected create must not drop the recipe from the view.
+    recipeServiceMock.list.mockResolvedValue([
+      { id: 'owned-1', userId: 'user-1', name: 'Grandma soup', category: 'soups-stews' },
+    ]);
+    collectionServiceMock.create.mockRejectedValue(new Error('permission-denied'));
+    const container = buildContainer();
+
+    await myRecipesPage.mount(container);
+    await myRecipesPage.waitForReady();
+
+    expect(collectionServiceMock.create).toHaveBeenCalled();
+    expect(container.querySelector('#rail-count-to-try').textContent).toBe('1');
   });
 });

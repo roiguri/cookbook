@@ -38,13 +38,41 @@ export default {
       entriesByState: { rotation: [], 'to-try': [] },
     };
 
+    // The page-manager keeps its loading spinner up until waitForReady()
+    // resolves (with a 10s safety timeout) — the same contract my-meal-page
+    // and recipe-detail-page use. mount() sets up and kicks off the first
+    // load; waitForReady() gates the spinner on it.
+    this._readyPromise = new Promise((resolve) => {
+      this._resolveReady = resolve;
+    });
+
     await this.importComponents();
     this.cacheElements();
     this.setupRail();
     this.setupAddRecipeButton();
 
-    await this.loadCollection();
-    this.renderActiveState();
+    this.loadAndRender();
+  },
+
+  /**
+   * Kicked off by mount() (not awaited) and awaited by waitForReady(). Always
+   * renders and resolves readiness — even on failure — so the spinner never
+   * hangs.
+   */
+  async loadAndRender() {
+    try {
+      await this.loadCollection();
+    } catch (error) {
+      console.error('Error loading collection:', error);
+    } finally {
+      this.renderActiveState();
+      this._resolveReady?.();
+      this._resolveReady = null;
+    }
+  },
+
+  async waitForReady() {
+    if (this._readyPromise) await this._readyPromise;
   },
 
   unmount() {
@@ -205,32 +233,35 @@ export default {
       const missing = ownedRecipes.filter((recipe) => !entriesById.has(recipe.id));
       if (missing.length === 0) return;
 
-      const repairs = await Promise.allSettled(
+      const repaired = await Promise.all(
         missing.map((recipe) => this.repairOneOrphan(uid, recipe)),
       );
-
-      repairs.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value) {
-          entriesById.set(missing[index].id, result.value);
-        } else if (result.status === 'rejected') {
-          console.error('Error repairing orphaned owned recipe:', result.reason);
-        }
-      });
+      repaired.forEach((entry) => entriesById.set(entry.id, entry));
     } catch (error) {
       console.error('Error querying owned recipes for self-heal:', error);
     }
   },
 
+  /**
+   * Persisting the entry is BEST-EFFORT: an owned recipe must render this
+   * load whether or not the write lands (e.g. rules not yet deployed, a
+   * transient failure). A failed write is retried on the next visit — it must
+   * never drop the recipe from view, which is the whole point of the
+   * self-heal. `_sourceRecipe` rides along for this render pass only (it
+   * carries `visibility`, which the denormalised `card` map does not); it is
+   * never persisted, so the written entry stays schema-correct.
+   */
   async repairOneOrphan(uid, recipe) {
-    const entry = await CollectionService.create(uid, recipe.id, {
+    const entry = {
       source: 'owned',
       state: 'to-try',
       card: buildCardFromRecipe(recipe),
-    });
-    // `_sourceRecipe` rides along for this render pass only — it carries
-    // `visibility`, which the denormalised `card` map deliberately does not
-    // (see the plan's Constraints). Never persisted; the written entry
-    // stays schema-correct.
+    };
+    try {
+      await CollectionService.create(uid, recipe.id, entry);
+    } catch (error) {
+      console.error('Error persisting self-heal entry (will retry next load):', error);
+    }
     return { ...entry, id: recipe.id, _sourceRecipe: recipe };
   },
 
