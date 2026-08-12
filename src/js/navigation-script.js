@@ -112,7 +112,7 @@ function syncMobileDrawerNavigation() {
 
   // Map icons to links
   const iconMap = [
-    { key: 'favorites=true', icon: 'heart' },
+    { key: '/my-recipes', icon: 'heart' },
     { key: '/grandmas-cooking', icon: 'archive' },
     { key: '/dashboard', icon: 'userShield' },
     { key: '/home', icon: 'home' },

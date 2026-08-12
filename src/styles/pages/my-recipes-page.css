@@ -1,0 +1,185 @@
+/* my-recipes-page — /my-recipes
+ * Lifecycle rail + grid, per docs/feature-plans/personal-collections.md
+ * ("The collection page is a rail, not tabs") and the prototype at
+ * docs/feature-plans/prototypes/my-recipes.html.
+ */
+
+.spa-content .my-recipes-page {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--gutter);
+}
+
+/* ---- Page head ---- */
+
+.spa-content .my-recipes-page .page-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.spa-content .my-recipes-page .page-title {
+  font-family: var(--font-display-he);
+  font-weight: 600;
+  font-size: var(--step-3);
+  color: var(--text-strong);
+  margin: 0;
+}
+
+/* ---- Layout: rail + main ---- */
+
+.spa-content .my-recipes-page .collection {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.spa-content .my-recipes-page .collection__main {
+  min-width: 0;
+}
+
+/* ---- Rail ----
+ * In RTL the grid places the first column on the visual right
+ * automatically — no mirroring rules needed here.
+ */
+
+.spa-content .my-recipes-page .rail {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spa-content .my-recipes-page .rail__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: none;
+  font-family: var(--font-ui-he);
+  font-size: var(--step-0);
+  color: var(--text-color);
+  cursor: pointer;
+  text-align: start;
+  transition: background var(--dur-1) var(--ease);
+}
+
+.spa-content .my-recipes-page .rail__item:hover {
+  background: var(--surface-2);
+}
+
+.spa-content .my-recipes-page .rail__item:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.spa-content .my-recipes-page .rail__item[aria-current='true'] {
+  background: var(--primary-dark);
+  color: #fff;
+  font-weight: 600;
+}
+
+.spa-content .my-recipes-page .rail__count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.spa-content .my-recipes-page .rail__divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 12px 14px;
+}
+
+.spa-content .my-recipes-page .rail__future {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.spa-content .my-recipes-page .rail__future .rail__item[disabled] {
+  cursor: default;
+}
+
+/* ---- Empty states ---- */
+
+.spa-content .my-recipes-page .empty {
+  text-align: center;
+  padding: 56px 24px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+}
+
+.spa-content .my-recipes-page .empty__art {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 16px;
+  filter: grayscale(0.3);
+}
+
+.spa-content .my-recipes-page .empty__title {
+  font-family: var(--font-display-he);
+  font-size: var(--step-3);
+  color: var(--text-strong);
+  margin: 0 0 8px;
+}
+
+.spa-content .my-recipes-page .empty__body {
+  font-family: var(--font-ui-he);
+  color: var(--text-muted);
+  max-width: 42ch;
+  margin: 0 auto 24px;
+}
+
+.spa-content .my-recipes-page .empty__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ---- Mobile: rail becomes a horizontal scroller ----
+ * Decided, not a drawer — see the plan's "The collection page is a rail,
+ * not tabs" and prototype Screen 3.
+ */
+
+@media (max-width: 720px) {
+  .spa-content .my-recipes-page .collection {
+    grid-template-columns: 1fr;
+  }
+
+  .spa-content .my-recipes-page .rail {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+
+  .spa-content .my-recipes-page .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .spa-content .my-recipes-page .rail__item {
+    flex: 0 0 auto;
+  }
+
+  .spa-content .my-recipes-page .rail__divider {
+    width: 1px;
+    height: auto;
+    align-self: stretch;
+    margin: 0 6px;
+  }
+
+  .spa-content .my-recipes-page .rail__future {
+    display: flex;
+    flex: 0 0 auto;
+  }
+}

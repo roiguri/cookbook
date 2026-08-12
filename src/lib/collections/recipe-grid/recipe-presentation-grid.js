@@ -13,6 +13,11 @@
  * - current-page: Current page number (default: 1)
  * - show-pagination: Whether to show pagination controls (default: true)
  * - show-favorites: Whether to show favorite buttons on cards (default: false)
+ * - show-visibility: Whether to render each card's private/pending/public
+ *   stamp — passed straight through to recipe-card's own `show-visibility`
+ *   attribute (default: false). A stamp only renders for cards whose data
+ *   actually carries a recognized `visibility` value; missing data renders
+ *   no stamp.
  * - grid-layout: Grid layout type (default: 'responsive')
  *
  * @events
@@ -52,6 +57,7 @@ class RecipePresentationGrid extends HTMLElement {
     this.totalPages = 1;
     this.showPagination = true;
     this.showFavorites = false;
+    this.showVisibility = false;
     this.isLoading = false;
     this.isReady = false;
     this.pendingRecipes = null; // Store recipes if set before component is ready
@@ -63,7 +69,13 @@ class RecipePresentationGrid extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['recipes-per-page', 'current-page', 'show-pagination', 'show-favorites'];
+    return [
+      'recipes-per-page',
+      'current-page',
+      'show-pagination',
+      'show-favorites',
+      'show-visibility',
+    ];
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -87,6 +99,10 @@ class RecipePresentationGrid extends HTMLElement {
         break;
       case 'show-favorites':
         this.showFavorites = newValue === 'true';
+        this.renderCurrentPage();
+        break;
+      case 'show-visibility':
+        this.showVisibility = newValue === 'true';
         this.renderCurrentPage();
         break;
     }
@@ -308,6 +324,10 @@ class RecipePresentationGrid extends HTMLElement {
 
       if (authenticated && this.getAttribute('show-add-to-meal') !== 'false') {
         recipeCard.setAttribute('show-add-to-meal', 'true');
+      }
+
+      if (this.showVisibility) {
+        recipeCard.setAttribute('show-visibility', 'true');
       }
 
       cardContainer.appendChild(recipeCard);

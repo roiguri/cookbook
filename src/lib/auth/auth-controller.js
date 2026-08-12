@@ -120,8 +120,11 @@ class AuthController extends HTMLElement {
       return item;
     };
 
-    // Add Favorites tab for all logged in users - redirect to categories page with favorites filter
-    navMenu.appendChild(createNavItem('profile-tab', 'מועדפים', '/categories?favorites=true'));
+    // Personal collection tab for all logged in users. Replaces the old
+    // מועדפים tab (see docs/feature-plans/personal-collections.md, Slice 1.3)
+    // — the /categories?favorites=true deep link keeps working via the
+    // FavoritesService shim, it's just no longer surfaced in the nav.
+    navMenu.appendChild(createNavItem('profile-tab', 'המתכונים שלי', '/my-recipes'));
 
     // Add Grandmother's Recipes for approved users and managers
     if (roles.isApproved || roles.isManager) {

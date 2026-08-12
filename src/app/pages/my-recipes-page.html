@@ -1,0 +1,39 @@
+<div class="my-recipes-page" dir="rtl">
+  <div class="page-head">
+    <h1 class="page-title">המתכונים שלי</h1>
+    <button type="button" class="btn btn-primary btn-sm" id="add-recipe-btn">+ הוספת מתכון</button>
+  </div>
+
+  <div class="collection">
+    <nav class="rail" aria-label="ניווט אוסף המתכונים שלי">
+      <button type="button" class="rail__item" data-state="rotation" aria-current="false">
+        <span>במטבח</span><span class="rail__count" id="rail-count-rotation">0</span>
+      </button>
+      <button type="button" class="rail__item" data-state="to-try" aria-current="false">
+        <span>לנסות</span><span class="rail__count" id="rail-count-to-try">0</span>
+      </button>
+      <div class="rail__divider" aria-hidden="true"></div>
+      <div class="rail__future" aria-hidden="true">
+        <button type="button" class="rail__item" disabled tabindex="-1">
+          <span>+ רשימה חדשה</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="collection__main">
+      <div class="empty" id="empty-state" hidden>
+        <div class="empty__art" id="empty-art"></div>
+        <h2 class="empty__title" id="empty-title"></h2>
+        <p class="empty__body" id="empty-body"></p>
+        <div class="empty__actions" id="empty-actions"></div>
+      </div>
+
+      <recipe-presentation-grid
+        id="recipe-grid"
+        show-favorites="false"
+        show-visibility="true"
+        hidden
+      ></recipe-presentation-grid>
+    </div>
+  </div>
+</div>
