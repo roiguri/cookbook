@@ -64,3 +64,31 @@ verify → only then deploy the rules lockdown**
 `approved`, not `visibility`, so it degrades gracefully if the backfill is
 incomplete — but the Stage 1+ surfaces built on top assume every recipe has
 a correct `visibility`. Don't skip the verify step.
+
+## backfill/migrate-favorites.mjs
+
+Copies each user's legacy `favorites` array entries into
+`users/{uid}/collection/{recipeId}` documents (`source: 'saved'`, `state:
+'rotation'` — see Slice 1.2 for why migrated favorites land at `rotation`
+instead of the usual `to-try`). Idempotent — an entry that already exists
+(doc ID = recipe ID) is skipped, so it's safe to re-run. Does not delete
+the `favorites` array; a later stage does that.
+
+Dry run (default, no writes):
+
+```bash
+node backfill/migrate-favorites.mjs --project <project-id>
+```
+
+Apply the writes (batched, 500 per commit):
+
+```bash
+node backfill/migrate-favorites.mjs --project <project-id> --apply
+```
+
+Verify (per-user count of favorites entries pointing at existing, approved
+recipes vs collection docs with `source: 'saved'`; reports mismatches):
+
+```bash
+node backfill/migrate-favorites.mjs --project <project-id> --verify
+```

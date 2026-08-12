@@ -90,14 +90,6 @@ describe('AuthService', () => {
       expect(authService._initialized).toBe(true);
     });
 
-    test('should register event listener for favorites', () => {
-      const spy = jest.spyOn(document, 'addEventListener');
-      authService._initialized = false;
-      authService.initialize();
-      expect(spy).toHaveBeenCalledWith('recipe-favorite-changed', expect.any(Function));
-      spy.mockRestore();
-    });
-
     test('should not reinitialize if already initialized', () => {
       const initialCallCount = mockAuth.onAuthStateChanged.mock.calls.length;
       authService.initialize();
@@ -258,48 +250,6 @@ describe('AuthService', () => {
 
       expect(result).toEqual(newData);
       expect(authService._userData).toEqual(newData);
-    });
-
-    test('_handleFavoriteChanged should update cached favorites', () => {
-      authService._currentUser = mockUser;
-      authService._userData = { role: 'user', favorites: ['rec1'] };
-
-      // Call handler directly because document.dispatchEvent is mocked
-      authService._handleFavoriteChanged({
-        recipeId: 'rec2',
-        isFavorite: true,
-        userId: mockUser.uid,
-      });
-
-      // Verify cache updated (rec2 added)
-      expect(authService._userData.favorites).toContain('rec2');
-      expect(authService._userData.favorites).toContain('rec1');
-
-      // Remove favorite
-      authService._handleFavoriteChanged({
-        recipeId: 'rec1',
-        isFavorite: false,
-        userId: mockUser.uid,
-      });
-
-      // Verify cache updated (rec1 removed)
-      expect(authService._userData.favorites).not.toContain('rec1');
-      expect(authService._userData.favorites).toContain('rec2');
-    });
-
-    test('_handleFavoriteChanged should ignore other users', () => {
-      authService._currentUser = mockUser;
-      authService._userData = { role: 'user', favorites: [] };
-
-      // Call handler for different user
-      authService._handleFavoriteChanged({
-        recipeId: 'rec1',
-        isFavorite: true,
-        userId: 'other-user',
-      });
-
-      // Verify cache NOT updated
-      expect(authService._userData.favorites).toHaveLength(0);
     });
   });
 

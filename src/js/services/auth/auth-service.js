@@ -122,39 +122,7 @@ class AuthService {
       }
     });
 
-    // Listen for favorite changes to keep cache fresh
-    document.addEventListener('recipe-favorite-changed', (event) => {
-      this._handleFavoriteChanged(event.detail);
-    });
-
     this._initialized = true;
-  }
-
-  /**
-   * Handle favorite changed event to update local cache
-   * @private
-   * @param {Object} detail - Event detail { recipeId, isFavorite, userId }
-   */
-  _handleFavoriteChanged({ recipeId, isFavorite, userId }) {
-    // Only update if it's the current user
-    if (!this._currentUser || this._currentUser.uid !== userId) return;
-    if (!this._userData) return;
-
-    // Initialize favorites array if missing
-    if (!this._userData.favorites) {
-      this._userData.favorites = [];
-    }
-
-    const favorites = new Set(this._userData.favorites);
-
-    if (isFavorite) {
-      favorites.add(recipeId);
-    } else {
-      favorites.delete(recipeId);
-    }
-
-    // Update local cache
-    this._userData.favorites = Array.from(favorites);
   }
 
   /**

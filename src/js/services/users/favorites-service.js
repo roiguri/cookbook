@@ -1,12 +1,46 @@
 /**
  * Favorites Service
  * -----------------
- * Centralized service for managing user favorites with caching
+ * Shim over CollectionService — see
+ * docs/feature-plans/personal-collections.md, Slice 1.2 ("The shim must
+ * cover BOTH read paths"). Keeps the pre-existing public API and caching
+ * semantics so every existing caller (recipe-card, categories-page,
+ * filter_modal, recipe-presentation-grid) keeps working unmodified while
+ * favorites live as `users/{uid}/collection` entries underneath.
+ *
+ * Shim semantics, pinned by the plan: "favorite" = "entry exists in my
+ * collection", regardless of lifecycle `state`. Migrated hearts are
+ * `rotation`, Stage 2 saves enter at `to-try` — the shim returns all entry
+ * IDs so the heart's meaning doesn't drift mid-transition. Temporary
+ * scaffolding, removed in Stage 4.
  */
-
 import authService from '../auth/auth-service.js';
 import { captureError } from '../logger.js';
-import { UserService } from './user-service.js';
+import { CollectionService } from './collection-service.js';
+import { RecipeService } from '../recipes/recipe-service.js';
+import { getPrimaryImage } from '../../utils/recipes/recipe-image-utils.js';
+
+/**
+ * Denormalised card map for a newly-favorited recipe, matching the shape
+ * `CollectionService` documents: `{ name, category, primaryImage, prepTime }`.
+ * `primaryImage` stores the image's Storage path (`full`), the same field
+ * the live app resolves to a download URL at render time — mirrors
+ * `getPrimaryImage()` from recipe-image-utils.js.
+ * @param {Object} recipe
+ * @returns {Object}
+ */
+function buildCard(recipe) {
+  const card = {
+    name: recipe.name ?? null,
+    category: recipe.category ?? null,
+    prepTime: recipe.prepTime ?? null,
+  };
+  const primary = getPrimaryImage(recipe);
+  if (primary?.full) {
+    card.primaryImage = primary.full;
+  }
+  return card;
+}
 
 class FavoritesService {
   constructor() {
@@ -19,7 +53,8 @@ class FavoritesService {
   }
 
   /**
-   * Get user's favorite recipe IDs
+   * Get user's favorite recipe IDs — every collection entry ID, regardless
+   * of lifecycle state.
    * @returns {Promise<Array<string>>} Array of favorite recipe IDs
    */
   async getUserFavorites() {
@@ -39,8 +74,8 @@ class FavoritesService {
 
     this._fetchPromise = (async () => {
       try {
-        const userDoc = await UserService.get(user.uid);
-        const favoriteRecipeIds = userDoc?.favorites || [];
+        const entries = await CollectionService.list(user.uid);
+        const favoriteRecipeIds = entries.map((entry) => entry.id);
 
         this.cache = {
           userId: user.uid,
@@ -66,7 +101,10 @@ class FavoritesService {
   }
 
   /**
-   * Add a recipe to favorites
+   * Add a recipe to favorites — creates a collection entry at
+   * `source: 'saved'`, `state: 'to-try'`. Create-only: a repeat add is a
+   * no-op on an existing entry (CollectionService.create), so it never
+   * clobbers a migrated `rotation` entry's state.
    * @param {string} recipeId - Recipe ID to add
    * @returns {Promise<void>}
    */
@@ -78,7 +116,22 @@ class FavoritesService {
       // Optimistic update
       this.updateCache(recipeId, true);
 
-      await UserService.addToArrayField(user.uid, 'favorites', recipeId);
+      let card;
+      try {
+        const recipe = await RecipeService.get(recipeId);
+        if (recipe) {
+          card = buildCard(recipe);
+        }
+      } catch (fetchError) {
+        // Tolerate a failed recipe fetch — favoriting still succeeds
+        // without denormalised card data.
+        console.warn('Failed to fetch recipe for favorite card data:', fetchError);
+      }
+
+      const entry = { source: 'saved', state: 'to-try' };
+      if (card) entry.card = card;
+
+      await CollectionService.create(user.uid, recipeId, entry);
     } catch (error) {
       console.error('Error adding favorite:', error);
       captureError(error, {
@@ -94,7 +147,8 @@ class FavoritesService {
   }
 
   /**
-   * Remove a recipe from favorites
+   * Remove a recipe from favorites — deletes the collection entry
+   * (including any notes/servingsOverride overlay).
    * @param {string} recipeId - Recipe ID to remove
    * @returns {Promise<void>}
    */
@@ -106,7 +160,7 @@ class FavoritesService {
       // Optimistic update
       this.updateCache(recipeId, false);
 
-      await UserService.removeFromArrayField(user.uid, 'favorites', recipeId);
+      await CollectionService.delete(user.uid, recipeId);
     } catch (error) {
       console.error('Error removing favorite:', error);
       captureError(error, {

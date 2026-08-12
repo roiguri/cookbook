@@ -35,6 +35,7 @@
  * - Configurable recipes per page
  */
 import authService from '../../../js/services/auth/auth-service.js';
+import favoritesService from '../../../js/services/users/favorites-service.js';
 import { initLazyLoading } from '../../../js/utils/lazy-loading.js';
 import { RECIPE_PRESENTATION_GRID_CONFIG } from './recipe-presentation-grid-config.js';
 import { RECIPE_PRESENTATION_GRID_STYLES } from './recipe-presentation-grid-styles.js';
@@ -273,15 +274,13 @@ class RecipePresentationGrid extends HTMLElement {
 
     // PERFORMANCE: Fetch user favorites once for all cards (N+1 optimization)
     // Non-blocking fetch to avoid delaying render
-    // Using cached user data from AuthService to prevent redundant network requests
+    // FavoritesService caches per-user, so repeated grid renders don't
+    // re-fetch (see docs/feature-plans/personal-collections.md, Slice 1.2).
     if (authenticated && this.showFavorites) {
-      favoritesPromise = authService
-        .getUserData()
-        .then((userData) => userData?.favorites || [])
-        .catch((error) => {
-          console.error('Error pre-fetching favorites:', error);
-          return null;
-        });
+      favoritesPromise = favoritesService.getUserFavorites().catch((error) => {
+        console.error('Error pre-fetching favorites:', error);
+        return null;
+      });
     }
 
     // PERFORMANCE: Use DocumentFragment to batch DOM insertions (Layout thrashing optimization)
