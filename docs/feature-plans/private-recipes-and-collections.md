@@ -47,25 +47,28 @@ Access rules (enforced in `firestore.rules` / `storage.rules`, not only the UI):
 
 ## Releases
 
-| #   | Release                     | Data                                                                                                        | UI                                                                                                                | State               |
-| --- | --------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- |
-| 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)             | —                                                                                                                 | ✅ 2026-10-10       |
-| 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published      | "Recipe not found" state                                                                                          | ⏳ next             |
-| 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates the book collection + items. Old fields kept | None                                                                                                              | ⬜                  |
-| 3   | Private recipes and To try  | New private recipes, book submissions, published copies                                                     | My recipes (To try / My library tabs), Mark as tested, Save privately / Submit, badges, dashboard approve-as-copy | ⬜ needs design     |
-| 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                 | Favourite button unchanged; add to collection; collections view                                                   | ⬜ needs design     |
-| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`, `pendingImages`; removes orphaned proposal images   | None                                                                                                              | ⬜ after 2–4 settle |
+| #   | Release                     | Data                                                                                                        | UI                                                                                                                | State                          |
+| --- | --------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)             | —                                                                                                                 | ✅ 2026-10-10                  |
+| 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published      | "Recipe not found" state                                                                                          | ✅ 2026-10-11 (PRs #332, #333) |
+| 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates the book collection + items. Old fields kept | None                                                                                                              | ⬜                             |
+| 3   | Private recipes and To try  | New private recipes, book submissions, published copies                                                     | My recipes (To try / My library tabs), Mark as tested, Save privately / Submit, badges, dashboard approve-as-copy | ⬜ needs design                |
+| 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                 | Favourite button unchanged; add to collection; collections view                                                   | ⬜ needs design                |
+| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`, `pendingImages`; removes orphaned proposal images   | None                                                                                                              | ⬜ after 2–4 settle            |
 
 Later, each purely additive: personal notes and "made it" log, forks, meal plans, shopping lists.
 
 ### Cleanup backlog (release 5 — don't forget)
 
 - **Retired "Suggest images" flow** (removed from the recipe menu in release 1; image changes go through "Suggest an edit"). Delete `RecipeImageProposalService`, `image-proposal-modal`, the dashboard "pending images" section and its approval modal (`image-approval-multi`) if nothing else uses it, the `pendingImages` field on recipes and the `allowImageSuggestions` flag, and any rules that mention them.
+- **Missing thumbnails in production:** ~12 recipes have no `_400x400` / `_1080x1080` WebP variants, so every page load logs a 404 and falls back to the full image. Regenerate them (re-upload the originals or run the resize extension backfill).
 - **Orphaned Storage files** from failed image proposals: since the 2026-01-12 strict rules, a non-author's proposal uploaded files and then failed the Firestore write. Find files under `img/recipes/` that no recipe, edit suggestion or media instruction references, review the list, then delete.
 - **Old fields** `approved`, `userId`, `users.favorites` (see release 5 row).
 - **Optional nicety:** a "photos only" shortcut that opens Suggest an edit focused on images, if proposing photos turns out to be too many clicks.
 
-### Release 1 — Lock down security (next)
+### Release 1 — Lock down security (shipped 2026-10-11)
+
+Shipped to production 2026-10-11: `main` @ `084a715`, rules deployed with `--project production` and verified live. Post-deploy smoke test (signed out): no permission errors. **Next: release 2 (convert the data model).**
 
 Branch `fix/security-rules-lockdown` off `development`. **Security change: show the exact rule diff and passing tests to the user for approval before deploying anywhere.**
 
