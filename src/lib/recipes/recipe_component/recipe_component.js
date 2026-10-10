@@ -882,20 +882,29 @@ class RecipeComponent extends HTMLElement {
   async fetchAndPopulateRecipeData() {
     if (!this.recipeId) return;
 
+    // `found: false` lets the page show its "recipe not found" state. A recipe the
+    // reader may not see (an unapproved proposal) is denied by the rules, and is
+    // reported the same way so its existence isn't revealed.
+    let found = false;
     try {
       const recipe = formatRecipeData(await RecipeService.get(this.recipeId));
       if (recipe) {
+        found = true;
         this.updatePageTitle(recipe.name);
         await this.setData(recipe);
-      } else {
-        console.warn('No such document!');
-        // TODO: Handle the case where the recipe doesn't exist
       }
     } catch (error) {
-      console.error('Error getting recipe: ', error);
-      // TODO: Handle potential errors during data fetching
+      if (error?.code !== 'permission-denied') {
+        console.error('Error getting recipe: ', error);
+      }
     } finally {
-      this.dispatchEvent(new CustomEvent('recipe-data-loaded', { bubbles: false, composed: true }));
+      this.dispatchEvent(
+        new CustomEvent('recipe-data-loaded', {
+          bubbles: false,
+          composed: true,
+          detail: { found },
+        }),
+      );
     }
   }
 

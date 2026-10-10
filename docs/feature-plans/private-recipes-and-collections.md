@@ -54,18 +54,54 @@ Access rules (enforced in `firestore.rules` / `storage.rules`, not only the UI):
 | 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates the book collection + items. Old fields kept | None                                                                                                              | ⬜                  |
 | 3   | Private recipes and To try  | New private recipes, book submissions, published copies                                                     | My recipes (To try / My library tabs), Mark as tested, Save privately / Submit, badges, dashboard approve-as-copy | ⬜ needs design     |
 | 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                 | Favourite button unchanged; add to collection; collections view                                                   | ⬜ needs design     |
-| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`                                                      | None                                                                                                              | ⬜ after 2–4 settle |
+| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`, `pendingImages`; removes orphaned proposal images   | None                                                                                                              | ⬜ after 2–4 settle |
 
 Later, each purely additive: personal notes and "made it" log, forks, meal plans, shopping lists.
+
+### Cleanup backlog (release 5 — don't forget)
+
+- **Retired "Suggest images" flow** (removed from the recipe menu in release 1; image changes go through "Suggest an edit"). Delete `RecipeImageProposalService`, `image-proposal-modal`, the dashboard "pending images" section and its approval modal (`image-approval-multi`) if nothing else uses it, the `pendingImages` field on recipes and the `allowImageSuggestions` flag, and any rules that mention them.
+- **Orphaned Storage files** from failed image proposals: since the 2026-01-12 strict rules, a non-author's proposal uploaded files and then failed the Firestore write. Find files under `img/recipes/` that no recipe, edit suggestion or media instruction references, review the list, then delete.
+- **Old fields** `approved`, `userId`, `users.favorites` (see release 5 row).
+- **Optional nicety:** a "photos only" shortcut that opens Suggest an edit focused on images, if proposing photos turns out to be too many clicks.
 
 ### Release 1 — Lock down security (next)
 
 Branch `fix/security-rules-lockdown` off `development`. **Security change: show the exact rule diff and passing tests to the user for approval before deploying anywhere.**
 
-1. Rules tests first: Firebase emulator config + `@firebase/rules-unit-testing` (Java 17 is installed). Tests encode today's leaks and fail before the rule change.
+1. Rules tests first: Firebase emulator config + `@firebase/rules-unit-testing@4` (matches `firebase` 11); run with `npm run test:rules` — the emulator needs **Java 21+** (`sudo apt install openjdk-21-jdk-headless`). Tests encode today's leaks and fail before the rule change.
 2. `firestore.rules`: unapproved recipes readable only by author and managers; non-managers create only as themselves with `approved: false`; non-managers can't change `approved` or the author.
 3. `storage.rules`: recipe image deletes only by managers or the recipe's author (cross-service `firestore.get()` lookup of the recipe).
-4. App: audit every recipe query — any list that could return unapproved recipes must filter `approved == true` or be manager-only (Firestore rejects the whole query otherwise); recipe page shows "not found" on permission-denied.
+4. App: audit every recipe query — any list that could return unapproved recipes must filter `approved == true` or be manager-only (Firestore rejects the whole query otherwise); recipe page shows "not found" on permission-denied. _Audit done 2026-10-10: every non-manager list already filters `approved == true`._
+5. Remove **"Suggest images"** from the recipe menu (decided 2026-10-10). It was shown to everyone, but its write (`pendingImages` on someone else's recipe) has been denied by the rules since 2026-01-12, and "Suggest an edit" already covers images through a separate, secure moderation record. The new rules do **not** open `pendingImages` to non-managers. Code removal is in the cleanup backlog.
+
+Also in this release: every Storage upload is tagged `customMetadata.uploadedBy` (`StorageService.uploadFile`), so uploaders can delete their own files (edit-suggestion cleanup) and nobody else can overwrite or delete recipe files. Files from before the release have no tag; only managers and the recipe's author can change those. Legacy images outside the `{type}/{category}/{recipeId}/` layout are manager-write only.
+
+#### Release 1 — staging test checklist
+
+Setup: the rules are deployed to the test project (`firebase deploy --only firestore:rules,storage --project staging`) and the branch is on the staging site. You need three sessions: **signed out**, a **new test account** (sign up on staging → role `user`), and **your manager account**. Keep DevTools open: no `permission-denied` errors should appear on normal pages.
+
+1. **Signed out**
+   - Home, Categories and a few recipe pages load normally, photos included.
+   - A recipe page has **no ⋮ menu**.
+   - `/recipe/does-not-exist` shows **"המתכון לא נמצא"** with a "לכל המתכונים" button that goes to Categories.
+2. **Test account (role `user`)**
+   - Propose a recipe **with a photo** → success message.
+   - On a published recipe, ⋮ shows **"הצע עריכה"** and **"הוסף לארוחה שלי"**, and **no "הצע תמונות"**.
+   - Suggest an edit that **adds a photo** → success message.
+   - Add a recipe to My Meal, toggle a favourite → both work.
+3. **Find the proposal's ID**: Firebase console → test project → Firestore → `recipes` → the newest doc with `approved: false`.
+   - As the **test account**, open `/recipe/<that id>` → the recipe shows (the author can see their own proposal).
+   - **Signed out** (or as a different account), open the same URL → **"המתכון לא נמצא"**.
+4. **Manager**
+   - Dashboard: every section loads (all recipes, pending recipes, pending edits, images, users).
+   - Approve the test proposal → it now opens for signed-out visitors and appears in Categories.
+   - Approve the edit suggestion → the new photo appears on the recipe.
+   - Make another photo edit suggestion with the test account, then **reject** it → no error.
+   - Edit a recipe as manager: change its photo and its category → saves, photo shows.
+   - AI image enhancer: open it, pick a recipe → loads.
+   - Delete the test recipe → gone.
+5. **Regression spot checks**: header search, the related-recipes picker in the propose form, My Meal page, Grandma's cookbook page (approved/manager), sign out and in again.
 
 ### Design (in parallel)
 

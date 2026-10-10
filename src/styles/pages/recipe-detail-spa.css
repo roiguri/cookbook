@@ -151,3 +151,17 @@
     padding: 24px var(--gutter);
   }
 }
+
+/* ---- Recipe not found (missing, removed, or not visible to this reader) ---- */
+.spa-content .recipe-detail .recipe-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-md);
+  padding: var(--sp-3xl) 0;
+}
+
+.spa-content .recipe-detail .recipe-not-found p {
+  max-width: 48ch;
+  margin: 0;
+}

@@ -25,7 +25,7 @@ export default {
       await this.initializeRecipeComponent(container, recipeId);
       await this.importComponents();
       this.setupMenuHandlers(container, recipeId);
-      this.setupImageProposalListener(container);
+      this.setupSuggestionListener(container);
     } catch (error) {
       console.error('Failed to load recipe detail page:', error);
       this.showError(container, 'Failed to load recipe details');
@@ -50,6 +50,12 @@ export default {
         recipeComponent.addEventListener('recipe-data-loaded', resolve, { once: true });
       });
 
+      // Every load (including later recipe-id changes) reports whether the recipe was
+      // found; a missing or hidden recipe swaps in the "not found" state.
+      recipeComponent.addEventListener('recipe-data-loaded', (event) => {
+        this.toggleNotFound(recipeContainer, event.detail?.found === false);
+      });
+
       recipeComponent.setAttribute('recipe-id', recipeId);
       recipeContainer.appendChild(recipeComponent);
 
@@ -72,29 +78,31 @@ export default {
     await import('../../lib/utilities/modal/modal.js');
     await import('../../lib/utilities/loading-spinner/loading-spinner.js');
     await import('../../lib/media/image-handler/image-handler.js');
-    await import('../../lib/media/image-proposal-modal/image-proposal-modal.js');
     await import('../../lib/recipes/suggest_edit_modal/suggest-edit-modal.js');
     await import('../../lib/modals/message-modal/message-modal.js');
   },
 
   setupMenuHandlers(container, recipeId) {
+    const menu = container.querySelector('.recipe-menu');
     const menuButton = container.querySelector('.recipe-menu-button');
     const menuDropdown = container.querySelector('.recipe-menu-dropdown');
-    const suggestImagesBtn = container.querySelector('#suggest-images-btn');
     const suggestEditBtn = container.querySelector('#suggest-edit-btn');
     const addToMealBtn = container.querySelector('#add-to-meal-btn');
 
-    if (!menuButton || !menuDropdown || !suggestImagesBtn) {
+    if (!menu || !menuButton || !menuDropdown) {
       console.warn('Menu elements not found in container');
       return;
     }
 
-    // Show login-gated actions only if the user is signed in.
+    // Every menu action needs a signed-in user, so signed-out visitors get no menu.
+    // (Image proposals go through "Suggest an edit"; the old "Suggest images" item was retired.)
     const user = authService.getCurrentUser();
-    if (user && addToMealBtn) {
+    if (!user) return;
+    menu.style.display = '';
+    if (addToMealBtn) {
       addToMealBtn.style.display = 'flex';
     }
-    if (user && suggestEditBtn) {
+    if (suggestEditBtn) {
       suggestEditBtn.style.display = 'flex';
     }
 
@@ -116,17 +124,6 @@ export default {
     this._menuCleanup = () => {
       document.removeEventListener('click', closeDropdown);
     };
-
-    // Handle "Suggest Images" click
-    suggestImagesBtn.addEventListener('click', () => {
-      menuDropdown.classList.remove('open');
-      const modal = container.querySelector('image-proposal-modal');
-      if (modal) {
-        modal.openForRecipe(recipeId);
-      } else {
-        console.error('Image proposal modal not found');
-      }
-    });
 
     // Handle "Suggest Edit" click
     if (suggestEditBtn) {
@@ -173,23 +170,12 @@ export default {
     }
   },
 
-  setupImageProposalListener(container) {
-    const imageProposalModal = container.querySelector('image-proposal-modal');
+  setupSuggestionListener(container) {
     const messageModal = container.querySelector('message-modal');
-
-    if (!imageProposalModal || !messageModal) {
-      console.warn('Image proposal modal or message modal not found');
+    if (!messageModal) {
+      console.warn('Message modal not found');
       return;
     }
-
-    // Listen for successful image uploads
-    imageProposalModal.addEventListener('images-proposed', (event) => {
-      const { pendingImages } = event.detail;
-      const count = pendingImages.length;
-      const message =
-        count === 1 ? 'התמונה נשלחה לאישור מנהל' : `${count} תמונות נשלחו לאישור מנהל`;
-      messageModal.show(message, 'העלאה הצליחה');
-    });
 
     // Listen for successfully submitted edit suggestions
     const suggestEditModal = container.querySelector('suggest-edit-modal');
@@ -198,6 +184,42 @@ export default {
         messageModal.show('העריכה נשלחה לאישור מנהל', 'נשלח לאישור');
       });
     }
+  },
+
+  toggleNotFound(recipeContainer, notFound) {
+    const component = recipeContainer.querySelector('recipe-component');
+    const menu = recipeContainer.querySelector('.recipe-menu');
+    let block = recipeContainer.querySelector('.recipe-not-found');
+
+    // style.display, not `hidden`: the component's :host display rule overrides the attribute.
+    if (component) component.style.display = notFound ? 'none' : '';
+    if (!notFound) {
+      block?.remove();
+      if (menu && authService.getCurrentUser()) menu.style.display = '';
+      return;
+    }
+
+    if (menu) menu.style.display = 'none';
+    if (block) return;
+
+    block = document.createElement('section');
+    block.className = 'recipe-not-found';
+    block.innerHTML = `
+      <span class="eyebrow">שגיאה 404</span>
+      <h1 class="heading-2-he">המתכון לא נמצא</h1>
+      <p class="body-text-he text-muted">
+        ייתכן שהמתכון הוסר, שהקישור שגוי, או שהוא עדיין ממתין לאישור.
+      </p>
+      <a class="btn btn-primary" href="/categories">לכל המתכונים</a>
+    `;
+    block.querySelector('a').addEventListener('click', (event) => {
+      if (window.spa?.router) {
+        event.preventDefault();
+        window.spa.router.navigate('/categories');
+      }
+    });
+    recipeContainer.appendChild(block);
+    document.title = AppConfig.getPageTitle('המתכון לא נמצא');
   },
 
   showError(container, message) {

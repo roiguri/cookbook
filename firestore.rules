@@ -75,20 +75,40 @@ service cloud.firestore {
     // RECIPES COLLECTION
     // =========================================================================
     match /recipes/{recipeId} {
+      // The author of a recipe. Older recipes have no userId field, so read it
+      // with a default rather than letting the rule error.
+      function isAuthor() {
+        return isAuthenticated() && resource.data.get('userId', null) == request.auth.uid;
+      }
+
       // READ:
-      // - Public access allowed (viewing recipes)
-      allow read: if true;
-      
+      // - Published (approved) recipes are public.
+      // - An unapproved proposal is visible only to its author and managers.
+      // - List queries must filter on `approved == true` unless run by a manager;
+      //   Firestore rejects a query that could return a recipe the caller can't read.
+      allow read: if resource.data.approved == true
+                  || isAuthor()
+                  || isManager();
+
       // CREATE:
-      // - "Propose a recipe": Any authenticated user can suggest a recipe
-      allow create: if isAuthenticated();
-      
+      // - "Propose a recipe": a signed-in user creates it in their own name, unapproved.
+      // - Managers can create recipes already approved.
+      allow create: if isManager()
+                    || (isAuthenticated()
+                        && request.resource.data.userId == request.auth.uid
+                        && request.resource.data.approved == false);
+
       // UPDATE:
-      // - Managers can edit any recipe
-      // - Users can update their own recipes (e.g., adding images after creation)
-      allow update: if isManager() 
-                    || (isAuthenticated() && resource.data.userId == request.auth.uid);
-      
+      // - Managers can edit any recipe, including approving it.
+      // - An author can edit their own proposal while it is unapproved, but can't
+      //   approve it or hand it to someone else. Published recipes change through
+      //   edit suggestions (recipe_edit_suggestions), the author included.
+      allow update: if isManager()
+                    || (isAuthor()
+                        && resource.data.approved == false
+                        && request.resource.data.approved == false
+                        && request.resource.data.userId == resource.data.userId);
+
       // DELETE:
       // - Managers only
       allow delete: if isManager();
