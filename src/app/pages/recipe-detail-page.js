@@ -202,22 +202,62 @@ export default {
     if (menu) menu.style.display = 'none';
     if (block) return;
 
+    // Markup and copy follow the "NotFound" artboard in the Cookbook screens canvas.
+    const signedOut = !authService.getCurrentUser();
     block = document.createElement('section');
-    block.className = 'recipe-not-found';
+    block.className = 'recipe-not-found nf';
+    block.setAttribute('dir', 'rtl');
+    block.setAttribute('aria-labelledby', 'nf-title');
     block.innerHTML = `
-      <span class="eyebrow">שגיאה 404</span>
-      <h1 class="heading-2-he">המתכון לא נמצא</h1>
-      <p class="body-text-he text-muted">
-        ייתכן שהמתכון הוסר, שהקישור שגוי, או שהוא עדיין ממתין לאישור.
-      </p>
-      <a class="btn btn-primary" href="/categories">לכל המתכונים</a>
+      <div class="nf__card card">
+        <svg class="nf__art" viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="60" cy="62" r="34"></circle>
+          <circle class="accent" cx="60" cy="62" r="23" stroke-dasharray="3 5"></circle>
+          <path d="M14 26v18M10 26v14a4 4 0 0 0 8 0V26M14 48v52"></path>
+          <path d="M106 48v52"></path>
+          <ellipse cx="106" cy="36" rx="6" ry="11"></ellipse>
+        </svg>
+        <span class="eyebrow nf__eyebrow">מתכון לא נמצא</span>
+        <h1 id="nf-title" class="heading-2-he nf__title">המתכון הזה לא זמין</h1>
+        <p class="body-text-he nf__lede">
+          ייתכן שהקישור שגוי, שהמתכון הוסר, או שהוא שמור כמתכון פרטי שרק בעליו יכולים לראות.
+        </p>
+        <div class="nf__actions">
+          <a class="btn btn-primary btn-lg" href="/categories" data-route="/categories">לכל המתכונים</a>
+          <a class="btn btn-ghost btn-lg" href="/home" data-route="/home">לדף הבית</a>
+        </div>
+        ${
+          signedOut
+            ? `<div class="nf__owner">
+                 <p><b>זה מתכון שלכם?</b>מתכונים פרטיים מוצגים רק אחרי התחברות.</p>
+                 <button type="button" class="btn btn-ghost nf__login">התחברות</button>
+               </div>`
+            : ''
+        }
+      </div>
     `;
-    block.querySelector('a').addEventListener('click', (event) => {
-      if (window.spa?.router) {
-        event.preventDefault();
-        window.spa.router.navigate('/categories');
-      }
+
+    block.querySelectorAll('a[data-route]').forEach((link) => {
+      link.addEventListener('click', (event) => {
+        if (window.spa?.router) {
+          event.preventDefault();
+          window.spa.router.navigate(link.dataset.route);
+        }
+      });
     });
+
+    // Signed-out visitors may be the author of a pending recipe: after signing in,
+    // reload so the recipe (and the signed-in menu) can show.
+    block.querySelector('.nf__login')?.addEventListener('click', (event) => {
+      document.querySelector('auth-controller')?.openModal(event.currentTarget);
+      if (this._reloadOnSignIn) return;
+      this._reloadOnSignIn = (authEvent) => {
+        if (authEvent.detail?.user) window.location.reload();
+      };
+      document.addEventListener('auth-state-changed', this._reloadOnSignIn);
+    });
+
     recipeContainer.appendChild(block);
     document.title = AppConfig.getPageTitle('המתכון לא נמצא');
   },
@@ -250,6 +290,10 @@ export default {
     if (this._menuCleanup) {
       this._menuCleanup();
       this._menuCleanup = null;
+    }
+    if (this._reloadOnSignIn) {
+      document.removeEventListener('auth-state-changed', this._reloadOnSignIn);
+      this._reloadOnSignIn = null;
     }
   },
 

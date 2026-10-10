@@ -152,16 +152,132 @@
   }
 }
 
-/* ---- Recipe not found (missing, removed, or not visible to this reader) ---- */
-.spa-content .recipe-detail .recipe-not-found {
+/* ---- Recipe not found (missing, removed, or not visible to this reader) ----
+   Follows the "NotFound" artboard in the Cookbook screens canvas. Side padding comes
+   from .recipe-container, so .nf only adds vertical space. */
+.spa-content .recipe-detail .nf {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-md);
+  align-items: center;
+  justify-content: center;
   padding: var(--sp-3xl) 0;
 }
 
-.spa-content .recipe-detail .recipe-not-found p {
-  max-width: 48ch;
+.spa-content .recipe-detail .nf__card {
+  width: 100%;
+  max-width: 580px;
+  padding: 48px 44px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-md);
+  text-align: center;
+}
+
+.spa-content .recipe-detail .nf__art {
+  width: 112px;
+  height: 112px;
+  color: var(--ink-3);
+}
+
+.spa-content .recipe-detail .nf__art .accent {
+  color: var(--primary-dark);
+}
+
+.spa-content .recipe-detail .nf__eyebrow::before,
+.spa-content .recipe-detail .nf__eyebrow::after {
+  content: '';
+  width: 14px;
+  height: 1px;
+  background: var(--primary-dark);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.spa-content .recipe-detail .nf__title {
+  margin: var(--sp-2xs) 0 0;
+}
+
+.spa-content .recipe-detail .nf__lede {
   margin: 0;
+  max-width: 42ch;
+  color: var(--ink-2);
+}
+
+.spa-content .recipe-detail .nf__actions {
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-sm);
+  margin-top: var(--sp-xs);
+}
+
+.spa-content .recipe-detail .nf__actions .btn {
+  text-decoration: none;
+}
+
+.spa-content .recipe-detail .nf__owner {
+  width: 100%;
+  margin-top: var(--sp-sm);
+  padding-top: var(--sp-lg);
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-md);
+  text-align: start;
+}
+
+.spa-content .recipe-detail .nf__owner p {
+  margin: 0;
+  font-family: var(--font-ui-he);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.spa-content .recipe-detail .nf__owner b {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.spa-content .recipe-detail .nf__owner .btn {
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .spa-content .recipe-detail .nf {
+    align-items: flex-start;
+    padding: var(--sp-xl) 0 var(--sp-2xl);
+  }
+
+  .spa-content .recipe-detail .nf__card {
+    padding: 32px 20px 24px;
+  }
+
+  .spa-content .recipe-detail .nf__art {
+    width: 96px;
+    height: 96px;
+  }
+
+  .spa-content .recipe-detail .nf__actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .spa-content .recipe-detail .nf__actions .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .spa-content .recipe-detail .nf__owner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .spa-content .recipe-detail .nf__owner .btn {
+    min-height: 44px;
+  }
 }
