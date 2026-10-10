@@ -86,7 +86,10 @@ service cloud.firestore {
       // - An unapproved proposal is visible only to its author and managers.
       // - List queries must filter on `approved == true` unless run by a manager;
       //   Firestore rejects a query that could return a recipe the caller can't read.
-      allow read: if resource.data.approved == true
+      // - A recipe that doesn't exist reads as "not found" rather than "permission
+      //   denied" (a broken link isn't an error; nothing is revealed).
+      allow read: if resource == null
+                  || resource.data.approved == true
                   || isAuthor()
                   || isManager();
 

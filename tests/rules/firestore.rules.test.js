@@ -69,6 +69,11 @@ describe('reading recipes', () => {
     await assertSucceeds(getDoc(doc(db(null), 'recipes', 'legacy')));
   });
 
+  test('a recipe that does not exist reads as missing, not as permission denied', async () => {
+    const snap = await assertSucceeds(getDoc(doc(db(null), 'recipes', 'no-such-recipe')));
+    expect(snap.exists()).toBe(false);
+  });
+
   test('signed-out visitors cannot read an unapproved recipe', async () => {
     await assertFails(getDoc(doc(db(null), 'recipes', 'pending')));
   });
