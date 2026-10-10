@@ -1,7 +1,8 @@
 <div class="recipe-detail">
   <main class="recipe-container" role="main">
     <!-- Menu for recipe actions -->
-    <div class="recipe-menu">
+    <!-- Every action needs a signed-in user; the menu is shown in setupMenuHandlers. -->
+    <div class="recipe-menu" style="display: none">
       <button class="recipe-menu-button" aria-label="תפריט" title="תפריט">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="12" cy="5" r="2" />
@@ -10,21 +11,6 @@
         </svg>
       </button>
       <div class="recipe-menu-dropdown">
-        <button class="menu-item" id="suggest-images-btn">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          <span>הצע תמונות</span>
-        </button>
         <button class="menu-item" id="suggest-edit-btn" style="display: none">
           <svg
             width="20"
@@ -60,9 +46,6 @@
     <!-- recipe component will be dynamically inserted here -->
     <!-- TODO - add print/share button -->
   </main>
-
-  <!-- Image proposal modal -->
-  <image-proposal-modal></image-proposal-modal>
 
   <!-- Suggest edit modal -->
   <suggest-edit-modal></suggest-edit-modal>

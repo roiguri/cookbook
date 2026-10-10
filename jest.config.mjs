@@ -156,6 +156,7 @@ const config = {
     '/node_modules/',
     '/tests/common/mocks/',
     '/tests/visuals/',
+    '/tests/rules/',
     '<rootDir>/.claude/worktrees/',
   ],
 

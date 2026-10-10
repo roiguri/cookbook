@@ -32,9 +32,25 @@ describe('StorageService', () => {
 
       expect(firebaseService.getStorageInstance).toHaveBeenCalled();
       expect(ref).toHaveBeenCalledWith(mockStorage, mockPath);
-      expect(uploadBytes).toHaveBeenCalledWith({ storage: mockStorage, path: mockPath }, mockFile);
+      expect(uploadBytes).toHaveBeenCalledWith(
+        { storage: mockStorage, path: mockPath },
+        mockFile,
+        undefined,
+      );
       expect(getDownloadURL).toHaveBeenCalledWith({ storage: mockStorage, path: mockPath });
       expect(url).toBe(mockUrl);
+    });
+
+    it('tags the upload with the signed-in uploader (storage.rules require it)', async () => {
+      firebaseService.getAuthInstance.mockReturnValue({ currentUser: { uid: 'user-1' } });
+      uploadBytes.mockResolvedValue({});
+      getDownloadURL.mockResolvedValue(mockUrl);
+
+      await StorageService.uploadFile(mockFile, mockPath);
+
+      expect(uploadBytes).toHaveBeenCalledWith({ storage: mockStorage, path: mockPath }, mockFile, {
+        customMetadata: { uploadedBy: 'user-1' },
+      });
     });
 
     it('throws an error if upload fails', async () => {

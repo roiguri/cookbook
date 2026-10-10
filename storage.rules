@@ -13,13 +13,58 @@ service firebase.storage {
           && (resource.contentType.matches('image/.*') || resource.contentType.matches('video/.*'));
     }
 
+    // Role check against Firestore (cross-service rule; one document read).
+    function isManager() {
+      return isAuthenticated()
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'manager';
+    }
+
+    // The author of the recipe a file belongs to. A recipe's images are uploaded
+    // before its document exists, so a missing recipe simply means "not the author".
+    function isRecipeAuthor(recipeId) {
+      let path = /databases/(default)/documents/recipes/$(recipeId);
+      return isAuthenticated()
+          && firestore.exists(path)
+          && firestore.get(path).data.get('userId', null) == request.auth.uid;
+    }
+
+    // Every upload is tagged with its uploader (StorageService.uploadFile sets
+    // customMetadata.uploadedBy). Files from before this rule have no tag.
+    function isTaggedAsCaller(res) {
+      return res.metadata != null && res.metadata.get('uploadedBy', null) == request.auth.uid;
+    }
+
+    // A new upload: signed in, a valid media file, tagged with the caller's own id.
+    // Create rules also check `resource == null`: an upload over an existing file can be
+    // evaluated as a create, and must go through the stricter update rule instead.
+    function isValidUpload() {
+      return isAuthenticated()
+          && isValidMediaFile(request.resource)
+          && isTaggedAsCaller(request.resource);
+    }
+
+    // Who may overwrite or delete an existing recipe file: managers, the person
+    // who uploaded it (e.g. cleaning up a failed or rejected edit suggestion),
+    // or the recipe's author.
+    function canChangeRecipeFile(recipeId) {
+      return isManager() || isTaggedAsCaller(resource) || isRecipeAuthor(recipeId);
+    }
+
     // ========================================
     // RECIPE IMAGES
     // ========================================
+    // Catch-all: public read; only managers write. Covers legacy files that sit
+    // outside the {type}/{category}/{recipeId}/ layout.
     match /img/recipes/{allPaths=**} {
       allow read: if true;
-      allow create, update: if isAuthenticated() && isValidMediaFile(request.resource);
-      allow delete: if isAuthenticated();
+      allow write: if isManager() && (request.resource == null || isValidMediaFile(request.resource));
+    }
+
+    // Standard layout written by the app: img/recipes/{type}/{category}/{recipeId}/{fileName}
+    match /img/recipes/{type}/{category}/{recipeId}/{fileName} {
+      allow create: if resource == null && isValidUpload();
+      allow update: if isValidUpload() && canChangeRecipeFile(recipeId);
+      allow delete: if canChangeRecipeFile(recipeId);
     }
 
     // ========================================
@@ -41,8 +86,9 @@ service firebase.storage {
     // ========================================
     match /recipes/{recipeId}/media-instructions/{fileName} {
       allow read: if true;
-      allow create, update: if isAuthenticated() && isValidMediaFile(request.resource);
-      allow delete: if isAuthenticated();
+      allow create: if resource == null && isValidUpload();
+      allow update: if isValidUpload() && canChangeRecipeFile(recipeId);
+      allow delete: if canChangeRecipeFile(recipeId);
     }
   }
 }

@@ -57,7 +57,9 @@ export class FirestoreService {
         collection: collectionName,
         docId: id,
       });
-      throw new Error('Failed to fetch document');
+      // Keep the Firestore code (e.g. 'permission-denied') so callers can tell
+      // "not allowed to see this" apart from a failure.
+      throw Object.assign(new Error('Failed to fetch document'), { code: error?.code });
     }
   }
 

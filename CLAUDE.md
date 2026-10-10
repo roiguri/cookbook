@@ -11,6 +11,7 @@ npm run build        # Production build
 npm run serve        # Preview production build
 npm run test         # Jest unit tests
 npm run test -- tests/js/router.test.js  # Run a single test file
+npm run test:rules   # Firestore + Storage security-rules tests on the emulator (needs Java 21+)
 npm run lint         # ESLint check
 npm run lint:fix     # ESLint auto-fix
 npm run format       # Prettier formatting (required before committing — enforced by pre-commit hook)

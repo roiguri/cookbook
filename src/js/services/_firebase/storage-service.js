@@ -10,7 +10,7 @@ import {
   getMetadata,
 } from 'firebase/storage';
 // 2. Internal modules/services
-import { getStorageInstance } from './firebase-service.js';
+import { getStorageInstance, getAuthInstance } from './firebase-service.js';
 import { captureError } from '../logger.js';
 import { LRUCache } from '../../utils/lru-cache.js';
 
@@ -21,7 +21,9 @@ const urlCache = new LRUCache(500);
  */
 export class StorageService {
   /**
-   * Uploads a file to Firebase Storage.
+   * Uploads a file to Firebase Storage, tagged with the uploader's uid
+   * (`customMetadata.uploadedBy`). storage.rules require the tag and use it to
+   * let uploaders delete their own files.
    * @param {File|Blob} file - The file to upload
    * @param {string} path - The storage path (e.g. 'uploads/myfile.txt')
    * @returns {Promise<string>} The download URL of the uploaded file
@@ -30,7 +32,12 @@ export class StorageService {
     try {
       const storage = getStorageInstance();
       const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
+      const uid = getAuthInstance()?.currentUser?.uid;
+      await uploadBytes(
+        storageRef,
+        file,
+        uid ? { customMetadata: { uploadedBy: uid } } : undefined,
+      );
       const url = await getDownloadURL(storageRef);
       urlCache.set(path, url);
       return url;
