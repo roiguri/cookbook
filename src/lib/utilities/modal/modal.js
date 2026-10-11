@@ -55,6 +55,9 @@
  *   is unaffected.
  */
 
+// Open modals currently holding the page scroll lock (shared across instances).
+let scrollLockCount = 0;
+
 export class Modal extends HTMLElement {
   /**
    * ##Set-up
@@ -70,6 +73,16 @@ export class Modal extends HTMLElement {
     this.firstFocusableElement = null;
     this.lastFocusableElement = null;
     this.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  disconnectedCallback() {
+    // Removed while open (e.g. the page navigated away): don't leave the
+    // page locked. Reconnecting re-renders the modal closed.
+    if (this.isOpen) {
+      this.isOpen = false;
+      window.removeEventListener('keydown', this.handleKeyDown);
+      this.unlockScroll();
+    }
   }
 
   connectedCallback() {
@@ -347,15 +360,28 @@ export class Modal extends HTMLElement {
 
   /**
    * ##Scroll-lock
+   * The SPA scrolls on the document root, and `overflow` on <body> doesn't
+   * propagate to the viewport, so the root is what has to be locked. The lock
+   * is shared: stacked modals hold it together and the last one out releases it.
    */
   lockScroll() {
-    document.body.style.overflow = 'hidden';
-    document.body.style.paddingRight = this.getScrollbarWidth() + 'px';
+    if (this._holdsScrollLock) return;
+    this._holdsScrollLock = true;
+    if (scrollLockCount++ === 0) {
+      document.body.style.paddingRight = this.getScrollbarWidth() + 'px';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    }
   }
 
   unlockScroll() {
-    document.body.style.overflow = '';
-    document.body.style.paddingRight = '';
+    if (!this._holdsScrollLock) return;
+    this._holdsScrollLock = false;
+    if (--scrollLockCount === 0) {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
   }
 
   getScrollbarWidth() {

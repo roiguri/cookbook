@@ -42,4 +42,52 @@ describe('custom-modal', () => {
     await el.close();
     expect(el.isOpen).toBe(false);
   });
+
+  describe('scroll lock', () => {
+    const rootOverflow = () => document.documentElement.style.overflow;
+    const makeModal = () => {
+      const el = document.createElement('custom-modal');
+      document.body.appendChild(el);
+      return el;
+    };
+
+    test('locks the document root (the SPA scroller) while open', async () => {
+      const el = makeModal();
+      el.open();
+      expect(rootOverflow()).toBe('hidden');
+      await el.close();
+      expect(rootOverflow()).toBe('');
+    });
+
+    test('stacked modals keep the page locked until the last one closes', async () => {
+      const outer = makeModal();
+      const inner = makeModal();
+      outer.open();
+      inner.open();
+      await inner.close();
+      expect(rootOverflow()).toBe('hidden');
+      await outer.close();
+      expect(rootOverflow()).toBe('');
+    });
+
+    test('closing twice does not release a lock held by another modal', async () => {
+      const a = makeModal();
+      const b = makeModal();
+      a.open();
+      b.open();
+      await b.close();
+      b.unlockScroll();
+      expect(rootOverflow()).toBe('hidden');
+      await a.close();
+      expect(rootOverflow()).toBe('');
+    });
+
+    test('removing an open modal from the DOM releases its lock', () => {
+      const el = makeModal();
+      el.open();
+      el.remove();
+      expect(el.isOpen).toBe(false);
+      expect(rootOverflow()).toBe('');
+    });
+  });
 });
