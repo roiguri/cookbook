@@ -128,6 +128,7 @@ Decided while building (2026-10-11):
 - **Orphaned Storage files** from failed image proposals: since the 2026-01-12 strict rules, a non-author's proposal uploaded files and then failed the Firestore write. Find files under `img/recipes/` that no recipe, edit suggestion or media instruction references, review the list, then delete.
 - **Old fields** `approved`, `userId`, `users.favorites` (see release 5 row).
 - **Old Storage trees** `img/recipes/**` and `recipes/*/media-instructions/**` after release 2b; remove the old path from the resize extension's watched paths.
+- **Replace the Resize Images extension** (decided 2026-10-11). Firebase shuts the Extensions service down on **2027-03-31**: installed extensions keep running, but can no longer be reconfigured or uninstalled. Replace it with its function kit (`@firebase-function-kits/storage-resize-images`, 0.0.1 as of 2026-10) once that matures, or with our own small `sharp` function writing the same `_400x400` / `_1080x1080` WebP files. No data or app change is needed. **Revisit January 2027; hard deadline 2027-03-31.**
 - **Optional nicety:** a "photos only" shortcut that opens Suggest an edit focused on images, if proposing photos turns out to be too many clicks.
 
 ### Release 1 — Lock down security (shipped 2026-10-11)
@@ -182,7 +183,7 @@ Production is held until the whole feature is complete (user decision 2026-10-11
 - [ ] 2. Deploy indexes: `firebase deploy --only firestore:indexes --project production` — wait until they finish building. _(release 2)_
 - [ ] 3. `node scripts/migrations/002-convert-model.mjs --project production` (dry run), check counts, then `--apply`. _(release 2)_
 - [ ] 4. `node scripts/migrations/003-restructure-storage.mjs --project production` (dry run), check counts, then `--apply`. _(release 2b)_
-- [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production. _(release 2b)_
+- [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production. _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
 - [ ] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
 - [ ] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
 - [ ] 8. Smoke test: signed out, test account, manager — per the staging checklists.
