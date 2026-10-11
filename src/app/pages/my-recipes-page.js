@@ -27,12 +27,13 @@ const TABS = {
   },
 };
 
-const tabFromParams = (params) => (params?.tab === 'library' ? 'library' : 'to-try');
+// My library is the default tab; To try is `?tab=to-try`.
+const tabFromParams = (params) => (params?.tab === 'to-try' ? 'to-try' : 'library');
 const stageOf = (recipe) => (recipe.stage === STAGE.TO_TRY ? STAGE.TO_TRY : STAGE.TESTED);
 
 /**
  * My recipes — the signed-in family member's private recipes, in two tabs:
- * "To try" (stage to-try) and "My library" (stage tested).
+ * "My library" (stage tested, the default) and "To try" (stage to-try).
  *
  * The list itself is the Categories list (RecipeListController + the same
  * filter, grid and cards); this page only supplies the data source, the tabs
@@ -196,7 +197,7 @@ export default {
     const router = window.spa?.router;
     if (!router) return;
     const params = router.buildCategoriesParams(currentCategory, currentSearchQuery, activeFilters);
-    if (this.tab === 'library') params.tab = 'library';
+    if (this.tab === 'to-try') params.tab = 'to-try';
     router.updateParams(params);
   },
 
