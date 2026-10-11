@@ -59,7 +59,7 @@ class EditRecipeComponent extends HTMLElement {
 
       // Manager edits are trusted; auto-approve so pending recipes
       // become approved after a save.
-      const { mediaUploadResults, migrationWarnings } = await RecipeService.update(this.recipeId, {
+      const { mediaUploadResults } = await RecipeService.update(this.recipeId, {
         changes,
         images: formImages,
         imagesToDelete,
@@ -76,12 +76,6 @@ class EditRecipeComponent extends HTMLElement {
 
       // Re-baseline dirty tracking so the save button disables after a clean save.
       this.formComponent?.markSaved?.();
-
-      for (const warning of migrationWarnings) {
-        this.showWarningMessage(
-          `אזהרה: לא ניתן להעביר תמונה ${warning.imageId} לתיקיית קטגוריה חדשה. התמונה תישאר בתיקייה הישנה.`,
-        );
-      }
 
       if (mediaUploadResults.failedCount > 0) {
         this.showWarningMessage(

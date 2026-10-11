@@ -141,10 +141,10 @@ class EditSuggestionReview extends HTMLElement {
     try {
       spinner.setAttribute('active', '');
       const uploadedBy = authService.getCurrentUser()?.uid || 'anonymous';
-      const payload = buildApplyPayload(
-        this.currentRecipe || {},
-        this.suggestion.proposedChanges || {},
-      );
+      // Copy the suggestion's staged files into the recipe first, then apply the
+      // changes pointing at those copies.
+      const proposedChanges = await RecipeEditSuggestionService.promoteFiles(this.suggestion);
+      const payload = buildApplyPayload(this.currentRecipe || {}, proposedChanges || {});
 
       await RecipeService.update(this.suggestion.recipeId, {
         ...payload,

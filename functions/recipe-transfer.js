@@ -48,7 +48,7 @@ async function processRecipeImages(recipeId, images, category, originalUserId) {
       const fileName = imageData.filename || `image-${index + 1}.jpg`;
 
       // Upload full-size image
-      const fullPath = `img/recipes/full/${category}/${recipeId}/${fileName}`;
+      const fullPath = `recipes/${recipeId}/images/${fileName}`; // layout: src/js/utils/recipes/storage-paths.js
       const bucket = storage.bucket();
       const fullFile = bucket.file(fullPath);
 

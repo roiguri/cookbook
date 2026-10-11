@@ -48,7 +48,7 @@ describe('MediaInstructionService', () => {
       expect(storageMocks.uploadFile).toHaveBeenCalledTimes(1);
       expect(result).toMatchObject({
         id: expect.stringMatching(/^media-/),
-        path: expect.stringContaining('recipes/recipe-123/media-instructions/'),
+        path: expect.stringContaining('recipes/recipe-123/media/'),
         caption: '',
         type: 'image',
         order: 0,
@@ -64,7 +64,7 @@ describe('MediaInstructionService', () => {
       const result = await MediaInstructionService.upload(file, 'recipe-789', 'user-111');
 
       expect(result.type).toBe('video');
-      expect(result.path).toContain('recipes/recipe-789/media-instructions/');
+      expect(result.path).toContain('recipes/recipe-789/media/');
     });
 
     it('rejects invalid file type without uploading', async () => {

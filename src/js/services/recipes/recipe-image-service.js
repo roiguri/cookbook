@@ -30,10 +30,9 @@ async function fileExists(path) {
  * patches, etc.) lives in RecipeService.
  *
  * Public API:
- *   - uploadFile(recipeId, category, file, options)
+ *   - uploadFile(recipeId, file, options)
  *   - replaceFiles(recipeId, image, blob, options)
  *   - deleteFiles(image)
- *   - migrateFilesToCategory(recipeId, image, newCategory)
  *   - getOptimizedUrl(image, size)
  *   - getPrimaryUrl(recipe, size)
  *   - getFullUrl(image)
@@ -43,30 +42,34 @@ async function fileExists(path) {
  */
 export class RecipeImageService {
   /**
-   * Upload a single image file to Storage under the recipe's category path
-   * and return its metadata entry (id, full path, fileName, isPrimary,
+   * Upload a single image file to Storage under the recipe's images folder (or
+   * `options.folder`, e.g. an edit suggestion's folder) and return its metadata entry (id, full path, fileName, isPrimary,
    * uploadedBy, access, uploadTimestamp). Storage only — does NOT touch
    * `recipes/{id}.images[]`; caller is responsible for persisting the
    * returned entry on the recipe document. The Storage Resize extension
    * regenerates WebP variants asynchronously.
    *
    * @param {string} recipeId
-   * @param {string} category
    * @param {File} file
    * @param {Object} [options]
    * @param {boolean} [options.isPrimary=false]
    * @param {string} [options.uploadedBy]
+   * @param {string} [options.folder] - Target folder; defaults to the recipe's images folder.
    * @returns {Promise<Object>} image metadata entry
    */
-  static async uploadFile(recipeId, category, file, options = {}) {
-    const { isPrimary = false, uploadedBy } = options;
+  static async uploadFile(recipeId, file, options = {}) {
+    const { isPrimary = false, uploadedBy, folder } = options;
     const fileExtension = file.name.split('.').pop();
-    const fileName = isPrimary ? 'primary.jpg' : `${Date.now()}.${fileExtension}`;
-    const fullPath = getImageStoragePath(recipeId, category, fileName, 'full');
+    // Every upload gets its own name, so an upload never overwrites an existing
+    // file (Storage rules only let managers overwrite). Which image is primary is
+    // the `isPrimary` flag on the recipe's images[], not the file name.
+    const id = generateImageId();
+    const fileName = `${id}.${fileExtension}`;
+    const fullPath = folder ? `${folder}/${fileName}` : getImageStoragePath(recipeId, fileName);
     await StorageService.uploadFile(file, fullPath);
 
     return {
-      id: generateImageId(),
+      id,
       full: fullPath,
       fileName,
       isPrimary,
@@ -156,98 +159,6 @@ export class RecipeImageService {
       StorageService.deleteFile(originalOpt400).catch(() => {}), // silent: best-effort backup variant cleanup
       StorageService.deleteFile(originalOpt1080).catch(() => {}), // silent: best-effort backup variant cleanup
     ]);
-  }
-
-  /**
-   * Move an image's Storage files from its current category path to a new
-   * category path. Copies the full original bytes to the new path and
-   * deletes the old, then best-effort cleans up the old WebP variants
-   * (the Resize extension regenerates them at the new path). If an
-   * `_original` AI-backup file exists at the old path, it is copied to
-   * the matching new path (and its variants at the old path cleaned up
-   * best-effort). Returns a new image object with `full` updated.
-   *
-   * @param {string} recipeId
-   * @param {{ id: string, full: string }} image
-   * @param {string} newCategory
-   * @returns {Promise<Object>} New image object with updated `full` path.
-   */
-  static async migrateFilesToCategory(recipeId, image, newCategory) {
-    if (!image || !image.full) {
-      throw new Error('RecipeImageService.migrateFilesToCategory: image.full is required');
-    }
-
-    try {
-      const fileName = image.full.split('/').pop();
-      const newFullPath = getImageStoragePath(recipeId, newCategory, fileName, 'full');
-
-      // No-op if the file is already at the target path. Without this guard the
-      // copy-then-delete-source sequence below would delete the file we just
-      // wrote (source === target), losing the image.
-      if (image.full === newFullPath) {
-        return { ...image };
-      }
-
-      const fullUrl = await StorageService.getFileUrl(image.full);
-      const fullResponse = await fetch(fullUrl);
-
-      if (!fullResponse.ok) {
-        throw new Error(`Failed to fetch images: full=${fullResponse.status}`);
-      }
-
-      const fullBlob = await fullResponse.blob();
-      await StorageService.uploadFile(fullBlob, newFullPath);
-      await StorageService.deleteFile(image.full);
-
-      // The new full upload triggers the Storage Resize extension to regenerate
-      // WebP variants at the new path, so the old variants just need to be
-      // deleted. We don't conditionally check existence — deleteFile is best
-      // effort and harmless if the file is missing.
-      const oldOpt400 = image.full.replace(/\.[^.]+$/, '_400x400.webp');
-      const oldOpt1080 = image.full.replace(/\.[^.]+$/, '_1080x1080.webp');
-      await Promise.all([
-        StorageService.deleteFile(oldOpt400).catch(() => {}), // silent: best-effort old WebP variant cleanup
-        StorageService.deleteFile(oldOpt1080).catch(() => {}), // silent: best-effort old WebP variant cleanup
-      ]);
-
-      // The AI-enhancement `_original` backup is NOT auto-generated, so it must
-      // be actively copied to the new path (best effort — most images won't have
-      // one). Its WebP variants ARE auto-generated by the extension, so the old
-      // ones at the source path need explicit cleanup just like the full's.
-      const oldOriginal = image.full.replace(/(\.[^.]+)$/, '_original$1');
-      const newOriginal = newFullPath.replace(/(\.[^.]+)$/, '_original$1');
-      const oldOriginalOpt400 = oldOriginal.replace(/\.[^.]+$/, '_400x400.webp');
-      const oldOriginalOpt1080 = oldOriginal.replace(/\.[^.]+$/, '_1080x1080.webp');
-      try {
-        const url = await StorageService.getFileUrl(oldOriginal);
-        const response = await fetch(url);
-        if (response.ok) {
-          const blob = await response.blob();
-          await StorageService.uploadFile(blob, newOriginal);
-          await StorageService.deleteFile(oldOriginal).catch(() => {}); // silent: best-effort old backup cleanup
-        }
-      } catch {
-        // silent: no `_original` backup at the old path — nothing to migrate
-      }
-      await Promise.all([
-        StorageService.deleteFile(oldOriginalOpt400).catch(() => {}), // silent: best-effort old backup variant cleanup
-        StorageService.deleteFile(oldOriginalOpt1080).catch(() => {}), // silent: best-effort old backup variant cleanup
-      ]);
-
-      return {
-        ...image,
-        full: newFullPath,
-      };
-    } catch (error) {
-      console.error(`Failed to migrate image ${image.id} to ${newCategory}:`, error);
-      captureError(error, {
-        service: 'recipe-image',
-        op: 'migrateFilesToCategory',
-        imageId: image.id,
-        newCategory,
-      });
-      throw new Error(`Failed to migrate image ${image.id}: ${error.message}`);
-    }
   }
 
   /**

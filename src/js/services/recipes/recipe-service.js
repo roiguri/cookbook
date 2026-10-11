@@ -58,12 +58,12 @@ function withModelFields(data) {
   return out;
 }
 
-async function uploadImagesAtomic(recipeId, category, imagesToUpload, uploadedBy) {
+async function uploadImagesAtomic(recipeId, imagesToUpload, uploadedBy) {
   // allSettled (not all) so we can clean up resolutions when any sibling
   // rejects — Promise.all leaves us blind to which uploads actually landed.
   const settled = await Promise.allSettled(
     imagesToUpload.map(({ file, isPrimary }) =>
-      RecipeImageService.uploadFile(recipeId, category, file, {
+      RecipeImageService.uploadFile(recipeId, file, {
         isPrimary: !!isPrimary,
         uploadedBy: uploadedBy || 'anonymous',
       }),
@@ -226,12 +226,7 @@ export class RecipeService {
 
     try {
       if (Array.isArray(imagesToUpload) && imagesToUpload.length > 0) {
-        uploadedImages = await uploadImagesAtomic(
-          recipeId,
-          cleanedData.category,
-          imagesToUpload,
-          uploadedBy,
-        );
+        uploadedImages = await uploadImagesAtomic(recipeId, imagesToUpload, uploadedBy);
       }
 
       const { finalArray: mediaInstructions, results: mediaUploadResults } = await uploadMediaItems(
@@ -293,7 +288,7 @@ export class RecipeService {
    * @param {boolean} [params.approved] - Pass `true` to publish (e.g. manager
    *        edits), `false` to unpublish. Also sets `visibility`. Omit to leave
    *        both untouched.
-   * @returns {Promise<{ mediaUploadResults: Object, migrationWarnings: Array }>}
+   * @returns {Promise<{ mediaUploadResults: Object }>}
    */
   static async update(
     recipeId,
@@ -316,9 +311,6 @@ export class RecipeService {
       throw new Error(`RecipeService.update: recipe ${recipeId} not found`);
     }
 
-    const newCategory = changes.category ?? originalRecipe.category;
-    const categoryChanged = originalRecipe.category !== newCategory;
-    const migrationWarnings = [];
     let mediaUploadResults = {
       uploaded: [],
       failed: [],
@@ -353,7 +345,7 @@ export class RecipeService {
       try {
         for (const img of images) {
           if (img.source === 'new' && img.file) {
-            const meta = await RecipeImageService.uploadFile(recipeId, newCategory, img.file, {
+            const meta = await RecipeImageService.uploadFile(recipeId, img.file, {
               isPrimary: !!img.isPrimary,
               uploadedBy: img.uploadedBy || uploadedBy || 'anonymous',
             });
@@ -362,29 +354,11 @@ export class RecipeService {
           } else if (img.source === 'existing') {
             // Drop transient form-internal fields; filter undefined to keep
             // Firestore (no ignoreUndefinedProperties) happy.
+            // Files stay where they are: the category isn't part of the Storage path.
             const { source: _s, file: _f, preview: _p, ...rest } = img;
-            let existingImage = Object.fromEntries(
-              Object.entries(rest).filter(([, v]) => v !== undefined),
+            newImages.push(
+              Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)),
             );
-            if (categoryChanged) {
-              try {
-                existingImage = await RecipeImageService.migrateFilesToCategory(
-                  recipeId,
-                  existingImage,
-                  newCategory,
-                );
-              } catch (error) {
-                captureError(error, {
-                  service: 'recipe',
-                  op: 'update:migrateFilesToCategory',
-                  recipeId,
-                  imageId: img.id,
-                  newCategory,
-                });
-                migrationWarnings.push({ imageId: img.id, error: error.message });
-              }
-            }
-            newImages.push(existingImage);
           }
         }
       } catch (error) {
@@ -418,7 +392,7 @@ export class RecipeService {
 
     await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, docPayload);
 
-    return { mediaUploadResults, migrationWarnings };
+    return { mediaUploadResults };
   }
 
   /**

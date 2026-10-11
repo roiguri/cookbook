@@ -1,4 +1,5 @@
 import { icons } from '../../../js/icons.js';
+import { isRecipeStoragePath } from '../../../js/utils/recipes/storage-paths.js';
 import { RecipeImageService } from '../../../js/services/recipes/recipe-image-service.js';
 
 class ImageCarousel extends HTMLElement {
@@ -84,7 +85,7 @@ class ImageCarousel extends HTMLElement {
           } catch (error) {
             console.error('Error loading optimized image:', error);
           }
-        } else if (typeof image === 'string' && image.startsWith('img/recipes/')) {
+        } else if (isRecipeStoragePath(image)) {
           // Legacy data: a raw Storage path. Normalize to a typed image so
           // the service surface keeps accepting only RecipeImage-shaped input.
           try {

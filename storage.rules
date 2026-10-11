@@ -53,21 +53,52 @@ service firebase.storage {
     }
 
     // ========================================
-    // RECIPE IMAGES
+    // RECIPE FILES (layout since release 2b — src/js/utils/recipes/storage-paths.js)
     // ========================================
-    // Catch-all: public read; only managers write. Covers legacy files that sit
-    // outside the {type}/{category}/{recipeId}/ layout.
+    // recipes/{recipeId}/images/{file} and recipes/{recipeId}/media/{file}.
+    match /recipes/{recipeId}/{kind}/{fileName} {
+      allow read: if true;
+      allow create: if kind in ['images', 'media'] && resource == null && isValidUpload();
+      allow update: if kind in ['images', 'media'] && isValidUpload() && canChangeRecipeFile(recipeId);
+      allow delete: if kind in ['images', 'media'] && canChangeRecipeFile(recipeId);
+      // Managers can replace files (e.g. the AI image enhancer). Uploads from the app
+      // use unique file names, so nobody else needs to overwrite.
+      allow write: if isManager() && (request.resource == null || isValidMediaFile(request.resource));
+    }
+
+    // ========================================
+    // EDIT-SUGGESTION UPLOADS (staged until a manager approves)
+    // ========================================
+    // suggestions/{suggestionId}/images|media/{file}. Approval copies them into the
+    // recipe's folder server-side (promoteSuggestionFiles); the copies are re-tagged
+    // to the manager, so the suggester keeps no rights over the live recipe's files.
+    match /suggestions/{suggestionId}/{kind}/{fileName} {
+      allow read: if isManager() || isTaggedAsCaller(resource);
+      allow create: if kind in ['images', 'media'] && resource == null && isValidUpload();
+      allow delete: if isManager() || isTaggedAsCaller(resource);
+    }
+
+    // ========================================
+    // PRIVATE USER AREA (private recipes from release 3a)
+    // ========================================
+    // users/{uid}/… — only its owner writes; owner and managers read.
+    match /users/{uid}/{allPaths=**} {
+      allow read: if isAuthenticated() && (request.auth.uid == uid || isManager());
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && resource == null && isValidUpload();
+      allow update: if request.auth != null && request.auth.uid == uid && isValidUpload();
+      allow delete: if isAuthenticated() && (request.auth.uid == uid || isManager());
+    }
+
+    // ========================================
+    // LEGACY RECIPE IMAGES (before release 2b; removed in the cleanup release)
+    // ========================================
+    // The app no longer writes here; public read, managers only write.
     match /img/recipes/{allPaths=**} {
       allow read: if true;
       allow write: if isManager() && (request.resource == null || isValidMediaFile(request.resource));
     }
 
-    // Standard layout written by the app: img/recipes/{type}/{category}/{recipeId}/{fileName}
-    match /img/recipes/{type}/{category}/{recipeId}/{fileName} {
-      allow create: if resource == null && isValidUpload();
-      allow update: if isValidUpload() && canChangeRecipeFile(recipeId);
-      allow delete: if canChangeRecipeFile(recipeId);
-    }
 
     // ========================================
     // USER AVATARS
@@ -84,13 +115,12 @@ service firebase.storage {
     }
 
     // ========================================
-    // MEDIA INSTRUCTIONS
+    // LEGACY MEDIA INSTRUCTIONS (before release 2b; removed in the cleanup release)
     // ========================================
+    // The app no longer writes here; kept readable until cleanup, managers only write.
     match /recipes/{recipeId}/media-instructions/{fileName} {
       allow read: if true;
-      allow create: if resource == null && isValidUpload();
-      allow update: if isValidUpload() && canChangeRecipeFile(recipeId);
-      allow delete: if canChangeRecipeFile(recipeId);
+      allow write: if isManager();
     }
   }
 }

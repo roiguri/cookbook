@@ -46,10 +46,8 @@ describe('recipe-image-utils', () => {
   });
 
   describe('getImageStoragePath', () => {
-    it('generates correct path for full', () => {
-      expect(getImageStoragePath('id1', 'cat', 'file.jpg', 'full')).toBe(
-        'img/recipes/full/cat/id1/file.jpg',
-      );
+    it('puts recipe images in the recipe folder, with no category', () => {
+      expect(getImageStoragePath('id1', 'file.jpg')).toBe('recipes/id1/images/file.jpg');
     });
   });
 

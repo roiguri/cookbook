@@ -37,11 +37,11 @@ describe('RecipeImageService', () => {
       return new File([new Blob(['a'], { type })], name, { type });
     }
 
-    it('uploads to category path and returns metadata with primary.jpg filename when isPrimary', async () => {
+    it('uploads into the recipe images folder under a unique name, primary or not', async () => {
       storageMocks.uploadFile.mockResolvedValue();
       const file = makeFile('foo.jpg');
 
-      const meta = await RecipeImageService.uploadFile('r1', 'desserts', file, {
+      const meta = await RecipeImageService.uploadFile('r1', file, {
         isPrimary: true,
         uploadedBy: 'user-1',
       });
@@ -49,38 +49,41 @@ describe('RecipeImageService', () => {
       expect(storageMocks.uploadFile).toHaveBeenCalledTimes(1);
       const [uploadedFile, uploadedPath] = storageMocks.uploadFile.mock.calls[0];
       expect(uploadedFile).toBe(file);
-      expect(uploadedPath).toBe('img/recipes/full/desserts/r1/primary.jpg');
-
+      // Never `primary.jpg`: uploads don't overwrite; primary is the isPrimary flag.
+      expect(uploadedPath).toBe(`recipes/r1/images/${meta.id}.jpg`);
       expect(meta).toMatchObject({
-        full: 'img/recipes/full/desserts/r1/primary.jpg',
-        fileName: 'primary.jpg',
+        full: uploadedPath,
+        fileName: `${meta.id}.jpg`,
         isPrimary: true,
         uploadedBy: 'user-1',
         access: 'public',
       });
-      expect(typeof meta.id).toBe('string');
+      expect(meta.id).toMatch(/^img-/);
       expect(meta.uploadTimestamp).toBeInstanceOf(Date);
     });
 
-    it('uses a timestamped filename keeping the extension when not primary', async () => {
+    it('keeps the file extension and gives each upload a different name', async () => {
       storageMocks.uploadFile.mockResolvedValue();
-      const file = makeFile('cake.png', 'image/png');
+      const a = await RecipeImageService.uploadFile('r2', makeFile('cake.png', 'image/png'));
+      const b = await RecipeImageService.uploadFile('r2', makeFile('cake.png', 'image/png'));
+      expect(a.fileName).toMatch(/\.png$/);
+      expect(a.full).not.toBe(b.full);
+      expect(a.isPrimary).toBe(false);
+    });
 
-      const meta = await RecipeImageService.uploadFile('r2', 'mains', file, {
-        isPrimary: false,
-        uploadedBy: 'user-2',
+    it('uploads into a given folder (e.g. an edit suggestion)', async () => {
+      storageMocks.uploadFile.mockResolvedValue();
+      const meta = await RecipeImageService.uploadFile('r1', makeFile('x.jpg'), {
+        folder: 'suggestions/s1/images',
       });
-
-      expect(meta.fileName).toMatch(/^\d+\.png$/);
-      expect(meta.full).toBe(`img/recipes/full/mains/r2/${meta.fileName}`);
-      expect(meta.isPrimary).toBe(false);
+      expect(meta.full).toBe(`suggestions/s1/images/${meta.fileName}`);
     });
 
     it('propagates Storage upload errors', async () => {
       storageMocks.uploadFile.mockRejectedValue(new Error('storage down'));
 
       await expect(
-        RecipeImageService.uploadFile('r3', 'sides', makeFile(), {
+        RecipeImageService.uploadFile('r3', makeFile(), {
           isPrimary: true,
           uploadedBy: 'user-3',
         }),
@@ -228,122 +231,6 @@ describe('RecipeImageService', () => {
       await expect(
         RecipeImageService.deleteFiles({ full: 'img/recipes/full/cat/rid/image.jpg' }),
       ).rejects.toThrow('permission denied');
-    });
-  });
-
-  describe('migrateFilesToCategory', () => {
-    const image = {
-      id: 'img-1',
-      full: 'img/recipes/full/desserts/recipe-9/keep.jpg',
-      isPrimary: false,
-    };
-
-    it('throws if image.full is missing', async () => {
-      await expect(
-        RecipeImageService.migrateFilesToCategory('recipe-9', null, 'mains'),
-      ).rejects.toThrow('image.full is required');
-      await expect(
-        RecipeImageService.migrateFilesToCategory('recipe-9', {}, 'mains'),
-      ).rejects.toThrow('image.full is required');
-    });
-
-    it('is a no-op when the file is already in the target category (no self-delete)', async () => {
-      const sameCategoryImage = {
-        id: 'img-1',
-        full: 'img/recipes/full/mains/recipe-9/keep.jpg',
-        isPrimary: false,
-      };
-      const result = await RecipeImageService.migrateFilesToCategory(
-        'recipe-9',
-        sameCategoryImage,
-        'mains',
-      );
-      expect(result).toEqual(sameCategoryImage);
-      // Critically: must NOT delete (or re-upload) — that would lose the image.
-      expect(storageMocks.deleteFile).not.toHaveBeenCalled();
-      expect(storageMocks.uploadFile).not.toHaveBeenCalled();
-    });
-
-    it('copies the full bytes to the new path, deletes the old, returns image with updated full', async () => {
-      const fullBytes = new Blob(['full'], { type: 'image/jpeg' });
-      // 1st getFileUrl = full; 2nd = _original lookup (will throw -> no backup)
-      storageMocks.getFileUrl.mockResolvedValueOnce('https://storage/full');
-      storageMocks.getFileUrl.mockRejectedValueOnce(new Error('no _original'));
-      global.fetch.mockResolvedValueOnce({ ok: true, blob: async () => fullBytes });
-
-      const result = await RecipeImageService.migrateFilesToCategory('recipe-9', image, 'mains');
-
-      expect(storageMocks.uploadFile).toHaveBeenCalledWith(
-        fullBytes,
-        'img/recipes/full/mains/recipe-9/keep.jpg',
-      );
-      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
-        'img/recipes/full/desserts/recipe-9/keep.jpg',
-      );
-      expect(result).toEqual({
-        ...image,
-        full: 'img/recipes/full/mains/recipe-9/keep.jpg',
-      });
-    });
-
-    it('best-effort deletes old WebP variants at the source path', async () => {
-      storageMocks.getFileUrl.mockResolvedValueOnce('https://storage/full');
-      storageMocks.getFileUrl.mockRejectedValueOnce(new Error('no _original'));
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        blob: async () => new Blob(['full']),
-      });
-
-      await RecipeImageService.migrateFilesToCategory('recipe-9', image, 'mains');
-
-      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
-        'img/recipes/full/desserts/recipe-9/keep_400x400.webp',
-      );
-      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
-        'img/recipes/full/desserts/recipe-9/keep_1080x1080.webp',
-      );
-    });
-
-    it('copies the _original backup to the new path when it exists', async () => {
-      const fullBytes = new Blob(['full'], { type: 'image/jpeg' });
-      const originalBytes = new Blob(['original'], { type: 'image/jpeg' });
-      storageMocks.getFileUrl.mockResolvedValueOnce('https://storage/full');
-      storageMocks.getFileUrl.mockResolvedValueOnce('https://storage/original');
-      global.fetch
-        .mockResolvedValueOnce({ ok: true, blob: async () => fullBytes })
-        .mockResolvedValueOnce({ ok: true, blob: async () => originalBytes });
-
-      await RecipeImageService.migrateFilesToCategory('recipe-9', image, 'mains');
-
-      expect(storageMocks.uploadFile).toHaveBeenCalledWith(
-        originalBytes,
-        'img/recipes/full/mains/recipe-9/keep_original.jpg',
-      );
-      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
-        'img/recipes/full/desserts/recipe-9/keep_original.jpg',
-      );
-    });
-
-    it('skips the _original copy when the backup is missing (catch and continue)', async () => {
-      storageMocks.getFileUrl.mockResolvedValueOnce('https://storage/full');
-      storageMocks.getFileUrl.mockRejectedValueOnce(new Error('not-found'));
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        blob: async () => new Blob(['full']),
-      });
-
-      await expect(
-        RecipeImageService.migrateFilesToCategory('recipe-9', image, 'mains'),
-      ).resolves.toMatchObject({ full: 'img/recipes/full/mains/recipe-9/keep.jpg' });
-    });
-
-    it('throws a wrapped error mentioning the image id when the full fetch fails', async () => {
-      storageMocks.getFileUrl.mockResolvedValueOnce('https://storage/full');
-      global.fetch.mockResolvedValueOnce({ ok: false, status: 500 });
-
-      await expect(
-        RecipeImageService.migrateFilesToCategory('recipe-9', image, 'mains'),
-      ).rejects.toThrow(/Failed to migrate image img-1/);
     });
   });
 

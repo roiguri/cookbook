@@ -33,6 +33,11 @@ jest.unstable_mockModule('src/js/services/recipes/recipe-image-service.js', () =
 jest.unstable_mockModule('src/js/services/recipes/media-instruction-service.js', () => ({
   MediaInstructionService: mediaInstructionServiceMocks,
 }));
+const promoteCallable = jest.fn();
+jest.unstable_mockModule('firebase/functions', () => ({
+  getFunctions: jest.fn(() => ({})),
+  httpsCallable: jest.fn(() => promoteCallable),
+}));
 
 function makeFile(name = 'a.jpg', type = 'image/jpeg') {
   return new File([new Blob(['a'], { type })], name, { type });
@@ -46,6 +51,7 @@ beforeEach(async () => {
   recipeImageServiceMocks.deleteFiles.mockResolvedValue(undefined);
   Object.values(mediaInstructionServiceMocks).forEach((m) => m.mockReset?.());
   mediaInstructionServiceMocks.delete.mockResolvedValue(undefined);
+  promoteCallable.mockReset();
 
   ({ RecipeEditSuggestionService } =
     await import('src/js/services/recipes/recipe-edit-suggestion-service.js'));
@@ -73,7 +79,7 @@ describe('RecipeEditSuggestionService.create', () => {
     // service forces non-primary uploads, so the mock mirrors that.
     recipeImageServiceMocks.uploadFile.mockResolvedValue({
       id: 'img-new',
-      full: 'img/recipes/full/desserts/r1/1700000000000.jpg',
+      full: 'suggestions/sug-1/images/img-new.jpg',
       isPrimary: false,
     });
 
@@ -97,12 +103,11 @@ describe('RecipeEditSuggestionService.create', () => {
 
     expect(result).toEqual({ suggestionId: 'sug-1' });
     expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledTimes(1);
-    // Never upload as primary — that would clobber the live recipe's primary.jpg.
+    // Uploaded non-primary, into the suggestion's own folder (never the live recipe's).
     expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledWith(
       'r1',
-      'desserts',
       expect.anything(),
-      expect.objectContaining({ isPrimary: false }),
+      expect.objectContaining({ isPrimary: false, folder: 'suggestions/sug-1/images' }),
     );
 
     const write = firestoreMocks.setDocument.mock.calls[0];
@@ -135,35 +140,8 @@ describe('RecipeEditSuggestionService.create', () => {
 
     // Uploaded image path is tracked for cleanup-on-reject.
     expect(doc.storagePaths).toEqual([
-      { type: 'image', path: 'img/recipes/full/desserts/r1/1700000000000.jpg' },
+      { type: 'image', path: 'suggestions/sug-1/images/img-new.jpg' },
     ]);
-  });
-
-  it('uploads new images under the CURRENT category even when the suggestion changes category', async () => {
-    firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'mains' });
-    recipeImageServiceMocks.uploadFile.mockResolvedValue({
-      id: 'img-x',
-      full: 'img/recipes/full/mains/r1/1700000000000.jpg',
-      isPrimary: false,
-    });
-
-    await RecipeEditSuggestionService.create({
-      recipeId: 'r1',
-      suggestedBy: 'u1',
-      proposedChanges: {
-        category: 'desserts', // suggestion changes the category
-        images: [{ source: 'new', file: makeFile(), isPrimary: false }],
-      },
-    });
-
-    // Uploaded to 'mains' (current), not 'desserts' (proposed) — approval will
-    // migrate it to the new category through the normal path.
-    expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledWith(
-      'r1',
-      'mains',
-      expect.anything(),
-      expect.objectContaining({ isPrimary: false }),
-    );
   });
 
   it('denormalizes the suggester name (null when not provided)', async () => {
@@ -205,7 +183,7 @@ describe('RecipeEditSuggestionService.create', () => {
     firestoreMocks.getDocument.mockResolvedValue({ id: 'r1', name: 'R', category: 'cat' });
     mediaInstructionServiceMocks.upload.mockResolvedValue({
       id: 'med-1',
-      path: 'recipes/r1/media-instructions/med-1_a.mp4',
+      path: 'suggestions/sug-1/media/med-1_a.mp4',
       type: 'video',
     });
 
@@ -221,6 +199,13 @@ describe('RecipeEditSuggestionService.create', () => {
 
     const doc = firestoreMocks.setDocument.mock.calls[0][2];
     expect(mediaInstructionServiceMocks.upload).toHaveBeenCalledTimes(1);
+    expect(mediaInstructionServiceMocks.upload).toHaveBeenCalledWith(
+      expect.anything(),
+      'r1',
+      'u1',
+      undefined,
+      { folder: 'suggestions/sug-1/media' },
+    );
     expect(doc.proposedChanges.mediaInstructions).toHaveLength(2);
     expect(doc.proposedChanges.mediaInstructions[0]).toMatchObject({ id: 'med-1', order: 0 });
     expect(doc.proposedChanges.mediaInstructions[1]).toMatchObject({
@@ -228,7 +213,7 @@ describe('RecipeEditSuggestionService.create', () => {
       order: 1,
     });
     expect(doc.storagePaths).toEqual([
-      { type: 'media', path: 'recipes/r1/media-instructions/med-1_a.mp4' },
+      { type: 'media', path: 'suggestions/sug-1/media/med-1_a.mp4' },
     ]);
   });
 });
@@ -291,6 +276,69 @@ describe('RecipeEditSuggestionService.approve', () => {
 
   it('throws without a suggestionId', async () => {
     await expect(RecipeEditSuggestionService.approve()).rejects.toThrow('suggestionId is required');
+  });
+
+  it('deletes the staged suggestion files once approved (they were copied into the recipe)', async () => {
+    firestoreMocks.getDocument.mockResolvedValue({
+      id: 'sug-1',
+      storagePaths: [
+        { type: 'image', path: 'suggestions/sug-1/images/a.jpg' },
+        { type: 'media', path: 'suggestions/sug-1/media/m_b.mp4' },
+        { type: 'image', path: 'img/recipes/full/x/r1/legacy.jpg' }, // pre-2b: lives in the recipe
+      ],
+    });
+    await RecipeEditSuggestionService.approve('sug-1', { reviewedBy: 'mgr' });
+    expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
+      full: 'suggestions/sug-1/images/a.jpg',
+    });
+    expect(mediaInstructionServiceMocks.delete).toHaveBeenCalledWith(
+      'suggestions/sug-1/media/m_b.mp4',
+    );
+    expect(recipeImageServiceMocks.deleteFiles).not.toHaveBeenCalledWith({
+      full: 'img/recipes/full/x/r1/legacy.jpg',
+    });
+  });
+});
+
+describe('RecipeEditSuggestionService.promoteFiles', () => {
+  it('returns the changes untouched when nothing is staged (pre-2b suggestions)', async () => {
+    const proposedChanges = { images: [{ full: 'img/recipes/full/x/r1/a.jpg' }] };
+    const result = await RecipeEditSuggestionService.promoteFiles({
+      id: 'sug-1',
+      proposedChanges,
+      storagePaths: [{ type: 'image', path: 'img/recipes/full/x/r1/a.jpg' }],
+    });
+    expect(result).toBe(proposedChanges);
+    expect(promoteCallable).not.toHaveBeenCalled();
+  });
+
+  it('copies staged files server-side and repoints the changes at the copies', async () => {
+    promoteCallable.mockResolvedValue({
+      data: {
+        mapping: {
+          'suggestions/sug-1/images/a.jpg': 'recipes/r1/images/a.jpg',
+          'suggestions/sug-1/media/m_b.mp4': 'recipes/r1/media/m_b.mp4',
+        },
+      },
+    });
+    const result = await RecipeEditSuggestionService.promoteFiles({
+      id: 'sug-1',
+      storagePaths: [
+        { type: 'image', path: 'suggestions/sug-1/images/a.jpg' },
+        { type: 'media', path: 'suggestions/sug-1/media/m_b.mp4' },
+      ],
+      proposedChanges: {
+        name: 'Soup',
+        images: [{ id: 'i1', full: 'suggestions/sug-1/images/a.jpg', isPrimary: true }],
+        mediaInstructions: [{ id: 'm1', path: 'suggestions/sug-1/media/m_b.mp4' }],
+      },
+    });
+    expect(promoteCallable).toHaveBeenCalledWith({ suggestionId: 'sug-1' });
+    expect(result).toEqual({
+      name: 'Soup',
+      images: [{ id: 'i1', full: 'recipes/r1/images/a.jpg', isPrimary: true }],
+      mediaInstructions: [{ id: 'm1', path: 'recipes/r1/media/m_b.mp4' }],
+    });
   });
 });
 

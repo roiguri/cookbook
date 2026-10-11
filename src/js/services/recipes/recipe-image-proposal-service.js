@@ -44,7 +44,7 @@ export class RecipeImageProposalService {
         const fileExtension = file.name.split('.').pop();
         const id = generateImageId();
         const fileName = `${id}.${fileExtension}`;
-        const fullPath = getImageStoragePath(recipeId, category, fileName, 'full');
+        const fullPath = getImageStoragePath(recipeId, fileName);
         await StorageService.uploadFile(file, fullPath);
         return {
           id,

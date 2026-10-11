@@ -1,5 +1,12 @@
 // src/js/services/recipes/recipe-edit-suggestion-service.js
 
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import {
+  rewriteStoragePaths,
+  suggestionImagesFolder,
+  suggestionMediaFolder,
+} from '../../utils/recipes/storage-paths.js';
+import { getFirebaseApp } from '../_firebase/firebase-service.js';
 import { Timestamp } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeService } from './recipe-service.js';
@@ -59,6 +66,7 @@ async function deleteSuggestionStorage(storagePaths) {
  *   - create({ recipeId, suggestedBy, proposedChanges, mediaItemsOrdered, note })
  *   - listPending()
  *   - get(suggestionId)
+ *   - promoteFiles(suggestion)                         // manager: copy files into the recipe
  *   - approve(suggestionId, { reviewedBy, recipeId })  // supersedes sibling pendings
  *   - supersedePending(recipeId, { exceptId, reviewedBy })
  *   - reject(suggestionId, { reviewedBy, rejectionReason })
@@ -102,11 +110,9 @@ export class RecipeEditSuggestionService {
     if (!recipe) {
       throw new Error(`RecipeEditSuggestionService.create: recipe ${recipeId} not found`);
     }
-    // Upload new images under the recipe's CURRENT category (not the proposed
-    // one). If the suggestion also changes the category, approval migrates every
-    // image (existing + these) from the current category to the new one through
-    // the same path — avoids uploading into a category the recipe isn't in yet.
-    const category = recipe.category ?? proposedChanges.category;
+    // New files go to the suggestion's own folder, never the live recipe's; a
+    // manager's approval copies them into the recipe (promoteFiles).
+    const suggestionId = FirestoreService.generateId(COLLECTION);
 
     // Separate the image/media payload from the plain recipe fields. toDelete /
     // mediaToDelete are intentionally dropped: deletions are reconstructed at
@@ -130,13 +136,14 @@ export class RecipeEditSuggestionService {
         if (img && img.source === 'new' && img.file) {
           // Always upload as NON-primary: RecipeImageService names a primary
           // upload `primary.jpg`, which would overwrite the live recipe's
-          // primary image at the shared category path before any approval.
+          // primary image when the files are copied in on approval.
           // The "make this primary" intent is preserved on the stored metadata
           // and only realized when a manager approves (primary is determined by
           // the isPrimary flag, not the filename).
-          const meta = await RecipeImageService.uploadFile(recipeId, category, img.file, {
+          const meta = await RecipeImageService.uploadFile(recipeId, img.file, {
             isPrimary: false,
             uploadedBy,
+            folder: suggestionImagesFolder(suggestionId),
           });
           meta.isPrimary = !!img.isPrimary;
           uploadedThisCall.push(meta);
@@ -157,7 +164,13 @@ export class RecipeEditSuggestionService {
       let order = 0;
       for (const item of safeOrdered) {
         if (item && item.file) {
-          const meta = await MediaInstructionService.upload(item.file, recipeId, uploadedBy);
+          const meta = await MediaInstructionService.upload(
+            item.file,
+            recipeId,
+            uploadedBy,
+            undefined,
+            { folder: suggestionMediaFolder(suggestionId) },
+          );
           meta.caption = item.caption || '';
           uploadedThisCall.push({ mediaPath: meta.path });
           if (meta.path) storagePaths.push({ type: 'media', path: meta.path });
@@ -179,7 +192,6 @@ export class RecipeEditSuggestionService {
         mediaInstructions: processedMedia,
       };
 
-      const suggestionId = FirestoreService.generateId(COLLECTION);
       const docPayload = stripUndefinedDeep({
         recipeId,
         recipeName: recipe.name || '',
@@ -238,6 +250,26 @@ export class RecipeEditSuggestionService {
   }
 
   /**
+   * Copy a suggestion's uploaded files from `suggestions/{id}/` into the recipe's
+   * folder (server-side, manager only, idempotent) and return its
+   * `proposedChanges` repointed at the copies, ready for `buildApplyPayload`.
+   * Suggestions from before the 2b layout already reference the recipe's
+   * folder and are returned unchanged.
+   * @param {Object} suggestion - The suggestion document (with `id`).
+   * @returns {Promise<Object>} proposedChanges with promoted paths
+   */
+  static async promoteFiles(suggestion) {
+    const prefix = `suggestions/${suggestion.id}/`;
+    const hasStagedFiles = (suggestion.storagePaths || []).some((entry) =>
+      entry?.path?.startsWith(prefix),
+    );
+    if (!hasStagedFiles) return suggestion.proposedChanges;
+    const promote = httpsCallable(getFunctions(getFirebaseApp()), 'promoteSuggestionFiles');
+    const { data } = await promote({ suggestionId: suggestion.id });
+    return rewriteStoragePaths(suggestion.proposedChanges, data?.mapping || {});
+  }
+
+  /**
    * Stamp a suggestion as approved. The edit itself is applied to the recipe by
    * the caller via `RecipeService.update`; this only records the outcome.
    *
@@ -256,11 +288,17 @@ export class RecipeEditSuggestionService {
     if (!suggestionId) {
       throw new Error('RecipeEditSuggestionService.approve: suggestionId is required');
     }
+    const suggestion = await FirestoreService.getDocument(COLLECTION, suggestionId);
     await FirestoreService.updateDocument(COLLECTION, suggestionId, {
       status: 'approved',
       reviewedBy: reviewedBy || null,
       reviewedAt: Timestamp.now(),
     });
+    // The staged files were copied into the recipe by promoteFiles; drop the originals.
+    const staged = (suggestion?.storagePaths || []).filter((entry) =>
+      entry?.path?.startsWith(`suggestions/${suggestionId}/`),
+    );
+    if (staged.length) await deleteSuggestionStorage(staged);
     if (recipeId) {
       await RecipeEditSuggestionService.supersedePending(recipeId, {
         exceptId: suggestionId,

@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 const {
   extractRecipeFromImage,
   extractRecipeFromUrl,
@@ -184,6 +185,52 @@ exports.extractRecipeFromVideo = onCall(
       }
       throw new HttpsError('internal', 'Recipe extraction from video failed', error.message);
     }
+  }),
+);
+
+/**
+ * Copy an edit suggestion's staged files (`suggestions/{id}/images|media/…`) into
+ * its recipe's folders (`recipes/{recipeId}/images|media/…`) so a manager can
+ * apply the suggestion. Returns `{ mapping: { oldPath: newPath } }` for the
+ * client to repoint the suggestion's changes.
+ *
+ * Idempotent: a file already copied is not copied again. Copies are re-tagged
+ * `uploadedBy` = the approving manager, so the suggester can't later delete a
+ * file that has become part of the live recipe (storage.rules let uploaders
+ * delete their own files). Runs server-side because suggesters' staged files
+ * and the recipe's folder have different owners.
+ */
+exports.promoteSuggestionFiles = onCall(
+  withAuthAndRole(['manager'], async (request, { uid }) => {
+    const { suggestionId } = request.data || {};
+    if (typeof suggestionId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(suggestionId)) {
+      throw new HttpsError('invalid-argument', 'suggestionId must be a document id.');
+    }
+
+    const snap = await db.collection('recipe_edit_suggestions').doc(suggestionId).get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Suggestion not found.');
+    const { recipeId, storagePaths = [] } = snap.data();
+    if (typeof recipeId !== 'string' || !recipeId) {
+      throw new HttpsError('failed-precondition', 'Suggestion has no recipe.');
+    }
+
+    const bucket = getStorage().bucket();
+    const prefix = `suggestions/${suggestionId}/`;
+    const mapping = {};
+    for (const entry of storagePaths) {
+      const source = entry && entry.path;
+      if (typeof source !== 'string' || !source.startsWith(prefix)) continue;
+      const fileName = source.slice(source.lastIndexOf('/') + 1);
+      const kind = entry.type === 'media' ? 'media' : 'images';
+      const target = `recipes/${recipeId}/${kind}/${fileName}`;
+      const [exists] = await bucket.file(target).exists();
+      if (!exists) {
+        await bucket.file(source).copy(bucket.file(target));
+        await bucket.file(target).setMetadata({ metadata: { uploadedBy: uid } });
+      }
+      mapping[source] = target;
+    }
+    return { mapping };
   }),
 );
 
