@@ -164,6 +164,8 @@ Designs: the "Release 3 · My recipes", "Card badges", "My private recipe" and "
 
 ### Notes for releases 3–4 (from the review)
 
+- **Stage is the author's alone (decided 2026-10-11).** Submitting, approval and publishing never change the private original's `stage`: a "to try" recipe can be submitted (the save choice warns, but allows it), and stays in the author's To try tab — with its pending/published badge — until the author marks it tested.
+
 - **3b approval copy** runs server-side (callable or trigger, admin SDK), copies the recipe and its photos (`img/recipes/{type}/{category}/{recipeId}/…` plus the `_400x400`/`_1080x1080` variants), is idempotent via `publishedId`, and writes the submission `status` last.
 - **Copy-on-publish changes the recipe id:** curated links (`relatedRecipes`) to the private original must map through `sourceRecipeId`; published recipes must never link to private ones.
 - **Missing recipes:** favourites, My Meal and related links can point at deleted or now-unreadable recipes — load recipes one by one (never one `in` query over mixed ids), tolerate not-found, show a "removed" state.
