@@ -57,23 +57,23 @@ Architecture, conventions, full service surface, and reusable patterns: [`docs/a
 
 ### Routing Reference
 
-| Route               | Page module                 |
-| ------------------- | --------------------------- |
-| `/home`             | `home-page.js`              |
-| `/categories`       | `categories-page.js`        |
-| `/recipe/:id`       | `recipe-detail-page.js`     |
-| `/propose-recipe`   | `propose-recipe-page.js`    |
-| `/grandmas-cooking` | `documents-page.js`         |
-| `/dashboard`        | `manager-dashboard-page.js` |
-| `/my-recipes`       | `my-recipes-page.js`        |
-| `/my-meal`          | `my-meal-page.js`           |
-| `/games`            | `games-page.js`             |
+| Route               | Page module                        |
+| ------------------- | ---------------------------------- |
+| `/home`             | `home-page.js`                     |
+| `/categories`       | `categories-page.js`               |
+| `/recipe/:id`       | `recipe-detail-page.js`            |
+| `/propose-recipe`   | `propose-recipe-page.js`           |
+| `/grandmas-cooking` | `documents-page.js`                |
+| `/dashboard`        | `manager-dashboard-page.js`        |
+| `/my-recipes`       | `my-recipes-page.js` (הספרייה שלי) |
+| `/my-meal`          | `my-meal-page.js`                  |
+| `/games`            | `games-page.js`                    |
 
 The `/games` route is an easter egg — there is no link to it anywhere in the nav. Unlock it by tapping the header logo (or the mobile drawer brand) **7 times within 2 seconds**. The route also works as a direct URL once known. See `src/lib/easter-egg/games-unlock.js`.
 
 ### User Roles
 
-Three roles stored in `users/{uid}.role`: `user`, `approved`, `manager`. Auth state is managed by `src/lib/auth/auth-controller.js`, which fires a `auth-state-changed` custom event and mutates the header nav to add/remove role-specific tabs (favorites, grandma's recipes, dashboard).
+Three roles stored in `users/{uid}.role`: `user`, `approved`, `manager`. Auth state is managed by `src/lib/auth/auth-controller.js`, which fires a `auth-state-changed` custom event and mutates the header nav to add/remove role-specific tabs ("הספרייה שלי" for every signed-in user, grandma's recipes, dashboard; "מתכון חדש" moves into the library for approved family).
 
 ### Testing
 

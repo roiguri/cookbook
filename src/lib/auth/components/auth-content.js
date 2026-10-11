@@ -179,7 +179,7 @@ class AuthContent extends HTMLElement {
       <!-- Auth mode: body (title + dek + tabs) -->
       <div class="auth-body" id="auth-body">
         <h2 class="auth-title" id="auth-title">Welcome <em>back.</em></h2>
-        <p class="auth-dek" id="auth-dek">התחבר כדי לשמור מועדפים, להשאיר הערות ולהציע מתכוני משפחה.</p>
+        <p class="auth-dek" id="auth-dek">התחבר כדי לשמור מתכונים, להשאיר הערות ולהציע מתכוני משפחה.</p>
         <div class="auth-tabs" role="tablist">
           <button type="button" class="auth-tab on" data-tab="signin">התחברות</button>
           <button type="button" class="auth-tab" data-tab="signup">הרשמה</button>
@@ -313,7 +313,7 @@ class AuthContent extends HTMLElement {
     const dek = this.shadowRoot.getElementById('auth-dek');
     if (tabName === 'signin') {
       title.innerHTML = 'Welcome <em>back</em>';
-      dek.textContent = 'התחבר כדי לשמור מועדפים, להשאיר הערות ולהציע מתכוני משפחה.';
+      dek.textContent = 'התחבר כדי לשמור מתכונים, להשאיר הערות ולהציע מתכוני משפחה.';
     } else {
       title.innerHTML = 'A seat at the <em>table</em>';
       dek.textContent = 'הצטרף למשפחה. כאן שומרים מתכונים, חולקים את סודות המטבח, ומשאירים חותם.';
