@@ -25,6 +25,10 @@ export default {
       return;
     }
 
+    this.currentRecipe = null;
+    this._notFound = false;
+    this._menu = null;
+
     try {
       await this.initializeRecipeComponent(container, recipeId);
       await this.importComponents();
@@ -61,7 +65,7 @@ export default {
         // Only the fetch's event carries the recipe; keep the menu in step with it.
         if (event.detail && 'found' in event.detail) {
           this.currentRecipe = event.detail.recipe;
-          this.updateOwnerMenu();
+          this.refreshMenu();
         }
       });
 
@@ -110,18 +114,20 @@ export default {
       return;
     }
 
-    // Every menu action needs a signed-in user, so signed-out visitors get no menu.
+    // Handlers are always attached; whether the menu shows is decided by
+    // refreshMenu(), re-run when sign-in resolves or the recipe loads. (On a
+    // fresh load sign-in may not be restored yet when the page mounts.)
     // (Image proposals go through "Suggest an edit"; the old "Suggest images" item was retired.)
-    const user = authService.getCurrentUser();
-    if (!user) return;
-    menu.style.display = '';
-    if (addToMealBtn) {
-      addToMealBtn.style.display = 'flex';
-    }
-    if (suggestEditBtn) {
-      suggestEditBtn.style.display = 'flex';
-    }
-    this._menu = { container, menuDropdown, suggestEditBtn, markTestedBtn, deleteBtn };
+    this._menu = {
+      container,
+      menu,
+      menuDropdown,
+      suggestEditBtn,
+      addToMealBtn,
+      markTestedBtn,
+      deleteBtn,
+    };
+    this._menuAuthUnsubscribe = authService.addAuthObserver(() => this.refreshMenu());
 
     // Toggle dropdown on button click
     menuButton.addEventListener('click', (e) => {
@@ -224,7 +230,7 @@ export default {
       }
     });
 
-    this.updateOwnerMenu();
+    this.refreshMenu();
   },
 
   /** One confirmation dialog for the page, created on first use. */
@@ -239,15 +245,22 @@ export default {
   },
 
   /**
-   * The ⋮ menu for the author of a private recipe (approved family and
-   * managers): its status (the shared status badge + date) and the owner
-   * actions. Everyone else gets the regular menu.
+   * The ⋮ menu: shown to signed-in readers of a recipe that was found. The
+   * author of a private recipe (approved family and managers) gets its status
+   * (the shared status badge + date) and the owner actions; everyone else gets
+   * the regular menu.
    */
-  updateOwnerMenu() {
+  refreshMenu() {
     const els = this._menu;
     if (!els) return;
     const recipe = this.currentRecipe;
     const user = authService.getCurrentUser();
+
+    // Every menu action needs a signed-in user, so signed-out visitors get no menu.
+    els.menu.style.display = user && !this._notFound ? '' : 'none';
+    if (!user || this._notFound) els.menuDropdown.classList.remove('open');
+    if (els.addToMealBtn) els.addToMealBtn.style.display = 'flex';
+
     const isPrivate = recipe?.visibility === VISIBILITY.PRIVATE;
     // The owner menu is for family members with a private library (approved,
     // managers). A plain user's own recipe is a proposal awaiting approval.
@@ -293,18 +306,17 @@ export default {
 
   toggleNotFound(recipeContainer, notFound) {
     const component = recipeContainer.querySelector('recipe-component');
-    const menu = recipeContainer.querySelector('.recipe-menu');
     let block = recipeContainer.querySelector('.recipe-not-found');
 
     // style.display, not `hidden`: the component's :host display rule overrides the attribute.
     if (component) component.style.display = notFound ? 'none' : '';
+    this._notFound = notFound;
+    this.refreshMenu();
     if (!notFound) {
       block?.remove();
-      if (menu && authService.getCurrentUser()) menu.style.display = '';
       return;
     }
 
-    if (menu) menu.style.display = 'none';
     if (block) return;
 
     // Markup and copy follow the "NotFound" artboard in the Cookbook screens canvas.
@@ -396,6 +408,11 @@ export default {
       this._menuCleanup();
       this._menuCleanup = null;
     }
+    if (this._menuAuthUnsubscribe) {
+      this._menuAuthUnsubscribe();
+      this._menuAuthUnsubscribe = null;
+    }
+    this._menu = null;
     if (this._reloadOnSignIn) {
       document.removeEventListener('auth-state-changed', this._reloadOnSignIn);
       this._reloadOnSignIn = null;
