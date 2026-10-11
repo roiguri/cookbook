@@ -228,7 +228,7 @@ Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -re
 - Phone: the category row stays the shared filter component (reuse over the mock's dropdown).
 - **Collections:** mocked later and tracked in a GitHub issue — the plan is a fifth chip "אוספים" showing collection covers, each collection opening this same layout.
 
-**Build (one slice):** saved recipes load by id from the favourites list (tolerating removed / unreadable ones); scope state in the URL; counts; per-chip empty states; badges as today (own view; saved family recipes carry none); nav changes in `auth-controller`; plain-user access to the page.
+**Status:** ✅ built, on staging (awaiting test). **Build (one slice):** saved recipes load by id from the favourites list (tolerating removed / unreadable ones); scope state in the URL; counts; per-chip empty states; badges as today (own view; saved family recipes carry none); nav changes in `auth-controller`; plain-user access to the page.
 
 ### Notes for releases 3–4 (from the review)
 

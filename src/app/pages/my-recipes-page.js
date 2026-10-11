@@ -1,87 +1,102 @@
 import authService from '../../js/services/auth/auth-service.js';
-import { RecipeService, STAGE } from '../../js/services/recipes/recipe-service.js';
+import { RecipeService } from '../../js/services/recipes/recipe-service.js';
 import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
+import favoritesService from '../../js/services/users/favorites-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
-import { RECIPE_STATUS } from '../../js/utils/recipes/recipe-status.js';
+import { buildLibraryViews, LIBRARY_VIEW } from '../../js/utils/recipes/library-views.js';
 import { RecipeListController } from '../../lib/collections/recipe-list/recipe-list-controller.js';
 import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
 import '../../styles/pages/categories-spa.css';
 import '../../styles/pages/my-recipes-spa.css';
 
-const TABS = {
-  'to-try': {
-    stage: STAGE.TO_TRY,
-    lede: 'מתכונים ששמרתם ועוד לא ניסיתם. אחרי שתנסו, סמנו אותם כנבדקים והם יעברו לספרייה.',
+const VIEWS = {
+  [LIBRARY_VIEW.ALL]: {
+    lede: 'המתכונים שכתבתם והמתכונים ששמרתם מהספר המשפחתי, במקום אחד.',
+    emptyTitle: 'הספרייה עדיין ריקה',
+    emptyText: 'כתבו מתכון משלכם, או שמרו מתכון מהספר המשפחתי בלחיצה על הלב.',
+  },
+  [LIBRARY_VIEW.MINE]: {
+    lede: 'מתכונים שכתבתם — פרטיים, לנסות, ואלה שפורסמו בספר המשפחתי.',
+    emptyTitle: 'עוד לא כתבתם מתכונים',
+    emptyText: 'כתבו מתכון משלכם, או ייבאו אחד מקישור או מתמונה.',
+  },
+  [LIBRARY_VIEW.SAVED]: {
+    lede: 'מתכונים ששמרתם בלחיצה על הלב.',
+    emptyTitle: 'עוד לא שמרתם מתכונים',
+    emptyText: 'לחצו על הלב בכרטיס של מתכון כדי לשמור אותו כאן.',
+    toBook: true,
+  },
+  [LIBRARY_VIEW.TO_TRY]: {
+    lede: 'מתכונים ששמרתם ועוד לא ניסיתם. אחרי שתנסו, סמנו אותם כנבדקים.',
     emptyTitle: 'אין כאן מתכונים לנסות',
     emptyText:
       'מצאתם מתכון באתר, בספר או על פתק? הוסיפו אותו בטופס המתכון החדש — אפשר לייבא מקישור או מתמונה — והוא יחכה כאן עד שתנסו.',
-    // The "to try" badge is the point of this tab, so it stays.
-    hideStatuses: '',
-    showMarkTested: true,
-  },
-  library: {
-    stage: STAGE.TESTED,
-    lede: 'מתכונים שניסיתם ובדקתם. רק אתם רואים אותם, ומכאן אפשר לשלוח מתכון לספר המשפחתי.',
-    emptyTitle: 'הספרייה עדיין ריקה',
-    emptyText: 'מתכונים שניסיתם ובדקתם יופיעו כאן. כתבו מתכון משלכם, או סמנו כנבדק מתכון מ״לנסות״.',
-    // Everything here is private; the badge would only repeat that.
-    hideStatuses: RECIPE_STATUS.PRIVATE,
   },
 };
 
-// My library is the default tab; To try is `?tab=to-try`.
-const tabFromParams = (params) => (params?.tab === 'to-try' ? 'to-try' : 'library');
-const stageOf = (recipe) => (recipe.stage === STAGE.TO_TRY ? STAGE.TO_TRY : STAGE.TESTED);
+// `?view=`; links from before the library (`?tab=`) still land in the right place.
+function viewFromParams(params) {
+  if (Object.values(LIBRARY_VIEW).includes(params?.view)) return params.view;
+  if (params?.tab === 'to-try') return LIBRARY_VIEW.TO_TRY;
+  if (params?.tab === 'library') return LIBRARY_VIEW.MINE;
+  return LIBRARY_VIEW.ALL;
+}
 
 /**
- * My recipes — the signed-in family member's private recipes, in two tabs:
- * "My library" (stage tested, the default) and "To try" (stage to-try).
+ * הספרייה שלי — everything that's the reader's: the recipes they wrote and the
+ * recipes they saved (the heart), with scope chips: all · mine · saved · to try.
  *
  * The list itself is the Categories list (RecipeListController + the same
- * filter, grid and cards); this page only supplies the data source, the tabs
- * and the empty state. Approved family and managers only.
+ * filter, grid and cards); this page supplies the data source, the chips and
+ * the empty state. Approved family and managers see all chips; plain users
+ * (no recipes of their own) see what they saved.
  */
 export default {
   async render() {
     const response = await fetch(new URL('./my-recipes-page.html', import.meta.url));
     if (!response.ok) {
-      throw new Error(`Failed to load my recipes template: ${response.status}`);
+      throw new Error(`Failed to load my library template: ${response.status}`);
     }
     return await response.text();
   },
 
   async mount(container, params) {
     const user = await authService.waitForAuth();
-    const role = user ? await authService.getCurrentUserRole() : null;
-    if (role !== 'approved' && role !== 'manager') {
+    if (!user) {
       this.redirectToHome();
       return;
     }
+    const role = await authService.getCurrentUserRole();
+    this.hasOwnRecipes = role === 'approved' || role === 'manager';
 
     await this.importComponents();
     this.container = container;
-    this.tab = tabFromParams(params);
-    this.counts = { 'to-try': 0, library: 0 };
+    this.view = this.hasOwnRecipes ? viewFromParams(params) : LIBRARY_VIEW.SAVED;
+    this.counts = {};
     this.renderStaticParts();
 
     this.list = new RecipeListController({
       loadRecipes: (args) => this.loadRecipes(args),
       onRecipesLoaded: () => this.updateEmptyState(),
       onUrlChanged: (state) => this.updateURL(state),
-      context: 'My recipes page',
+      context: 'My library page',
     });
     this.list.init({
       category: params?.category,
       searchQuery: params?.q,
       favoritesOnly: params?.favorites === 'true',
     });
-    this.applyTab();
+    this.applyView();
 
     this.onMarkTested = (event) => this.markTested(event.detail.recipeId);
     container
       .querySelector('#recipe-presentation-grid')
       ?.addEventListener('recipe-mark-tested', this.onMarkTested);
+
+    // Saving or un-saving a recipe changes what the library holds.
+    this.onFavoriteChanged = () => this.list?.reloadAndDisplay();
+    document.addEventListener('recipe-favorite-changed', this.onFavoriteChanged);
 
     this.authUnsubscribe = authService.addAuthObserver(({ user: current }) => {
       if (!current) this.redirectToHome();
@@ -98,6 +113,10 @@ export default {
   async unmount() {
     this.list?.stop();
     this.list = null;
+    if (this.onFavoriteChanged) {
+      document.removeEventListener('recipe-favorite-changed', this.onFavoriteChanged);
+      this.onFavoriteChanged = null;
+    }
     if (this.authUnsubscribe) {
       this.authUnsubscribe();
       this.authUnsubscribe = null;
@@ -105,17 +124,20 @@ export default {
   },
 
   getTitle() {
-    return AppConfig.getPageTitle('המתכונים שלי');
+    return AppConfig.getPageTitle('הספרייה שלי');
   },
 
   getMeta() {
-    return { description: 'המתכונים הפרטיים שלי', keywords: 'מתכונים, לנסות, ספרייה' };
+    return {
+      description: 'הספרייה שלי — המתכונים שלי והמתכונים ששמרתי',
+      keywords: 'מתכונים, ספרייה',
+    };
   },
 
   async handleRouteChange(params) {
     if (!this.list) return;
-    const tab = tabFromParams(params);
-    if (tab === this.tab) {
+    const view = this.hasOwnRecipes ? viewFromParams(params) : LIBRARY_VIEW.SAVED;
+    if (view === this.view) {
       await this.list.applyState({
         category: params?.category || 'all',
         searchQuery: params?.q || '',
@@ -124,12 +146,12 @@ export default {
       return;
     }
 
-    // Switching tabs: a fresh list for the other stage, filters as in the URL.
-    this.tab = tab;
+    // Switching scope: a fresh list for the other view, filters as in the URL.
+    this.view = view;
     this.list.currentCategory = params?.category || 'all';
     this.list.currentSearchQuery = params?.q || '';
     this.list.filter?.setSearchQuery(this.list.currentSearchQuery);
-    this.applyTab();
+    this.applyView();
     await this.list.reloadAndDisplay();
     if (window.updateActiveNavigation) window.updateActiveNavigation();
   },
@@ -143,56 +165,66 @@ export default {
   },
 
   /**
-   * One query for both tabs (the counts need both); the current tab's stage
-   * and the selected category are applied here.
+   * My recipes (with their badges) and the recipes I saved, loaded once for all
+   * chips (the counts need every view); the current view and category apply here.
    */
   async loadRecipes({ category }) {
     const uid = authService.getCurrentUser()?.uid;
-    // With what the badges need: the submission (pending / rejected) and the
-    // author's own view (so published recipes show "פורסם").
-    const all = await RecipeSubmissionService.listMineWithStatus(uid);
+    const [mine, saved] = await Promise.all([
+      this.hasOwnRecipes ? RecipeSubmissionService.listMineWithStatus(uid) : [],
+      this.loadSaved(),
+    ]);
+    const views = buildLibraryViews(mine, saved);
 
-    this.counts = { 'to-try': 0, library: 0 };
-    all.forEach((r) => {
-      this.counts[stageOf(r) === STAGE.TO_TRY ? 'to-try' : 'library'] += 1;
-    });
+    this.counts = Object.fromEntries(Object.entries(views).map(([v, list]) => [v, list.length]));
     this.renderCounts();
 
-    const inTab = all.filter((r) => stageOf(r) === TABS[this.tab].stage);
-    this.tabTotal = inTab.length;
-    return category && category !== 'all' ? inTab.filter((r) => r.category === category) : inTab;
+    const inView = views[this.view];
+    this.viewTotal = inView.length;
+    return category && category !== 'all' ? inView.filter((r) => r.category === category) : inView;
+  },
+
+  /** Saved recipes, one by one — a removed or now-private recipe is skipped. */
+  async loadSaved() {
+    const ids = await favoritesService.getUserFavorites();
+    const recipes = await Promise.all(ids.map((id) => RecipeService.get(id).catch(() => null)));
+    return recipes.filter(Boolean);
   },
 
   renderStaticParts() {
+    const $ = (sel) => this.container.querySelector(sel);
     const newLabel = `${icons.plus}<span>מתכון חדש</span>`;
-    this.container.querySelector('#mr-new').innerHTML = newLabel;
-    this.container.querySelector('#mr-empty-new').innerHTML = newLabel;
+    $('#mr-new').innerHTML = newLabel;
+    $('#mr-empty-new').innerHTML = newLabel;
+    // Plain users have no recipes of their own: just what they saved.
+    $('#mr-chips').hidden = !this.hasOwnRecipes;
+    $('#mr-new').hidden = !this.hasOwnRecipes;
   },
 
   renderCounts() {
-    Object.entries(this.counts).forEach(([tab, count]) => {
-      const el = this.container?.querySelector(`[data-count="${tab}"]`);
+    Object.entries(this.counts).forEach(([view, count]) => {
+      const el = this.container?.querySelector(`[data-count="${view}"]`);
       if (el) el.textContent = String(count);
     });
   },
 
-  applyTab() {
-    const config = TABS[this.tab];
+  applyView() {
+    const config = VIEWS[this.view];
     const $ = (sel) => this.container.querySelector(sel);
 
-    this.container.querySelectorAll('.mr-tabs a').forEach((a) => {
-      if (a.dataset.tab === this.tab) a.setAttribute('aria-current', 'page');
-      else a.removeAttribute('aria-current');
+    this.container.querySelectorAll('.mr-chip').forEach((chip) => {
+      if (chip.dataset.view === this.view) chip.setAttribute('aria-current', 'page');
+      else chip.removeAttribute('aria-current');
     });
     $('#mr-lede').textContent = config.lede;
     $('#mr-empty-title').textContent = config.emptyTitle;
     $('#mr-empty-text').textContent = config.emptyText;
-    $('#mr-empty-to-try').hidden = this.tab !== 'library';
+    const toBook = config.toBook || !this.hasOwnRecipes;
+    $('#mr-empty-new').hidden = toBook;
+    $('#mr-empty-book').hidden = !toBook;
 
-    const grid = $('#recipe-presentation-grid');
-    if (config.hideStatuses) grid.setAttribute('hide-statuses', config.hideStatuses);
-    else grid.removeAttribute('hide-statuses');
-    grid.toggleAttribute('show-mark-tested', !!config.showMarkTested);
+    // "Mark tested" on my to-try cards, in every view.
+    $('#recipe-presentation-grid').toggleAttribute('show-mark-tested', this.hasOwnRecipes);
   },
 
   /** "Mark tested" on a card: the same service call as the recipe page menu. */
@@ -200,7 +232,7 @@ export default {
     if (!recipeId) return;
     try {
       await RecipeService.markTested(recipeId);
-      showToast('סומן כנבדק — המתכון עבר לספרייה שלכם', 'success');
+      showToast('סומן כנבדק', 'success');
       await this.list?.reloadAndDisplay();
     } catch (error) {
       console.error('Error marking recipe tested:', error);
@@ -208,9 +240,9 @@ export default {
     }
   },
 
-  /** The empty state replaces the list only when the tab has no recipes at all. */
+  /** The empty state replaces the list only when the view has no recipes at all. */
   updateEmptyState() {
-    const empty = this.tabTotal === 0;
+    const empty = this.viewTotal === 0;
     const list = this.container?.querySelector('#mr-list');
     const emptyWrap = this.container?.querySelector('#mr-empty-wrap');
     if (list) list.hidden = empty;
@@ -221,7 +253,7 @@ export default {
     const router = window.spa?.router;
     if (!router) return;
     const params = router.buildCategoriesParams(currentCategory, currentSearchQuery, activeFilters);
-    if (this.tab === 'to-try') params.tab = 'to-try';
+    if (this.view !== LIBRARY_VIEW.ALL) params.view = this.view;
     router.updateParams(params);
   },
 

@@ -106,12 +106,11 @@ class AuthController extends HTMLElement {
       if (tab) tab.remove();
     });
 
-    // "הצעת מתכון" is "מתכון חדש" for approved family and managers: they save
-    // to their private library and choose whether to submit.
-    const proposeLink = navMenu.querySelector('a[href="/propose-recipe"]');
-    if (proposeLink) {
-      proposeLink.textContent =
-        user && (roles.isApproved || roles.isManager) ? 'מתכון חדש' : 'הצעת מתכון';
+    // Approved family and managers start a new recipe from their library ("מתכון
+    // חדש" there); signed-out visitors and plain users keep "הצעת מתכון".
+    const proposeItem = navMenu.querySelector('a[href="/propose-recipe"]')?.closest('li');
+    if (proposeItem) {
+      proposeItem.style.display = user && (roles.isApproved || roles.isManager) ? 'none' : '';
     }
 
     if (!user) return; // If no user, stop here with basic navigation
@@ -128,15 +127,11 @@ class AuthController extends HTMLElement {
       return item;
     };
 
-    // Add Favorites tab for all logged in users - redirect to categories page with favorites filter
-    navMenu.appendChild(createNavItem('profile-tab', 'מועדפים', '/categories?favorites=true'));
-
-    // Add My recipes (private library) after "מתכונים", for approved users and managers
-    if (roles.isApproved || roles.isManager) {
-      const recipesLink = navMenu.querySelector('a[href="/categories"]');
-      const myRecipes = createNavItem('my-recipes-tab', 'המתכונים שלי', '/my-recipes');
-      navMenu.insertBefore(myRecipes, recipesLink?.closest('li')?.nextSibling ?? null);
-    }
+    // "הספרייה שלי" after "מתכונים", for every signed-in user: the recipes they
+    // wrote and the ones they saved (favourites live there now — no separate tab).
+    const recipesLink = navMenu.querySelector('a[href="/categories"]');
+    const library = createNavItem('my-recipes-tab', 'הספרייה שלי', '/my-recipes');
+    navMenu.insertBefore(library, recipesLink?.closest('li')?.nextSibling ?? null);
 
     // Add Grandmother's Recipes for approved users and managers
     if (roles.isApproved || roles.isManager) {

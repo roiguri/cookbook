@@ -69,50 +69,54 @@
   display: none !important;
 }
 
-/* Tabs: same pill as the header nav */
-.spa-content .my-recipes-page .mr-tabs {
-  display: inline-flex;
+/* Scope chips (all · mine · saved · to try): the category-chip look */
+.spa-content .my-recipes-page .mr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-xs);
   list-style: none;
   margin: 0;
-  padding: 4px;
-  gap: 2px;
-  background: var(--surface-2);
-  border-radius: var(--r-pill);
-  max-width: 100%;
-  overflow-x: auto;
+  padding: 0;
 }
 
-.spa-content .my-recipes-page .mr-tabs a {
+.spa-content .my-recipes-page .mr-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
+  gap: 6px;
+  min-height: 38px;
   padding: 0 18px;
+  border: 1px solid transparent;
   border-radius: var(--r-pill);
+  background: var(--surface-2);
   font-family: var(--font-ui-he);
   font-size: 14px;
-  font-weight: 500;
-  color: var(--ink-3);
+  color: var(--ink);
   text-decoration: none;
   white-space: nowrap;
   transition: background var(--dur-1) var(--ease);
 }
 
-.spa-content .my-recipes-page .mr-tabs a:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.7);
+.spa-content .my-recipes-page .mr-chip:hover {
+  background: var(--neutral);
 }
 
-.spa-content .my-recipes-page .mr-tabs a[aria-current='page'] {
+.spa-content .my-recipes-page .mr-chip--to-try {
   background: var(--surface-1);
-  color: var(--ink);
-  box-shadow: var(--shadow-1);
+  border: 1px dashed var(--ink-3);
 }
 
-.spa-content .my-recipes-page .mr-tabs .count {
+.spa-content .my-recipes-page .mr-chip[aria-current='page'] {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  color: var(--button-color);
+  font-weight: 600;
+}
+
+.spa-content .my-recipes-page .mr-chip .count {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--ink-3);
+  opacity: 0.75;
 }
 
 /* Empty state */
@@ -164,6 +168,17 @@
   .spa-content .my-recipes-page .mr-bar {
     grid-template-columns: 1fr;
     justify-items: center;
+  }
+
+  .spa-content .my-recipes-page .mr-bar nav {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .spa-content .my-recipes-page .mr-chips {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: max-content;
   }
 
   .spa-content .my-recipes-page .mr-bar nav,

@@ -1,18 +1,28 @@
 <div class="categories-page my-recipes-page">
   <main>
     <div class="mr-head" dir="rtl">
-      <h1>המתכונים שלי</h1>
+      <h1>הספרייה שלי</h1>
       <p class="body-text-he mr-head__lede" id="mr-lede"></p>
       <div class="mr-bar">
-        <nav aria-label="המתכונים שלי">
-          <ul class="mr-tabs">
+        <nav aria-label="מה להציג" id="mr-chips">
+          <ul class="mr-chips">
             <li>
-              <a href="/my-recipes" data-tab="library"
-                >הספרייה שלי <span class="count" data-count="library"></span
+              <a class="mr-chip" href="/my-recipes" data-view="all"
+                >הכל <span class="count" data-count="all"></span
               ></a>
             </li>
             <li>
-              <a href="/my-recipes?tab=to-try" data-tab="to-try"
+              <a class="mr-chip" href="/my-recipes?view=mine" data-view="mine"
+                >המתכונים שלי <span class="count" data-count="mine"></span
+              ></a>
+            </li>
+            <li>
+              <a class="mr-chip" href="/my-recipes?view=saved" data-view="saved"
+                >שמרתי <span class="count" data-count="saved"></span
+              ></a>
+            </li>
+            <li>
+              <a class="mr-chip mr-chip--to-try" href="/my-recipes?view=to-try" data-view="to-try"
                 >לנסות <span class="count" data-count="to-try"></span
               ></a>
             </li>
@@ -64,9 +74,7 @@
         <p class="body-text-he" id="mr-empty-text"></p>
         <div class="mr-empty__actions">
           <a class="btn btn-primary" href="/propose-recipe" id="mr-empty-new"></a>
-          <a class="btn btn-ghost" href="/my-recipes?tab=to-try" id="mr-empty-to-try" hidden
-            >ללשונית ״לנסות״</a
-          >
+          <a class="btn btn-primary" href="/categories" id="mr-empty-book" hidden>לספר המשפחתי</a>
         </div>
       </section>
     </div>
