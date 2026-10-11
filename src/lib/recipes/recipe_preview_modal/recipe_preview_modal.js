@@ -232,7 +232,7 @@ class RecipePreviewModal extends HTMLElement {
       lines.push(sent.outerHTML);
     }
     if (this.untested) {
-      lines.push('<p><b>המתכון סומן ״עוד לא נוסה״.</b> הוא נשלח לפני שבושל.</p>');
+      lines.push('<p><b>המתכון סומן ״עוד לא נוסה״.</b></p>');
     }
     return lines.length ? `<div class="review-banner" dir="rtl">${lines.join('')}</div>` : '';
   }
