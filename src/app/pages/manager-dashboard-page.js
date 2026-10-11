@@ -426,8 +426,9 @@ export default {
     editPreviewContainer.innerHTML = `
       <edit-preview-recipe
         path-to-icon="/img/icon/other/"
-        recipe-id="${recipe.id}" 
-        start-mode="edit">
+        recipe-id="${recipe.id}"
+        start-mode="edit"
+        approve-on-save>
       </edit-preview-recipe>
     `;
     const editPreviewRecipe = document.querySelector('edit-preview-recipe');

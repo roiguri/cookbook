@@ -61,6 +61,8 @@ class EditPreviewRecipe extends HTMLElement {
     this.showButtons = false;
     this.recipeName = this.getAttribute('recipe-name');
     this.mode = this.getAttribute('start-mode') || 'preview'; // Get start mode or default to 'preview'
+    // Saving publishes the recipe (manager dashboard); forwarded to the editor.
+    this.approveOnSave = this.hasAttribute('approve-on-save');
     this.path = '/img/icon/other/';
     this.render();
     this.modal = this.shadowRoot.querySelector('custom-modal');
@@ -211,7 +213,7 @@ class EditPreviewRecipe extends HTMLElement {
               ${
                 isPreview
                   ? `<recipe-component recipe-id="${this.recipeId}"></recipe-component>`
-                  : `<edit-recipe-component recipe-id="${this.recipeId}" hide-form-actions></edit-recipe-component>`
+                  : `<edit-recipe-component recipe-id="${this.recipeId}" hide-form-actions ${this.approveOnSave ? 'approve-on-save' : ''}></edit-recipe-component>`
               }
             </div>
             <div class="edit-toolbar">
@@ -257,6 +259,7 @@ class EditPreviewRecipe extends HTMLElement {
         const editComp = document.createElement('edit-recipe-component');
         editComp.setAttribute('recipe-id', this.recipeId);
         editComp.setAttribute('hide-form-actions', '');
+        if (this.approveOnSave) editComp.setAttribute('approve-on-save', '');
         modalBody.appendChild(editComp);
 
         toggleImg.src = this.path + 'eye.png';

@@ -57,8 +57,10 @@ class EditRecipeComponent extends HTMLElement {
 
       const mediaItemsOrdered = this.formComponent?.getAllMediaInOrder?.() || [];
 
-      // Manager edits are trusted; auto-approve so pending recipes
-      // become approved after a save.
+      // The dashboard's edits publish (`approve-on-save`: a pending recipe is
+      // approved by saving it). Authors editing their own private recipe keep
+      // its visibility as it is.
+      const approveOnSave = this.hasAttribute('approve-on-save');
       const { mediaUploadResults } = await RecipeService.update(this.recipeId, {
         changes,
         images: formImages,
@@ -66,7 +68,7 @@ class EditRecipeComponent extends HTMLElement {
         mediaItemsOrdered,
         mediaToDelete,
         uploadedBy,
-        approved: true,
+        ...(approveOnSave ? { approved: true } : {}),
       });
 
       const mediaEditor = this.formComponent?.shadowRoot?.getElementById(
