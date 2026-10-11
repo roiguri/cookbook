@@ -1,0 +1,183 @@
+/* My recipes — the Categories page layout (categories-spa.css, via the shared
+   .categories-page wrapper) plus a head with tabs, and an empty state. */
+
+.spa-content .my-recipes-page .mr-head {
+  max-width: var(--content-max);
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--sp-2xl) var(--gutter) var(--sp-lg);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+  text-align: center;
+}
+
+.spa-content .my-recipes-page .mr-head h1 {
+  margin: 0;
+  font-family: var(--font-display-he);
+  font-weight: 400;
+  font-size: var(--step-4);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.spa-content .my-recipes-page .mr-head__lede {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--ink-3);
+}
+
+.spa-content .my-recipes-page .mr-bar {
+  width: 100%;
+  margin-top: var(--sp-md);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-md);
+}
+
+.spa-content .my-recipes-page .mr-bar nav {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.spa-content .my-recipes-page .mr-bar .mr-new {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.spa-content .my-recipes-page .mr-new,
+.spa-content .my-recipes-page .mr-empty .btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-ui-he);
+}
+
+.spa-content .my-recipes-page .btn svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* The list and the empty state swap via `hidden`; layout rules set display. */
+.spa-content .my-recipes-page [hidden] {
+  display: none !important;
+}
+
+/* Tabs: same pill as the header nav */
+.spa-content .my-recipes-page .mr-tabs {
+  display: inline-flex;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  gap: 2px;
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.spa-content .my-recipes-page .mr-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui-he);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--dur-1) var(--ease);
+}
+
+.spa-content .my-recipes-page .mr-tabs a:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.spa-content .my-recipes-page .mr-tabs a[aria-current='page'] {
+  background: var(--surface-1);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+
+.spa-content .my-recipes-page .mr-tabs .count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* Empty state */
+.spa-content .my-recipes-page .mr-empty {
+  margin-top: var(--sp-md);
+  padding: 56px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-md);
+  text-align: center;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.spa-content .my-recipes-page .mr-empty svg.art {
+  width: 88px;
+  height: 88px;
+  color: var(--ink-3);
+}
+
+.spa-content .my-recipes-page .mr-empty svg.art .accent {
+  color: var(--primary-dark);
+}
+
+.spa-content .my-recipes-page .mr-empty h2,
+.spa-content .my-recipes-page .mr-empty p {
+  margin: 0;
+}
+
+.spa-content .my-recipes-page .mr-empty p {
+  max-width: 46ch;
+}
+
+.spa-content .my-recipes-page .mr-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-sm);
+  margin-top: var(--sp-xs);
+}
+
+@media (max-width: 768px) {
+  .spa-content .my-recipes-page .mr-head {
+    padding: var(--sp-xl) var(--gutter) var(--sp-md);
+  }
+
+  .spa-content .my-recipes-page .mr-bar {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .spa-content .my-recipes-page .mr-bar nav,
+  .spa-content .my-recipes-page .mr-bar .mr-new {
+    grid-column: 1;
+    justify-self: center;
+  }
+
+  .spa-content .my-recipes-page .mr-empty {
+    padding: 40px 20px;
+  }
+
+  .spa-content .my-recipes-page .mr-empty__actions {
+    flex-direction: column;
+    width: 100%;
+  }
+}

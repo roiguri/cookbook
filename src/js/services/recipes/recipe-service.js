@@ -201,6 +201,29 @@ export class RecipeService {
   }
 
   /**
+   * A user's own private recipes (My recipes), newest first. Equality filters
+   * only — no composite index needed; sorting happens here.
+   * @param {string} authorId - The signed-in user's uid.
+   * @param {Object} [options]
+   * @param {string} [options.stage] - STAGE.TO_TRY or STAGE.TESTED; omit for both.
+   * @param {Array<Array>} [options.where] - Extra `where` clauses (e.g. category).
+   * @returns {Promise<Array<Object>>}
+   */
+  static async listMine(authorId, { stage, where = [] } = {}) {
+    if (!authorId) return [];
+    const recipes = await FirestoreService.queryDocuments(RECIPES_COLLECTION, {
+      where: [
+        ['authorId', '==', authorId],
+        ['visibility', '==', VISIBILITY.PRIVATE],
+        ...(stage ? [['stage', '==', stage]] : []),
+        ...where,
+      ],
+    });
+    const time = (r) => r.creationTime?.toMillis?.() ?? new Date(r.creationTime ?? 0).getTime();
+    return recipes.sort((a, b) => time(b) - time(a));
+  }
+
+  /**
    * Create a new recipe. Generates an ID, uploads images and media
    * instructions, then writes the document. On error any successfully
    * uploaded image files are cleaned up (best-effort).

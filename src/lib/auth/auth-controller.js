@@ -101,7 +101,7 @@ class AuthController extends HTMLElement {
     if (!navMenu) return;
 
     // Remove dynamic tabs first
-    ['profile-tab', 'documents-tab', 'dashboard-tab'].forEach((id) => {
+    ['my-recipes-tab', 'profile-tab', 'documents-tab', 'dashboard-tab'].forEach((id) => {
       const tab = document.querySelector(`#${id}`);
       if (tab) tab.remove();
     });
@@ -122,6 +122,13 @@ class AuthController extends HTMLElement {
 
     // Add Favorites tab for all logged in users - redirect to categories page with favorites filter
     navMenu.appendChild(createNavItem('profile-tab', 'מועדפים', '/categories?favorites=true'));
+
+    // Add My recipes (private library) after "מתכונים", for approved users and managers
+    if (roles.isApproved || roles.isManager) {
+      const recipesLink = navMenu.querySelector('a[href="/categories"]');
+      const myRecipes = createNavItem('my-recipes-tab', 'המתכונים שלי', '/my-recipes');
+      navMenu.insertBefore(myRecipes, recipesLink?.closest('li')?.nextSibling ?? null);
+    }
 
     // Add Grandmother's Recipes for approved users and managers
     if (roles.isApproved || roles.isManager) {

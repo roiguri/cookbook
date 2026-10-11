@@ -268,7 +268,9 @@ function updateActiveNavigation() {
               !currentUrlParams.has('favorites') || currentUrlParams.get('favorites') !== 'true';
           }
         } else {
-          shouldBeActive = linkSearchParams === currentSearchParams;
+          // A link without a query (e.g. /my-recipes) stays active across the
+          // page's own query states (e.g. /my-recipes?tab=library).
+          shouldBeActive = !linkSearchParams || linkSearchParams === currentSearchParams;
         }
       }
 

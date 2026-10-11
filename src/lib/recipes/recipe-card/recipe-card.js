@@ -33,6 +33,8 @@
  * - Lazy loading for images
  * - Consistent dimensions to prevent layout shifts
  */
+import { getRecipeStatus } from '../../../js/utils/recipes/recipe-status.js';
+import '../status-badge/status-badge.js';
 import { icons } from '../../../js/icons.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import favoritesService from '../../../js/services/users/favorites-service.js';
@@ -622,6 +624,18 @@ class RecipeCard extends HTMLElement {
       const isFav = this._isFavorite();
       favoriteBtn.classList.toggle(RECIPE_CARD_CONFIG.CSS_CLASSES.favoriteBtnActive, isFav);
       favoriteBtn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+    }
+
+    // Status badge (to try / private / …): one status source and one badge for
+    // every list. A list can hide statuses that are obvious in its context
+    // (e.g. "private" in My library) via the `hide-statuses` attribute.
+    const status = getRecipeStatus(this._recipeData);
+    const hiddenStatuses = (this.getAttribute('hide-statuses') || '').split(/\s+/);
+    const photo = clone.querySelector('.photo');
+    if (status && !hiddenStatuses.includes(status) && photo) {
+      const badge = document.createElement('status-badge');
+      badge.setAttribute('status', status);
+      photo.appendChild(badge);
     }
 
     // Handle add to meal button visibility

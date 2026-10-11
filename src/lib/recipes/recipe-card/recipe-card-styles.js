@@ -207,6 +207,14 @@ export const recipeCardStyles = `
 }
 
 /* ---- Favorite button ---- */
+/* Recipe status (to try / private / …) — top corner opposite the action buttons */
+.photo status-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 3;
+}
+
 .favorite-btn {
     position: absolute;
     top: 10px;
