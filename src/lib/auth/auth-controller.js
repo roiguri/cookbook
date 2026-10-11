@@ -106,6 +106,14 @@ class AuthController extends HTMLElement {
       if (tab) tab.remove();
     });
 
+    // "הצעת מתכון" is "מתכון חדש" for approved family and managers: they save
+    // to their private library and choose whether to submit.
+    const proposeLink = navMenu.querySelector('a[href="/propose-recipe"]');
+    if (proposeLink) {
+      proposeLink.textContent =
+        user && (roles.isApproved || roles.isManager) ? 'מתכון חדש' : 'הצעת מתכון';
+    }
+
     if (!user) return; // If no user, stop here with basic navigation
 
     // Helper function to create navigation item
