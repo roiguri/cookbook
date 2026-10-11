@@ -318,9 +318,7 @@ function prepareCookbookRecipe(recipeData, metadata) {
     visibility: 'private',
     authorId: null,
     stage: 'tested',
-    allowImageSuggestions: true,
     images: [],
-    pendingImages: [],
     creationTime: firestoreTimestamp,
   };
 }

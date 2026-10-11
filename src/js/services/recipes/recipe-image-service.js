@@ -37,7 +37,6 @@ async function fileExists(path) {
  *   - getPrimaryUrl(recipe, size)
  *   - getFullUrl(image)
  *
- * Image proposal/moderation lives in RecipeImageProposalService.
  * Primary-image selection and image-entry patches live on RecipeService.
  */
 export class RecipeImageService {

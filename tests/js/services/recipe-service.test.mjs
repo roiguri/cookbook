@@ -134,7 +134,6 @@ describe('RecipeService', () => {
         expect.objectContaining({
           name: 'Cake',
           category: 'desserts',
-          allowImageSuggestions: true,
           images: [
             { id: 'img-1', full: 'p/1.jpg' },
             { id: 'img-2', full: 'p/2.jpg' },
@@ -143,7 +142,7 @@ describe('RecipeService', () => {
       );
     });
 
-    it('skips images and allowImageSuggestions when there are none', async () => {
+    it('skips images when there are none, and never writes the retired allowImageSuggestions', async () => {
       firestoreMocks.setDocument.mockResolvedValue();
       await RecipeService.create({
         recipeData: { name: 'Plain', category: 'mains' },
@@ -495,32 +494,27 @@ describe('RecipeService', () => {
   });
 
   describe('delete', () => {
-    it('removes approved + pending image files, media, and the document', async () => {
+    it('removes the image files, media, and the document', async () => {
       firestoreMocks.getDocument.mockResolvedValue({
         id: 'recipe-x',
         images: [
           { id: 'a', full: 'img/recipes/full/cat/recipe-x/a.jpg' },
           { id: 'b', full: 'img/recipes/full/cat/recipe-x/b.jpg' },
         ],
-        pendingImages: [{ id: 'p1', full: 'img/recipes/full/cat/recipe-x/p1.jpg' }],
         mediaInstructions: [{ path: 'mp/1' }],
       });
 
       await RecipeService.delete('recipe-x');
 
-      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledTimes(3);
+      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledTimes(2);
       expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'a' }),
       );
       expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'b' }),
       );
-      expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'p1' }),
-      );
       expect(mediaInstructionServiceMocks.removeAll).toHaveBeenCalledWith([{ path: 'mp/1' }]);
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipes', 'recipe-x');
-      // The pre-delete updateDoc({ images: [], pendingImages: [] }) is gone now.
       expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
     });
 

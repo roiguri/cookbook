@@ -43,7 +43,6 @@ export default {
     this.initializeRefreshManager();
     this.initializeDashboard();
     this.setupAuthListener();
-    this.setupImageApprovalListeners();
     this.setupRefreshIconListeners();
     this.setupEditRecipeListener();
     this.setupImageEnhancementListener();
@@ -73,7 +72,6 @@ export default {
       import('../../lib/recipes/recipe_preview_modal/edit_preview_recipe.js'),
       import('../../lib/recipes/recipe_preview_modal/recipe_preview_modal.js'),
       import('../../lib/recipes/suggest_edit_modal/edit-suggestion-review.js'),
-      import('../../lib/modals/image-approval-multi/image-approval-multi.js'),
       import('../../lib/modals/confirmation_modal/confirmation_modal.js'),
       import('../../lib/modals/message-modal/message-modal.js'),
       import('../../lib/media/image-carousel/image-carousel.js'),
@@ -115,14 +113,6 @@ export default {
         this.redirectToHome();
       }
     });
-  },
-
-  setupImageApprovalListeners() {
-    const imageApprovalMulti = document.querySelector('image-approval-multi');
-    if (imageApprovalMulti) {
-      imageApprovalMulti.addEventListener('images-approved', this.handleImagesApproved.bind(this));
-      imageApprovalMulti.addEventListener('images-rejected', this.handleImagesRejected.bind(this));
-    }
   },
 
   initializeRefreshManager() {
@@ -237,7 +227,6 @@ export default {
       this.loadAllRecipes(),
       this.loadPendingRecipes(),
       this.loadPendingEdits(),
-      this.loadPendingImages(),
       this.loadFailedUrls(),
     ]);
   },
@@ -769,122 +758,6 @@ export default {
   },
 
   /**
-   * Pending Images
-   */
-  async loadPendingImages() {
-    const pendingImagesList = document.getElementById('pending-images-list');
-    const pendingImagesSection = document.getElementById('pending-images');
-    const noPendingMessage = pendingImagesSection.querySelector('.no-pending-message');
-
-    pendingImagesList.setItems([]);
-    try {
-      // TODO: Optimize with Firestore compound index
-      // Current approach uses client-side filtering (works fine for small datasets)
-      // To optimize for large datasets (1000+ recipes):
-      // 1. Create Firestore composite index:
-      //    Collection: recipes
-      //    Fields: pendingImages (Array-contains), approved (Ascending), __name__ (Ascending)
-      // 2. Replace with compound query:
-      //    where: [['pendingImages', '!=', []], ['approved', '==', true]]
-      // See: https://firebase.google.com/docs/firestore/query-data/indexing
-
-      const allPendingRecipes = await RecipeService.list({
-        where: [['pendingImages', '!=', []]],
-      });
-
-      // Filter client-side to only include published recipes (not recipe proposals)
-      const pendingRecipes = allPendingRecipes.filter(
-        (recipe) => recipe.visibility === VISIBILITY.PUBLISHED,
-      );
-
-      const recipeItems = pendingRecipes.map((recipe) => ({
-        header: this.createPendingImagesRecipeHeader(recipe),
-        content: this.createPendingImagesRecipeContent(recipe),
-      }));
-
-      if (recipeItems.length == 0) {
-        noPendingMessage.textContent = 'אין תמונות הממתינות לאישור';
-      } else {
-        noPendingMessage.textContent = ''; // Clear message when items exist
-      }
-
-      if (pendingImagesList) {
-        pendingImagesList.setItems(recipeItems);
-      } else {
-        console.error('Cannot find pending images list element');
-      }
-    } catch (error) {
-      this.handleError(error);
-    }
-  },
-
-  createPendingImagesRecipeHeader(recipe) {
-    const header = document.createElement('div');
-    header.style.cssText =
-      'display:flex; align-items:center; justify-content:space-between; gap:8px;';
-
-    const info = document.createElement('div');
-    info.style.cssText = 'display:flex; align-items:center; gap:8px; min-width:0;';
-
-    const name = document.createElement('span');
-    name.textContent = recipe.name;
-    name.style.cssText =
-      'font-family:var(--font-ui-he); font-size:14px; color:var(--ink);' +
-      'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
-
-    const imageCount = recipe.pendingImages?.length || 0;
-    const countChip = document.createElement('span');
-    countChip.textContent = `${imageCount} תמונות`;
-    countChip.style.cssText =
-      'flex-shrink:0; background:var(--surface-2,#f0ede6); border-radius:var(--r-pill,999px);' +
-      'padding:2px 8px; font-family:var(--font-ui-he); font-size:11px; color:var(--ink-3);';
-
-    info.appendChild(name);
-    info.appendChild(countChip);
-
-    const btn = this._ghostPillBtn('הצג');
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.openMultiImageApprovalModal(recipe);
-    });
-
-    header.appendChild(info);
-    header.appendChild(btn);
-    return header;
-  },
-
-  createPendingImagesRecipeContent(recipe) {
-    const content = document.createElement('div');
-    content.style.cssText = 'display:flex; align-items:center; gap:8px;';
-
-    const imageCount = recipe.pendingImages?.length || 0;
-    const uploadedBy = recipe.pendingImages?.[0]?.uploadedBy || 'לא ידוע';
-    const chipStyle =
-      'background:var(--surface-2,#f0ede6); border-radius:var(--r-pill,999px);' +
-      'padding:3px 10px; font-family:var(--font-ui-he); font-size:12px; color:var(--ink);';
-    content.innerHTML =
-      `<span style="${chipStyle}">${imageCount} תמונות</span>` +
-      `<span style="font-family:var(--font-ui-he); font-size:13px; color:var(--ink-3);">` +
-      `הועלו על ידי ${uploadedBy}</span>`;
-    return content;
-  },
-
-  /**
-   * Preview Images (Multi-Image Approval)
-   */
-  openMultiImageApprovalModal(recipe) {
-    const imageApprovalMulti = document.querySelector('image-approval-multi');
-    imageApprovalMulti.openForRecipe(recipe);
-  },
-
-  handleImagesApproved(event) {
-    console.log('Images approved for recipe:', event.detail.recipeId);
-    console.log('Approved image IDs:', event.detail.imageIds);
-    // Refresh both pending images and all recipes lists
-    this.refreshManager.refreshImages();
-  },
-
-  /**
    * Image Enhancement section refresh — delegates to the <ai-image-enhancer>
    * component's public refresh() method.
    */
@@ -893,13 +766,6 @@ export default {
     if (enhancer && typeof enhancer.refresh === 'function') {
       await enhancer.refresh();
     }
-  },
-
-  handleImagesRejected(event) {
-    console.log('Images rejected for recipe:', event.detail.recipeId);
-    console.log('Rejected image IDs:', event.detail.imageIds);
-    // Only refresh the pending images list
-    this.refreshManager.refreshPendingImages();
   },
 
   /**
