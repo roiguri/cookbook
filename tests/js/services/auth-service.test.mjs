@@ -430,6 +430,48 @@ describe('AuthService', () => {
     });
   });
 
+  describe('Account security methods report errors like the other auth methods', () => {
+    let reauthenticateWithCredential, linkWithPopup, unlink;
+
+    beforeEach(async () => {
+      ({ reauthenticateWithCredential, linkWithPopup, unlink } = await import('firebase/auth'));
+      authService._currentUser = mockUser;
+    });
+
+    const authError = (code) => Object.assign(new Error(code), { code });
+    const expectAuthErrorEvent = (operation, code) =>
+      expect(document.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'auth-error',
+          detail: expect.objectContaining({ operation, code }),
+        }),
+      );
+
+    test('updatePassword rethrows a wrong current password and dispatches auth-error', async () => {
+      const error = authError('auth/invalid-credential');
+      reauthenticateWithCredential.mockRejectedValue(error);
+
+      await expect(authService.updatePassword('wrong', 'new-password')).rejects.toBe(error);
+      expectAuthErrorEvent('update-password', 'auth/invalid-credential');
+    });
+
+    test('linkWithGoogle rethrows and dispatches auth-error', async () => {
+      const error = authError('auth/credential-already-in-use');
+      linkWithPopup.mockRejectedValue(error);
+
+      await expect(authService.linkWithGoogle()).rejects.toBe(error);
+      expectAuthErrorEvent('link-google', 'auth/credential-already-in-use');
+    });
+
+    test('unlinkProvider rethrows and dispatches auth-error', async () => {
+      const error = authError('auth/no-such-provider');
+      unlink.mockRejectedValue(error);
+
+      await expect(authService.unlinkProvider('google.com')).rejects.toBe(error);
+      expectAuthErrorEvent('unlink-provider', 'auth/no-such-provider');
+    });
+  });
+
   describe('User profile management', () => {
     beforeEach(() => {
       // Set up current user for profile tests
