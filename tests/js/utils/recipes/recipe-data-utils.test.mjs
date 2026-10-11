@@ -133,7 +133,6 @@ describe('recipe-data-utils', () => {
         mediaInstructions: [],
         relatedRecipes: ['recipe-1'],
         comments: ['Yum!'],
-        approved: true,
         authorId: 'user1',
         visibility: 'published',
         stage: 'tested',
@@ -145,21 +144,14 @@ describe('recipe-data-utils', () => {
       expect(formatted).toEqual(raw);
     });
 
-    it('derives the new-model fields from legacy ones when missing', () => {
-      expect(formatRecipeData({ userId: 'u1', approved: true })).toMatchObject({
-        authorId: 'u1',
+    it('reads only the new-model fields (legacy userId/approved are ignored)', () => {
+      const formatted = formatRecipeData({ userId: 'u1', approved: true });
+      expect(formatted).toMatchObject({ authorId: null, visibility: 'private', stage: 'tested' });
+      expect(formatted).not.toHaveProperty('approved');
+      expect(formatRecipeData({ visibility: 'published', stage: 'to-try' })).toMatchObject({
         visibility: 'published',
-        stage: 'tested',
-      });
-      expect(formatRecipeData({ approved: false, stage: 'to-try' })).toMatchObject({
-        authorId: null,
-        visibility: 'private',
         stage: 'to-try',
       });
-      // visibility wins over a stale approved flag
-      expect(formatRecipeData({ approved: true, visibility: 'private' }).visibility).toBe(
-        'private',
-      );
     });
 
     it('fills in defaults for missing fields', () => {
@@ -185,7 +177,6 @@ describe('recipe-data-utils', () => {
         mediaInstructions: [],
         comments: [],
         relatedRecipes: [],
-        approved: false,
         authorId: null,
         visibility: 'private',
         stage: 'tested',
@@ -201,14 +192,12 @@ describe('recipe-data-utils', () => {
         ingredients: undefined,
         images: null,
         comments: 0,
-        approved: 'yes',
       };
       const formatted = formatRecipeData(raw);
       expect(formatted.tags).toEqual([]);
       expect(formatted.ingredients).toEqual([]);
       expect(formatted.images).toEqual([]);
       expect(formatted.comments).toEqual([]);
-      expect(formatted.approved).toBe(false);
     });
   });
 
@@ -403,14 +392,13 @@ describe('recipe-data-utils', () => {
       expect(result.errors['stages[0].instructions[0]']).toBeUndefined();
     });
 
-    it('validates optional fields types (tags, images, comments, approved, creationTime, updatedAt)', () => {
+    it('validates optional fields types (tags, images, comments, creationTime, updatedAt)', () => {
       // Valid types
       let r = {
         ...baseRecipe,
         tags: ['a', 'b'],
         images: [{}],
         comments: ['c'],
-        approved: true,
         creationTime: 1234,
         updatedAt: new Date(),
       };
@@ -441,11 +429,6 @@ describe('recipe-data-utils', () => {
       result = validateRecipeData(r);
       expect(result.isValid).toBe(false);
       expect(result.errors.comments).toBeDefined();
-      // Invalid approved
-      r = { ...baseRecipe, approved: 'yes' };
-      result = validateRecipeData(r);
-      expect(result.isValid).toBe(false);
-      expect(result.errors.approved).toBeDefined();
       // Invalid creationTime (object without seconds)
       r = { ...baseRecipe, creationTime: { notSeconds: 123 } };
       result = validateRecipeData(r);

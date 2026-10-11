@@ -25,7 +25,7 @@ const OTHER = 'other-uid';
 const MANAGER = 'manager-uid';
 
 // Current layout (release 2b)
-const IMAGE = 'recipes/recipe1/images/primary.jpg'; // recipe1: legacy userId author
+const IMAGE = 'recipes/recipe1/images/primary.jpg'; // recipe1: published
 const MODERN_IMAGE = 'recipes/recipe2/images/primary.jpg'; // recipe2: authorId author
 const MEDIA = 'recipes/recipe1/media/m1_step.jpg';
 const UPLOADED = 'recipes/recipe1/images/1700000000.jpg'; // tagged by UPLOADER (published recipe)
@@ -71,7 +71,11 @@ beforeEach(async () => {
     ]) {
       await setDoc(doc(admin, 'users', uid), { role });
     }
-    await setDoc(doc(admin, 'recipes', 'recipe1'), { userId: AUTHOR, approved: true });
+    await setDoc(doc(admin, 'recipes', 'recipe1'), {
+      authorId: AUTHOR,
+      visibility: 'published',
+      stage: 'tested',
+    });
     await setDoc(doc(admin, 'recipes', 'recipe2'), {
       authorId: AUTHOR,
       visibility: 'private',
@@ -131,10 +135,10 @@ describe('recipe files (recipes/{id}/images|media)', () => {
   });
 
   test('once published, the author and the uploader can no longer change its files', async () => {
-    // recipe1 is published the legacy way (approved: true, author in userId)
+    // recipe1 is published
     await assertFails(deleteObject(ref(storage(AUTHOR), IMAGE)));
     await assertFails(deleteObject(ref(storage(UPLOADER), UPLOADED)));
-    // and the same through `visibility`
+    // and the same once a private recipe is published
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await updateDoc(doc(ctx.firestore(), 'recipes', 'recipe2'), {
         visibility: 'published',

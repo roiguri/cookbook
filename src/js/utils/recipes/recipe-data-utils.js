@@ -60,7 +60,9 @@ import { parseAmount } from './recipe-ingredients-utils.js';
  * @property {string[]} [instructions]
  * @property {Array<{ file: string, isPrimary: boolean, access: string, uploadedBy: string }>} [images]
  * @property {string[]} [comments]
- * @property {boolean} [approved]
+ * @property {string|null} [authorId]
+ * @property {'private'|'published'} [visibility]
+ * @property {'to-try'|'tested'} [stage]
  * @property {Date|string|number} [creationTime]
  * @property {Date|string|number} [updatedAt]
  * @property {string[]} [relatedRecipes] - IDs of complementary recipes
@@ -171,14 +173,8 @@ export function formatRecipeData(rawData) {
     images: Array.isArray(rawData.images) ? rawData.images : [],
     mediaInstructions: Array.isArray(rawData.mediaInstructions) ? rawData.mediaInstructions : [],
     comments: Array.isArray(rawData.comments) ? rawData.comments : [],
-    approved: typeof rawData.approved === 'boolean' ? rawData.approved : false,
-    authorId: rawData.authorId ?? rawData.userId ?? null,
-    visibility:
-      rawData.visibility === 'published' || rawData.visibility === 'private'
-        ? rawData.visibility
-        : rawData.approved === true
-          ? 'published'
-          : 'private',
+    authorId: rawData.authorId ?? null,
+    visibility: rawData.visibility === 'published' ? 'published' : 'private',
     stage: rawData.stage === 'to-try' ? 'to-try' : 'tested',
     creationTime: rawData.creationTime || null,
     testedAt: rawData.testedAt || null,
@@ -280,11 +276,6 @@ export function validateRecipeData(recipeData) {
       !recipeData.comments.every((c) => typeof c === 'string')
     ) {
       errors.comments = 'פורמט שגוי עבור ההערות.';
-    }
-  }
-  if ('approved' in recipeData && recipeData.approved !== undefined) {
-    if (typeof recipeData.approved !== 'boolean') {
-      errors.approved = 'פורמט שגוי עבור האישור.';
     }
   }
   if (

@@ -81,7 +81,6 @@ export class RecipeSubmissionService {
         reviewedBy: null,
         reviewedAt: null,
         rejectionReason: null,
-        publishedId: null,
         createdAt: Timestamp.now(),
       },
     };
@@ -154,7 +153,7 @@ export class RecipeSubmissionService {
    */
   static async approve(recipeId, { reviewedBy } = {}) {
     if (!recipeId) throw new Error('RecipeSubmissionService.approve: recipeId is required');
-    await RecipeService.update(recipeId, { approved: true });
+    await RecipeService.update(recipeId, { publish: true });
     if (await RecipeSubmissionService.get(recipeId)) {
       await RecipeSubmissionService._markApproved(recipeId, { reviewedBy });
     }
@@ -266,7 +265,6 @@ export class RecipeSubmissionService {
       status: SUBMISSION_STATUS.APPROVED,
       reviewedBy: reviewedBy || null,
       reviewedAt: Timestamp.now(),
-      publishedId: recipeId,
     });
   }
 }

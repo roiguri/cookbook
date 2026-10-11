@@ -3,7 +3,6 @@ import { getRecipeStatus, RECIPE_STATUS } from 'src/js/utils/recipes/recipe-stat
 describe('getRecipeStatus', () => {
   it('published recipes carry no badge', () => {
     expect(getRecipeStatus({ visibility: 'published', stage: 'tested' })).toBeNull();
-    expect(getRecipeStatus({ approved: true })).toBeNull();
   });
 
   it('a private recipe is to-try or private by stage', () => {
@@ -12,8 +11,8 @@ describe('getRecipeStatus', () => {
     expect(getRecipeStatus({ visibility: 'private' })).toBe(RECIPE_STATUS.PRIVATE);
   });
 
-  it('falls back to the legacy approved flag', () => {
-    expect(getRecipeStatus({ approved: false })).toBe(RECIPE_STATUS.PRIVATE);
+  it('ignores the legacy approved flag', () => {
+    expect(getRecipeStatus({ approved: true })).toBe(RECIPE_STATUS.PRIVATE);
   });
 
   it('the submission comes first for a private recipe', () => {

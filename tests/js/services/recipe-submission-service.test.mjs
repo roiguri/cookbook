@@ -48,7 +48,6 @@ describe('RecipeSubmissionService', () => {
         authorId: 'u1',
         status: 'pending',
         reviewedBy: null,
-        publishedId: null,
       });
       expect(data.createdAt).toBeDefined();
     });
@@ -105,7 +104,7 @@ describe('RecipeSubmissionService', () => {
       expect(firestoreMocks.updateDocument).toHaveBeenCalledWith(
         'recipe_submissions',
         'r1',
-        expect.objectContaining({ status: 'approved', publishedId: 'r1' }),
+        expect.objectContaining({ status: 'approved' }),
       );
     });
   });
@@ -119,11 +118,11 @@ describe('RecipeSubmissionService', () => {
 
       await RecipeSubmissionService.approve('r1', { reviewedBy: 'm1' });
 
-      expect(recipeServiceMocks.update).toHaveBeenCalledWith('r1', { approved: true });
+      expect(recipeServiceMocks.update).toHaveBeenCalledWith('r1', { publish: true });
       expect(firestoreMocks.updateDocument).toHaveBeenCalledWith(
         'recipe_submissions',
         'r1',
-        expect.objectContaining({ status: 'approved', reviewedBy: 'm1', publishedId: 'r1' }),
+        expect.objectContaining({ status: 'approved', reviewedBy: 'm1' }),
       );
       expect(order).toEqual(['recipe', 'submission']);
     });
@@ -131,7 +130,7 @@ describe('RecipeSubmissionService', () => {
     it('still publishes a recipe that has no submission record', async () => {
       firestoreMocks.getDocument.mockResolvedValue(null);
       await RecipeSubmissionService.approve('r1', { reviewedBy: 'm1' });
-      expect(recipeServiceMocks.update).toHaveBeenCalledWith('r1', { approved: true });
+      expect(recipeServiceMocks.update).toHaveBeenCalledWith('r1', { publish: true });
       expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
     });
   });

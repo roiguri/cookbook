@@ -118,8 +118,8 @@ describe('reading recipes', () => {
     await assertSucceeds(getDocs(q(OTHER)));
   });
 
-  test('the legacy approved filter still works (older open tabs)', async () => {
-    await assertSucceeds(
+  test('a list filtered on the legacy approved flag is rejected for non-managers', async () => {
+    await assertFails(
       getDocs(query(collection(db(null), 'recipes'), where('approved', '==', true))),
     );
   });
@@ -192,21 +192,23 @@ describe('creating recipes', () => {
     await assertFails(setDoc(doc(db(OTHER), 'recipes', 'new'), newPrivate(AUTHOR)));
   });
 
-  test('approved and visibility must agree', async () => {
-    await assertFails(
+  test('the legacy approved flag is ignored: it neither publishes nor blocks', async () => {
+    await assertSucceeds(
       setDoc(doc(db(OTHER), 'recipes', 'new'), { ...newPrivate(OTHER), approved: true }),
+    );
+    // still private: another user can't read it
+    await assertFails(getDoc(doc(db(AUTHOR), 'recipes', 'new')));
+  });
+
+  test('visibility must be private or published', async () => {
+    await assertFails(
+      setDoc(doc(db(OTHER), 'recipes', 'new'), { ...newPrivate(OTHER), visibility: 'public' }),
     );
   });
 
   test('stage must be to-try or tested', async () => {
     await assertFails(
       setDoc(doc(db(OTHER), 'recipes', 'new'), { ...newPrivate(OTHER), stage: 'draft' }),
-    );
-  });
-
-  test('a non-manager cannot create a recipe claiming to be a published copy', async () => {
-    await assertFails(
-      setDoc(doc(db(OTHER), 'recipes', 'new'), { ...newPrivate(OTHER), sourceRecipeId: 'x' }),
     );
   });
 
@@ -238,7 +240,6 @@ describe('updating recipes', () => {
 
   test('the author cannot hand their recipe to someone else', async () => {
     await assertFails(updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { authorId: OTHER }));
-    await assertFails(updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { userId: OTHER }));
   });
 
   test('the author cannot edit their published recipe directly (suggest an edit instead)', async () => {
@@ -270,10 +271,6 @@ describe('updating recipes', () => {
       }),
     );
     await assertSucceeds(updateDoc(doc(db(MANAGER), 'recipes', 'legacy'), { name: 'Renamed' }));
-  });
-
-  test('even a manager cannot leave approved and visibility disagreeing', async () => {
-    await assertFails(updateDoc(doc(db(MANAGER), 'recipes', 'pending'), { approved: true }));
   });
 });
 
