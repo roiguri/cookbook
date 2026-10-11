@@ -454,6 +454,20 @@ describe('RecipeService', () => {
     });
   });
 
+  describe('markToTry', () => {
+    it('sets stage to-try and clears testedAt', async () => {
+      firestoreMocks.updateDocument.mockResolvedValue();
+      await RecipeService.markToTry('r1');
+      const [collection, id, data] = firestoreMocks.updateDocument.mock.calls[0];
+      expect([collection, id]).toEqual(['recipes', 'r1']);
+      expect(data).toEqual({ stage: 'to-try', testedAt: { __op: 'deleteField' } });
+    });
+
+    it('requires a recipe id', async () => {
+      await expect(RecipeService.markToTry()).rejects.toThrow('recipeId is required');
+    });
+  });
+
   describe('listMine', () => {
     it('queries the author’s recipes (private and published) for a stage, newest first', async () => {
       firestoreMocks.queryDocuments.mockResolvedValue([
