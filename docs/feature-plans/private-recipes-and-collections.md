@@ -4,7 +4,7 @@
 
 Today every recipe lives in one shared `recipes` collection and "published" is a single `approved` flag that **only the UI respects**: `firestore.rules` lets anyone read every recipe (`allow read: if true`), authors can set `approved: true` on their own recipes, favourites and My Meal accept any recipe id, and any signed-in user can delete any recipe image in Storage.
 
-This plan moves to the usual recipe-app shape: every recipe has an **author** and a **visibility**, the family book becomes a **collection** whose entries a manager approves, and favourites become one collection among many. A "staging area" stops being a special feature — a private recipe in your own library _is_ the staging area. Untested recipes you collect sit on a **To try** shelf until you've cooked them.
+This plan moves to the usual recipe-app shape: every recipe has an **author** and a **visibility** (the single source of truth for "published"), submissions to the family book go through a **`recipe_submissions`** approval queue (the same pattern as edit suggestions), and favourites become one personal collection among many. A "staging area" stops being a special feature — a private recipe in your own library _is_ the staging area. Untested recipes you collect sit on a **To try** shelf until you've cooked them.
 
 Lifecycle of a recipe:
 
@@ -19,44 +19,73 @@ Working copy of this plan with diagrams (Claude Doc): https://claude.ai/code/art
 
 ## Decisions (settled 2026-10-10)
 
-| Decision                                       | Decided                                                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Who can create private recipes                 | Approved family and managers only (sign-up is open to any Google account; one rule condition to widen)       |
-| Own private recipes in collections and My Meal | Always allowed for the author                                                                                |
-| What publishing does                           | **Copy.** Approval creates a new published recipe keeping `authorId` + `sourceRecipeId`; author keeps theirs |
-| Editing your own published recipe              | Through edit suggestions, like everyone else                                                                 |
-| Managers and private recipes                   | Readable by managers, not listed in the dashboard                                                            |
-| Untested recipes you collect                   | A `stage` field on your own recipes (`to-try` / `tested`), **not** a collection                              |
-| Submitting an untested recipe                  | Allowed; the Submit button warns                                                                             |
-| Deploy ordering                                | Nobody uses the app during a deploy window → no dual-write; each release is one back-to-back window          |
+| Decision                                       | Decided                                                                                                        |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Who can create private recipes                 | Approved family and managers only (sign-up is open to any Google account; one rule condition to widen)         |
+| Own private recipes in collections and My Meal | Always allowed for the author                                                                                  |
+| What publishing does                           | **Copy.** Approval creates a new published recipe keeping `authorId` + `sourceRecipeId`; author keeps theirs   |
+| Editing your own published recipe              | Through edit suggestions, like everyone else                                                                   |
+| Managers and private recipes                   | Readable by managers, not listed in the dashboard                                                              |
+| Untested recipes you collect                   | A `stage` field on your own recipes (`to-try` / `tested`), **not** a collection                                |
+| Submitting an untested recipe                  | Allowed; the Submit button warns                                                                               |
+| Deploy ordering                                | Nobody uses the app during a deploy window → no dual-write; each release is one back-to-back window            |
+| Family book model (reviewed 2026-10-11)        | **Not a collection.** `visibility` on the recipe + a `recipe_submissions` queue; collections are personal only |
+| Approval before release 3b                     | In place: the recipe itself becomes published; copy-on-publish arrives in 3b                                   |
+| Recipes with no recorded author                | `authorId: null` — never anyone's recipe; only managers edit them                                              |
+| Resubmitting a recipe that's already published | Becomes an edit suggestion on the published copy (`publishedId`), never a second copy                          |
+| Pending submissions per recipe                 | At most one (submission doc id = the private recipe's id)                                                      |
 
 ## Target model
 
-| Path                                | Key fields                                                                                                                                                           |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `recipes/{id}`                      | `authorId`, `visibility` (`private` \| `published`), `stage` (`to-try` \| `tested`), `testedAt`, `sourceRecipeId` (published copies), `forkedFrom`, content as today |
-| `collections/{id}`                  | `ownerId`, `name`, `kind` (`book` \| `favorites` \| `personal`)                                                                                                      |
-| `collections/{id}/items/{recipeId}` | `addedBy`, `addedAt`, `status` (`pending` \| `approved` \| `rejected`), `reviewedBy`, `note`, `publishedId`                                                          |
-| `recipes/{id}/notes/{uid}`          | per-user `text`, `rating`, `cookLog` — later phase                                                                                                                   |
-| `recipe_edit_suggestions/{id}`      | unchanged                                                                                                                                                            |
-| `users/{uid}`                       | `role`, profile, tokens — `favorites` moves to a collection                                                                                                          |
-| `active_meals/{uid}`                | unchanged for now                                                                                                                                                    |
-| Storage `img/recipes/…`             | read follows the recipe's visibility; approval copies photos to the published recipe                                                                                 |
+| Path                                | Key fields                                                                                                                                                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `recipes/{id}`                      | `authorId`, `visibility` (`private` \| `published`), `stage` (`to-try` \| `tested`), `testedAt`, `sourceRecipeId` (published copies), `forkedFrom`, content as today                                  |
+| `recipe_submissions/{recipeId}`     | `recipeId` (the private original), `authorId`, `status` (`pending` \| `approved` \| `rejected`), `reviewedBy`, `reviewedAt`, `note`/`rejectionReason`, `publishedId` (the copy, from 3b), `createdAt` |
+| `collections/{id}`                  | `ownerId`, `name`, `kind` (`favorites` \| `personal`; a curated `book` kind can be added later if ever needed)                                                                                        |
+| `collections/{id}/items/{recipeId}` | `addedBy`, `addedAt`                                                                                                                                                                                  |
+| `recipes/{id}/notes/{uid}`          | per-user `text`, `rating`, `cookLog` — later phase                                                                                                                                                    |
+| `recipe_edit_suggestions/{id}`      | unchanged                                                                                                                                                                                             |
+| `users/{uid}`                       | `role`, profile, tokens — `favorites` moves to a collection                                                                                                                                           |
+| `active_meals/{uid}`                | unchanged for now                                                                                                                                                                                     |
+| Storage `img/recipes/…`             | read follows the recipe's visibility; approval copies photos to the published recipe                                                                                                                  |
 
-Access rules (enforced in `firestore.rules` / `storage.rules`, not only the UI): published recipes are public; private recipes are readable by their author and managers; non-managers can never write `visibility`, `authorId` or an item `status` beyond `pending`; a collection item may only point at a recipe its owner can read.
+Access rules (enforced in `firestore.rules` / `storage.rules`, not only the UI): published recipes are public; private recipes are readable by their author and managers; only approved family and managers create private recipes; non-managers can never change `visibility`, `authorId`, `stage` or `sourceRecipeId`, nor a submission's `status` beyond `pending`; while both exist, `approved` and `visibility` must agree; the author is `authorId`, falling back to the legacy `userId`; a collection item may only point at a recipe its owner can read.
 
 ## Releases
 
-| #   | Release                     | Data                                                                                                        | UI                                                                                                                | State                          |
-| --- | --------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)             | —                                                                                                                 | ✅ 2026-10-10                  |
-| 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published      | "Recipe not found" state                                                                                          | ✅ 2026-10-11 (PRs #332, #333) |
-| 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates the book collection + items. Old fields kept | None                                                                                                              | ⬜                             |
-| 3   | Private recipes and To try  | New private recipes, book submissions, published copies                                                     | My recipes (To try / My library tabs), Mark as tested, Save privately / Submit, badges, dashboard approve-as-copy | ⬜ needs design                |
-| 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                 | Favourite button unchanged; add to collection; collections view                                                   | ⬜ needs design                |
-| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`, `pendingImages`; removes orphaned proposal images   | None                                                                                                              | ⬜ after 2–4 settle            |
+| #   | Release                     | Data                                                                                                                                           | UI                                                                                                            | State                          |
+| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)                                                | —                                                                                                             | ✅ 2026-10-10                  |
+| 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published                                         | "Recipe not found" state                                                                                      | ✅ 2026-10-11 (PRs #332, #333) |
+| 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates a `recipe_submissions` doc per open proposal. Old fields kept and still written | None                                                                                                          | ⏳ next                        |
+| 3a  | Private recipes and To try  | New private recipes (no publishing yet)                                                                                                        | My recipes (To try / My library tabs), Mark as tested, Save privately, private/to-try badges                  | ⬜ needs design                |
+| 3b  | Submissions and publishing  | Submissions; approval creates the published copy (Cloud Function)                                                                              | Submit to the family book, pending/rejected badges, dashboard submissions queue with approve-as-copy / reject | ⬜ needs design                |
+| 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                                                    | Favourite button unchanged; add to collection; collections view                                               | ⬜ needs design                |
+| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`, `pendingImages`; removes orphaned proposal images                                      | None                                                                                                          | ⬜ after 2–4 settle            |
 
 Later, each purely additive: personal notes and "made it" log, forks, meal plans, shopping lists.
+
+### Release 2 — Convert the data model (next)
+
+Reviewed by an independent agent on 2026-10-11; its findings are folded in here.
+
+1. **Data script** `scripts/migrations/002-convert-model.js` (admin SDK, `--project` required, dry run unless `--apply`, idempotent):
+   - every recipe: `authorId` = `userId` or `null`; `visibility` = `approved ? 'published' : 'private'`; `stage: 'tested'`;
+   - every recipe with `approved: false` (an open proposal): a `recipe_submissions/{recipeId}` doc with `status: 'pending'`.
+2. **App:** every list reads `visibility == 'published'` instead of `approved == true` (home, categories, header search, related picker, image enhancer, dashboard "all recipes" — managers can read private recipes, so it must filter too); the related-recipes self-heal validates with `visibility`. Proposing writes `authorId`, `visibility: 'private'`, `stage`, keeps writing `userId`/`approved`, and creates the pending submission. The dashboard queue reads pending submissions; approving updates the recipe (`visibility` + `approved`) and the submission together; rejecting updates the submission.
+3. **Rules:** recipe read/create/update on `visibility` + author (`authorId`, falling back to `userId`); create requires approved family or manager, `visibility: 'private'`, a valid `stage`; immutable `visibility`/`authorId`/`stage`/`sourceRecipeId` for non-managers; `approved` and `visibility` must agree. `recipe_submissions`: create by the author as `pending`, manager-only update, author withdraws while pending, read by author and managers. `storage.rules` `isRecipeAuthor` reads `authorId` with the `userId` fallback. Rules tests for all of it.
+4. **Functions:** the new-proposal notification moves from `onRecipeCreated` (fires on `approved === false`) to `onDocumentCreated('recipe_submissions/{id}')`, otherwise managers would be pinged for every private draft. `recipe-transfer.js` writes the new fields (it is gated; delete it in release 5).
+5. **Indexes:** add composite indexes for the new queries to `firestore.indexes.json` in the same release (a missing index only fails at runtime).
+6. **Rollout:** refresh the test copy from production → rehearse the script (dry run, apply) → deploy → staging test. Production window: **backup → deploy indexes (let them build) → run the script (additive, safe with the old site) → merge `main`, wait for Netlify → deploy rules + functions → smoke test.**
+
+### Notes for releases 3–4 (from the review)
+
+- **3b approval copy** runs server-side (callable or trigger, admin SDK), copies the recipe and its photos (`img/recipes/{type}/{category}/{recipeId}/…` plus the `_400x400`/`_1080x1080` variants), is idempotent via `publishedId`, and writes the submission `status` last.
+- **Copy-on-publish changes the recipe id:** curated links (`relatedRecipes`) to the private original must map through `sourceRecipeId`; published recipes must never link to private ones.
+- **Missing recipes:** favourites, My Meal and related links can point at deleted or now-unreadable recipes — load recipes one by one (never one `in` query over mixed ids), tolerate not-found, show a "removed" state.
+- **Search:** authors will want their own private recipes too — a second query (`authorId == uid`) merged client-side (rules can't express OR).
+- **Copies:** decide whether the published copy keeps the original's `creationTime`.
+- **Release 4 favourites:** stale open tabs may still write `users.favorites` after the script; have the new client read both, and re-run the idempotent copy right before release 5.
 
 ### Cleanup backlog (release 5 — don't forget)
 
@@ -124,9 +153,10 @@ Local dev and staging share the test project — deploying rules or running a sc
 
 **Deploy window** (on each project, back to back, nobody using the app):
 
+0. Before any release with a data script: refresh the test copy from production (`000-copy-prod-to-test.sh`) and rehearse the script there first.
 1. Back up Firestore with a managed export (releases 2, 4, 5).
 2. Merge; wait for the Netlify deploy to finish.
-3. `firebase deploy --only firestore:rules,storage,functions --project staging` (or `--project production`) — always an explicit alias, never a bare `firebase deploy` (the default alias is the test project). The gcloud default project is unrelated, so every `gcloud` command needs `--project` too.
+3. `firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project staging` (or `--project production`) — always an explicit alias, never a bare `firebase deploy` (the default alias is the test project). The gcloud default project is unrelated, so every `gcloud` command needs `--project` too.
 4. Run the release's data script: dry run, check counts, then `--apply`.
 5. Smoke-test the release's section of `tests/docs/MANUAL_TESTING_PLAN.md` as guest, user, approved and manager.
 
@@ -136,7 +166,7 @@ Local dev and staging share the test project — deploying rules or running a sc
 
 **Production safety nets** (checked 2026-10-10): Firestore point-in-time recovery (7 days) and weekly scheduled backups (98-day retention); Storage object versioning + 7-day soft delete. **Auth users have no backup.**
 
-Cloud Functions are affected in releases 2–3 and 5: `functions/recipe-transfer.js` writes `approved`, and the new-proposal notification (`onRecipeCreated`) fires on `approved === false`.
+Cloud Functions are affected in releases 2, 3b and 5: `functions/recipe-transfer.js` writes `approved`; the new-proposal notification moves to `recipe_submissions` in release 2; the approval copy is a function in 3b.
 
 ## Prod → test copy (release 0)
 
@@ -148,4 +178,4 @@ Lessons from the first run: the test project's Firestore service agent needs rea
 
 1. Read this file, then the State column above.
 2. Check `git log --oneline development` and open PRs for the release in progress.
-3. For release 1, start from "Release 1 — Lock down security"; remember the approval gate before any rules deploy.
+3. For the next release, start from its section above (release 2: "Release 2 — Convert the data model"); security-rule changes need the user's approval before any deploy.
