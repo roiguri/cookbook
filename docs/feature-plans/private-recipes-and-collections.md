@@ -306,7 +306,7 @@ Found while testing on staging, or raised for discussion (2026-10-11). **Resolve
 - **Rollout impact:** low — nobody uses the app during the window; any tab opened afterwards loads the new code. Ask family members to reload open tabs after the rollout.
 - **Follow-up (GitHub issue):** a "new version available — reload" prompt for tabs left open across a deploy; review the worker's role overall (offline value vs. the Firebase messaging worker).
 
-### 2. Gemini API credits (AI features)
+### 2. Gemini API credits (AI features) — ✅ settled by the user (2026-10-11)
 
 - **What happened:** the AI image enhancer failed on staging with `402 — prepayment credits are depleted` (Google AI Studio). Recipe import from photo/URL/video uses the same key and would fail too. Topped up 2026-10-11; the enhancer then worked.
 - **Production:** no credit errors in its logs in the last 30 days, and a URL import succeeded on 2026-10-09 — but its key may share the same AI Studio billing and run out the same way.
@@ -318,6 +318,20 @@ Found while testing on staging, or raised for discussion (2026-10-11). **Resolve
 - **Decision (option B):** searching finds the reader's own private recipes too — badged (לנסות / פרטי / ממתין / נדחה) — for approved family and managers. Browsing Categories without a search stays the family book. My recipes searches within its tab, like Categories. (Own published recipes were already in every search: publishing is in place.)
 - **Built:** `RecipeSearchService.listSearchable` — the one place that merges the two queries (Firestore can't express "published OR mine"); used by the header search (single-match shortcut) and the Categories page while a search is active (the shared list controller now passes the search text to its data source). `RecipeSubmissionService.listMineWithStatus` gives My recipes and search the same badges.
 - **To verify on staging:** search a word from one of your private recipes from the header and from Categories.
+
+## Release 3 (3a–3c + search) — final staging test (2026-10-11)
+
+Staging and the test project carry everything (rules, functions incl. `onRecipeResubmitted`, 004 backfill applied). Collections are postponed (#373); known gaps accepted for this rollout: #381.
+
+**Claude (automated / inspection) — done 2026-10-11:** unit 674/674 · rules 64/64 · visual e2e 2/2 (mock fixed for `visibility`) · signed-out smoke of staging, desktop + phone, 0 console errors (home, Categories, search, published recipe, private recipe → not found, library → home, propose title) · data-integrity scan of the test project: consistent fields, authors, submissions ↔ recipes, all 61 file paths exist (only the known pre-3b-E leftover submission). **After each of the user's sections:** check the written data (inspector). **At the dress rehearsal:** rerun the integrity scan and the smoke on the fresh production copy.
+
+**User (manual, phone first):**
+
+- **A — manager:** nav (דף הבית · מתכונים · הספרייה שלי · המטעמים של סבתא · ממשק ניהול) · library chips, counts, search, category, no "saved" option in עוד מסננים · "סימון כנבדק" on to-try cards (pending too) · heart in Categories → שמרתי; un-heart in the library · new recipe עוד לא + רק אני → לנסות · import from a link → defaults to עוד לא · own recipe menu in each state (to try, private, pending, rejected, published) · edit with preview keeps unsaved edits · delete a to-try recipe → lands on לנסות · header search finds an own private recipe · dashboard: flags, sender name, banner, reject with note, approve → message; dashboard edit of a pending recipe publishes it; dashboard delete · My meal with an own private recipe · (if notifications are on) push on a resubmission.
+- **B — approved:** send a recipe → ממתין · cancel → private · send again; A rejects → B sees נדחה + note → edit & resubmit → A sees "הגשה חוזרת" · B can't open A's private recipe · B deletes an own recipe.
+- **B — plain user:** nav (הספרייה שלי + הצעת מתכון) · library shows saved only, no chips/new button · propose → no save choice; A rejects → it's deleted (confirmation).
+- **Phone specifics:** title + "מתכון חדש" on one row, chip row scrolls with edge fades · recipe menu works when opened from a direct link · signing out on a private recipe → home.
+- **Regression:** Categories browse + "רק מתכונים ששמרתי" filter · published recipe menu (הצע עריכה, הוסף לארוחה) · an edit suggestion end to end · המטעמים של סבתא · AI import and image enhancer.
 
 ## Production rollout runbook
 
