@@ -335,6 +335,8 @@ Staging and the test project carry everything (rules, functions incl. `onRecipeR
 
 ## Production rollout runbook
 
+**Dress rehearsal — 2026-10-11 (on the test project, fresh production copy):** copy verified (62 recipes · 573 files · 9 accounts, prod = test) → indexes → `002` (62 converted, 7 pending submissions for open proposals, re-run no-op) → `003` (53 recipes repointed, 56 photos + 4 media, 280 files copied, re-run no-op) → `004` (29 recipes authored by the manager, re-run 0) → extension paths already set on test → rules + storage + functions deployed with `--force` → integrity scan clean (60 file paths, 7 pending submissions) → signed-out smoke, desktop + phone, 0 console errors. Remaining: the user's manual checklist on this data.
+
 Production is held until the whole feature is complete (user decision 2026-10-11), so it rolls out **in one window following this list, top to bottom**. Every release adds its production steps here when it reaches staging — including steps that aren't code (extension settings, function deletions). Before production, do a **dress rehearsal**: fresh production copy into test (`000-copy-prod-to-test.sh`), then run this exact list against `--project staging` and run the staging checklists.
 
 - [ ] 1. Back up production Firestore (managed export) and note the time (point-in-time recovery covers 7 days; Storage has versioning + soft delete).
@@ -342,7 +344,7 @@ Production is held until the whole feature is complete (user decision 2026-10-11
 - [ ] 3. `node scripts/migrations/002-convert-model.mjs --project production` (dry run), check counts, then `--apply`. _(release 2)_
 - [ ] 4. `node scripts/migrations/003-restructure-storage.mjs --project production` (dry run), check counts, then `--apply`. _(release 2b)_
 - [ ] 4b. `node scripts/migrations/004-backfill-author.mjs --project production --author <manager-uid>` (dry run), check the count (test copy, 2026-10-11: 29 published recipes without an author), then `--apply`. The uid is production's own (Authentication → Users, or your doc in `users`); never commit it. _(release 3b)_
-- [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production. _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
+- [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production — set it to exactly what test has: `/img/recipes/full,/recipes/*/images,/suggestions/*/images,/users/*/recipes/*/images` (production today: `/img/recipes/full` only, read 2026-10-11). _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
 - [ ] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
 - [ ] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
 - [ ] 0. Pre-flight: every item in "Before production: open issues to resolve" is done and verified.
