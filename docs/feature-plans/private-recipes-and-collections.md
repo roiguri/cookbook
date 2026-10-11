@@ -166,6 +166,46 @@ Designs: the "Release 3 · My recipes", "Card badges", "My private recipe" and "
 | 3a-D  | Private recipe page: owner ⋮ menu (status, mark tested, add to meal, delete) and the card's "mark tested"; rule: authors delete their own private recipes | ✅ staging (tested)        |
 | 3a-E  | Edit own recipe (propose page edit mode)                                                                                                                  | ✅ staging (awaiting test) |
 
+### Release 3b — Family-book submissions (plan, 2026-10-11)
+
+Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -review / -reject / -approved), "My private recipe" pending + rejected, and "My recipes · Submitted". Same principles as 3a: **one implementation per status/action, reuse over pixel-matching the mock.**
+
+**What changes for the user**
+
+- **Approve = publish a copy.** The manager's approval creates a new published recipe (`sourceRecipeId` → the private original, author kept) with copies of its photos/media. The private original is untouched and stays in the author's library or To try (stage is the author's alone). Later changes to the published copy go through edit suggestions.
+- **Reject = a note, not a delete.** The manager must write what to fix; the recipe stays private. The author sees the note on the recipe page and in "נשלחו לפרסום", and can edit and **resubmit** (the queue marks it "הגשה חוזרת").
+- **The author controls the submission:** "שליחה לפרסום" from the recipe menu (any private recipe not yet submitted), "ביטול השליחה" while pending, "הסרה מהרשימה" for a rejected one. A pending recipe can still be edited — the manager reviews the latest version.
+- **Badges:** pending / rejected / published join to-try / private, from the submission — on cards, the recipe page and the owner menu (status line + note).
+- **"נשלחו לפרסום" tab** in My recipes, with status chips (הכל / ממתינים / נדחו / פורסמו).
+- **Dashboard queue** in the design's shape: per-row "עוד לא נוסה" and "הגשה חוזרת" flags, a review dialog (the recipe preview + approve / reject), reject with a required note, and an "approved → copy published" confirmation.
+
+**Reuse map**
+
+| Design element                               | Built on                                                            | Change                                                                                                                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Approve → copy                               | `promoteSuggestionFiles` (Cloud Function that copies Storage files) | New manager callable `publishSubmission`: copy doc + files, mark submission approved + `publishedId` — one server-side transaction-like step (client can't copy Storage files). |
+| Reject with note, resubmit, withdraw, remove | `RecipeSubmissionService`, `confirmation-modal` (now with a body)   | `reject(id, { note })` keeps the recipe; `resubmit`, `withdraw`, `remove`; the note field is the save-choice dialog pattern.                                                    |
+| Status on cards / page / menu                | `getRecipeStatus`, `<status-badge>`, owner menu                     | Status takes the submission into account; lists attach the author's submissions (one query).                                                                                    |
+| Review dialog                                | `recipe-preview-modal` (already has approve / reject)               | Banner ("עוד לא נוסה"), the copy note, new handlers.                                                                                                                            |
+| Submitted tab                                | My recipes page + `RecipeListController`                            | Third tab; data source = the author's submissions joined with their recipes.                                                                                                    |
+
+**Slices** (each: PR → `development`; `staging` pushed when there's something to test)
+
+| Slice | What                                                                                                                                             | Status |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 3b-A  | Backend: `publishSubmission` function, reject-with-note, resubmit / withdraw / remove; rules for the author's submission actions; emulator tests | ⬜     |
+| 3b-B  | Statuses: pending / rejected / published on cards, recipe page, owner menu (send, cancel, resubmit, note)                                        | ⬜     |
+| 3b-C  | "נשלחו לפרסום" tab with status chips                                                                                                             | ⬜     |
+| 3b-D  | Dashboard queue, review / reject / approved dialogs                                                                                              | ⬜     |
+| 3b-E  | Cleanup: deleting a recipe removes its submission (author and dashboard); queue self-heal updated                                                | ⬜     |
+
+**Open decisions**
+
+1. **Credit on the published copy** — the design says "עם הקרדיט של יעל". Show the author's name on the published recipe (needs their display name, readable by everyone), or keep `authorId` only for now?
+2. **Submitted tab layout** — the design uses status rows (note + actions inline). Reuse would be the normal card grid with badges, the note and actions living on the recipe page menu. Rows as designed, or cards?
+3. **Already-published originals** — once approved, can the author send the original again to update the book? _Suggested: no — changes to the book go through edit suggestions (as the approved dialog says)._
+4. **Plain users (`user`)** — they have no My recipes. Should they get the "נשלחו לפרסום" view (to see rejections and resubmit), or stay as today (submit and forget)?
+
 ### Notes for releases 3–4 (from the review)
 
 - **Stage is the author's alone (decided 2026-10-11).** Submitting, approval and publishing never change the private original's `stage`: a "to try" recipe can be submitted (the save choice warns, but allows it), and stays in the author's To try tab — with its pending/published badge — until the author marks it tested.
