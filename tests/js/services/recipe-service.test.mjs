@@ -429,6 +429,44 @@ describe('RecipeService', () => {
     });
   });
 
+  describe('listMine', () => {
+    it('queries the author’s private recipes for a stage, newest first', async () => {
+      firestoreMocks.queryDocuments.mockResolvedValue([
+        { id: 'old', creationTime: { toMillis: () => 1 } },
+        { id: 'new', creationTime: { toMillis: () => 2 } },
+      ]);
+      const result = await RecipeService.listMine('u1', {
+        stage: 'to-try',
+        where: [['category', '==', 'desserts']],
+      });
+      expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipes', {
+        where: [
+          ['authorId', '==', 'u1'],
+          ['visibility', '==', 'private'],
+          ['stage', '==', 'to-try'],
+          ['category', '==', 'desserts'],
+        ],
+      });
+      expect(result.map((r) => r.id)).toEqual(['new', 'old']);
+    });
+
+    it('omits the stage filter when no stage is given', async () => {
+      firestoreMocks.queryDocuments.mockResolvedValue([]);
+      await RecipeService.listMine('u1');
+      expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipes', {
+        where: [
+          ['authorId', '==', 'u1'],
+          ['visibility', '==', 'private'],
+        ],
+      });
+    });
+
+    it('returns nothing without a user', async () => {
+      expect(await RecipeService.listMine(null)).toEqual([]);
+      expect(firestoreMocks.queryDocuments).not.toHaveBeenCalled();
+    });
+  });
+
   describe('delete', () => {
     it('removes approved + pending image files, media, and the document', async () => {
       firestoreMocks.getDocument.mockResolvedValue({

@@ -144,6 +144,14 @@ function registerRoutes(router, pageManager) {
     });
   });
 
+  router.registerRoute('/my-recipes', async (params) => {
+    const module = await import('./app/pages/my-recipes-page.js');
+    await pageManager.loadPage(module.default || module, {
+      ...params,
+      route: '/my-recipes',
+    });
+  });
+
   router.registerRoute('/my-meal', async (params) => {
     const module = await import('./app/pages/my-meal-page.js');
     await pageManager.loadPage(module.default || module, {

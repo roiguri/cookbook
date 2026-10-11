@@ -65,6 +65,7 @@ Architecture, conventions, full service surface, and reusable patterns: [`docs/a
 | `/propose-recipe`   | `propose-recipe-page.js`    |
 | `/grandmas-cooking` | `documents-page.js`         |
 | `/dashboard`        | `manager-dashboard-page.js` |
+| `/my-recipes`       | `my-recipes-page.js`        |
 | `/my-meal`          | `my-meal-page.js`           |
 | `/games`            | `games-page.js`             |
 
@@ -111,7 +112,7 @@ import { icons } from '../../js/icons.js'; // adjust path as needed
 element.innerHTML = icons.heart; // renders the SVG inline
 ```
 
-Available keys: `heart`, `archive`, `userShield`, `home`, `bookOpen`, `plusCircle`, `utensils`, `link`, `times`, `trashAlt`, `check`.
+Available keys include: `heart`, `archive`, `userShield`, `home`, `bookOpen`, `plusCircle`, `plus`, `utensils`, `link`, `times`, `trashAlt`, `check`, `bookmark`, `lock`, `clock` (see `icons.js` for the full list).
 
 To add a new icon: find the SVG at `github.com/FortAwesome/Font-Awesome/tree/5.15.4/svgs/solid/<name>.svg`, copy the `viewBox` and `<path d="...">`, add an entry in `icons.js` using the `svg()` helper. Use camelCase for hyphenated names.
 

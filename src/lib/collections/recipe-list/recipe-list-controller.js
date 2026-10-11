@@ -44,6 +44,8 @@ export class RecipeListController {
    *   Called when the visible state changes (e.g. to update the page title).
    * @param {(state: RecipeListController) => void} [options.onUrlChanged] -
    *   Called when the state should be reflected in the URL.
+   * @param {(state: RecipeListController) => void} [options.onRecipesLoaded] -
+   *   Called after each load from the data source (e.g. to show an empty state).
    * @param {string} [options.gridId='recipe-presentation-grid']
    * @param {string} [options.filterId='unified-filter']
    * @param {number} [options.recipesPerPage=8]
@@ -53,6 +55,7 @@ export class RecipeListController {
     loadRecipes,
     onStateChanged = () => {},
     onUrlChanged = () => {},
+    onRecipesLoaded = () => {},
     gridId = 'recipe-presentation-grid',
     filterId = 'unified-filter',
     recipesPerPage = 8,
@@ -64,6 +67,7 @@ export class RecipeListController {
     this.loadRecipes = loadRecipes;
     this.onStateChanged = onStateChanged;
     this.onUrlChanged = onUrlChanged;
+    this.onRecipesLoaded = onRecipesLoaded;
     this.gridId = gridId;
     this.filterId = filterId;
     this.recipesPerPage = recipesPerPage;
@@ -228,6 +232,7 @@ export class RecipeListController {
 
       this.displayedRecipes = filteredRecipes;
       this.currentPage = 1;
+      this.onRecipesLoaded(this);
     } catch (error) {
       console.error('Error loading recipes:', error);
       this.handleError(error, 'loading recipes');

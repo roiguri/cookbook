@@ -311,6 +311,10 @@ class RecipePresentationGrid extends HTMLElement {
         recipeCard.setAttribute('show-add-to-meal', 'true');
       }
 
+      if (this.hasAttribute('hide-statuses')) {
+        recipeCard.setAttribute('hide-statuses', this.getAttribute('hide-statuses'));
+      }
+
       cardContainer.appendChild(recipeCard);
       fragment.appendChild(cardContainer);
     }

@@ -1,0 +1,74 @@
+<div class="categories-page my-recipes-page">
+  <main>
+    <div class="mr-head" dir="rtl">
+      <h1>המתכונים שלי</h1>
+      <p class="body-text-he mr-head__lede" id="mr-lede"></p>
+      <div class="mr-bar">
+        <nav aria-label="המתכונים שלי">
+          <ul class="mr-tabs">
+            <li>
+              <a href="/my-recipes" data-tab="to-try"
+                >לנסות <span class="count" data-count="to-try"></span
+              ></a>
+            </li>
+            <li>
+              <a href="/my-recipes?tab=library" data-tab="library"
+                >הספרייה שלי <span class="count" data-count="library"></span
+              ></a>
+            </li>
+          </ul>
+        </nav>
+        <a class="btn btn-primary mr-new" href="/propose-recipe" id="mr-new"></a>
+      </div>
+    </div>
+
+    <div id="mr-list">
+      <unified-recipe-filter
+        id="unified-filter"
+        dir="rtl"
+        layout-mode="categories-page"
+        show-badge="true"
+      >
+      </unified-recipe-filter>
+
+      <div class="categories-content">
+        <recipe-presentation-grid
+          id="recipe-presentation-grid"
+          dir="rtl"
+          recipes-per-page="12"
+          show-pagination="true"
+          show-favorites="false"
+          show-add-to-meal="true"
+        >
+        </recipe-presentation-grid>
+      </div>
+    </div>
+
+    <div class="categories-content" id="mr-empty-wrap" hidden>
+      <section class="mr-empty" dir="rtl" aria-labelledby="mr-empty-title">
+        <svg
+          class="art"
+          viewBox="0 0 120 120"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M30 22h52a8 8 0 0 1 8 8v68H38a8 8 0 0 1-8-8z"></path>
+          <path d="M30 90a8 8 0 0 1 8-8h52"></path>
+          <path class="accent" d="M46 42h28M46 54h20" stroke-dasharray="3 5"></path>
+        </svg>
+        <h2 id="mr-empty-title" class="heading-3-he"></h2>
+        <p class="body-text-he" id="mr-empty-text"></p>
+        <div class="mr-empty__actions">
+          <a class="btn btn-primary" href="/propose-recipe" id="mr-empty-new"></a>
+          <a class="btn btn-ghost" href="/my-recipes" id="mr-empty-to-try" hidden
+            >ללשונית ״לנסות״</a
+          >
+        </div>
+      </section>
+    </div>
+  </main>
+</div>

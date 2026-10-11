@@ -128,6 +128,28 @@ describe('reading recipes', () => {
     await assertFails(getDocs(collection(db(OTHER), 'recipes')));
   });
 
+  test('an author can list their own private recipes (My recipes), by stage too', async () => {
+    const mine = (extra = []) =>
+      query(
+        collection(db(AUTHOR), 'recipes'),
+        where('authorId', '==', AUTHOR),
+        where('visibility', '==', 'private'),
+        ...extra,
+      );
+    const snap = await assertSucceeds(getDocs(mine()));
+    expect(snap.docs.map((d) => d.id)).toEqual(['pending']);
+    await assertSucceeds(getDocs(mine([where('stage', '==', 'to-try')])));
+  });
+
+  test('nobody can list someone else’s private recipes', async () => {
+    const q = query(
+      collection(db(OTHER), 'recipes'),
+      where('authorId', '==', AUTHOR),
+      where('visibility', '==', 'private'),
+    );
+    await assertFails(getDocs(q));
+  });
+
   test('a manager can list private recipes', async () => {
     const q = query(collection(db(MANAGER), 'recipes'), where('visibility', '==', 'private'));
     await assertSucceeds(getDocs(q));
