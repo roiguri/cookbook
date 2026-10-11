@@ -164,5 +164,5 @@ Deeper references — consult these before making non-trivial changes:
 - `docs/lessons/performance.md`, `docs/lessons/accessibility.md`, `docs/lessons/security.md` — patterns and pitfalls discovered while building.
 - `docs/firebase-image-optimization.md` — image pipeline configuration.
 - `docs/code-review-2026-05.md` — open code-review findings (P0–P4) not yet resolved.
-- `docs/feature-plans/private-recipes-and-collections.md` — **in-progress** data-model migration (private recipes, To try, collections): decisions, release status, deploy procedure.
+- `docs/archive/private-recipes-and-collections.md` — the private recipes / submissions / library migration (shipped 2026-10-11): decisions, data model, runbook and rollout record. Open follow-ups are GitHub issues (#390 cleanup with the resize-extension deadline, #373 collections).
 - `docs/archive/` — superseded/historical documents kept for reference.

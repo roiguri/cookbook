@@ -1,5 +1,7 @@
 # Feature Plan: Private recipes, To try, and collections (data-model migration)
 
+> **Archived 2026-10-11 — shipped to production** (`main` @ `37777fa`; record in the runbook section). Kept for its decisions, runbook and migration scripts' context. Open follow-ups: release-5 cleanup **#390** (resize extension deadline 2027-03-31), collections **#373**, private-recipe gaps **#381**, share target **#382**, sharing private recipes **#383**, service worker **#370**.
+
 ## Context
 
 Today every recipe lives in one shared `recipes` collection and "published" is a single `approved` flag that **only the UI respects**: `firestore.rules` lets anyone read every recipe (`allow read: if true`), authors can set `approved: true` on their own recipes, favourites and My Meal accept any recipe id, and any signed-in user can delete any recipe image in Storage.
