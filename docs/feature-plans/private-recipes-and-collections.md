@@ -144,11 +144,21 @@ Designs: the "Release 3 · My recipes", "Card badges", "My private recipe" and "
 - Rules: creating a private recipe that isn't submitted in the same batch becomes **approved family / managers only** (`getAfter` on the submission); role `user` keeps proposing (create + submit). Authors may **delete** their own private recipes. Marking tested is an author update of `stage` (already allowed).
 - Files of private recipes stay in `recipes/{id}/…` in 3a (privacy model as decided in 2b); the `users/{uid}/…` area is used once publish-as-copy (3b) separates private originals from published copies.
 
-**Open decisions**
+**Decisions (2026-10-11)**
 
-1. **Role `user` and My recipes:** hide the header entry and the page for `user` (they can only propose, as today), or let them have a private library too? _Suggested: hide — matches "approved family only"._
-2. **Edit own recipe:** reuse the propose page in edit mode (design) — confirm, rather than the manager's edit modal.
-3. **Refactor risk:** extracting the Categories list behaviour touches a page that works today; it's the price of consistent behaviour. Covered by unit tests on the controller and a staging regression pass on Categories.
+1. Role `user` gets no My recipes (no header entry, no page); they keep proposing as today.
+2. Editing your own recipe is its **own slice** (3a-E), after the rest of 3a.
+3. Extracting the Categories list behaviour is accepted; covered by controller unit tests and a staging regression pass on Categories.
+
+**Slices** (each: branch → PR → `development` → `staging` → staging test with the inspector; production held)
+
+| Slice | What                                                                                                                                                      | Status  |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| 3a-A  | Extract the Categories list behaviour into a shared list controller — **no visible change**                                                               | ⏳ next |
+| 3a-B  | My recipes page: tabs (To try / My library), `listMine`, card status badges, empty state, header entry; index + read rules for own private recipes        | ⬜      |
+| 3a-C  | New recipe save choice (cooked? · who sees?), import → To try, untested warning; rule: unsubmitted private recipes are approved-family only               | ⬜      |
+| 3a-D  | Private recipe page: owner ⋮ menu (status, mark tested, add to meal, delete) and the card's "mark tested"; rule: authors delete their own private recipes | ⬜      |
+| 3a-E  | Edit own recipe (propose page edit mode)                                                                                                                  | ⬜      |
 
 ### Notes for releases 3–4 (from the review)
 
