@@ -4,6 +4,7 @@ import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import { RECIPE_STATUS } from '../../js/utils/recipes/recipe-status.js';
 import { RecipeListController } from '../../lib/collections/recipe-list/recipe-list-controller.js';
+import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
 import '../../styles/pages/categories-spa.css';
 import '../../styles/pages/my-recipes-spa.css';
 
@@ -16,6 +17,7 @@ const TABS = {
       'מצאתם מתכון באתר, בספר או על פתק? הוסיפו אותו בטופס המתכון החדש — אפשר לייבא מקישור או מתמונה — והוא יחכה כאן עד שתבשלו.',
     // The "to try" badge is the point of this tab, so it stays.
     hideStatuses: '',
+    showMarkTested: true,
   },
   library: {
     stage: STAGE.TESTED,
@@ -74,6 +76,11 @@ export default {
       favoritesOnly: params?.favorites === 'true',
     });
     this.applyTab();
+
+    this.onMarkTested = (event) => this.markTested(event.detail.recipeId);
+    container
+      .querySelector('#recipe-presentation-grid')
+      ?.addEventListener('recipe-mark-tested', this.onMarkTested);
 
     this.authUnsubscribe = authService.addAuthObserver(({ user: current }) => {
       if (!current) this.redirectToHome();
@@ -182,6 +189,20 @@ export default {
     const grid = $('#recipe-presentation-grid');
     if (config.hideStatuses) grid.setAttribute('hide-statuses', config.hideStatuses);
     else grid.removeAttribute('hide-statuses');
+    grid.toggleAttribute('show-mark-tested', !!config.showMarkTested);
+  },
+
+  /** "Mark tested" on a card: the same service call as the recipe page menu. */
+  async markTested(recipeId) {
+    if (!recipeId) return;
+    try {
+      await RecipeService.markTested(recipeId);
+      showToast('סומן כנבדק — המתכון עבר לספרייה שלכם', 'success');
+      await this.list?.reloadAndDisplay();
+    } catch (error) {
+      console.error('Error marking recipe tested:', error);
+      showToast('לא הצלחנו לסמן את המתכון כנבדק. נסו שוב.', 'error');
+    }
   },
 
   /** The empty state replaces the list only when the tab has no recipes at all. */

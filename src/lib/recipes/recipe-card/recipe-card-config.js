@@ -52,6 +52,7 @@ export const RECIPE_CARD_CONFIG = {
     favoriteChanged: 'recipe-favorite-changed',
     addFavorite: 'add-favorite',
     removeFavorite: 'remove-favorite',
+    markTested: 'recipe-mark-tested',
   },
 
   // File paths

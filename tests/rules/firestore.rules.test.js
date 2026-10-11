@@ -277,10 +277,25 @@ describe('updating recipes', () => {
 });
 
 describe('deleting recipes', () => {
-  test('only managers can delete recipes', async () => {
-    await assertFails(deleteDoc(doc(db(AUTHOR), 'recipes', 'pending')));
+  test('an author can delete their own private recipe', async () => {
+    await assertSucceeds(deleteDoc(doc(db(AUTHOR), 'recipes', 'pending')));
+  });
+
+  test('nobody else can delete a private recipe; published recipes are manager-only', async () => {
+    await assertFails(deleteDoc(doc(db(OTHER), 'recipes', 'pending')));
+    await assertFails(deleteDoc(doc(db(AUTHOR), 'recipes', 'published')));
     await assertFails(deleteDoc(doc(db(OTHER), 'recipes', 'published')));
-    await assertSucceeds(deleteDoc(doc(db(MANAGER), 'recipes', 'pending')));
+    await assertSucceeds(deleteDoc(doc(db(MANAGER), 'recipes', 'published')));
+  });
+
+  test('an author can mark their own to-try recipe tested', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'recipes', 'pending'), { stage: 'to-try' });
+    });
+    await assertSucceeds(
+      updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { stage: 'tested', testedAt: new Date() }),
+    );
+    await assertFails(updateDoc(doc(db(OTHER), 'recipes', 'pending'), { stage: 'tested' }));
   });
 });
 

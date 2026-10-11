@@ -33,7 +33,7 @@
  * - Lazy loading for images
  * - Consistent dimensions to prevent layout shifts
  */
-import { getRecipeStatus } from '../../../js/utils/recipes/recipe-status.js';
+import { getRecipeStatus, RECIPE_STATUS } from '../../../js/utils/recipes/recipe-status.js';
 import '../status-badge/status-badge.js';
 import { icons } from '../../../js/icons.js';
 import authService from '../../../js/services/auth/auth-service.js';
@@ -52,6 +52,7 @@ import { RecipeImageService } from '../../../js/services/recipes/recipe-image-se
 import { initLazyLoading, lazyImageLoader } from '../../../js/utils/lazy-loading.js';
 import RECIPE_CARD_CONFIG from './recipe-card-config.js';
 import { recipeCardStyles } from './recipe-card-styles.js';
+import baseButtonStyles from '../../../styles/components/base_button.css?inline';
 
 class RecipeCard extends HTMLElement {
   static get observedAttributes() {
@@ -223,7 +224,7 @@ class RecipeCard extends HTMLElement {
     if (this._stylesLoaded) return;
 
     const style = document.createElement('style');
-    style.textContent = recipeCardStyles;
+    style.textContent = `${baseButtonStyles}\n${recipeCardStyles}`;
     this.shadowRoot.appendChild(style);
 
     this._stylesLoaded = true;
@@ -433,6 +434,21 @@ class RecipeCard extends HTMLElement {
       });
     }
 
+    const markTestedBtn = this.shadowRoot.querySelector('.mark-tested-btn');
+    if (markTestedBtn) {
+      markTestedBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent card navigation
+        e.preventDefault();
+        this.dispatchEvent(
+          new CustomEvent(RECIPE_CARD_CONFIG.EVENTS.markTested, {
+            bubbles: true,
+            composed: true,
+            detail: { recipeId: this._recipeData?.id || this.getAttribute('recipe-id') },
+          }),
+        );
+      });
+    }
+
     const addToMealBtn = this.shadowRoot.querySelector('.add-to-meal-btn');
     if (addToMealBtn) {
       addToMealBtn.addEventListener('click', async (e) => {
@@ -636,6 +652,16 @@ class RecipeCard extends HTMLElement {
       const badge = document.createElement('status-badge');
       badge.setAttribute('status', status);
       photo.appendChild(badge);
+    }
+
+    // "Mark tested" on a To-try card, where the list asks for it (My recipes)
+    const content = clone.querySelector('.recipe-content');
+    if (status === RECIPE_STATUS.TO_TRY && this.hasAttribute('show-mark-tested') && content) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-ghost btn-sm mark-tested-btn';
+      btn.innerHTML = `${icons.check}<span>סימון כנבדק</span>`;
+      content.appendChild(btn);
     }
 
     // Handle add to meal button visibility

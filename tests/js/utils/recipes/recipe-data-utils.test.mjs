@@ -138,6 +138,7 @@ describe('recipe-data-utils', () => {
         visibility: 'published',
         stage: 'tested',
         creationTime: 1234567890,
+        testedAt: null,
         updatedAt: 1234567891,
       };
       const formatted = formatRecipeData(raw);
@@ -189,6 +190,7 @@ describe('recipe-data-utils', () => {
         visibility: 'private',
         stage: 'tested',
         creationTime: null,
+        testedAt: null,
         updatedAt: null,
       });
     });

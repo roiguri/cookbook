@@ -145,8 +145,10 @@ service cloud.firestore {
                             && request.resource.data.get('sourceRecipeId', null) == resource.data.get('sourceRecipeId', null)));
 
       // DELETE:
-      // - Managers only
-      allow delete: if isManager();
+      // - Managers can delete any recipe.
+      // - An author can delete their own private recipe (My recipes). Published
+      //   recipes belong to the family book and stay manager-only.
+      allow delete: if isManager() || (isAuthor() && !isPublished(resource.data));
     }
 
     // =========================================================================
