@@ -321,7 +321,7 @@ export default {
       try {
         await RecipeSubmissionService.deleteRecipe(id);
         showToast('המתכון נמחק', 'success');
-        const tab = recipe?.stage === STAGE.TO_TRY ? '?tab=to-try' : '';
+        const tab = recipe?.stage === STAGE.TO_TRY ? '?view=to-try' : '';
         window.spa?.router?.navigate(`/my-recipes${tab}`);
       } catch (error) {
         console.error('Error deleting recipe:', error);
