@@ -161,16 +161,42 @@
 }
 
 @media (max-width: 768px) {
+  /* Phone (mock B): the title and "מתכון חדש" share a row, the chips scroll
+     below it; the description is left out to keep the list close. */
   .spa-content .my-recipes-page .mr-head {
-    padding: var(--sp-xl) var(--gutter) var(--sp-md);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title new'
+      'chips chips';
+    align-items: center;
+    column-gap: var(--sp-sm);
+    row-gap: var(--sp-sm);
+    padding: var(--sp-lg) var(--sp-md) var(--sp-sm);
+    text-align: start;
   }
 
+  .spa-content .my-recipes-page .mr-head h1 {
+    grid-area: title;
+    font-size: var(--step-3);
+  }
+
+  .spa-content .my-recipes-page .mr-head__lede {
+    display: none;
+  }
+
+  /* Its children join the head's grid */
   .spa-content .my-recipes-page .mr-bar {
-    grid-template-columns: 1fr;
-    justify-items: center;
+    display: contents;
+  }
+
+  .spa-content .my-recipes-page .mr-bar .mr-new {
+    grid-area: new;
+    justify-self: end;
   }
 
   .spa-content .my-recipes-page .mr-bar nav {
+    grid-area: chips;
     width: 100%;
     overflow-x: auto;
   }
@@ -179,12 +205,6 @@
     flex-wrap: nowrap;
     justify-content: flex-start;
     width: max-content;
-  }
-
-  .spa-content .my-recipes-page .mr-bar nav,
-  .spa-content .my-recipes-page .mr-bar .mr-new {
-    grid-column: 1;
-    justify-self: center;
   }
 
   .spa-content .my-recipes-page .mr-empty {
