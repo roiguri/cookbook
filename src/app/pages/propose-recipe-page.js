@@ -97,6 +97,10 @@ export default {
           importBtn.style.display = isApproved ? '' : 'none';
         }
 
+        // Approved family save to their private library (and choose whether to
+        // submit); plain users propose to the family book.
+        this.applyCopy(isApproved);
+
         if (typeof proposeRecipeForm.setFormDisabled === 'function') {
           proposeRecipeForm.setFormDisabled(false);
         }
@@ -135,6 +139,24 @@ export default {
           this.authController.openModal();
         },
       );
+    }
+  },
+
+  applyCopy(canKeepPrivate) {
+    const title = document.querySelector('#propose-title');
+    const dek = document.querySelector('#propose-dek');
+    const submitLabel = document.querySelector('#submit-label');
+    const submitBtn = document.querySelector('#action-submit');
+    if (canKeepPrivate) {
+      if (title) title.innerHTML = 'מתכון <em>חדש</em>.';
+      if (dek) dek.textContent = 'כתבו אותו כפי שהייתם מספרים לחבר. הוא יישמר בספרייה הפרטית שלכם.';
+      if (submitLabel) submitLabel.textContent = 'שמירה';
+      submitBtn?.setAttribute('aria-label', 'שמירה');
+    } else {
+      if (title) title.innerHTML = 'הצע <em>מתכון</em> לספר.';
+      if (dek) dek.textContent = 'כתוב אותו כפי שהיית מספר אותו לחבר.';
+      if (submitLabel) submitLabel.textContent = 'שלח מתכון';
+      submitBtn?.setAttribute('aria-label', 'שלח מתכון');
     }
   },
 

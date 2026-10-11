@@ -237,9 +237,18 @@ export class RecipeService {
    *        from the editor; each entry has either `file` (pending) or
    *        existing metadata.
    * @param {string} params.uploadedBy - User UID for uploads.
+   * @param {(recipeId: string) => Array<Object>} [params.alsoWrite] - Extra
+   *        `FirestoreService.batchWrite` operations committed atomically with the
+   *        recipe (e.g. its submission — `RecipeSubmissionService.submissionWrite`).
    * @returns {Promise<{ recipeId: string, mediaUploadResults: Object }>}
    */
-  static async create({ recipeData, imagesToUpload, mediaItemsOrdered, uploadedBy } = {}) {
+  static async create({
+    recipeData,
+    imagesToUpload,
+    mediaItemsOrdered,
+    uploadedBy,
+    alsoWrite,
+  } = {}) {
     if (!recipeData || typeof recipeData !== 'object') {
       throw new Error('RecipeService.create: recipeData is required');
     }
@@ -270,8 +279,15 @@ export class RecipeService {
 
       // Firestore buffers writes while offline rather than rejecting, so race
       // it against a timeout so the caller's UI doesn't hang indefinitely.
+      const extraWrites = alsoWrite ? alsoWrite(recipeId) : [];
+      const write = extraWrites.length
+        ? FirestoreService.batchWrite([
+            { type: 'set', collection: RECIPES_COLLECTION, id: recipeId, data: docPayload },
+            ...extraWrites,
+          ])
+        : FirestoreService.setDocument(RECIPES_COLLECTION, recipeId, docPayload);
       await withFirestoreWriteTimeout(
-        FirestoreService.setDocument(RECIPES_COLLECTION, recipeId, docPayload),
+        write,
         15000,
         'אין חיבור לאינטרנט. אנא בדוק את החיבור ונסה שוב.',
       );

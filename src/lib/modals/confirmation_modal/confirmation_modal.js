@@ -42,11 +42,20 @@ import { Modal } from '../../utilities/modal/modal.js';
  *   'Cancel'               // reject button
  * );
  *
- * @method confirm(message?, title?, approveButtonText?, rejectButtonText?)
+ * // Custom content between the message and the buttons (e.g. a form). The
+ * // body node may carry its own <style>; `className` is added to the dialog
+ * // for the duration of this confirm.
+ * modal.confirm('', 'Save how?', 'Save', 'Cancel', { body: node, className: 'save-choice' });
+ * modal.setApproveText('Save and send');   // e.g. when the body's choice changes
+ *
+ * @method confirm(message?, title?, approveButtonText?, rejectButtonText?, options?)
  * @param {string} [message='האם אתה בטוח?'] - The confirmation message to display
  * @param {string} [title=''] - Modal title. If empty, title section is hidden
  * @param {string} [approveButtonText='כן'] - Text for the approve button (default: "Yes" in Hebrew)
  * @param {string} [rejectButtonText='לא'] - Text for the reject button (default: "No" in Hebrew)
+ * @param {Object} [options]
+ * @param {Node} [options.body] - Content shown between the message and the buttons
+ * @param {string} [options.className] - Extra class on the dialog for this confirm
  *
  * @event confirm-approved - Fired when the approve button is clicked
  * @event confirm-rejected - Fired when the reject button is clicked
@@ -74,6 +83,7 @@ class ConfirmationModal extends Modal {
           <div class="confirmation-modal-content">
             <h2 id="modal-title"></h2>
             <p id="modal-message"></p>
+            <div id="modal-body"></div>
             <div class="modal-buttons">
               <button id="modal-reject-button" class="modal-button reject-button"></button>
               <button id="modal-approve-button" class="modal-button approve-button"></button>
@@ -179,8 +189,17 @@ class ConfirmationModal extends Modal {
     title = '',
     approveButtonText = 'כן',
     rejectButtonText = 'לא',
+    { body = null, className = '' } = {},
   ) {
-    this.shadowRoot.getElementById('modal-message').textContent = message;
+    const messageEl = this.shadowRoot.getElementById('modal-message');
+    messageEl.textContent = message;
+    messageEl.style.display = message ? '' : 'none';
+
+    this.shadowRoot.getElementById('modal-body').replaceChildren(...(body ? [body] : []));
+    const dialog = this.shadowRoot.querySelector('.modal');
+    if (this._customClass) dialog.classList.remove(this._customClass);
+    this._customClass = className || null;
+    if (className) dialog.classList.add(className);
 
     const titleDiv = this.shadowRoot.getElementById('modal-title');
     if (title) {
@@ -198,6 +217,11 @@ class ConfirmationModal extends Modal {
     return new Promise((resolve) => {
       this._resolveConfirm = resolve;
     });
+  }
+
+  /** Change the approve button's label while the dialog is open. */
+  setApproveText(text) {
+    this.shadowRoot.getElementById('modal-approve-button').textContent = text;
   }
 }
 

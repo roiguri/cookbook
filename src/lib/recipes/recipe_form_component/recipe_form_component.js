@@ -580,6 +580,10 @@ class RecipeFormComponent extends HTMLElement {
     // Imported content is unsaved relative to the baseline — recompute so the
     // form is flagged dirty (the baseline is unchanged by populateFromData).
     this.recomputeDirty();
+
+    this.dispatchEvent(
+      new CustomEvent('recipe-imported', { detail: { sourceUrl }, bubbles: true, composed: true }),
+    );
   }
 
   // FIXME: create file object before re-uploading images

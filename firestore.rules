@@ -109,10 +109,17 @@ service cloud.firestore {
                   || isAuthor()
                   || isManager();
 
+      // Created together with its pending submission, in the same batch.
+      function submittedTogether(recipeId) {
+        let path = /databases/$(database)/documents/recipe_submissions/$(recipeId);
+        return existsAfter(path) && getAfter(path).data.authorId == request.auth.uid;
+      }
+
       // CREATE:
-      // - A signed-in user creates a private recipe in their own name (today: a
-      //   proposal, submitted through recipe_submissions). From release 3a,
-      //   unsubmitted private recipes become approved-family-only.
+      // - A signed-in user creates a private recipe in their own name.
+      //   Approved family can keep it private (My recipes: to try / library);
+      //   a plain user can only propose it — the recipe and its submission
+      //   must be written in one batch.
       // - Managers can create published recipes.
       allow create: if isConsistent(request.resource.data)
                     && (isManager()
@@ -120,7 +127,8 @@ service cloud.firestore {
                             && request.resource.data.authorId == request.auth.uid
                             && request.resource.data.get('userId', request.auth.uid) == request.auth.uid
                             && !isPublished(request.resource.data)
-                            && !('sourceRecipeId' in request.resource.data)));
+                            && !('sourceRecipeId' in request.resource.data)
+                            && (isApproved() || submittedTogether(recipeId))));
 
       // UPDATE:
       // - Managers can edit any recipe, including publishing it.
