@@ -120,7 +120,7 @@ export default {
     const pageTitle = document.querySelector('#category-header');
     if (pageTitle) {
       if (activeFilters.favoritesOnly) {
-        pageTitle.textContent = 'מועדפים';
+        pageTitle.textContent = 'מתכונים ששמרתי';
       } else if (currentSearchQuery) {
         pageTitle.textContent = `תוצאות חיפוש: "${currentSearchQuery}"`;
       } else if (currentCategory !== 'all') {
