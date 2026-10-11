@@ -207,6 +207,25 @@ export const recipeCardStyles = `
 }
 
 /* ---- Favorite button ---- */
+/* "Mark tested" (To-try cards in My recipes) — the shared .btn styles */
+.mark-tested-btn {
+    position: relative;
+    z-index: 2;
+    margin-top: 10px;
+    width: 100%;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: var(--font-ui-he);
+}
+
+.mark-tested-btn svg {
+    width: 12px;
+    height: 12px;
+}
+
 /* Recipe status (to try / private / …) — top corner opposite the action buttons */
 .photo status-badge {
     position: absolute;

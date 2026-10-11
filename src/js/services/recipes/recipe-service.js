@@ -435,6 +435,21 @@ export class RecipeService {
   }
 
   /**
+   * Mark the author's "to try" recipe as tested (it moves to their library).
+   * The only path that changes stage to tested after creation — used by the
+   * recipe page menu and the My recipes card button alike.
+   * @param {string} recipeId
+   * @returns {Promise<void>}
+   */
+  static async markTested(recipeId) {
+    if (!recipeId) throw new Error('RecipeService.markTested: recipeId is required');
+    await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, {
+      stage: STAGE.TESTED,
+      testedAt: Timestamp.now(),
+    });
+  }
+
+  /**
    * Completely delete a recipe and all associated media from Storage.
    * Idempotent if the recipe document does not exist.
    * @param {string} recipeId

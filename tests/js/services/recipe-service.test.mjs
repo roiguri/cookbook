@@ -449,6 +449,17 @@ describe('RecipeService', () => {
     });
   });
 
+  describe('markTested', () => {
+    it('sets stage tested and stamps testedAt', async () => {
+      firestoreMocks.updateDocument.mockResolvedValue();
+      await RecipeService.markTested('r1');
+      const [collection, id, data] = firestoreMocks.updateDocument.mock.calls[0];
+      expect([collection, id]).toEqual(['recipes', 'r1']);
+      expect(data.stage).toBe('tested');
+      expect(data.testedAt).toBeDefined();
+    });
+  });
+
   describe('listMine', () => {
     it('queries the author’s private recipes for a stage, newest first', async () => {
       firestoreMocks.queryDocuments.mockResolvedValue([

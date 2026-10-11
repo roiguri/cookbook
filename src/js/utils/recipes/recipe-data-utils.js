@@ -181,6 +181,7 @@ export function formatRecipeData(rawData) {
           : 'private',
     stage: rawData.stage === 'to-try' ? 'to-try' : 'tested',
     creationTime: rawData.creationTime || null,
+    testedAt: rawData.testedAt || null,
     updatedAt: rawData.updatedAt || null,
     relatedRecipes: Array.isArray(rawData.relatedRecipes) ? rawData.relatedRecipes : [],
   };

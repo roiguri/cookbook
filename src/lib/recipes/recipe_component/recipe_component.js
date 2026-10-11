@@ -20,6 +20,8 @@ import '../../media/media-scroller/media-scroller.js';
 import '../../media/fullscreen-media-viewer/fullscreen-media-viewer.js';
 import './parts/cook-mode-container.js';
 import '../recipe_strip/recipe_strip.js';
+import '../status-badge/status-badge.js';
+import { getRecipeStatus } from '../../../js/utils/recipes/recipe-status.js';
 
 /**
  * Recipe Component
@@ -88,7 +90,10 @@ class RecipeComponent extends HTMLElement {
       <div dir="rtl" class="Recipe_component">
 
         <header class="recipe_component__header">
-          <span id="Recipe_component__category" class="Recipe_component__eyebrow"></span>
+          <div class="Recipe_component__eyebrow-row">
+            <span id="Recipe_component__category" class="Recipe_component__eyebrow"></span>
+            <status-badge id="Recipe_component__status" hidden></status-badge>
+          </div>
           <h1 id="Recipe_component__name" class="Recipe_component__title"></h1>
           <p id="Recipe_component__description" class="Recipe_component__description"></p>
           <button id="Recipe_component__show-more" class="Recipe_component__show-more">הצג עוד</button>
@@ -183,6 +188,19 @@ class RecipeComponent extends HTMLElement {
     /* =========================================================
        HEADER
        ========================================================= */
+    /* Category, with the recipe's status badge beside it (private recipes) */
+    .Recipe_component__eyebrow-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .Recipe_component__eyebrow-row .Recipe_component__eyebrow {
+      margin-bottom: 0;
+    }
+
     .Recipe_component__eyebrow {
       font-family: var(--font-mono, monospace);
       font-size: 11px;
@@ -886,8 +904,9 @@ class RecipeComponent extends HTMLElement {
     // reader may not see (an unapproved proposal) is denied by the rules, and is
     // reported the same way so its existence isn't revealed.
     let found = false;
+    let recipe = null;
     try {
-      const recipe = formatRecipeData(await RecipeService.get(this.recipeId));
+      recipe = formatRecipeData(await RecipeService.get(this.recipeId));
       if (recipe) {
         found = true;
         this.updatePageTitle(recipe.name);
@@ -902,7 +921,7 @@ class RecipeComponent extends HTMLElement {
         new CustomEvent('recipe-data-loaded', {
           bubbles: false,
           composed: true,
-          detail: { found },
+          detail: { found, recipe: found ? recipe : null },
         }),
       );
     }
@@ -919,6 +938,10 @@ class RecipeComponent extends HTMLElement {
     this.shadowRoot.getElementById('Recipe_component__difficulty').textContent = recipe.difficulty;
     this.shadowRoot.getElementById('Recipe_component__category').textContent =
       getLocalizedCategoryName(recipe.category);
+    const statusBadge = this.shadowRoot.getElementById('Recipe_component__status');
+    const status = getRecipeStatus(recipe);
+    if (status) statusBadge.setAttribute('status', status);
+    else statusBadge.removeAttribute('status');
 
     // Populate Description
     const descEl = this.shadowRoot.getElementById('Recipe_component__description');

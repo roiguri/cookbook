@@ -10,7 +10,18 @@
           <circle cx="12" cy="19" r="2" />
         </svg>
       </button>
-      <div class="recipe-menu-dropdown">
+      <div class="recipe-menu-dropdown" role="menu" aria-label="פעולות על המתכון">
+        <!-- Owner of a private recipe: its status, then the owner actions -->
+        <div class="own-menu__status" id="own-status" hidden>
+          <div class="row">
+            <status-badge id="own-status-badge"></status-badge>
+            <span class="when" id="own-status-when"></span>
+          </div>
+        </div>
+        <button class="menu-item menu-item--primary" id="mark-tested-btn" type="button" hidden>
+          <span class="menu-item__icon" data-icon="check"></span>
+          <span>סימון כנבדק</span>
+        </button>
         <button class="menu-item" id="suggest-edit-btn" style="display: none">
           <svg
             width="20"
@@ -39,6 +50,10 @@
             <path d="M12 5v14M5 12h14" />
           </svg>
           <span>הוסף לארוחה שלי</span>
+        </button>
+        <button class="menu-item menu-item--danger" id="delete-recipe-btn" type="button" hidden>
+          <span class="menu-item__icon" data-icon="trashAlt"></span>
+          <span>מחיקת המתכון</span>
         </button>
       </div>
     </div>

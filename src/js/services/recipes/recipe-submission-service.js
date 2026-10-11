@@ -30,6 +30,7 @@ export const SUBMISSION_STATUS = Object.freeze({
  *   - submit({ recipeId, authorId })
  *   - get(recipeId)
  *   - submissionWrite({ recipeId, authorId })  // batch op for RecipeService.create({ alsoWrite })
+ *   - withdraw(recipeId)                  // author/manager, best-effort
  *   - listPending()                       // manager: [{ submission, recipe }]
  *   - approve(recipeId, { reviewedBy })   // manager
  *   - reject(recipeId, { reviewedBy })    // manager: deletes the proposal, as before
@@ -74,6 +75,22 @@ export class RecipeSubmissionService {
         createdAt: Timestamp.now(),
       },
     };
+  }
+
+  /**
+   * Withdraw a recipe's pending submission, if it has one — e.g. before its
+   * author deletes the recipe. Best-effort: a missing submission (or one the
+   * caller may not delete) is ignored; the manager queue self-heals leftovers.
+   * @param {string} recipeId
+   * @returns {Promise<void>}
+   */
+  static async withdraw(recipeId) {
+    if (!recipeId) return;
+    try {
+      await FirestoreService.deleteDocument(COLLECTION, recipeId);
+    } catch {
+      // nothing to withdraw
+    }
   }
 
   /**

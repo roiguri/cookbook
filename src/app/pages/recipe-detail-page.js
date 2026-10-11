@@ -1,6 +1,11 @@
 import { AppConfig } from '../../js/config/app-config.js';
 import authService from '../../js/services/auth/auth-service.js';
 import { ActiveMealService } from '../../js/services/meals/active-meal-service.js';
+import { RecipeService, STAGE, VISIBILITY } from '../../js/services/recipes/recipe-service.js';
+import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
+import { getRecipeStatus } from '../../js/utils/recipes/recipe-status.js';
+import { icons } from '../../js/icons.js';
+import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
 import '../../styles/pages/recipe-detail-spa.css';
 
 export default {
@@ -54,6 +59,11 @@ export default {
       // found; a missing or hidden recipe swaps in the "not found" state.
       recipeComponent.addEventListener('recipe-data-loaded', (event) => {
         this.toggleNotFound(recipeContainer, event.detail?.found === false);
+        // Only the fetch's event carries the recipe; keep the menu in step with it.
+        if (event.detail && 'found' in event.detail) {
+          this.currentRecipe = event.detail.recipe;
+          this.updateOwnerMenu();
+        }
       });
 
       recipeComponent.setAttribute('recipe-id', recipeId);
@@ -80,6 +90,8 @@ export default {
     await import('../../lib/media/image-handler/image-handler.js');
     await import('../../lib/recipes/suggest_edit_modal/suggest-edit-modal.js');
     await import('../../lib/modals/message-modal/message-modal.js');
+    await import('../../lib/modals/confirmation_modal/confirmation_modal.js');
+    await import('../../lib/recipes/status-badge/status-badge.js');
   },
 
   setupMenuHandlers(container, recipeId) {
@@ -88,6 +100,11 @@ export default {
     const menuDropdown = container.querySelector('.recipe-menu-dropdown');
     const suggestEditBtn = container.querySelector('#suggest-edit-btn');
     const addToMealBtn = container.querySelector('#add-to-meal-btn');
+    const markTestedBtn = container.querySelector('#mark-tested-btn');
+    const deleteBtn = container.querySelector('#delete-recipe-btn');
+    // The recipe shown now (the page can switch recipes in place).
+    const currentId = () =>
+      container.querySelector('recipe-component')?.getAttribute('recipe-id') || recipeId;
 
     if (!menu || !menuButton || !menuDropdown) {
       console.warn('Menu elements not found in container');
@@ -105,11 +122,16 @@ export default {
     if (suggestEditBtn) {
       suggestEditBtn.style.display = 'flex';
     }
+    container.querySelectorAll('.menu-item__icon[data-icon]').forEach((el) => {
+      el.innerHTML = icons[el.dataset.icon] || '';
+    });
+    this._menu = { container, menuDropdown, suggestEditBtn, markTestedBtn, deleteBtn };
 
     // Toggle dropdown on button click
     menuButton.addEventListener('click', (e) => {
       e.stopPropagation();
       menuDropdown.classList.toggle('open');
+      menuButton.setAttribute('aria-expanded', String(menuDropdown.classList.contains('open')));
     });
 
     // Close dropdown when clicking outside
@@ -131,7 +153,7 @@ export default {
         menuDropdown.classList.remove('open');
         const modal = container.querySelector('suggest-edit-modal');
         if (modal) {
-          modal.openForRecipe(recipeId);
+          modal.openForRecipe(currentId());
         } else {
           console.error('Suggest edit modal not found');
         }
@@ -146,7 +168,7 @@ export default {
         if (!currentUser) return;
 
         try {
-          const result = await ActiveMealService.addToMeal(currentUser.uid, recipeId);
+          const result = await ActiveMealService.addToMeal(currentUser.uid, currentId());
 
           const messageModal = container.querySelector('message-modal');
 
@@ -168,6 +190,94 @@ export default {
         }
       });
     }
+
+    // Owner: mark a "to try" recipe as tested
+    markTestedBtn?.addEventListener('click', async () => {
+      menuDropdown.classList.remove('open');
+      try {
+        await RecipeService.markTested(currentId());
+        showToast('סומן כנבדק — המתכון עבר לספרייה שלכם', 'success');
+        await container.querySelector('recipe-component')?.fetchAndPopulateRecipeData();
+      } catch (error) {
+        console.error('Error marking recipe tested:', error);
+        showToast('לא הצלחנו לסמן את המתכון כנבדק. נסו שוב.', 'error');
+      }
+    });
+
+    // Owner: delete a private recipe (with its photos, media and pending submission)
+    deleteBtn?.addEventListener('click', async () => {
+      menuDropdown.classList.remove('open');
+      const recipe = this.currentRecipe;
+      const id = currentId();
+      const confirmed = await this.getConfirmModal().confirm(
+        `״${recipe?.name || ''}״ יימחק מהספרייה שלכם יחד עם התמונות שלו. אי אפשר לבטל את זה.`,
+        'למחוק את המתכון?',
+        'מחיקה',
+        'ביטול',
+      );
+      if (!confirmed) return;
+      try {
+        await RecipeService.delete(id);
+        await RecipeSubmissionService.withdraw(id);
+        showToast('המתכון נמחק', 'success');
+        const tab = recipe?.stage === STAGE.TO_TRY ? '?tab=to-try' : '';
+        window.spa?.router?.navigate(`/my-recipes${tab}`);
+      } catch (error) {
+        console.error('Error deleting recipe:', error);
+        showToast('לא הצלחנו למחוק את המתכון. נסו שוב.', 'error');
+      }
+    });
+
+    this.updateOwnerMenu();
+  },
+
+  /** One confirmation dialog for the page, created on first use. */
+  getConfirmModal() {
+    let modal = document.getElementById('recipe-confirm-modal');
+    if (!modal) {
+      modal = document.createElement('confirmation-modal');
+      modal.id = 'recipe-confirm-modal';
+      document.body.appendChild(modal);
+    }
+    return modal;
+  },
+
+  /**
+   * The ⋮ menu for the author of a private recipe: its status (the shared
+   * status badge + date) and the owner actions. Everyone else gets the
+   * regular menu.
+   */
+  updateOwnerMenu() {
+    const els = this._menu;
+    if (!els) return;
+    const recipe = this.currentRecipe;
+    const user = authService.getCurrentUser();
+    const isOwner =
+      !!recipe &&
+      !!user &&
+      recipe.authorId === user.uid &&
+      recipe.visibility === VISIBILITY.PRIVATE;
+    const toTry = recipe?.stage === STAGE.TO_TRY;
+
+    els.menuDropdown.classList.toggle('own-menu', isOwner);
+    const status = els.container.querySelector('#own-status');
+    status.hidden = !isOwner;
+    if (isOwner) {
+      els.container
+        .querySelector('#own-status-badge')
+        .setAttribute('status', getRecipeStatus(recipe));
+      const date = (t) => {
+        const d = t?.toDate?.() ?? (t ? new Date(t) : null);
+        return d && !isNaN(d) ? `<span class="num">${d.getDate()}.${d.getMonth() + 1}</span>` : '';
+      };
+      els.container.querySelector('#own-status-when').innerHTML = toTry
+        ? `נשמר ב־${date(recipe.creationTime)} · עוד לא בושל`
+        : `בספרייה שלכם · נבדק ב־${date(recipe.testedAt || recipe.creationTime)}`;
+    }
+    if (els.markTestedBtn) els.markTestedBtn.hidden = !(isOwner && toTry);
+    if (els.deleteBtn) els.deleteBtn.hidden = !isOwner;
+    // Edit suggestions are for published recipes; the author edits a private one directly.
+    if (els.suggestEditBtn) els.suggestEditBtn.style.display = isOwner ? 'none' : 'flex';
   },
 
   setupSuggestionListener(container) {
