@@ -147,11 +147,6 @@
   color: var(--ink);
 }
 
-.spa-content .recipe-detail .menu-item__icon {
-  display: inline-flex;
-  flex: 0 0 auto;
-}
-
 .spa-content .recipe-detail .menu-item--primary {
   font-weight: 600;
   color: var(--primary-dark);

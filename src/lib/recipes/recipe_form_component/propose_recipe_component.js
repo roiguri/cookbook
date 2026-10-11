@@ -63,7 +63,7 @@ class ProposeRecipeComponent extends HTMLElement {
             <span class="alert__icon">✓</span>
             <div>
               <b>המתכון יובא.</b>
-              עברו על הפרטים לפני השמירה. בשמירה הוא יסומן ״עוד לא בושל״ — אפשר לשנות.
+              עברו על הפרטים לפני השמירה. בשמירה הוא יסומן ״עוד לא נוסה״ — אפשר לשנות.
             </div>
           </div>
           <recipe-form-component hide-actions></recipe-form-component>
