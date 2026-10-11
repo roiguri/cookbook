@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// Release 2b — restructure Storage (docs/feature-plans/private-recipes-and-collections.md)
+// Release 2b — restructure Storage (docs/archive/private-recipes-and-collections.md)
 //
 // Copies every recipe's files to the per-recipe layout and repoints the documents:
 //   img/recipes/full/{category}/{recipeId}/{file}  ─┐

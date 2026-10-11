@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// Release 2 — convert the data model (docs/feature-plans/private-recipes-and-collections.md)
+// Release 2 — convert the data model (docs/archive/private-recipes-and-collections.md)
 //
 // For every recipe, fills in the new-model fields that are missing:
 //   authorId   = userId, or null for recipes with no recorded author

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// Release 3b — give authorless recipes an author (docs/feature-plans/private-recipes-and-collections.md)
+// Release 3b — give authorless recipes an author (docs/archive/private-recipes-and-collections.md)
 //
 // Recipes with no recorded author (authorId and userId both missing or null —
 // older recipes from before authors were recorded) get the given user as their
