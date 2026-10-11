@@ -62,7 +62,7 @@ function buildBody({ stage, submit }) {
       <legend>בישלתם אותו?</legend>
       <div class="save-q__opts">
         <label class="save-opt"><input type="radio" name="save-stage" value="${STAGE.TESTED}">
-          <span><b>בישלתי</b><small>לספרייה שלי</small></span></label>
+          <span><b>ניסיתי</b><small>לספרייה שלי</small></span></label>
         <label class="save-opt"><input type="radio" name="save-stage" value="${STAGE.TO_TRY}">
           <span><b>עוד לא</b><small>ל״לנסות״</small></span></label>
       </div>
