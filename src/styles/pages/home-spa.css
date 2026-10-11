@@ -78,14 +78,15 @@
   color: var(--primary-dark);
 }
 
-/* Room between the last section and the footer */
-.spa-content .home-page .section.featured-recipes {
-  padding-bottom: 40px;
+/* Room between the last section (whichever is shown) and the footer:
+   40px in all (28px on a phone), on top of the section's own padding */
+.spa-content .home-page {
+  padding-bottom: 26px;
 }
 
 @media (max-width: 768px) {
-  .spa-content .home-page .section.featured-recipes {
-    padding-bottom: 28px;
+  .spa-content .home-page {
+    padding-bottom: 18px;
   }
 }
 
@@ -113,6 +114,12 @@
 .spa-content .home-page .add-tile--alone {
   grid-column: 1 / -1;
   min-height: 160px;
+}
+
+/* Next to compact cards (none of the recipes has an image) the tile shrinks too */
+.spa-content .home-page recipe-strip[compact] .add-tile:not(.add-tile--alone) {
+  min-height: 0;
+  padding: 16px;
 }
 
 .spa-content .home-page .add-tile[hidden] {

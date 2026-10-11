@@ -107,7 +107,8 @@ export default {
     }
     try {
       const toTry = await RecipeService.listMine(uid, { stage: STAGE.TO_TRY });
-      strip.setRecipes(toTry.slice(0, STRIP_SIZE).map((r) => r.id));
+      // Objects, not IDs: the strip goes compact when none of them has an image.
+      strip.setRecipes(toTry.slice(0, STRIP_SIZE));
       // "All →" only when there's more than the row shows: 2 cards on a phone, 4 on desktop.
       if (allLink) {
         allLink.hidden = toTry.length <= MOBILE_STRIP_SIZE;
