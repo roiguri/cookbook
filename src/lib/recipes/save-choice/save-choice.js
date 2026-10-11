@@ -59,7 +59,7 @@ function buildBody({ stage, submit }) {
   body.innerHTML = `
     <style>${STYLES}</style>
     <fieldset class="save-q">
-      <legend>בישלתם אותו?</legend>
+      <legend>ניסיתם אותו?</legend>
       <div class="save-q__opts">
         <label class="save-opt"><input type="radio" name="save-stage" value="${STAGE.TESTED}">
           <span><b>ניסיתי</b><small>לספרייה שלי</small></span></label>

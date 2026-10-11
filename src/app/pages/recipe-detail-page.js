@@ -4,7 +4,6 @@ import { ActiveMealService } from '../../js/services/meals/active-meal-service.j
 import { RecipeService, STAGE, VISIBILITY } from '../../js/services/recipes/recipe-service.js';
 import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
 import { getRecipeStatus } from '../../js/utils/recipes/recipe-status.js';
-import { icons } from '../../js/icons.js';
 import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
 import '../../styles/pages/recipe-detail-spa.css';
 
@@ -122,9 +121,6 @@ export default {
     if (suggestEditBtn) {
       suggestEditBtn.style.display = 'flex';
     }
-    container.querySelectorAll('.menu-item__icon[data-icon]').forEach((el) => {
-      el.innerHTML = icons[el.dataset.icon] || '';
-    });
     this._menu = { container, menuDropdown, suggestEditBtn, markTestedBtn, deleteBtn };
 
     // Toggle dropdown on button click
@@ -271,7 +267,7 @@ export default {
         return d && !isNaN(d) ? `<span class="num">${d.getDate()}.${d.getMonth() + 1}</span>` : '';
       };
       els.container.querySelector('#own-status-when').innerHTML = toTry
-        ? `נשמר ב־${date(recipe.creationTime)} · עוד לא בושל`
+        ? `נשמר ב־${date(recipe.creationTime)} · עוד לא נוסה`
         : `בספרייה שלכם · נבדק ב־${date(recipe.testedAt || recipe.creationTime)}`;
     }
     if (els.markTestedBtn) els.markTestedBtn.hidden = !(isOwner && toTry);
