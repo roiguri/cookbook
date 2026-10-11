@@ -17,6 +17,8 @@ export const MOCK_RECIPES = [
     difficulty: 'Easy',
     images: [{ id: 'img-1', full: IMG_RED, isPrimary: true, access: 'public' }],
     approved: true,
+    visibility: 'published',
+    stage: 'tested',
     creationTime: { seconds: 1700000003 },
   },
   {
@@ -29,6 +31,8 @@ export const MOCK_RECIPES = [
     difficulty: 'Medium',
     images: [{ id: 'img-2', full: IMG_GREEN, isPrimary: true, access: 'public' }],
     approved: true,
+    visibility: 'published',
+    stage: 'tested',
     creationTime: { seconds: 1700000002 },
   },
   {
@@ -41,6 +45,8 @@ export const MOCK_RECIPES = [
     difficulty: 'Easy',
     images: [{ id: 'img-3', full: IMG_BLUE, isPrimary: true, access: 'public' }],
     approved: true,
+    visibility: 'published',
+    stage: 'tested',
     creationTime: { seconds: 1700000001 },
   },
   {
@@ -53,6 +59,8 @@ export const MOCK_RECIPES = [
     difficulty: 'Easy',
     images: [{ id: 'img-4', full: IMG_RED, isPrimary: true, access: 'public' }],
     approved: true,
+    visibility: 'published',
+    stage: 'tested',
     creationTime: { seconds: 1700000000 },
   },
 ];
