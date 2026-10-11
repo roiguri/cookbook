@@ -897,6 +897,18 @@ class RecipeComponent extends HTMLElement {
     }
   }
 
+  /**
+   * Show a status badge beside the category, overriding the one derived from the
+   * recipe alone — for pages that know more (e.g. the author's submission).
+   * @param {string|null} status - One of RECIPE_STATUS, or null for no badge.
+   */
+  setStatus(status) {
+    const statusBadge = this.shadowRoot?.getElementById('Recipe_component__status');
+    if (!statusBadge) return;
+    if (status) statusBadge.setAttribute('status', status);
+    else statusBadge.removeAttribute('status');
+  }
+
   async fetchAndPopulateRecipeData() {
     if (!this.recipeId) return;
 

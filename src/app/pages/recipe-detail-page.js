@@ -3,7 +3,7 @@ import authService from '../../js/services/auth/auth-service.js';
 import { ActiveMealService } from '../../js/services/meals/active-meal-service.js';
 import { RecipeService, STAGE, VISIBILITY } from '../../js/services/recipes/recipe-service.js';
 import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
-import { getRecipeStatus } from '../../js/utils/recipes/recipe-status.js';
+import { getRecipeStatus, RECIPE_STATUS } from '../../js/utils/recipes/recipe-status.js';
 import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
 import '../../styles/pages/recipe-detail-spa.css';
 
@@ -28,6 +28,8 @@ export default {
     this.currentRecipe = null;
     this._notFound = false;
     this._menu = null;
+    this.currentSubmission = undefined;
+    this._submissionFor = null;
 
     try {
       await this.initializeRecipeComponent(container, recipeId);
@@ -106,6 +108,9 @@ export default {
     const markTestedBtn = container.querySelector('#mark-tested-btn');
     const deleteBtn = container.querySelector('#delete-recipe-btn');
     const editBtn = container.querySelector('#edit-recipe-btn');
+    const submitBtn = container.querySelector('#submit-recipe-btn');
+    const resubmitBtn = container.querySelector('#resubmit-recipe-btn');
+    const cancelSubmissionBtn = container.querySelector('#cancel-submission-btn');
     // The recipe shown now (the page can switch recipes in place).
     const currentId = () =>
       container.querySelector('recipe-component')?.getAttribute('recipe-id') || recipeId;
@@ -128,6 +133,9 @@ export default {
       markTestedBtn,
       deleteBtn,
       editBtn,
+      submitBtn,
+      resubmitBtn,
+      cancelSubmissionBtn,
     };
     this._menuAuthUnsubscribe = authService.addAuthObserver(({ user: current }) => {
       // Signing out of a private recipe leaves the page at once (as My recipes
@@ -218,8 +226,8 @@ export default {
     });
 
     // Owner: edit — the same editor (with preview) the manager dashboard uses,
-    // without publishing on save.
-    editBtn?.addEventListener('click', async () => {
+    // without publishing on save. `onSaved` runs after a successful save.
+    const openEditor = async (onSaved) => {
       menuDropdown.classList.remove('open');
       await import('../../lib/recipes/recipe_preview_modal/edit_preview_recipe.js');
       container.querySelector('edit-preview-recipe')?.remove();
@@ -227,10 +235,75 @@ export default {
       editor.setAttribute('recipe-id', currentId());
       editor.setAttribute('start-mode', 'edit');
       container.appendChild(editor);
-      editor.addEventListener('recipe-updated', () =>
-        container.querySelector('recipe-component')?.fetchAndPopulateRecipeData(),
-      );
+      editor.addEventListener('recipe-updated', async () => {
+        await onSaved?.();
+        await container.querySelector('recipe-component')?.fetchAndPopulateRecipeData();
+      });
       requestAnimationFrame(() => editor.openModal());
+    };
+    editBtn?.addEventListener('click', () => openEditor());
+
+    // Owner: a rejected recipe is fixed in the editor, then sent back to the queue.
+    resubmitBtn?.addEventListener('click', () =>
+      openEditor(async () => {
+        try {
+          await RecipeSubmissionService.resubmit(currentId());
+          this.currentSubmission = undefined;
+          this._submissionFor = null;
+          showToast('המתכון נשלח שוב לאישור', 'success');
+        } catch (error) {
+          console.error('Error resubmitting recipe:', error);
+          showToast('השינויים נשמרו, אבל השליחה מחדש נכשלה. נסו שוב.', 'error');
+        }
+      }),
+    );
+
+    // Owner: send a private recipe to the family book
+    submitBtn?.addEventListener('click', async () => {
+      menuDropdown.classList.remove('open');
+      const recipe = this.currentRecipe;
+      const untested = recipe?.stage === STAGE.TO_TRY;
+      const confirmed = await this.getConfirmModal().confirm(
+        (untested ? 'עוד לא ניסיתם את המתכון — אפשר לשלוח בכל זאת, אבל כדאי לנסות קודם. ' : '') +
+          'מנהל יעבור על המתכון ויאשר אותו. עד אז הוא נשאר פרטי ואפשר להמשיך לערוך.',
+        'לשלוח לספר המשפחתי?',
+        'שליחה',
+        'ביטול',
+      );
+      if (!confirmed) return;
+      try {
+        await RecipeSubmissionService.submit({
+          recipeId: currentId(),
+          authorId: authService.getCurrentUser()?.uid,
+        });
+        this._submissionFor = null;
+        showToast('המתכון נשלח לאישור', 'success');
+        this.refreshMenu();
+      } catch (error) {
+        console.error('Error submitting recipe:', error);
+        showToast('לא הצלחנו לשלוח את המתכון. נסו שוב.', 'error');
+      }
+    });
+
+    // Owner: cancel a pending submission
+    cancelSubmissionBtn?.addEventListener('click', async () => {
+      menuDropdown.classList.remove('open');
+      const confirmed = await this.getConfirmModal().confirm(
+        'המתכון יוסר מתור האישור ויישאר פרטי בספרייה שלכם.',
+        'לבטל את השליחה?',
+        'ביטול השליחה',
+        'חזרה',
+      );
+      if (!confirmed) return;
+      try {
+        await RecipeSubmissionService.cancel(currentId());
+        this._submissionFor = null;
+        showToast('השליחה בוטלה', 'success');
+        this.refreshMenu();
+      } catch (error) {
+        console.error('Error cancelling submission:', error);
+        showToast('לא הצלחנו לבטל את השליחה. נסו שוב.', 'error');
+      }
     });
 
     // Owner: delete a private recipe (with its photos, media and pending submission)
@@ -289,29 +362,74 @@ export default {
     if (els.addToMealBtn) els.addToMealBtn.style.display = 'flex';
 
     const isPrivate = recipe?.visibility === VISIBILITY.PRIVATE;
-    // The owner menu is for family members with a private library (approved,
-    // managers). A plain user's own recipe is a proposal awaiting approval.
-    const isOwner = isPrivate && !!user && recipe.authorId === user.uid && authService.isApproved();
+    // The owner menu is for family members with a library of their own (approved,
+    // managers) — their private recipes and, since publishing is in place, their
+    // published ones. A plain user's own recipe is a proposal awaiting approval.
+    const isMine = !!recipe && !!user && recipe.authorId === user.uid && authService.isApproved();
     const toTry = recipe?.stage === STAGE.TO_TRY;
 
-    els.menuDropdown.classList.toggle('own-menu', isOwner);
-    const status = els.container.querySelector('#own-status');
-    status.hidden = !isOwner;
-    if (isOwner) {
-      els.container
-        .querySelector('#own-status-badge')
-        .setAttribute('status', getRecipeStatus(recipe));
+    // The author's submission (pending / rejected / approved), loaded once per recipe.
+    if (isMine && this._submissionFor !== recipe.id) {
+      this._submissionFor = recipe.id;
+      this.currentSubmission = undefined;
+      RecipeSubmissionService.get(recipe.id)
+        .catch(() => null)
+        .then((submission) => {
+          if (this.currentRecipe?.id !== recipe.id) return;
+          this.currentSubmission = submission || null;
+          this.refreshMenu();
+        });
+    }
+    const submission = isMine ? this.currentSubmission : undefined;
+    const submissionStatus = submission?.status;
+    const status = isMine ? getRecipeStatus({ ...recipe, submissionStatus, ownView: true }) : null;
+    if (isMine) els.container.querySelector('recipe-component')?.setStatus(status);
+
+    els.menuDropdown.classList.toggle('own-menu', isMine);
+    els.container.querySelector('#own-status').hidden = !isMine;
+    const text = els.container.querySelector('#own-status-text');
+    const note = els.container.querySelector('#own-status-note');
+    text.hidden = true;
+    note.hidden = true;
+    if (isMine) {
+      els.container.querySelector('#own-status-badge').setAttribute('status', status);
       const date = (t) => {
         const d = t?.toDate?.() ?? (t ? new Date(t) : null);
         return d && !isNaN(d) ? `<span class="num">${d.getDate()}.${d.getMonth() + 1}</span>` : '';
       };
-      els.container.querySelector('#own-status-when').innerHTML = toTry
-        ? `נשמר ב־${date(recipe.creationTime)} · עוד לא נוסה`
-        : `בספרייה שלכם · נבדק ב־${date(recipe.testedAt || recipe.creationTime)}`;
+      const sentAt = submission?.resubmittedAt || submission?.createdAt;
+      const when = {
+        [RECIPE_STATUS.PUBLISHED]: submission?.reviewedAt
+          ? `בספר המשפחתי · אושר ב־${date(submission.reviewedAt)}`
+          : 'בספר המשפחתי',
+        [RECIPE_STATUS.PENDING]: `נשלח ב־${date(sentAt)}`,
+        [RECIPE_STATUS.REJECTED]: `נשלח ב־${date(sentAt)} · נבדק ב־${date(submission?.reviewedAt)}`,
+        [RECIPE_STATUS.TO_TRY]: `נשמר ב־${date(recipe.creationTime)} · עוד לא נוסה`,
+        [RECIPE_STATUS.PRIVATE]: `בספרייה שלכם · נבדק ב־${date(recipe.testedAt || recipe.creationTime)}`,
+      };
+      els.container.querySelector('#own-status-when').innerHTML = when[status] || '';
+      if (status === RECIPE_STATUS.PENDING) {
+        text.textContent =
+          'מחכה לאישור מנהל. בינתיים המתכון נשאר פרטי ואפשר להמשיך לערוך — המנהל יראה את הגרסה העדכנית.';
+        text.hidden = false;
+      }
+      if (status === RECIPE_STATUS.REJECTED && submission?.rejectionReason) {
+        note.innerHTML = '<b>הערה ממנהלי הספר</b>';
+        note.append(submission.rejectionReason);
+        note.hidden = false;
+      }
     }
-    if (els.markTestedBtn) els.markTestedBtn.hidden = !(isOwner && toTry);
-    if (els.deleteBtn) els.deleteBtn.hidden = !isOwner;
-    if (els.editBtn) els.editBtn.hidden = !isOwner;
+
+    const show = (el, visible) => {
+      if (el) el.hidden = !visible;
+    };
+    show(els.markTestedBtn, isMine && toTry);
+    // "Send" waits until we know there's no submission yet.
+    show(els.submitBtn, isMine && isPrivate && submission === null);
+    show(els.editBtn, isMine && isPrivate && submissionStatus !== 'rejected');
+    show(els.resubmitBtn, isMine && isPrivate && submissionStatus === 'rejected');
+    show(els.cancelSubmissionBtn, isMine && submissionStatus === 'pending');
+    show(els.deleteBtn, isMine && isPrivate);
     // Edit suggestions are for published recipes only.
     if (els.suggestEditBtn) els.suggestEditBtn.style.display = isPrivate ? 'none' : 'flex';
   },

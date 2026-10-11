@@ -1,5 +1,6 @@
 import authService from '../../js/services/auth/auth-service.js';
 import { RecipeService, STAGE } from '../../js/services/recipes/recipe-service.js';
+import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import { RECIPE_STATUS } from '../../js/utils/recipes/recipe-status.js';
@@ -147,7 +148,15 @@ export default {
    */
   async loadRecipes({ category }) {
     const uid = authService.getCurrentUser()?.uid;
-    const all = await RecipeService.listMine(uid);
+    const [mine, submissions] = await Promise.all([
+      RecipeService.listMine(uid),
+      RecipeSubmissionService.listForAuthor(uid).catch(() => []),
+    ]);
+    // What the cards' status badges need beyond the recipe itself: the
+    // submission (pending / rejected) and that this is the author's own view
+    // (so published recipes show "פורסם").
+    const statusOf = new Map(submissions.map((s) => [s.recipeId, s.status]));
+    const all = mine.map((r) => ({ ...r, submissionStatus: statusOf.get(r.id), ownView: true }));
 
     this.counts = { 'to-try': 0, library: 0 };
     all.forEach((r) => {
