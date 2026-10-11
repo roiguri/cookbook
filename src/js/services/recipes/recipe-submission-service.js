@@ -41,6 +41,7 @@ export const SUBMISSION_STATUS = Object.freeze({
  *   - approve(recipeId, { reviewedBy })   // manager
  *   - reject(recipeId, { note, reviewedBy }) // manager: keep the recipe, with a note
  *   - discard(recipeId)                   // manager: delete a plain user's rejected proposal
+ *   - deleteRecipe(recipeId)              // delete a recipe and its submission (author / manager)
  *   - reject(recipeId, { reviewedBy })    // manager: deletes the proposal, as before
  */
 export class RecipeSubmissionService {
@@ -187,8 +188,21 @@ export class RecipeSubmissionService {
    */
   static async discard(recipeId) {
     if (!recipeId) throw new Error('RecipeSubmissionService.discard: recipeId is required');
+    await RecipeSubmissionService.deleteRecipe(recipeId);
+  }
+
+  /**
+   * Delete a recipe (with its photos and media) and its submission, if any —
+   * the one way to delete a recipe, so no submission is left pointing at it.
+   * The submission goes second (best-effort), so a failed recipe delete never
+   * leaves the recipe without its record.
+   * @param {string} recipeId
+   * @returns {Promise<void>}
+   */
+  static async deleteRecipe(recipeId) {
+    if (!recipeId) throw new Error('RecipeSubmissionService.deleteRecipe: recipeId is required');
     await RecipeService.delete(recipeId);
-    await FirestoreService.deleteDocument(COLLECTION, recipeId).catch(() => {});
+    await RecipeSubmissionService.withdraw(recipeId);
   }
 
   /**

@@ -140,7 +140,11 @@ class ConfirmationModal extends Modal {
         background: var(--primary, #6a994e);
         color: #fff;
       }
-      .approve-button:hover {
+      .approve-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .approve-button:hover:not(:disabled) {
         background: var(--primary-dark, #386641);
       }
       .reject-button {
@@ -222,6 +226,11 @@ class ConfirmationModal extends Modal {
   /** Change the approve button's label while the dialog is open. */
   setApproveText(text) {
     this.shadowRoot.getElementById('modal-approve-button').textContent = text;
+  }
+
+  /** Enable or disable the approve button (e.g. until a required field is filled). */
+  setApproveDisabled(disabled) {
+    this.shadowRoot.getElementById('modal-approve-button').disabled = !!disabled;
   }
 }
 

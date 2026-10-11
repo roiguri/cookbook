@@ -455,7 +455,8 @@ export default {
   async deleteRecipe(recipeId) {
     try {
       this.toggleLoading(true);
-      await RecipeService.delete(recipeId);
+      // Removes its family-book submission too, so the queue never points at it.
+      await RecipeSubmissionService.deleteRecipe(recipeId);
       this.showSuccessMessage('המתכון נמחק בהצלחה');
       this.refreshManager.refreshRecipes();
     } catch (error) {
@@ -503,10 +504,20 @@ export default {
       // The approval queue: pending submissions (not every unpublished recipe — from
       // release 3a authors also keep private recipes they haven't submitted).
       const pending = await RecipeSubmissionService.listPending();
-      const pendingRecipes = pending.map(({ recipe }) => recipe);
-      const recipeItems = pendingRecipes.map((recipe) => ({
-        header: this.createPendingRecipeHeader(recipe),
-        content: this.createPendingRecipeContent(recipe),
+      // A rejection keeps a family member's recipe with a note; a plain user's
+      // proposal is discarded (they have no library to see a note in).
+      const authorIds = [...new Set(pending.map(({ recipe }) => recipe.authorId).filter(Boolean))];
+      const roles = new Map(
+        await Promise.all(
+          authorIds.map(async (uid) => [uid, (await UserService.get(uid).catch(() => null))?.role]),
+        ),
+      );
+      const recipeItems = pending.map((row) => ({
+        header: this.createPendingRecipeHeader({
+          ...row,
+          authorRole: roles.get(row.recipe.authorId),
+        }),
+        content: this.createPendingRecipeContent(row.recipe),
       }));
 
       // Always update the message based on current state
@@ -526,7 +537,7 @@ export default {
     }
   },
 
-  createPendingRecipeHeader(recipe) {
+  createPendingRecipeHeader({ recipe, submission, authorRole }) {
     const header = document.createElement('div');
     header.style.cssText =
       'display:flex; align-items:center; justify-content:space-between; gap:8px;';
@@ -534,26 +545,58 @@ export default {
     const info = document.createElement('div');
     info.style.cssText = 'display:flex; flex-direction:column; gap:2px; min-width:0;';
 
+    const nameRow = document.createElement('div');
+    nameRow.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap;';
+
     const name = document.createElement('span');
     name.textContent = recipe.name;
     name.style.cssText =
       'font-family:var(--font-ui-he); font-size:14px; color:var(--ink);' +
       'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+    nameRow.appendChild(name);
 
+    // Flags from the design: submitted before it was tried; sent again after a rejection.
+    const untested = recipe.stage === 'to-try';
+    if (untested) nameRow.appendChild(this._queueFlag('עוד לא נוסה'));
+    if (submission?.resubmittedAt) nameRow.appendChild(this._queueFlag('הגשה חוזרת', true));
+
+    const sentAt = (submission?.resubmittedAt || submission?.createdAt)?.toDate?.();
     const cat = document.createElement('span');
-    cat.textContent = this.categoryMapping[recipe.category] || '—';
+    cat.textContent = [
+      this.categoryMapping[recipe.category] || '—',
+      sentAt ? `${sentAt.getDate()}.${sentAt.getMonth() + 1}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
     cat.style.cssText =
       'font-family:var(--font-mono); font-size:11px; color:var(--ink-3); letter-spacing:0.04em;';
 
-    info.appendChild(name);
+    info.appendChild(nameRow);
     info.appendChild(cat);
 
     const btn = this._ghostPillBtn('הצג');
-    btn.addEventListener('click', () => this.previewRecipe(recipe.id));
+    btn.addEventListener('click', () =>
+      this.previewRecipe(recipe.id, {
+        name: recipe.name,
+        untested,
+        rejectMode: authorRole === 'user' ? 'discard' : 'note',
+      }),
+    );
 
     header.appendChild(info);
     header.appendChild(btn);
     return header;
+  },
+
+  _queueFlag(text, again = false) {
+    // Inline like the rest of the row: the list renders rows in its Shadow DOM.
+    const flag = document.createElement('span');
+    flag.textContent = text;
+    flag.style.cssText =
+      'display:inline-flex; align-items:center; padding:2px 8px; border-radius:var(--r-pill);' +
+      'font-family:var(--font-ui-he); font-size:11px; font-weight:600; color:var(--ink);' +
+      `background:${again ? 'var(--surface-2)' : 'var(--neutral)'};`;
+    return flag;
   },
 
   createPendingRecipeContent() {
@@ -567,19 +610,27 @@ export default {
   /**
    * Preview Recipe
    */
-  previewRecipe(recipeId) {
-    console.log(`Preview recipe with id: ${recipeId}`);
+  previewRecipe(recipeId, { name = '', untested = false, rejectMode = 'note' } = {}) {
     const previewContainer = document.querySelector('.preview-recipe-container');
-    previewContainer.innerHTML = `
-    <recipe-preview-modal id="recipe-preview" recipe-id="${recipeId}" recipe-name="Delicious Cake" show-buttons="true">
-    `;
+    previewContainer.innerHTML = '';
+    const preview = document.createElement('recipe-preview-modal');
+    preview.id = 'recipe-preview';
+    preview.setAttribute('recipe-id', recipeId);
+    preview.setAttribute('recipe-name', name);
+    preview.setAttribute('show-buttons', 'true');
+    preview.setAttribute('reject-mode', rejectMode);
+    if (untested) preview.setAttribute('untested', '');
+    previewContainer.appendChild(preview);
 
     customElements.whenDefined('recipe-preview-modal').then(() => {
       const previewRecipeModal = document.querySelector('recipe-preview-modal');
       previewRecipeModal.openModal();
 
-      previewRecipeModal.addEventListener('recipe-approved', (event) => {
-        console.log('Recipe approved:', event.detail.recipeId);
+      previewRecipeModal.addEventListener('recipe-approved', () => {
+        this.showSuccess(
+          `״${name}״ נוסף לספר המשפחתי, ונשאר גם בספרייה של מי ששלח אותו. מעכשיו שינויים בו עוברים דרך הצעות עריכה.`,
+          'פורסם בספר המשפחתי',
+        );
         // Refresh the recipe dashboards immediately
         this.refreshManager.refreshRecipes();
       });

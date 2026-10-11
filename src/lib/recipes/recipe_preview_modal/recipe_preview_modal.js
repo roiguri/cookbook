@@ -49,6 +49,7 @@
  */
 import { RecipeSubmissionService } from '../../../js/services/recipes/recipe-submission-service.js';
 import authService from '../../../js/services/auth/auth-service.js';
+import { askRejectionNote, confirmDiscard } from '../rejection-note/rejection-note.js';
 
 import '../recipe_component/recipe_component.js';
 import '../../utilities/modal/modal.js';
@@ -65,6 +66,10 @@ class RecipePreviewModal extends HTMLElement {
     this.recipeId = this.getAttribute('recipe-id');
     this.showButtons = this.getAttribute('show-buttons') === 'true';
     this.recipeName = this.getAttribute('recipe-name');
+    // Review context (manager queue): the author hadn't tried it yet; and whether a
+    // rejection keeps the recipe with a note (family) or discards it (plain users).
+    this.untested = this.hasAttribute('untested');
+    this.rejectMode = this.getAttribute('reject-mode') === 'discard' ? 'discard' : 'note';
     this.render();
     this.modal = this.shadowRoot.querySelector('custom-modal');
     this.modal.setAttribute('modal-title', `Preview: ${this.recipeName}`);
@@ -143,6 +148,31 @@ class RecipePreviewModal extends HTMLElement {
         cursor: not-allowed;
       }
 
+      .review-banner {
+        margin: 12px 16px 0;
+        padding: 10px 14px;
+        border-radius: var(--r-md);
+        background: var(--neutral);
+        border: 1px solid var(--hairline-strong);
+        font-family: var(--font-ui-he);
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--ink-2);
+        text-align: right;
+      }
+
+      .review-banner b {
+        color: var(--ink);
+      }
+
+      .review-note {
+        margin: 0 16px;
+        font-family: var(--font-ui-he);
+        font-size: 12px;
+        color: var(--ink-3);
+        text-align: right;
+      }
+
       .error-message {
         color: var(--secondary-dark, #bc4749);
         font-family: var(--font-ui-he, sans-serif);
@@ -160,9 +190,19 @@ class RecipePreviewModal extends HTMLElement {
         <custom-modal height="90vh" width="90vw" fullscreen-mobile>
           <loading-spinner overlay border-radius="10px" style="z-index:1000; display:none;" id="modal-spinner"></loading-spinner>
           <div class="error-message"></div>
+          ${
+            this.untested
+              ? '<div class="review-banner" dir="rtl"><b>המתכון סומן ״עוד לא נוסה״.</b> הוא נשלח לפני שבושל.</div>'
+              : ''
+          }
           <div class="modal-content">
             <recipe-component recipe-id="${this.recipeId}"></recipe-component>
           </div>
+          ${
+            this.showButtons
+              ? '<p class="review-note" dir="rtl">באישור המתכון יתפרסם בספר המשפחתי, ויישאר גם בספרייה של מי ששלח אותו. מעכשיו שינויים בו עוברים דרך הצעות עריכה.</p>'
+              : ''
+          }
           <div class="modal-buttons" id="modal-buttons">
             <button id="reject-button">דחה</button>
             <button id="approve-button">אשר</button>
@@ -238,12 +278,22 @@ class RecipePreviewModal extends HTMLElement {
   async handleRejectClick() {
     if (this.isLoading) return;
 
+    // Family members get a note and keep the recipe; plain users' proposals are
+    // discarded (they have no library to see a note in).
+    let note = null;
+    if (this.rejectMode === 'note') {
+      note = await askRejectionNote(this.recipeName);
+      if (note === null) return;
+    } else if (!(await confirmDiscard(this.recipeName))) {
+      return;
+    }
+
     try {
       this.setLoading(true);
-      await this.handleRecipeRejection(this.recipeId);
+      await this.handleRecipeRejection(this.recipeId, note);
       this.dispatchEvent(
         new CustomEvent('recipe-rejected', {
-          detail: { recipeId: this.recipeId },
+          detail: { recipeId: this.recipeId, mode: this.rejectMode },
           bubbles: true,
           composed: true,
         }),
@@ -270,10 +320,16 @@ class RecipePreviewModal extends HTMLElement {
     });
   }
 
-  async handleRecipeRejection(recipeId) {
+  async handleRecipeRejection(recipeId, note) {
     try {
-      // Until the dashboard asks for a note (3b-D), rejecting discards as before.
-      await RecipeSubmissionService.discard(recipeId);
+      if (this.rejectMode === 'note') {
+        await RecipeSubmissionService.reject(recipeId, {
+          note,
+          reviewedBy: authService.getCurrentUser()?.uid,
+        });
+      } else {
+        await RecipeSubmissionService.discard(recipeId);
+      }
     } catch (error) {
       console.error('Error in handleRecipeRejection:', error);
       throw new Error('Failed to reject recipe: ' + error.message);
