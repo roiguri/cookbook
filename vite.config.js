@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import path from 'path';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 
 // Source maps are uploaded to Sentry only when all three are present.
@@ -10,6 +11,25 @@ const sentryOrg = process.env.SENTRY_ORG;
 const sentryProject = process.env.SENTRY_PROJECT;
 const sentryRelease = process.env.VITE_SENTRY_RELEASE || process.env.COMMIT_REF;
 const sentryEnabled = Boolean(sentryAuthToken && sentryOrg && sentryProject);
+
+// Stamps public/service-worker.js (copied to dist/ as is) with this build's id,
+// so every deploy changes the worker: browsers install it and drop old caches.
+// Netlify sets COMMIT_REF; local builds fall back to the build time.
+function swVersionPlugin() {
+  return {
+    name: 'sw-version',
+    apply: 'build',
+    closeBundle() {
+      const file = resolve(__dirname, 'dist/service-worker.js');
+      if (!existsSync(file)) return;
+      const buildId = process.env.COMMIT_REF || `local-${Date.now()}`;
+      const source = readFileSync(file, 'utf8');
+      const stamped = source.replace(/const VERSION = '[^']*';/, `const VERSION = '${buildId}';`);
+      if (stamped === source) throw new Error('sw-version: VERSION line not found');
+      writeFileSync(file, stamped);
+    },
+  };
+}
 
 export default defineConfig({
   base: '/',
@@ -21,6 +41,7 @@ export default defineConfig({
     'import.meta.env.VITE_SENTRY_RELEASE': JSON.stringify(sentryRelease || ''),
   },
   plugins: [
+    swVersionPlugin(),
     sentryEnabled &&
       sentryVitePlugin({
         org: sentryOrg,

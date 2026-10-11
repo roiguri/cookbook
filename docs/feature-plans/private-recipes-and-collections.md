@@ -283,13 +283,13 @@ New screens are designed as artboards in the "Cookbook screens" canvas (https://
 
 Found while testing on staging, or raised for discussion (2026-10-11). **Resolve and verify all of them before the production rollout.**
 
-### 1. Stale code in browsers (service worker)
+### 1. Stale code in browsers (service worker) — ✅ safety fix in, follow-up in an issue
 
-- **What happened:** a tab opened before a staging deploy kept running the previous code, wrote photos to the old Storage folders (now manager-only) and failed with an unexpected error. A hard refresh fixed it.
-- **Why it's bigger than open tabs:** `public/service-worker.js` serves everything **cache-first, including `index.html`**, and only resets its cache when its hard-coded `VERSION` changes (last changed 2026-04-30). A returning visitor or the installed app can keep loading **old code after a deploy**, possibly for many releases.
-- **Why it matters for this rollout:** after production goes live, old code would write to closed folders and miss the new fields — failures exactly like the one on staging.
-- **To decide:** network-first (or stale-while-revalidate) for HTML, a `VERSION` tied to the build so every deploy refreshes the cache, and/or a "new version available — reload" prompt. At minimum the rollout must change `VERSION`.
-- **To verify on staging:** load the site, deploy a change, reload normally (no hard refresh) — the new code must arrive.
+- **What happened:** a tab opened before a staging deploy kept running the previous code, wrote photos to the old Storage folders (now manager-only) and failed with an unexpected error. A reload fixed it.
+- **Investigated 2026-10-11:** the suspected cause — `public/service-worker.js` serving the page cache-first with a `VERSION` unchanged since April — **does not reproduce**: on production the worker caches nothing (its install batch includes `/src/app.js` and `/src/styles/main.css`, which 404 in a production build, so the whole batch fails), and a local before/after test (simulated deploy, normal reload) showed the new page with the old worker too. The incident is explained by **a tab left open across the deploy** (old code in memory).
+- **Safety fix (shipped to `development`):** pages are network-first (the saved copy is only an offline fallback); `VERSION` is stamped with each build's commit (`swVersionPlugin` in `vite.config.js`), so every deploy replaces the worker and its caches; a new worker takes over at once (`skipWaiting` / `clients.claim`); the dead paths are removed. No behaviour change for users today.
+- **Rollout impact:** low — nobody uses the app during the window; any tab opened afterwards loads the new code. Ask family members to reload open tabs after the rollout.
+- **Follow-up (GitHub issue):** a "new version available — reload" prompt for tabs left open across a deploy; review the worker's role overall (offline value vs. the Firebase messaging worker).
 
 ### 2. Gemini API credits (AI features)
 
