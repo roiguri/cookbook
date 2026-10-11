@@ -7,13 +7,13 @@
         <nav aria-label="המתכונים שלי">
           <ul class="mr-tabs">
             <li>
-              <a href="/my-recipes" data-tab="to-try"
-                >לנסות <span class="count" data-count="to-try"></span
+              <a href="/my-recipes" data-tab="library"
+                >הספרייה שלי <span class="count" data-count="library"></span
               ></a>
             </li>
             <li>
-              <a href="/my-recipes?tab=library" data-tab="library"
-                >הספרייה שלי <span class="count" data-count="library"></span
+              <a href="/my-recipes?tab=to-try" data-tab="to-try"
+                >לנסות <span class="count" data-count="to-try"></span
               ></a>
             </li>
           </ul>
@@ -64,7 +64,7 @@
         <p class="body-text-he" id="mr-empty-text"></p>
         <div class="mr-empty__actions">
           <a class="btn btn-primary" href="/propose-recipe" id="mr-empty-new"></a>
-          <a class="btn btn-ghost" href="/my-recipes" id="mr-empty-to-try" hidden
+          <a class="btn btn-ghost" href="/my-recipes?tab=to-try" id="mr-empty-to-try" hidden
             >ללשונית ״לנסות״</a
           >
         </div>
