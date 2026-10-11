@@ -83,6 +83,17 @@ Reviewed by an independent agent on 2026-10-11; its findings are folded in here.
 5. **Indexes:** add composite indexes for the new queries to `firestore.indexes.json` in the same release (a missing index only fails at runtime).
 6. **Rollout:** refresh the test copy from production → rehearse the script (dry run, apply) → deploy → staging test. Production window: **backup → deploy indexes (let them build) → run the script (additive, safe with the old site) → merge `main`, wait for Netlify → deploy rules + functions → smoke test.**
 
+### Open question: Storage structure and privacy (decide before 3a)
+
+**Further thinking is required on Storage — folder structure and privacy — before release 3a.**
+
+- **Private recipes' photos aren't private.** `storage.rules` allow anyone to read recipe images, and the app displays them through Firebase **download URLs, which bypass Storage rules**: anyone holding the link can open the file. The risk is low (links contain an unguessable recipe id and are only shown to people who can see the recipe), but it isn't real privacy. Options:
+  - **(a) Accept it and document it** — the common Firebase trade-off; unguessable ids. _Current suggestion._
+  - **(b) Load private recipes' images through the SDK** with rule-checked reads, and restrict reads to author / manager / published — more work, slower.
+  - **(c) Separate private folder** (e.g. `private/{uid}/{recipeId}/…`) and move files on publish.
+- **Structure for copies (3b):** the published copy needs its own photos, media instructions and resized variants, copied server-side; otherwise deleting the author's private original would delete the published recipe's files. Decide the folder layout together with the privacy option above.
+- **Authors deleting their own private recipe (3a):** the Storage side already allows it (`isRecipeAuthor`); the Firestore recipe `delete` rule is still managers-only and must allow the author for private recipes.
+
 ### Notes for releases 3–4 (from the review)
 
 - **3b approval copy** runs server-side (callable or trigger, admin SDK), copies the recipe and its photos (`img/recipes/{type}/{category}/{recipeId}/…` plus the `_400x400`/`_1080x1080` variants), is idempotent via `publishedId`, and writes the submission `status` last.
