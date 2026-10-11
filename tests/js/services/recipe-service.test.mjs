@@ -370,6 +370,88 @@ describe('RecipeService', () => {
       });
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
       expect(payload.approved).toBe(false);
+      expect(payload.visibility).toBe('private');
+    });
+
+    it('publishing sets visibility together with the approved flag', async () => {
+      await RecipeService.update('recipe-9', { approved: true });
+      const payload = firestoreMocks.updateDocument.mock.calls[0][2];
+      expect(payload).toEqual({ approved: true, visibility: 'published' });
+    });
+
+    it('leaves approved and visibility untouched when approved is omitted', async () => {
+      await RecipeService.update('recipe-9', { changes: { name: 'Updated' } });
+      const payload = firestoreMocks.updateDocument.mock.calls[0][2];
+      expect(payload).not.toHaveProperty('approved');
+      expect(payload).not.toHaveProperty('visibility');
+    });
+  });
+
+  describe('new-model fields on create', () => {
+    const createWith = async (recipeData) => {
+      await RecipeService.create({ recipeData: { name: 'Bread', ...recipeData } });
+      return firestoreMocks.setDocument.mock.calls[0][2];
+    };
+
+    it('derives authorId/visibility/stage from legacy userId/approved', async () => {
+      expect(await createWith({ userId: 'u1', approved: false })).toMatchObject({
+        userId: 'u1',
+        authorId: 'u1',
+        approved: false,
+        visibility: 'private',
+        stage: 'tested',
+      });
+    });
+
+    it('derives userId/approved from new authorId/visibility', async () => {
+      expect(
+        await createWith({ authorId: 'u2', visibility: 'published', stage: 'to-try' }),
+      ).toMatchObject({
+        userId: 'u2',
+        authorId: 'u2',
+        approved: true,
+        visibility: 'published',
+        stage: 'to-try',
+      });
+    });
+
+    it('lets visibility win over a contradicting approved flag', async () => {
+      const payload = await createWith({ visibility: 'private', approved: true });
+      expect(payload.approved).toBe(false);
+      expect(payload.visibility).toBe('private');
+    });
+
+    it('records no author as authorId null and no userId', async () => {
+      const payload = await createWith({});
+      expect(payload.authorId).toBeNull();
+      expect(payload).not.toHaveProperty('userId');
+    });
+  });
+
+  describe('listPublished', () => {
+    it('adds the visibility filter in front of the caller’s query', async () => {
+      firestoreMocks.queryDocuments.mockResolvedValue([]);
+      await RecipeService.listPublished({
+        where: [['category', '==', 'desserts']],
+        orderBy: ['creationTime', 'desc'],
+        limit: 4,
+      });
+      expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipes', {
+        where: [
+          ['visibility', '==', 'published'],
+          ['category', '==', 'desserts'],
+        ],
+        orderBy: ['creationTime', 'desc'],
+        limit: 4,
+      });
+    });
+
+    it('works with no arguments', async () => {
+      firestoreMocks.queryDocuments.mockResolvedValue([]);
+      await RecipeService.listPublished();
+      expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipes', {
+        where: [['visibility', '==', 'published']],
+      });
     });
   });
 

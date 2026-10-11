@@ -66,9 +66,7 @@ class AiImageEnhancer extends HTMLElement {
 
   async _loadRecipes() {
     try {
-      const all = await RecipeService.list({
-        where: [['approved', '==', true]],
-      });
+      const all = await RecipeService.listPublished();
       this._recipes = all
         .filter((r) => Array.isArray(r.images) && r.images.length > 0)
         .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));

@@ -1273,9 +1273,10 @@ class RecipeComponent extends HTMLElement {
     }
 
     const fetched = await Promise.all(
-      ids.map(async (id) => formatRecipeData(await RecipeService.get(id))),
+      // A related recipe may be gone or not readable by this viewer; skip it.
+      ids.map(async (id) => formatRecipeData(await RecipeService.get(id).catch(() => null))),
     );
-    const valid = fetched.filter((r) => r && r.approved);
+    const valid = fetched.filter((r) => r && r.visibility === 'published');
 
     // Self-heal: prune stale IDs from the recipe doc (fire-and-forget).
     // RecipeService.update has PATCH semantics — only `changes` are written,

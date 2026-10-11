@@ -134,11 +134,31 @@ describe('recipe-data-utils', () => {
         relatedRecipes: ['recipe-1'],
         comments: ['Yum!'],
         approved: true,
+        authorId: 'user1',
+        visibility: 'published',
+        stage: 'tested',
         creationTime: 1234567890,
         updatedAt: 1234567891,
       };
       const formatted = formatRecipeData(raw);
       expect(formatted).toEqual(raw);
+    });
+
+    it('derives the new-model fields from legacy ones when missing', () => {
+      expect(formatRecipeData({ userId: 'u1', approved: true })).toMatchObject({
+        authorId: 'u1',
+        visibility: 'published',
+        stage: 'tested',
+      });
+      expect(formatRecipeData({ approved: false, stage: 'to-try' })).toMatchObject({
+        authorId: null,
+        visibility: 'private',
+        stage: 'to-try',
+      });
+      // visibility wins over a stale approved flag
+      expect(formatRecipeData({ approved: true, visibility: 'private' }).visibility).toBe(
+        'private',
+      );
     });
 
     it('fills in defaults for missing fields', () => {
@@ -165,6 +185,9 @@ describe('recipe-data-utils', () => {
         comments: [],
         relatedRecipes: [],
         approved: false,
+        authorId: null,
+        visibility: 'private',
+        stage: 'tested',
         creationTime: null,
         updatedAt: null,
       });

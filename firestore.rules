@@ -75,46 +75,98 @@ service cloud.firestore {
     // RECIPES COLLECTION
     // =========================================================================
     match /recipes/{recipeId} {
-      // The author of a recipe. Older recipes have no userId field, so read it
-      // with a default rather than letting the rule error.
+      // The author: `authorId`, falling back to the legacy `userId`. Recipes with no
+      // recorded author have authorId null, which never matches a user.
+      function authorOf(data) {
+        return data.get('authorId', data.get('userId', null));
+      }
       function isAuthor() {
-        return isAuthenticated() && resource.data.get('userId', null) == request.auth.uid;
+        return isAuthenticated() && authorOf(resource.data) == request.auth.uid;
+      }
+      function isPublished(data) {
+        return data.get('visibility', null) == 'published';
+      }
+      // `visibility` is the source of truth; the legacy `approved` flag must agree
+      // with it until the cleanup release removes it.
+      function isConsistent(data) {
+        return data.get('approved', false) == isPublished(data)
+            && data.get('visibility', 'private') in ['private', 'published']
+            && data.get('stage', 'tested') in ['to-try', 'tested'];
       }
 
       // READ:
-      // - Published (approved) recipes are public.
-      // - An unapproved proposal is visible only to its author and managers.
-      // - List queries must filter on `approved == true` unless run by a manager;
-      //   Firestore rejects a query that could return a recipe the caller can't read.
+      // - Published recipes are public. (`approved == true` is the same set while
+      //   both fields exist; it keeps queries from older open tabs working.)
+      // - A private recipe is visible only to its author and managers.
+      // - List queries must filter on `visibility == 'published'` unless run by a
+      //   manager; Firestore rejects a query that could return a recipe the caller
+      //   can't read.
       // - A recipe that doesn't exist reads as "not found" rather than "permission
       //   denied" (a broken link isn't an error; nothing is revealed).
       allow read: if resource == null
+                  || isPublished(resource.data)
                   || resource.data.approved == true
                   || isAuthor()
                   || isManager();
 
       // CREATE:
-      // - "Propose a recipe": a signed-in user creates it in their own name, unapproved.
-      // - Managers can create recipes already approved.
-      allow create: if isManager()
-                    || (isAuthenticated()
-                        && request.resource.data.userId == request.auth.uid
-                        && request.resource.data.approved == false);
+      // - A signed-in user creates a private recipe in their own name (today: a
+      //   proposal, submitted through recipe_submissions). From release 3a,
+      //   unsubmitted private recipes become approved-family-only.
+      // - Managers can create published recipes.
+      allow create: if isConsistent(request.resource.data)
+                    && (isManager()
+                        || (isAuthenticated()
+                            && request.resource.data.authorId == request.auth.uid
+                            && request.resource.data.get('userId', request.auth.uid) == request.auth.uid
+                            && !isPublished(request.resource.data)
+                            && !('sourceRecipeId' in request.resource.data)));
 
       // UPDATE:
-      // - Managers can edit any recipe, including approving it.
-      // - An author can edit their own proposal while it is unapproved, but can't
-      //   approve it or hand it to someone else. Published recipes change through
-      //   edit suggestions (recipe_edit_suggestions), the author included.
-      allow update: if isManager()
-                    || (isAuthor()
-                        && resource.data.approved == false
-                        && request.resource.data.approved == false
-                        && request.resource.data.userId == resource.data.userId);
+      // - Managers can edit any recipe, including publishing it.
+      // - An author can edit their own private recipe, but can't publish it or
+      //   change its author or provenance. Published recipes change through edit
+      //   suggestions (recipe_edit_suggestions), the author included.
+      allow update: if isConsistent(request.resource.data)
+                    && (isManager()
+                        || (isAuthor()
+                            && !isPublished(resource.data)
+                            && !isPublished(request.resource.data)
+                            && authorOf(request.resource.data) == authorOf(resource.data)
+                            && request.resource.data.get('userId', null) == resource.data.get('userId', null)
+                            && request.resource.data.get('sourceRecipeId', null) == resource.data.get('sourceRecipeId', null)));
 
       // DELETE:
       // - Managers only
       allow delete: if isManager();
+    }
+
+    // =========================================================================
+    // RECIPE SUBMISSIONS (the family-book approval queue)
+    // =========================================================================
+    // One document per submitted recipe, keyed by the recipe's id. Same pattern as
+    // recipe_edit_suggestions: an author can only create a pending submission for
+    // their own private recipe; only managers change its status.
+    match /recipe_submissions/{recipeId} {
+      allow read: if isManager()
+                  || (isAuthenticated() && resource.data.authorId == request.auth.uid);
+
+      allow create: if isAuthenticated()
+                    && request.resource.data.recipeId == recipeId
+                    && request.resource.data.authorId == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && getAfter(/databases/$(database)/documents/recipes/$(recipeId)).data
+                         .get('authorId', null) == request.auth.uid
+                    && getAfter(/databases/$(database)/documents/recipes/$(recipeId)).data
+                         .get('visibility', null) == 'private';
+
+      allow update: if isManager();
+
+      // Managers, or the author withdrawing a submission that is still pending.
+      allow delete: if isManager()
+                    || (isAuthenticated()
+                        && resource.data.authorId == request.auth.uid
+                        && resource.data.status == 'pending');
     }
 
     // =========================================================================

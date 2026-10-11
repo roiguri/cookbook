@@ -47,7 +47,8 @@
  * Dependencies:
  * - This component relies on the `custom-modal` and `recipe-component` components.
  */
-import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeSubmissionService } from '../../../js/services/recipes/recipe-submission-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 
 import '../recipe_component/recipe_component.js';
 import '../../utilities/modal/modal.js';
@@ -264,12 +265,14 @@ class RecipePreviewModal extends HTMLElement {
   }
 
   async handleRecipeApproval(recipeId) {
-    await RecipeService.update(recipeId, { approved: true });
+    await RecipeSubmissionService.approve(recipeId, {
+      reviewedBy: authService.getCurrentUser()?.uid,
+    });
   }
 
   async handleRecipeRejection(recipeId) {
     try {
-      await RecipeService.delete(recipeId);
+      await RecipeSubmissionService.reject(recipeId);
     } catch (error) {
       console.error('Error in handleRecipeRejection:', error);
       throw new Error('Failed to reject recipe: ' + error.message);

@@ -1,8 +1,11 @@
 /**
- * Firestore security rules — recipes.
+ * Firestore security rules — recipes and recipe submissions.
  *
  * Runs against the emulator via `npm run test:rules`. Set FIRESTORE_RULES to a
  * different rules file to compare (e.g. the previous release's rules).
+ *
+ * Recipe documents here have the release-2 shape: `authorId` + `visibility` +
+ * `stage`, with the legacy `userId` + `approved` still present and in sync.
  */
 import { readFileSync } from 'node:fs';
 import {
@@ -20,6 +23,7 @@ import {
   query,
   where,
   getDocs,
+  writeBatch,
 } from 'firebase/firestore';
 
 const RULES = process.env.FIRESTORE_RULES || 'firestore.rules';
@@ -28,16 +32,36 @@ let testEnv;
 
 const AUTHOR = 'author-uid';
 const OTHER = 'other-uid';
+const USER = 'plain-user-uid'; // role 'user'
 const MANAGER = 'manager-uid';
 
-const published = { name: 'Challah', userId: AUTHOR, approved: true, category: 'breads' };
-const pending = { name: 'Kubbeh', userId: AUTHOR, approved: false, category: 'soups' };
-const legacy = { name: 'Old recipe', approved: true, category: 'mains' }; // no userId field
+const shape = (authorId, visibility) => ({
+  authorId,
+  ...(authorId ? { userId: authorId } : {}),
+  visibility,
+  approved: visibility === 'published',
+  stage: 'tested',
+});
+const published = { name: 'Challah', category: 'breads', ...shape(AUTHOR, 'published') };
+const pending = { name: 'Kubbeh', category: 'soups', ...shape(AUTHOR, 'private') };
+const legacy = { name: 'Old recipe', category: 'mains', ...shape(null, 'published') };
+const newPrivate = (uid) => ({ name: 'New', ...shape(uid, 'private') });
 
 const db = (uid) =>
   uid
     ? testEnv.authenticatedContext(uid).firestore()
     : testEnv.unauthenticatedContext().firestore();
+
+const submission = (recipeId, authorId, extra = {}) => ({
+  recipeId,
+  authorId,
+  status: 'pending',
+  reviewedBy: null,
+  reviewedAt: null,
+  rejectionReason: null,
+  publishedId: null,
+  ...extra,
+});
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
@@ -56,10 +80,12 @@ beforeEach(async () => {
     const admin = ctx.firestore();
     await setDoc(doc(admin, 'users', AUTHOR), { role: 'approved' });
     await setDoc(doc(admin, 'users', OTHER), { role: 'approved' });
+    await setDoc(doc(admin, 'users', USER), { role: 'user' });
     await setDoc(doc(admin, 'users', MANAGER), { role: 'manager' });
     await setDoc(doc(admin, 'recipes', 'published'), published);
     await setDoc(doc(admin, 'recipes', 'pending'), pending);
     await setDoc(doc(admin, 'recipes', 'legacy'), legacy);
+    await setDoc(doc(admin, 'recipe_submissions', 'pending'), submission('pending', AUTHOR));
   });
 });
 
@@ -74,26 +100,27 @@ describe('reading recipes', () => {
     expect(snap.exists()).toBe(false);
   });
 
-  test('signed-out visitors cannot read an unapproved recipe', async () => {
+  test('a private recipe is hidden from signed-out visitors and other users', async () => {
     await assertFails(getDoc(doc(db(null), 'recipes', 'pending')));
-  });
-
-  test('another user cannot read an unapproved recipe', async () => {
     await assertFails(getDoc(doc(db(OTHER), 'recipes', 'pending')));
   });
 
-  test('the author can read their own unapproved recipe', async () => {
+  test('the author and managers can read a private recipe', async () => {
     await assertSucceeds(getDoc(doc(db(AUTHOR), 'recipes', 'pending')));
-  });
-
-  test('a manager can read an unapproved recipe', async () => {
     await assertSucceeds(getDoc(doc(db(MANAGER), 'recipes', 'pending')));
   });
 
-  test('a list filtered to approved recipes works for everyone', async () => {
-    const q = (uid) => query(collection(db(uid), 'recipes'), where('approved', '==', true));
+  test('a list filtered to published recipes works for everyone', async () => {
+    const q = (uid) =>
+      query(collection(db(uid), 'recipes'), where('visibility', '==', 'published'));
     await assertSucceeds(getDocs(q(null)));
     await assertSucceeds(getDocs(q(OTHER)));
+  });
+
+  test('the legacy approved filter still works (older open tabs)', async () => {
+    await assertSucceeds(
+      getDocs(query(collection(db(null), 'recipes'), where('approved', '==', true))),
+    );
   });
 
   test('an unfiltered list is rejected for non-managers', async () => {
@@ -101,54 +128,74 @@ describe('reading recipes', () => {
     await assertFails(getDocs(collection(db(OTHER), 'recipes')));
   });
 
-  test('a manager can list unapproved recipes', async () => {
-    const q = query(collection(db(MANAGER), 'recipes'), where('approved', '==', false));
+  test('a manager can list private recipes', async () => {
+    const q = query(collection(db(MANAGER), 'recipes'), where('visibility', '==', 'private'));
     await assertSucceeds(getDocs(q));
   });
 });
 
 describe('creating recipes', () => {
-  test('a signed-in user can propose a recipe as themselves, unapproved', async () => {
-    await assertSucceeds(
-      setDoc(doc(db(OTHER), 'recipes', 'new'), { name: 'New', userId: OTHER, approved: false }),
-    );
+  test('a signed-in user can create a private recipe in their own name', async () => {
+    await assertSucceeds(setDoc(doc(db(OTHER), 'recipes', 'new'), newPrivate(OTHER)));
+    await assertSucceeds(setDoc(doc(db(USER), 'recipes', 'new2'), newPrivate(USER)));
   });
 
-  test('a non-manager cannot create an already-approved recipe', async () => {
+  test('a non-manager cannot create a published recipe', async () => {
     await assertFails(
-      setDoc(doc(db(OTHER), 'recipes', 'new'), { name: 'New', userId: OTHER, approved: true }),
+      setDoc(doc(db(OTHER), 'recipes', 'new'), { name: 'New', ...shape(OTHER, 'published') }),
     );
   });
 
   test('a non-manager cannot create a recipe in someone else’s name', async () => {
+    await assertFails(setDoc(doc(db(OTHER), 'recipes', 'new'), newPrivate(AUTHOR)));
+  });
+
+  test('approved and visibility must agree', async () => {
     await assertFails(
-      setDoc(doc(db(OTHER), 'recipes', 'new'), { name: 'New', userId: AUTHOR, approved: false }),
+      setDoc(doc(db(OTHER), 'recipes', 'new'), { ...newPrivate(OTHER), approved: true }),
+    );
+  });
+
+  test('stage must be to-try or tested', async () => {
+    await assertFails(
+      setDoc(doc(db(OTHER), 'recipes', 'new'), { ...newPrivate(OTHER), stage: 'draft' }),
+    );
+  });
+
+  test('a non-manager cannot create a recipe claiming to be a published copy', async () => {
+    await assertFails(
+      setDoc(doc(db(OTHER), 'recipes', 'new'), { ...newPrivate(OTHER), sourceRecipeId: 'x' }),
     );
   });
 
   test('signed-out visitors cannot create recipes', async () => {
-    await assertFails(
-      setDoc(doc(db(null), 'recipes', 'new'), { name: 'New', userId: null, approved: false }),
-    );
+    await assertFails(setDoc(doc(db(null), 'recipes', 'new'), newPrivate(null)));
   });
 
-  test('a manager can create an approved recipe', async () => {
+  test('a manager can create a published recipe', async () => {
     await assertSucceeds(
-      setDoc(doc(db(MANAGER), 'recipes', 'new'), { name: 'New', userId: MANAGER, approved: true }),
+      setDoc(doc(db(MANAGER), 'recipes', 'new'), { name: 'New', ...shape(MANAGER, 'published') }),
     );
   });
 });
 
 describe('updating recipes', () => {
-  test('the author cannot approve their own recipe', async () => {
-    await assertFails(updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { approved: true }));
+  test('the author cannot publish their own recipe', async () => {
+    await assertFails(
+      updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), {
+        visibility: 'published',
+        approved: true,
+      }),
+    );
   });
 
-  test('the author can edit their own unapproved recipe', async () => {
+  test('the author can edit their own private recipe', async () => {
     await assertSucceeds(updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { name: 'Kubbeh!' }));
+    await assertSucceeds(updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { stage: 'to-try' }));
   });
 
-  test('the author cannot hand their unapproved recipe to someone else', async () => {
+  test('the author cannot hand their recipe to someone else', async () => {
+    await assertFails(updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { authorId: OTHER }));
     await assertFails(updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { userId: OTHER }));
   });
 
@@ -161,6 +208,10 @@ describe('updating recipes', () => {
     await assertFails(updateDoc(doc(db(OTHER), 'recipes', 'published'), { name: 'Changed' }));
   });
 
+  test('nobody owns a recipe with no recorded author', async () => {
+    await assertFails(updateDoc(doc(db(OTHER), 'recipes', 'legacy'), { name: 'Mine now' }));
+  });
+
   test('another user cannot add pending images to someone else’s recipe (retired flow)', async () => {
     await assertFails(
       updateDoc(doc(db(OTHER), 'recipes', 'published'), {
@@ -169,9 +220,18 @@ describe('updating recipes', () => {
     );
   });
 
-  test('a manager can approve and edit any recipe', async () => {
-    await assertSucceeds(updateDoc(doc(db(MANAGER), 'recipes', 'pending'), { approved: true }));
+  test('a manager can publish and edit any recipe', async () => {
+    await assertSucceeds(
+      updateDoc(doc(db(MANAGER), 'recipes', 'pending'), {
+        visibility: 'published',
+        approved: true,
+      }),
+    );
     await assertSucceeds(updateDoc(doc(db(MANAGER), 'recipes', 'legacy'), { name: 'Renamed' }));
+  });
+
+  test('even a manager cannot leave approved and visibility disagreeing', async () => {
+    await assertFails(updateDoc(doc(db(MANAGER), 'recipes', 'pending'), { approved: true }));
   });
 });
 
@@ -180,5 +240,77 @@ describe('deleting recipes', () => {
     await assertFails(deleteDoc(doc(db(AUTHOR), 'recipes', 'pending')));
     await assertFails(deleteDoc(doc(db(OTHER), 'recipes', 'published')));
     await assertSucceeds(deleteDoc(doc(db(MANAGER), 'recipes', 'pending')));
+  });
+});
+
+describe('recipe submissions', () => {
+  test('an author can submit their own private recipe', async () => {
+    const author = db(OTHER);
+    await assertSucceeds(setDoc(doc(author, 'recipes', 'mine'), newPrivate(OTHER)));
+    await assertSucceeds(
+      setDoc(doc(author, 'recipe_submissions', 'mine'), submission('mine', OTHER)),
+    );
+  });
+
+  test('a recipe and its submission can be written in one batch', async () => {
+    const author = db(USER);
+    const batch = writeBatch(author);
+    batch.set(doc(author, 'recipes', 'mine'), newPrivate(USER));
+    batch.set(doc(author, 'recipe_submissions', 'mine'), submission('mine', USER));
+    await assertSucceeds(batch.commit());
+  });
+
+  test('nobody can submit someone else’s recipe', async () => {
+    await assertFails(
+      setDoc(doc(db(OTHER), 'recipe_submissions', 'published'), submission('published', OTHER)),
+    );
+    await testEnv.withSecurityRulesDisabled((ctx) =>
+      deleteDoc(doc(ctx.firestore(), 'recipe_submissions', 'pending')),
+    );
+    await assertFails(
+      setDoc(doc(db(OTHER), 'recipe_submissions', 'pending'), submission('pending', OTHER)),
+    );
+  });
+
+  test('a submission must start pending and match its document id', async () => {
+    const author = db(OTHER);
+    await setDoc(doc(author, 'recipes', 'mine'), newPrivate(OTHER));
+    await assertFails(
+      setDoc(
+        doc(author, 'recipe_submissions', 'mine'),
+        submission('mine', OTHER, { status: 'approved' }),
+      ),
+    );
+    await assertFails(
+      setDoc(doc(author, 'recipe_submissions', 'mine'), submission('other-id', OTHER)),
+    );
+  });
+
+  test('only managers can change a submission’s status', async () => {
+    await assertFails(
+      updateDoc(doc(db(AUTHOR), 'recipe_submissions', 'pending'), { status: 'approved' }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db(MANAGER), 'recipe_submissions', 'pending'), { status: 'approved' }),
+    );
+  });
+
+  test('the author and managers can read a submission; others cannot', async () => {
+    await assertSucceeds(getDoc(doc(db(AUTHOR), 'recipe_submissions', 'pending')));
+    await assertSucceeds(getDoc(doc(db(MANAGER), 'recipe_submissions', 'pending')));
+    await assertFails(getDoc(doc(db(OTHER), 'recipe_submissions', 'pending')));
+    await assertFails(getDoc(doc(db(null), 'recipe_submissions', 'pending')));
+  });
+
+  test('managers can list the pending queue; others cannot', async () => {
+    const q = (uid) =>
+      query(collection(db(uid), 'recipe_submissions'), where('status', '==', 'pending'));
+    await assertSucceeds(getDocs(q(MANAGER)));
+    await assertFails(getDocs(q(OTHER)));
+  });
+
+  test('the author can withdraw a pending submission', async () => {
+    await assertFails(deleteDoc(doc(db(OTHER), 'recipe_submissions', 'pending')));
+    await assertSucceeds(deleteDoc(doc(db(AUTHOR), 'recipe_submissions', 'pending')));
   });
 });

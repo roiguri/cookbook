@@ -1,5 +1,6 @@
 import { FailedUrlExtractionService } from '../../js/services/admin/failed-url-extraction-service.js';
-import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import { RecipeService, VISIBILITY } from '../../js/services/recipes/recipe-service.js';
+import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
 import { RecipeEditSuggestionService } from '../../js/services/recipes/recipe-edit-suggestion-service.js';
 import { UserService } from '../../js/services/users/user-service.js';
 import authService from '../../js/services/auth/auth-service.js';
@@ -336,9 +337,8 @@ export default {
     const filterSelect = document.getElementById('recipe-filter');
 
     try {
-      const recipes = await RecipeService.list({
-        where: [['approved', '==', true]],
-      });
+      // Managers can read private recipes too, so this list must ask for published ones.
+      const recipes = await RecipeService.listPublished();
       this.allRecipes = recipes;
       this.updateRecipeList(recipes);
       this.populateFilterOptions(recipes);
@@ -499,9 +499,10 @@ export default {
     const noPendingMessage = pendingRecipeSection.querySelector('.no-pending-message');
 
     try {
-      const pendingRecipes = await RecipeService.list({
-        where: [['approved', '==', false]],
-      });
+      // The approval queue: pending submissions (not every unpublished recipe — from
+      // release 3a authors also keep private recipes they haven't submitted).
+      const pending = await RecipeSubmissionService.listPending();
+      const pendingRecipes = pending.map(({ recipe }) => recipe);
       const recipeItems = pendingRecipes.map((recipe) => ({
         header: this.createPendingRecipeHeader(recipe),
         content: this.createPendingRecipeContent(recipe),
@@ -731,8 +732,10 @@ export default {
         where: [['pendingImages', '!=', []]],
       });
 
-      // Filter client-side to only include approved recipes (not recipe proposals)
-      const pendingRecipes = allPendingRecipes.filter((recipe) => recipe.approved === true);
+      // Filter client-side to only include published recipes (not recipe proposals)
+      const pendingRecipes = allPendingRecipes.filter(
+        (recipe) => recipe.visibility === VISIBILITY.PUBLISHED,
+      );
 
       const recipeItems = pendingRecipes.map((recipe) => ({
         header: this.createPendingImagesRecipeHeader(recipe),
