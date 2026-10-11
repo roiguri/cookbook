@@ -71,7 +71,7 @@ describe('RecipeListController', () => {
     await list.start();
     await flush();
 
-    expect(loadRecipes).toHaveBeenCalledWith({ category: 'desserts' });
+    expect(loadRecipes).toHaveBeenCalledWith({ category: 'desserts', searchQuery: '' });
     expect(grid.setRecipes).toHaveBeenLastCalledWith(recipes, false);
     expect(grid.getAttribute('recipes-per-page')).toBe('8');
     expect(filter.setState).toHaveBeenCalledWith(
@@ -105,7 +105,7 @@ describe('RecipeListController', () => {
     await flush();
     await flush();
 
-    expect(loadRecipes).toHaveBeenCalledWith({ category: 'soups-stews' });
+    expect(loadRecipes).toHaveBeenCalledWith({ category: 'soups-stews', searchQuery: '' });
     expect(onUrlChanged).toHaveBeenCalledWith(
       expect.objectContaining({ currentCategory: 'soups-stews' }),
     );

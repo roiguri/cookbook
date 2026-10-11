@@ -298,11 +298,11 @@ Found while testing on staging, or raised for discussion (2026-10-11). **Resolve
 - **To decide:** pay-as-you-go with a budget alert instead of prepaid credits; which AI Studio project each environment's `GEMINI_API_KEY` belongs to.
 - **To verify:** a successful AI call on production right before the rollout (or check AI Studio balances), and failures surfaced clearly to users instead of "unexpected error".
 
-### 3. Search and private recipes (to discuss)
+### 3. Search and private recipes — ✅ decided and built (2026-10-11)
 
-- **Today (3a-B):** the header search and the Categories page search only **published** recipes (`listPublished`) — your own private recipes never show up there. The My recipes page searches your private recipes, but only **within the open tab** (My library _or_ To try).
-- **To decide:** should the header search also find the signed-in user's own private recipes (with their status badge), or a "my recipes" result group? Should My recipes search across both tabs? How private recipes appear in Categories (if at all), and later in collections (release 4) and My meal.
-- **Constraint:** Firestore can't return "published OR mine" in one query — it's two queries (published + `listMine`) merged in the client, which the shared list/search code would do in one place.
+- **Decision (option B):** searching finds the reader's own private recipes too — badged (לנסות / פרטי / ממתין / נדחה) — for approved family and managers. Browsing Categories without a search stays the family book. My recipes searches within its tab, like Categories. (Own published recipes were already in every search: publishing is in place.)
+- **Built:** `RecipeSearchService.listSearchable` — the one place that merges the two queries (Firestore can't express "published OR mine"); used by the header search (single-match shortcut) and the Categories page while a search is active (the shared list controller now passes the search text to its data source). `RecipeSubmissionService.listMineWithStatus` gives My recipes and search the same badges.
+- **To verify on staging:** search a word from one of your private recipes from the header and from Categories.
 
 ## Production rollout runbook
 
