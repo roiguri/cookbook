@@ -19,7 +19,7 @@ import { captureError } from '../logger.js';
  *   - listPublished(queryParams)
  *   - generateId()
  *   - create({ recipeData, imagesToUpload, mediaItemsOrdered, uploadedBy })
- *   - update(recipeId, { changes, images, imagesToDelete, mediaItemsOrdered, uploadedBy, approved })
+ *   - update(recipeId, { changes, images, imagesToDelete, mediaItemsOrdered, uploadedBy, publish })
  *   - delete(recipeId)
  *   - setPrimaryImage(recipeId, imageId)
  *   - replaceImage(recipeId, imageId, blob, options)
@@ -28,11 +28,10 @@ import { captureError } from '../logger.js';
  * (RecipeEditSuggestionService); the family-book approval queue lives in
  * RecipeSubmissionService.
  *
- * Visibility: `visibility` ('private' | 'published') is the source of truth for
- * whether a recipe is public. Until the cleanup release the legacy `approved`
- * flag (and `userId`, mirrored by `authorId`) is still written; this service
- * keeps the pairs in sync on every write, and firestore.rules requires that
- * `approved` and `visibility` agree.
+ * Visibility: `visibility` ('private' | 'published') says whether a recipe is
+ * public, and `authorId` who wrote it. The legacy `approved` / `userId` fields
+ * are no longer written or read (older recipes still carry them until the data
+ * cleanup, #390 C1).
  */
 
 const RECIPES_COLLECTION = 'recipes';
@@ -41,19 +40,16 @@ export const VISIBILITY = Object.freeze({ PRIVATE: 'private', PUBLISHED: 'publis
 export const STAGE = Object.freeze({ TO_TRY: 'to-try', TESTED: 'tested' });
 
 /**
- * Fill in the new-model fields of a recipe being created, from whichever of the
- * legacy/new fields the caller passed: authorId <-> userId, visibility <-> approved,
- * and a default `stage` of 'tested'.
+ * The model fields of a recipe being created: `authorId`, `visibility`
+ * (private unless said otherwise) and `stage` ('tested' by default). The legacy
+ * `userId` / `approved` are accepted as input but never written.
  */
 function withModelFields(data) {
-  const out = { ...data };
-  const authorId = out.authorId ?? out.userId ?? null;
-  out.authorId = authorId;
-  if (authorId !== null) out.userId = authorId;
+  const { userId, approved, ...out } = data;
+  out.authorId = out.authorId ?? userId ?? null;
   const published =
-    out.visibility !== undefined ? out.visibility === VISIBILITY.PUBLISHED : out.approved === true;
+    out.visibility !== undefined ? out.visibility === VISIBILITY.PUBLISHED : approved === true;
   out.visibility = published ? VISIBILITY.PUBLISHED : VISIBILITY.PRIVATE;
-  out.approved = published;
   if (out.stage === undefined) out.stage = STAGE.TESTED;
   return out;
 }
@@ -226,7 +222,7 @@ export class RecipeService {
    *
    * @param {Object} params
    * @param {Object} params.recipeData - Base recipe fields (no images/mediaInstructions/toDelete).
-   *                                     Caller sets authorId (or legacy userId) and visibility (or legacy approved);
+   *                                     Caller sets authorId and visibility;
    *                                     the other of each pair and a default stage are filled in. creationTime is service-stamped.
    * @param {Array<{file: File, isPrimary: boolean}>} [params.imagesToUpload]
    * @param {Array<Object>} [params.mediaItemsOrdered] - Ordered media items
@@ -319,9 +315,9 @@ export class RecipeService {
    * @param {Array<string>} [params.mediaToDelete] - Storage paths of media files
    *        removed in the editor, deleted on save (deferred-delete contract).
    * @param {string} [params.uploadedBy] - User UID for new uploads.
-   * @param {boolean} [params.approved] - Pass `true` to publish (e.g. manager
-   *        edits), `false` to unpublish. Also sets `visibility`. Omit to leave
-   *        both untouched.
+   * @param {boolean} [params.publish] - `true` publishes (sets `visibility`
+   *        'published', e.g. a manager's edit), `false` makes it private. Omit to
+   *        leave visibility untouched.
    * @returns {Promise<{ mediaUploadResults: Object }>}
    */
   static async update(
@@ -333,7 +329,7 @@ export class RecipeService {
       mediaItemsOrdered,
       mediaToDelete,
       uploadedBy,
-      approved,
+      publish,
     } = {},
   ) {
     if (!recipeId) {
@@ -419,9 +415,8 @@ export class RecipeService {
     const docPayload = { ...stripUndefined(changes) };
     if (newImages !== undefined) docPayload.images = newImages;
     if (mediaInstructions !== undefined) docPayload.mediaInstructions = mediaInstructions;
-    if (approved !== undefined) {
-      docPayload.approved = approved;
-      docPayload.visibility = approved ? VISIBILITY.PUBLISHED : VISIBILITY.PRIVATE;
+    if (publish !== undefined) {
+      docPayload.visibility = publish ? VISIBILITY.PUBLISHED : VISIBILITY.PRIVATE;
     }
 
     await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, docPayload);

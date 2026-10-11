@@ -292,7 +292,7 @@ describe('RecipeService', () => {
         ],
         imagesToDelete: [{ id: 'img-rm', full: 'p/rm.jpg' }],
         uploadedBy: 'user-1',
-        approved: true,
+        publish: true,
       });
 
       expect(recipeImageServiceMocks.deleteFiles).toHaveBeenCalledWith({
@@ -301,7 +301,8 @@ describe('RecipeService', () => {
       });
       expect(recipeImageServiceMocks.uploadFile).toHaveBeenCalledTimes(1);
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
-      expect(payload.approved).toBe(true);
+      expect(payload.visibility).toBe('published');
+      expect(payload).not.toHaveProperty('approved');
       expect(payload.images.map((i) => i.id)).toEqual(['img-old', 'img-new']);
     });
 
@@ -313,7 +314,7 @@ describe('RecipeService', () => {
       expect(payload).toEqual({ relatedRecipes: ['r-1', 'r-2'] });
       expect(payload).not.toHaveProperty('images');
       expect(payload).not.toHaveProperty('mediaInstructions');
-      expect(payload).not.toHaveProperty('approved');
+      expect(payload).not.toHaveProperty('visibility');
     });
 
     it('leaves files where they are when the category changes (no category in Storage paths)', async () => {
@@ -355,28 +356,27 @@ describe('RecipeService', () => {
       expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
     });
 
-    it('writes the approved flag when explicitly provided', async () => {
+    it('publish: false makes the recipe private', async () => {
       await RecipeService.update('recipe-9', {
         changes: { name: 'Updated' },
-        approved: false,
+        publish: false,
         uploadedBy: 'user-1',
       });
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
-      expect(payload.approved).toBe(false);
       expect(payload.visibility).toBe('private');
     });
 
-    it('publishing sets visibility together with the approved flag', async () => {
-      await RecipeService.update('recipe-9', { approved: true });
+    it('publish: true sets visibility only (the legacy approved flag is not written)', async () => {
+      await RecipeService.update('recipe-9', { publish: true });
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
-      expect(payload).toEqual({ approved: true, visibility: 'published' });
+      expect(payload).toEqual({ visibility: 'published' });
     });
 
-    it('leaves approved and visibility untouched when approved is omitted', async () => {
+    it('leaves visibility untouched when publish is omitted', async () => {
       await RecipeService.update('recipe-9', { changes: { name: 'Updated' } });
       const payload = firestoreMocks.updateDocument.mock.calls[0][2];
-      expect(payload).not.toHaveProperty('approved');
       expect(payload).not.toHaveProperty('visibility');
+      expect(payload).not.toHaveProperty('approved');
     });
   });
 
@@ -386,32 +386,27 @@ describe('RecipeService', () => {
       return firestoreMocks.setDocument.mock.calls[0][2];
     };
 
-    it('derives authorId/visibility/stage from legacy userId/approved', async () => {
-      expect(await createWith({ userId: 'u1', approved: false })).toMatchObject({
-        userId: 'u1',
-        authorId: 'u1',
-        approved: false,
-        visibility: 'private',
-        stage: 'tested',
-      });
+    it('accepts legacy userId/approved as input but writes only the new fields', async () => {
+      const payload = await createWith({ userId: 'u1', approved: false });
+      expect(payload).toMatchObject({ authorId: 'u1', visibility: 'private', stage: 'tested' });
+      expect(payload).not.toHaveProperty('userId');
+      expect(payload).not.toHaveProperty('approved');
     });
 
-    it('derives userId/approved from new authorId/visibility', async () => {
-      expect(
-        await createWith({ authorId: 'u2', visibility: 'published', stage: 'to-try' }),
-      ).toMatchObject({
-        userId: 'u2',
+    it('keeps the new fields as given', async () => {
+      const payload = await createWith({
         authorId: 'u2',
-        approved: true,
         visibility: 'published',
         stage: 'to-try',
       });
+      expect(payload).toMatchObject({ authorId: 'u2', visibility: 'published', stage: 'to-try' });
+      expect(payload).not.toHaveProperty('approved');
     });
 
-    it('lets visibility win over a contradicting approved flag', async () => {
+    it('lets visibility win over a contradicting approved input', async () => {
       const payload = await createWith({ visibility: 'private', approved: true });
-      expect(payload.approved).toBe(false);
       expect(payload.visibility).toBe('private');
+      expect(payload).not.toHaveProperty('approved');
     });
 
     it('records no author as authorId null and no userId', async () => {

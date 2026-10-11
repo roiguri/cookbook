@@ -149,7 +149,7 @@ class EditSuggestionReview extends HTMLElement {
       await RecipeService.update(this.suggestion.recipeId, {
         ...payload,
         uploadedBy,
-        approved: true,
+        publish: true,
       });
       await RecipeEditSuggestionService.approve(this.suggestion.id, {
         reviewedBy: uploadedBy,

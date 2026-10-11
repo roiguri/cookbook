@@ -314,7 +314,6 @@ function prepareCookbookRecipe(recipeData, metadata) {
 
     // Transferred recipes have no author in this app; they enter as unpublished.
     // (This pipeline is gated, #202; it is due for removal in the cleanup release.)
-    approved: false,
     visibility: 'private',
     authorId: null,
     stage: 'tested',
@@ -386,7 +385,7 @@ const processRecipeTransfer = onMessagePublished('recipe-transfers', async (even
       prepTime: cookbookRecipe.prepTime,
       waitTime: cookbookRecipe.waitTime,
       servings: cookbookRecipe.servings,
-      approved: cookbookRecipe.approved,
+      visibility: cookbookRecipe.visibility,
       transferredFrom: cookbookRecipe.transferredFrom,
     });
 

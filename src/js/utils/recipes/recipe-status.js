@@ -37,8 +37,7 @@ export const RECIPE_STATUS_LABELS = Object.freeze({
  */
 export function getRecipeStatus(recipe) {
   if (!recipe) return null;
-  const visibility = recipe.visibility ?? (recipe.approved === true ? 'published' : 'private');
-  if (visibility === 'published') return recipe.ownView ? RECIPE_STATUS.PUBLISHED : null;
+  if (recipe.visibility === 'published') return recipe.ownView ? RECIPE_STATUS.PUBLISHED : null;
   if (recipe.submissionStatus === 'pending') return RECIPE_STATUS.PENDING;
   if (recipe.submissionStatus === 'rejected') return RECIPE_STATUS.REJECTED;
   return recipe.stage === 'to-try' ? RECIPE_STATUS.TO_TRY : RECIPE_STATUS.PRIVATE;

@@ -68,7 +68,7 @@ class EditRecipeComponent extends HTMLElement {
         mediaItemsOrdered,
         mediaToDelete,
         uploadedBy,
-        ...(approveOnSave ? { approved: true } : {}),
+        ...(approveOnSave ? { publish: true } : {}),
       });
 
       const mediaEditor = this.formComponent?.shadowRoot?.getElementById(

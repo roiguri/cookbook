@@ -19,15 +19,13 @@ service firebase.storage {
           && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'manager';
     }
 
-    // The author of the recipe a file belongs to (`authorId`, falling back to the
-    // legacy `userId`). A recipe's images are uploaded
+    // The author of the recipe a file belongs to (`authorId`). A recipe's images are uploaded
     // before its document exists, so a missing recipe simply means "not the author".
     function isRecipeAuthor(recipeId) {
       let path = /databases/(default)/documents/recipes/$(recipeId);
       return isAuthenticated()
           && firestore.exists(path)
-          && firestore.get(path).data.get('authorId', firestore.get(path).data.get('userId', null))
-               == request.auth.uid;
+          && firestore.get(path).data.get('authorId', null) == request.auth.uid;
     }
 
     // Every upload is tagged with its uploader (StorageService.uploadFile sets
@@ -46,13 +44,11 @@ service firebase.storage {
     }
 
     // A recipe that isn't in the family book: private, or not created yet (its
-    // images are uploaded before its document is written). `visibility` decides;
-    // the legacy `approved` flag counts too until the cleanup release.
+    // images are uploaded before its document is written).
     function isNotPublished(recipeId) {
       let path = /databases/(default)/documents/recipes/$(recipeId);
       return !firestore.exists(path)
-          || (firestore.get(path).data.get('visibility', null) != 'published'
-              && firestore.get(path).data.get('approved', false) != true);
+          || firestore.get(path).data.get('visibility', null) != 'published';
     }
 
     // Who may overwrite or delete an existing recipe file: managers; and, while the
