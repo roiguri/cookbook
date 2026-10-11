@@ -58,7 +58,7 @@ Access rules (enforced in `firestore.rules` / `storage.rules`, not only the UI):
 | 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)                                                | —                                                                                                             | ✅ 2026-10-10                               |
 | 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published                                         | "Recipe not found" state                                                                                      | ✅ 2026-10-11 (PRs #332, #333)              |
 | 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates a `recipe_submissions` doc per open proposal. Old fields kept and still written | None                                                                                                          | ✅ staging 2026-10-11 (PR #336) — prod held |
-| 2b  | Restructure Storage         | Script copies every recipe file to `recipes/{id}/images                                                                                        | media/`, rewrites paths in recipes and edit suggestions. Old files kept                                       | None                                        | ⏳ next |
+| 2b  | Restructure Storage         | Script copies every recipe file to `recipes/{id}/images                                                                                        | media/`, rewrites paths in recipes and edit suggestions. Old files kept                                       | None                                        | ✅ staging 2026-10-11 (PR #340) — prod held |
 | 3a  | Private recipes and To try  | New private recipes (no publishing yet)                                                                                                        | My recipes (To try / My library tabs), Mark as tested, Save privately, private/to-try badges                  | ⬜ needs design                             |
 | 3b  | Submissions and publishing  | Submissions; approval creates the published copy (Cloud Function)                                                                              | Submit to the family book, pending/rejected badges, dashboard submissions queue with approve-as-copy / reject | ⬜ needs design                             |
 | 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                                                    | Favourite button unchanged; add to collection; collections view                                               | ⬜ needs design                             |
@@ -111,6 +111,10 @@ Decided while building (2026-10-11):
 - **Copies are re-tagged:** approved suggestion files are tagged as uploaded by the approving manager, and `003` drops a copied file's `uploadedBy` tag when it isn't the recipe's author — a suggester never keeps delete rights over a live recipe's files.
 - **Orphan photos aren't copied:** the test copy of production holds 126 original photos but recipes reference only 56; the rest (deleted or failed proposals) stay in the old tree and go with the cleanup release.
 - Dry run on the test copy of production: 53 of 62 recipes repointed (56 photos, 4 media files), 280 files copied with variants and backups, 1 edit suggestion repointed, no missing files.
+
+#### Release 2b — staging results (2026-10-11)
+
+All 8 cases passed on staging, checked against Firestore and Storage after each step: propose with photos and a step photo (unique names in `recipes/{id}/…`, tagged, thumbnails, pending submission, nothing in the old tree); approve; suggest an edit with files (staged in `suggestions/{id}/`, recipe untouched); approve the suggestion (copied, re-tagged to the manager, staged files deleted); reject a suggestion; manager edit — category change with no file moves, primary flag moved, removed photo and thumbnails deleted; AI enhancer (replaced in place, `_original` backup; after the Gemini top-up); delete (whole folder emptied). Leftover: deleting a recipe leaves its `recipe_submissions` record — handle in 3b.
 
 ### Notes for releases 3–4 (from the review)
 
@@ -175,6 +179,25 @@ Setup: the rules are deployed to the test project (`firebase deploy --only fires
 
 New screens are designed as artboards in the "Cookbook screens" canvas (https://claude.ai/artifact/SsMxNM5PKyJwdYXnfeqLz5) using the "Our Kitchen Chronicles" design system (https://claude.ai/artifact/GNWbK9XsFAjWC4uFZ3QoJ7), attached explicitly — never set an account default. Screens: not-found state; My recipes; card and recipe-page status badges and owner actions; Save privately / Submit with the untested warning; dashboard submissions queue; nav entry; add-to-collection and collections view. Releases 3 and 4 implement from the canvas.
 
+## Before production: open issues to resolve
+
+Found while testing on staging (2026-10-11). **Resolve and verify both before the production rollout.**
+
+### 1. Stale code in browsers (service worker)
+
+- **What happened:** a tab opened before a staging deploy kept running the previous code, wrote photos to the old Storage folders (now manager-only) and failed with an unexpected error. A hard refresh fixed it.
+- **Why it's bigger than open tabs:** `public/service-worker.js` serves everything **cache-first, including `index.html`**, and only resets its cache when its hard-coded `VERSION` changes (last changed 2026-04-30). A returning visitor or the installed app can keep loading **old code after a deploy**, possibly for many releases.
+- **Why it matters for this rollout:** after production goes live, old code would write to closed folders and miss the new fields — failures exactly like the one on staging.
+- **To decide:** network-first (or stale-while-revalidate) for HTML, a `VERSION` tied to the build so every deploy refreshes the cache, and/or a "new version available — reload" prompt. At minimum the rollout must change `VERSION`.
+- **To verify on staging:** load the site, deploy a change, reload normally (no hard refresh) — the new code must arrive.
+
+### 2. Gemini API credits (AI features)
+
+- **What happened:** the AI image enhancer failed on staging with `402 — prepayment credits are depleted` (Google AI Studio). Recipe import from photo/URL/video uses the same key and would fail too. Topped up 2026-10-11; the enhancer then worked.
+- **Production:** no credit errors in its logs in the last 30 days, and a URL import succeeded on 2026-10-09 — but its key may share the same AI Studio billing and run out the same way.
+- **To decide:** pay-as-you-go with a budget alert instead of prepaid credits; which AI Studio project each environment's `GEMINI_API_KEY` belongs to.
+- **To verify:** a successful AI call on production right before the rollout (or check AI Studio balances), and failures surfaced clearly to users instead of "unexpected error".
+
 ## Production rollout runbook
 
 Production is held until the whole feature is complete (user decision 2026-10-11), so it rolls out **in one window following this list, top to bottom**. Every release adds its production steps here when it reaches staging — including steps that aren't code (extension settings, function deletions). Before production, do a **dress rehearsal**: fresh production copy into test (`000-copy-prod-to-test.sh`), then run this exact list against `--project staging` and run the staging checklists.
@@ -186,7 +209,8 @@ Production is held until the whole feature is complete (user decision 2026-10-11
 - [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production. _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
 - [ ] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
 - [ ] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
-- [ ] 8. Smoke test: signed out, test account, manager — per the staging checklists.
+- [ ] 0. Pre-flight: both items in "Before production: open issues to resolve" are done and verified.
+- [ ] 8. Smoke test (with a normal reload, not a hard refresh — checks the service-worker fix): signed out, test account, manager — per the staging checklists.
 
 ## Release procedure
 
