@@ -106,6 +106,7 @@ export default {
     const suggestEditBtn = container.querySelector('#suggest-edit-btn');
     const addToMealBtn = container.querySelector('#add-to-meal-btn');
     const markTestedBtn = container.querySelector('#mark-tested-btn');
+    const markToTryBtn = container.querySelector('#mark-to-try-btn');
     const deleteBtn = container.querySelector('#delete-recipe-btn');
     const editBtn = container.querySelector('#edit-recipe-btn');
     const submitBtn = container.querySelector('#submit-recipe-btn');
@@ -131,6 +132,7 @@ export default {
       suggestEditBtn,
       addToMealBtn,
       markTestedBtn,
+      markToTryBtn,
       deleteBtn,
       editBtn,
       submitBtn,
@@ -222,6 +224,19 @@ export default {
       } catch (error) {
         console.error('Error marking recipe tested:', error);
         showToast('לא הצלחנו לסמן את המתכון כנבדק. נסו שוב.', 'error');
+      }
+    });
+
+    // Owner: move a tested recipe back to "to try" (private or published alike)
+    markToTryBtn?.addEventListener('click', async () => {
+      menuDropdown.classList.remove('open');
+      try {
+        await RecipeService.markToTry(currentId());
+        showToast('הוחזר ל״לנסות״', 'success');
+        await container.querySelector('recipe-component')?.fetchAndPopulateRecipeData();
+      } catch (error) {
+        console.error('Error moving recipe back to try:', error);
+        showToast('לא הצלחנו להחזיר את המתכון ל״לנסות״. נסו שוב.', 'error');
       }
     });
 
@@ -423,6 +438,7 @@ export default {
       if (el) el.hidden = !visible;
     };
     show(els.markTestedBtn, isMine && toTry);
+    show(els.markToTryBtn, isMine && !toTry);
     // "Send" waits until we know there's no submission yet.
     show(els.submitBtn, isMine && isPrivate && submission === null);
     show(els.editBtn, isMine && isPrivate && submissionStatus !== 'rejected');

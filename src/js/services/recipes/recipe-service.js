@@ -1,6 +1,6 @@
 // src/js/services/recipes/recipe-service.js
 
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, deleteField } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
 import { MediaInstructionService } from './media-instruction-service.js';
@@ -427,7 +427,7 @@ export class RecipeService {
   /**
    * Mark the author's "to try" recipe as tested (it moves to their library).
    * The only path that changes stage to tested after creation — used by the
-   * recipe page menu and the My recipes card button alike.
+   * recipe page menu and the My recipes card button alike. `markToTry` undoes it.
    * @param {string} recipeId
    * @returns {Promise<void>}
    */
@@ -436,6 +436,20 @@ export class RecipeService {
     await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, {
       stage: STAGE.TESTED,
       testedAt: Timestamp.now(),
+    });
+  }
+
+  /**
+   * Move the author's tested recipe back to "to try" (recipe page menu). Clears
+   * `testedAt`. Works on a published recipe too: the stage is the author's own.
+   * @param {string} recipeId
+   * @returns {Promise<void>}
+   */
+  static async markToTry(recipeId) {
+    if (!recipeId) throw new Error('RecipeService.markToTry: recipeId is required');
+    await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, {
+      stage: STAGE.TO_TRY,
+      testedAt: deleteField(),
     });
   }
 

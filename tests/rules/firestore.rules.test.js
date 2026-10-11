@@ -25,6 +25,7 @@ import {
   getDocs,
   writeBatch,
   serverTimestamp,
+  deleteField,
 } from 'firebase/firestore';
 
 const RULES = process.env.FIRESTORE_RULES || 'firestore.rules';
@@ -305,6 +306,20 @@ describe('deleting recipes', () => {
       updateDoc(doc(db(AUTHOR), 'recipes', 'pending'), { stage: 'tested', testedAt: new Date() }),
     );
     await assertFails(updateDoc(doc(db(OTHER), 'recipes', 'pending'), { stage: 'tested' }));
+  });
+
+  test('an author can move their tested recipe back to try, published or private', async () => {
+    const back = { stage: 'to-try', testedAt: deleteField() };
+    for (const id of ['published', 'pending']) {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await updateDoc(doc(ctx.firestore(), 'recipes', id), {
+          stage: 'tested',
+          testedAt: new Date(),
+        });
+      });
+      await assertFails(updateDoc(doc(db(OTHER), 'recipes', id), back));
+      await assertSucceeds(updateDoc(doc(db(AUTHOR), 'recipes', id), back));
+    }
   });
 });
 
