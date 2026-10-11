@@ -239,20 +239,19 @@ export default {
   },
 
   /**
-   * The ⋮ menu for the author of a private recipe: its status (the shared
-   * status badge + date) and the owner actions. Everyone else gets the
-   * regular menu.
+   * The ⋮ menu for the author of a private recipe (approved family and
+   * managers): its status (the shared status badge + date) and the owner
+   * actions. Everyone else gets the regular menu.
    */
   updateOwnerMenu() {
     const els = this._menu;
     if (!els) return;
     const recipe = this.currentRecipe;
     const user = authService.getCurrentUser();
-    const isOwner =
-      !!recipe &&
-      !!user &&
-      recipe.authorId === user.uid &&
-      recipe.visibility === VISIBILITY.PRIVATE;
+    const isPrivate = recipe?.visibility === VISIBILITY.PRIVATE;
+    // The owner menu is for family members with a private library (approved,
+    // managers). A plain user's own recipe is a proposal awaiting approval.
+    const isOwner = isPrivate && !!user && recipe.authorId === user.uid && authService.isApproved();
     const toTry = recipe?.stage === STAGE.TO_TRY;
 
     els.menuDropdown.classList.toggle('own-menu', isOwner);
@@ -272,8 +271,8 @@ export default {
     }
     if (els.markTestedBtn) els.markTestedBtn.hidden = !(isOwner && toTry);
     if (els.deleteBtn) els.deleteBtn.hidden = !isOwner;
-    // Edit suggestions are for published recipes; the author edits a private one directly.
-    if (els.suggestEditBtn) els.suggestEditBtn.style.display = isOwner ? 'none' : 'flex';
+    // Edit suggestions are for published recipes only.
+    if (els.suggestEditBtn) els.suggestEditBtn.style.display = isPrivate ? 'none' : 'flex';
   },
 
   setupSuggestionListener(container) {
