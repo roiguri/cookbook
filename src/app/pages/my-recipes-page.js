@@ -248,8 +248,12 @@ export default {
     $('#mr-empty-new').hidden = toBook;
     $('#mr-empty-book').hidden = !toBook;
 
-    // "Mark tested" on my to-try cards, in every view.
-    $('#recipe-presentation-grid').toggleAttribute('show-mark-tested', this.hasOwnRecipes);
+    // "Mark tested" only in the To try view, where every card has it (so the
+    // cards keep one height); elsewhere the recipe page menu offers it.
+    $('#recipe-presentation-grid').toggleAttribute(
+      'show-mark-tested',
+      this.hasOwnRecipes && this.view === LIBRARY_VIEW.TO_TRY,
+    );
   },
 
   /** "Mark tested" on a card: the same service call as the recipe page menu. */
