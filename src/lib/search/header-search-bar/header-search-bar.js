@@ -121,6 +121,16 @@ class HeaderSearchBar extends HTMLElement {
           color: var(--primary-dark, #386641);
         }
 
+        /* The form already draws the pill-shaped ring (:focus-within); the
+           browser's square outline gets clipped by the pill, so mark the
+           focused button with a pill-shaped tint inside the bar instead. */
+        .search-button:focus-visible {
+          outline: none;
+          border-radius: var(--r-pill, 9999px);
+          background: var(--hairline, rgba(31,29,24,0.1));
+          color: var(--primary-dark, #386641);
+        }
+
       </style>
 
       <form dir="rtl" class="search-form">
