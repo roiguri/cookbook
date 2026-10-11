@@ -175,11 +175,10 @@ Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -re
 **What changes for the user**
 
 - **Approve** publishes the recipe (as today); the stage stays the author's (a published "to try" recipe stays in their To try).
-- **Reject = a note, not a delete.** The manager must write what to fix; the recipe stays private. The author sees the note on the recipe page and in "נשלחו לפרסום", and can edit and **resubmit** (the queue marks it "הגשה חוזרת").
+- **Reject = a note, not a delete.** The manager must write what to fix; the recipe stays private. The author sees the note on the recipe page, and can edit and **resubmit** (the queue marks it "הגשה חוזרת").
 - **The author controls the submission:** "שליחה לפרסום" from the recipe menu (a private recipe not yet submitted), "ביטול השליחה" while pending, "הסרה מהרשימה" for a rejected one. A pending recipe can still be edited — the manager reviews the latest version.
 - **My recipes = everything I authored:** library (tested) and To try (to-try) include published recipes, with a "פורסם" badge there (not on Categories cards). Recipes with no recorded author get one via `004-backfill-author.mjs` (on production: the manager's account).
 - **Badges:** pending / rejected / published join to-try / private — on cards, the recipe page and the owner menu (status line + note).
-- **"נשלחו לפרסום" tab** in My recipes, with status chips (הכל / ממתינים / נדחו / פורסמו).
 - **Dashboard queue** (existing list and preview dialog): per-row "עוד לא נוסה" and "הגשה חוזרת" flags, reject with a required note, a short "פורסם בספר" confirmation after approving.
 
 **Side effects found in review (2026-10-11)**
@@ -198,7 +197,6 @@ Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -re
 | Reject with note, resubmit, withdraw, remove | `RecipeSubmissionService`, `confirmation-modal` (with a body) | `reject(id, { note })` keeps the recipe; `resubmit`, `withdraw`, `remove`.                                  |
 | Status on cards / page / menu                | `getRecipeStatus`, `<status-badge>`, owner menu               | Status takes the submission and authorship into account; lists attach the author's submissions (one query). |
 | Review dialog                                | `recipe-preview-modal` (already has approve / reject)         | "עוד לא נוסה" banner, reject → note.                                                                        |
-| Submitted tab                                | My recipes page + `RecipeListController`                      | Third tab; data source = the author's submissions joined with their recipes.                                |
 
 **Slices** (each: PR → `development`; `staging` pushed when there's something to test)
 
@@ -206,15 +204,14 @@ Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -re
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | 3b-A  | Rules + services: reject with note (recipe kept), resubmit / withdraw / remove by the author, author stage change on published, Storage author-files-while-private; `004-backfill-author.mjs`; emulator tests | ⬜     |
 | 3b-B  | My recipes includes published; statuses pending / rejected / published on cards, page, owner menu (send, cancel, resubmit, note)                                                                              | ⬜     |
-| 3b-C  | "נשלחו לפרסום" tab with status chips                                                                                                                                                                          | ⬜     |
 | 3b-D  | Dashboard: queue flags, reject note, approved confirmation                                                                                                                                                    | ⬜     |
 | 3b-E  | Cleanup: deleting a recipe removes its submission (author and dashboard); queue self-heal updated                                                                                                             | ⬜     |
 
-**Open decisions**
+**Decisions (2026-10-11)**
 
-1. **Credit on published recipes** — the design says "עם הקרדיט של יעל". Show the author's name on the recipe page (needs their display name, readable by everyone), or keep `authorId` internal for now?
-2. **Submitted tab layout** — the design uses status rows (note + actions inline). Reuse would be the normal card grid with badges, the note and actions living on the recipe page menu. Rows as designed, or cards?
-3. **Plain users (`user`)** — they have no My recipes, so a rejection note never reaches them. Give them the "נשלחו לפרסום" view, or keep "submit and forget"?
+1. **Credit** stays internal (`authorId`); no author name on the published recipe for now.
+2. **No "נשלחו לפרסום" tab.** Every submitted recipe already lives in My library or To try; its status shows as a badge on the card, and the note and actions (resubmit, cancel) are in the recipe page's ⋮ menu (the "My private recipe" pending / rejected designs). A "rejected only" filter can be added later under "עוד מסננים". Slice 3b-C dropped.
+3. **Plain users** keep "submit and forget" — no view of their submissions.
 
 ### Notes for releases 3–4 (from the review)
 
