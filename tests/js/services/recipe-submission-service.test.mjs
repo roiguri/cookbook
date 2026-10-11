@@ -166,6 +166,20 @@ describe('RecipeSubmissionService', () => {
     });
   });
 
+  describe('deleteRecipe', () => {
+    it('deletes the recipe, then its submission', async () => {
+      await RecipeSubmissionService.deleteRecipe('r1');
+      expect(recipeServiceMocks.delete).toHaveBeenCalledWith('r1');
+      expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipe_submissions', 'r1');
+    });
+
+    it('keeps the submission if the recipe delete fails', async () => {
+      recipeServiceMocks.delete.mockRejectedValueOnce(new Error('denied'));
+      await expect(RecipeSubmissionService.deleteRecipe('r1')).rejects.toThrow('denied');
+      expect(firestoreMocks.deleteDocument).not.toHaveBeenCalled();
+    });
+  });
+
   describe('author actions', () => {
     it('resubmit: back to pending, stamped by the server', async () => {
       await RecipeSubmissionService.resubmit('r1');

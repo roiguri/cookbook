@@ -319,8 +319,7 @@ export default {
       );
       if (!confirmed) return;
       try {
-        await RecipeService.delete(id);
-        await RecipeSubmissionService.withdraw(id);
+        await RecipeSubmissionService.deleteRecipe(id);
         showToast('המתכון נמחק', 'success');
         const tab = recipe?.stage === STAGE.TO_TRY ? '?tab=to-try' : '';
         window.spa?.router?.navigate(`/my-recipes${tab}`);
