@@ -53,6 +53,8 @@ export default {
     if (this.authUnsubscribe) {
       this.authUnsubscribe();
     }
+    document.removeEventListener('recipe-updated', this._onRecipeUpdated);
+    document.removeEventListener('image-enhanced-saved', this._onImageEnhancedSaved);
   },
 
   getTitle() {
@@ -157,21 +159,25 @@ export default {
   },
 
   setupEditRecipeListener() {
-    // Listen for recipe-updated events from edit-preview-recipe component
-    document.addEventListener('recipe-updated', (event) => {
+    // Listen for recipe-updated events from edit-preview-recipe component.
+    // Document-level, so keep the reference for unmount() — the page object
+    // outlives each visit and would otherwise stack a listener per visit.
+    this._onRecipeUpdated = (event) => {
       console.log('Recipe updated:', event.detail.recipeId);
       // Refresh both all recipes and pending recipes (edits require re-approval)
       this.refreshManager.refreshRecipes(600);
-    });
+    };
+    document.addEventListener('recipe-updated', this._onRecipeUpdated);
   },
 
   setupImageEnhancementListener() {
     // Bubbles up from <ai-image-enhance-modal> on successful save. The enhancer
     // refreshes itself for the affected recipe; here we refresh peer sections
     // that might surface the same recipe's images (currently all-recipes).
-    document.addEventListener('image-enhanced-saved', () => {
+    this._onImageEnhancedSaved = () => {
       this.refreshManager.refreshDashboards([DASHBOARD_SECTIONS.ALL_RECIPES]);
-    });
+    };
+    document.addEventListener('image-enhanced-saved', this._onImageEnhancedSaved);
   },
 
   async setupNotificationsBanner(user) {
