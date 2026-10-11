@@ -507,15 +507,15 @@ export default {
       // A rejection keeps a family member's recipe with a note; a plain user's
       // proposal is discarded (they have no library to see a note in).
       const authorIds = [...new Set(pending.map(({ recipe }) => recipe.authorId).filter(Boolean))];
-      const roles = new Map(
+      const authors = new Map(
         await Promise.all(
-          authorIds.map(async (uid) => [uid, (await UserService.get(uid).catch(() => null))?.role]),
+          authorIds.map(async (uid) => [uid, await UserService.get(uid).catch(() => null)]),
         ),
       );
       const recipeItems = pending.map((row) => ({
         header: this.createPendingRecipeHeader({
           ...row,
-          authorRole: roles.get(row.recipe.authorId),
+          author: authors.get(row.recipe.authorId),
         }),
         content: this.createPendingRecipeContent(row.recipe),
       }));
@@ -537,7 +537,10 @@ export default {
     }
   },
 
-  createPendingRecipeHeader({ recipe, submission, authorRole }) {
+  createPendingRecipeHeader({ recipe, submission, author }) {
+    // Who sent it — shown to managers only (the public recipe carries no credit).
+    const authorName = author?.fullName || author?.email || 'משתמש לא ידוע';
+    const authorRole = author?.role;
     const header = document.createElement('div');
     header.style.cssText =
       'display:flex; align-items:center; justify-content:space-between; gap:8px;';
@@ -561,11 +564,9 @@ export default {
     if (submission?.resubmittedAt) nameRow.appendChild(this._queueFlag('הגשה חוזרת', true));
 
     const sentAt = (submission?.resubmittedAt || submission?.createdAt)?.toDate?.();
+    const sentDate = sentAt ? `${sentAt.getDate()}.${sentAt.getMonth() + 1}` : '';
     const cat = document.createElement('span');
-    cat.textContent = [
-      this.categoryMapping[recipe.category] || '—',
-      sentAt ? `${sentAt.getDate()}.${sentAt.getMonth() + 1}` : null,
-    ]
+    cat.textContent = [this.categoryMapping[recipe.category] || '—', authorName, sentDate]
       .filter(Boolean)
       .join(' · ');
     cat.style.cssText =
@@ -578,6 +579,8 @@ export default {
     btn.addEventListener('click', () =>
       this.previewRecipe(recipe.id, {
         name: recipe.name,
+        sentBy: authorName,
+        sentDate,
         untested,
         rejectMode: authorRole === 'user' ? 'discard' : 'note',
       }),
@@ -610,7 +613,10 @@ export default {
   /**
    * Preview Recipe
    */
-  previewRecipe(recipeId, { name = '', untested = false, rejectMode = 'note' } = {}) {
+  previewRecipe(
+    recipeId,
+    { name = '', sentBy = '', sentDate = '', untested = false, rejectMode = 'note' } = {},
+  ) {
     const previewContainer = document.querySelector('.preview-recipe-container');
     previewContainer.innerHTML = '';
     const preview = document.createElement('recipe-preview-modal');
@@ -620,6 +626,8 @@ export default {
     preview.setAttribute('show-buttons', 'true');
     preview.setAttribute('reject-mode', rejectMode);
     if (untested) preview.setAttribute('untested', '');
+    if (sentBy) preview.setAttribute('sent-by', sentBy);
+    if (sentDate) preview.setAttribute('sent-date', sentDate);
     previewContainer.appendChild(preview);
 
     customElements.whenDefined('recipe-preview-modal').then(() => {
