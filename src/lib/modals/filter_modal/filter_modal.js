@@ -561,7 +561,7 @@ class RecipeFilterComponent extends HTMLElement {
   renderFavoritesFilter() {
     return `
       <div class="filter-section">
-        <h3>מועדפים</h3>
+        <h3>שמורים</h3>
         <div class="filter-content">
           <label class="favorites-checkbox">
             <input 
@@ -570,7 +570,7 @@ class RecipeFilterComponent extends HTMLElement {
               ${this.filters.favoritesOnly ? 'checked' : ''}
             >
             <span class="checkmark"></span>
-            <span class="checkbox-label">הצג רק מועדפים</span>
+            <span class="checkbox-label">רק מתכונים ששמרתי</span>
           </label>
         </div>
       </div>
