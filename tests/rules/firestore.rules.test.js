@@ -24,6 +24,7 @@ import {
   where,
   getDocs,
   writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 
 const RULES = process.env.FIRESTORE_RULES || 'firestore.rules';
@@ -288,6 +289,17 @@ describe('deleting recipes', () => {
     await assertSucceeds(deleteDoc(doc(db(MANAGER), 'recipes', 'published')));
   });
 
+  test('on their published recipe, the author may change only the stage', async () => {
+    const ref = (uid) => doc(db(uid), 'recipes', 'published');
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'recipes', 'published'), { stage: 'to-try' });
+    });
+    await assertSucceeds(updateDoc(ref(AUTHOR), { stage: 'tested', testedAt: new Date() }));
+    await assertFails(updateDoc(ref(AUTHOR), { name: 'renamed' }));
+    await assertFails(updateDoc(ref(AUTHOR), { stage: 'to-try', name: 'renamed' }));
+    await assertFails(updateDoc(ref(OTHER), { stage: 'to-try' }));
+  });
+
   test('an author can mark their own to-try recipe tested', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await updateDoc(doc(ctx.firestore(), 'recipes', 'pending'), { stage: 'to-try' });
@@ -368,5 +380,64 @@ describe('recipe submissions', () => {
   test('the author can withdraw a pending submission', async () => {
     await assertFails(deleteDoc(doc(db(OTHER), 'recipe_submissions', 'pending')));
     await assertSucceeds(deleteDoc(doc(db(AUTHOR), 'recipe_submissions', 'pending')));
+  });
+
+  test('a rejection must carry a note', async () => {
+    const ref = (uid) => doc(db(uid), 'recipe_submissions', 'pending');
+    await assertFails(updateDoc(ref(MANAGER), { status: 'rejected' }));
+    await assertFails(updateDoc(ref(MANAGER), { status: 'rejected', rejectionReason: '' }));
+    await assertSucceeds(
+      updateDoc(ref(MANAGER), { status: 'rejected', rejectionReason: 'חסרות כמויות' }),
+    );
+  });
+
+  describe('after a rejection', () => {
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await updateDoc(doc(ctx.firestore(), 'recipe_submissions', 'pending'), {
+          status: 'rejected',
+          rejectionReason: 'חסרות כמויות',
+          reviewedBy: MANAGER,
+        });
+      });
+    });
+    const ref = (uid) => doc(db(uid), 'recipe_submissions', 'pending');
+
+    test('the author can resubmit: back to pending, marked as a resubmission', async () => {
+      await assertSucceeds(
+        updateDoc(ref(AUTHOR), { status: 'pending', resubmittedAt: serverTimestamp() }),
+      );
+    });
+
+    test('a resubmission can change nothing else (no self-approval, no erasing the note)', async () => {
+      await assertFails(updateDoc(ref(AUTHOR), { status: 'approved' }));
+      await assertFails(updateDoc(ref(AUTHOR), { status: 'pending' })); // must be marked
+      await assertFails(
+        updateDoc(ref(AUTHOR), {
+          status: 'pending',
+          resubmittedAt: serverTimestamp(),
+          rejectionReason: null,
+        }),
+      );
+      await assertFails(
+        updateDoc(ref(OTHER), { status: 'pending', resubmittedAt: serverTimestamp() }),
+      );
+    });
+
+    test('the author can remove a rejected submission', async () => {
+      await assertFails(deleteDoc(ref(OTHER)));
+      await assertSucceeds(deleteDoc(ref(AUTHOR)));
+    });
+  });
+
+  test('an approved submission stays: the author cannot delete or reopen it', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'recipe_submissions', 'pending'), {
+        status: 'approved',
+      });
+    });
+    const ref = doc(db(AUTHOR), 'recipe_submissions', 'pending');
+    await assertFails(deleteDoc(ref));
+    await assertFails(updateDoc(ref, { status: 'pending', resubmittedAt: serverTimestamp() }));
   });
 });

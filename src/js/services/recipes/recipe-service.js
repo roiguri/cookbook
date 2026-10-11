@@ -201,8 +201,9 @@ export class RecipeService {
   }
 
   /**
-   * A user's own private recipes (My recipes), newest first. Equality filters
-   * only — no composite index needed; sorting happens here.
+   * A user's own recipes (My recipes) — private and published (publishing is in
+   * place, so a published recipe stays in its author's library) — newest first.
+   * Equality filters only — no composite index needed; sorting happens here.
    * @param {string} authorId - The signed-in user's uid.
    * @param {Object} [options]
    * @param {string} [options.stage] - STAGE.TO_TRY or STAGE.TESTED; omit for both.
@@ -212,12 +213,7 @@ export class RecipeService {
   static async listMine(authorId, { stage, where = [] } = {}) {
     if (!authorId) return [];
     const recipes = await FirestoreService.queryDocuments(RECIPES_COLLECTION, {
-      where: [
-        ['authorId', '==', authorId],
-        ['visibility', '==', VISIBILITY.PRIVATE],
-        ...(stage ? [['stage', '==', stage]] : []),
-        ...where,
-      ],
+      where: [['authorId', '==', authorId], ...(stage ? [['stage', '==', stage]] : []), ...where],
     });
     const time = (r) => r.creationTime?.toMillis?.() ?? new Date(r.creationTime ?? 0).getTime();
     return recipes.sort((a, b) => time(b) - time(a));

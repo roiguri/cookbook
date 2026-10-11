@@ -272,7 +272,8 @@ class RecipePreviewModal extends HTMLElement {
 
   async handleRecipeRejection(recipeId) {
     try {
-      await RecipeSubmissionService.reject(recipeId);
+      // Until the dashboard asks for a note (3b-D), rejecting discards as before.
+      await RecipeSubmissionService.discard(recipeId);
     } catch (error) {
       console.error('Error in handleRecipeRejection:', error);
       throw new Error('Failed to reject recipe: ' + error.message);

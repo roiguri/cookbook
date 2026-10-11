@@ -461,7 +461,7 @@ describe('RecipeService', () => {
   });
 
   describe('listMine', () => {
-    it('queries the author’s private recipes for a stage, newest first', async () => {
+    it('queries the author’s recipes (private and published) for a stage, newest first', async () => {
       firestoreMocks.queryDocuments.mockResolvedValue([
         { id: 'old', creationTime: { toMillis: () => 1 } },
         { id: 'new', creationTime: { toMillis: () => 2 } },
@@ -473,7 +473,6 @@ describe('RecipeService', () => {
       expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipes', {
         where: [
           ['authorId', '==', 'u1'],
-          ['visibility', '==', 'private'],
           ['stage', '==', 'to-try'],
           ['category', '==', 'desserts'],
         ],
@@ -485,10 +484,7 @@ describe('RecipeService', () => {
       firestoreMocks.queryDocuments.mockResolvedValue([]);
       await RecipeService.listMine('u1');
       expect(firestoreMocks.queryDocuments).toHaveBeenCalledWith('recipes', {
-        where: [
-          ['authorId', '==', 'u1'],
-          ['visibility', '==', 'private'],
-        ],
+        where: [['authorId', '==', 'u1']],
       });
     });
 
