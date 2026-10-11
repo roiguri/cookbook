@@ -1,5 +1,5 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
@@ -234,6 +234,35 @@ exports.promoteSuggestionFiles = onCall(
   }),
 );
 
+// Tell the managers a recipe is waiting — on a new submission, and on a
+// resubmission after a rejection (an update back to pending).
+async function notifyManagersOfSubmission(recipeId, { resubmitted = false } = {}) {
+  let recipeName = 'מתכון חדש';
+  try {
+    const recipeSnap = await db.collection('recipes').doc(recipeId).get();
+    recipeName = recipeSnap.get('name') || recipeName;
+  } catch (error) {
+    console.warn(`[submissions] could not read recipe ${recipeId}:`, error);
+  }
+
+  try {
+    const result = await sendNotificationToRole('manager', {
+      title: resubmitted ? 'מתכון נשלח שוב לאישור' : 'מתכון חדש ממתין לאישור',
+      body: recipeName,
+      collapseKey: 'recipe-approval',
+      url: '/dashboard',
+      data: {
+        type: 'recipe-approval',
+        recipeId,
+      },
+    });
+    console.log(`[submissions] notified managers for ${recipeId}:`, result);
+  } catch (error) {
+    console.error(`[submissions] notification failed for ${recipeId}:`, error);
+    // Don't rethrow — notification failure must not block the submission.
+  }
+}
+
 /**
  * Notify managers when a recipe is submitted to the family book for approval.
  *
@@ -244,34 +273,18 @@ exports.promoteSuggestionFiles = onCall(
  * One push per event for v1. Batching tracked separately.
  */
 exports.onRecipeSubmitted = onDocumentCreated('recipe_submissions/{recipeId}', async (event) => {
-  const snap = event.data;
-  if (!snap) return;
-  const submission = snap.data() || {};
+  const submission = event.data?.data() || {};
   if (submission.status !== 'pending') return;
+  await notifyManagersOfSubmission(event.params.recipeId);
+});
 
-  const recipeId = event.params.recipeId;
-  let recipeName = 'מתכון חדש';
-  try {
-    const recipeSnap = await db.collection('recipes').doc(recipeId).get();
-    recipeName = recipeSnap.get('name') || recipeName;
-  } catch (error) {
-    console.warn(`[onRecipeSubmitted] could not read recipe ${recipeId}:`, error);
-  }
-
-  try {
-    const result = await sendNotificationToRole('manager', {
-      title: 'מתכון חדש ממתין לאישור',
-      body: recipeName,
-      collapseKey: 'recipe-approval',
-      url: '/dashboard',
-      data: {
-        type: 'recipe-approval',
-        recipeId,
-      },
-    });
-    console.log(`[onRecipeSubmitted] notified managers for ${recipeId}:`, result);
-  } catch (error) {
-    console.error(`[onRecipeSubmitted] notification failed for ${recipeId}:`, error);
-    // Don't rethrow — notification failure must not block the submission.
-  }
+/**
+ * Notify managers when an author resubmits a rejected recipe (the submission
+ * goes back to pending — an update, so onRecipeSubmitted doesn't see it).
+ */
+exports.onRecipeResubmitted = onDocumentUpdated('recipe_submissions/{recipeId}', async (event) => {
+  const before = event.data?.before?.data() || {};
+  const after = event.data?.after?.data() || {};
+  if (before.status !== 'rejected' || after.status !== 'pending') return;
+  await notifyManagersOfSubmission(event.params.recipeId, { resubmitted: true });
 });

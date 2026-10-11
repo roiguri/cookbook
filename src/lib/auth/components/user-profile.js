@@ -278,7 +278,7 @@ class UserProfile extends HTMLElement {
           <div class="pref">
             <div>
               <p class="t">מחיקת חשבון</p>
-              <p class="d">המתכונים שהצעת יישארו בספר; המועדפים שסימנת לא ישמרו והחשבון יוסר.</p>
+              <p class="d">המתכונים שפורסמו בספר יישארו בו; המתכונים ששמרת לא יישמרו והחשבון יוסר.</p>
             </div>
             <button class="btn btn-danger-ghost" type="button" id="delete-account-btn">מחק חשבון</button>
           </div>
@@ -590,7 +590,7 @@ class UserProfile extends HTMLElement {
     const confirmModal = this.shadowRoot.getElementById('delete-confirm');
     confirmModal.confirm(
       'למחוק את החשבון שלך?',
-      'המתכונים שהצעת יישארו בספר. החשבון, המתכונים המועדפים שלך יוסרו לצמיתות.',
+      'המתכונים שפורסמו בספר יישארו בו. החשבון והמתכונים ששמרת יוסרו לצמיתות.',
       'מחק חשבון',
       'שמור את חשבוני',
     );
