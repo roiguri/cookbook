@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
  *
  * Purpose: Prevents real Firebase SDK calls and allows control over your app's
  * Firebase logic in tests by mocking:
- *   - getAuthInstance, getFirestoreInstance, getStorageInstance, initFirebase
+ *   - getAuthInstance, getFirestoreInstance, getStorageInstance, getFirebaseApp, initFirebase
  *
  * Exports:
  *   - firebaseServiceMocks: contains mock objects for auth, Firestore, and storage
@@ -40,6 +40,7 @@ jest.unstable_mockModule('src/js/services/_firebase/firebase-service.js', () => 
   getAuthInstance: jest.fn(() => authMock),
   getFirestoreInstance: jest.fn(() => dbMock),
   getStorageInstance: jest.fn(() => storageMock),
+  getFirebaseApp: jest.fn(() => ({})),
   initFirebase: jest.fn(),
 }));
 

@@ -27,7 +27,6 @@ const recipeImageServiceMocks = {
     Promise.resolve({ backupPath: 'backup/path.jpg', backupCreated: true }),
   ),
   deleteFiles: jest.fn(() => Promise.resolve()),
-  migrateFilesToCategory: jest.fn(),
 };
 
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
@@ -298,45 +297,20 @@ describe('RecipeService', () => {
       expect(payload).not.toHaveProperty('approved');
     });
 
-    it('migrates existing images on category change', async () => {
-      recipeImageServiceMocks.migrateFilesToCategory.mockResolvedValueOnce({
-        id: 'img-keep',
-        full: 'img/recipes/full/mains/recipe-9/keep.jpg',
-      });
-
-      await RecipeService.update('recipe-9', {
-        changes: { category: 'mains' },
-        images: [
-          {
-            source: 'existing',
-            id: 'img-keep',
-            full: 'img/recipes/full/desserts/recipe-9/keep.jpg',
-          },
-        ],
-        uploadedBy: 'user-1',
-      });
-
-      expect(recipeImageServiceMocks.migrateFilesToCategory).toHaveBeenCalledWith(
-        'recipe-9',
-        expect.objectContaining({ id: 'img-keep' }),
-        'mains',
-      );
-    });
-
-    it('collects migration warnings when migration fails', async () => {
-      recipeImageServiceMocks.migrateFilesToCategory.mockRejectedValueOnce(
-        new Error('migrate failed'),
-      );
-
+    it('leaves files where they are when the category changes (no category in Storage paths)', async () => {
       const result = await RecipeService.update('recipe-9', {
         changes: { category: 'mains' },
-        images: [
-          { source: 'existing', id: 'img-bad', full: 'img/recipes/full/desserts/recipe-9/x.jpg' },
-        ],
+        images: [{ source: 'existing', id: 'img-keep', full: 'recipes/recipe-9/images/keep.jpg' }],
         uploadedBy: 'user-1',
       });
 
-      expect(result.migrationWarnings).toEqual([{ imageId: 'img-bad', error: 'migrate failed' }]);
+      const payload = firestoreMocks.updateDocument.mock.calls[0][2];
+      expect(payload.images).toEqual([
+        { id: 'img-keep', full: 'recipes/recipe-9/images/keep.jpg' },
+      ]);
+      expect(payload.category).toBe('mains');
+      expect(recipeImageServiceMocks.uploadFile).not.toHaveBeenCalled();
+      expect(result).toEqual({ mediaUploadResults: expect.any(Object) });
     });
 
     it('rolls back uploaded images when an image upload throws mid-loop', async () => {

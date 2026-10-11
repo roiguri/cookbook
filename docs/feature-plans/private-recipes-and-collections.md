@@ -105,6 +105,13 @@ Why: the category in the path forces file moves on every category change (the mi
 4. **Resize extension:** add the new image folders to its watched paths (`INCLUDE_PATH_LIST`), keeping the old one until cleanup. This is a configuration change on each project — it's in the runbook.
 5. **Cleanup (release 5):** delete the old `img/recipes/**` and `recipes/*/media-instructions/**` trees once nothing references them.
 
+Decided while building (2026-10-11):
+
+- **Unique file names for every upload** (no more `primary.jpg`): an upload never overwrites an existing file, so only managers need overwrite rights (AI enhancer, photo replacement). Which image is primary is the `isPrimary` flag.
+- **Copies are re-tagged:** approved suggestion files are tagged as uploaded by the approving manager, and `003` drops a copied file's `uploadedBy` tag when it isn't the recipe's author — a suggester never keeps delete rights over a live recipe's files.
+- **Orphan photos aren't copied:** the test copy of production holds 126 original photos but recipes reference only 56; the rest (deleted or failed proposals) stay in the old tree and go with the cleanup release.
+- Dry run on the test copy of production: 53 of 62 recipes repointed (56 photos, 4 media files), 280 files copied with variants and backups, 1 edit suggestion repointed, no missing files.
+
 ### Notes for releases 3–4 (from the review)
 
 - **3b approval copy** runs server-side (callable or trigger, admin SDK), copies the recipe and its photos (`img/recipes/{type}/{category}/{recipeId}/…` plus the `_400x400`/`_1080x1080` variants), is idempotent via `publishedId`, and writes the submission `status` last.

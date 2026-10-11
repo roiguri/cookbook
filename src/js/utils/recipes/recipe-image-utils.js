@@ -9,7 +9,7 @@
  *   - validateImageFile(file): Validate file type and size.
  *
  * Storage Path Helpers:
- *   - getImageStoragePath(recipeId, category, fileName, type): Build a storage path.
+ *   - getImageStoragePath(recipeId, fileName): Path of a recipe image (see storage-paths.js).
  *   - generateImageId(): Generate a unique image ID.
  *
  * Access / Selection:
@@ -17,6 +17,8 @@
  *   - getPrimaryImage(recipe): Pick the primary (or first) image object.
  *   - getPlaceholderImageUrl(): Returns null (sentinel for "no image").
  */
+
+import { recipeImagesFolder } from './storage-paths.js';
 
 /**
  * @typedef {Object} RecipeImage
@@ -49,9 +51,9 @@ export function validateImageFile(file) {
 }
 
 // --- Storage Path Helpers ---
-export function getImageStoragePath(recipeId, category, fileName, type = 'full') {
-  const base = `img/recipes/${type}/${category}/${recipeId}`;
-  return `${base}/${fileName}`;
+/** Path of a recipe image: `recipes/{recipeId}/images/{fileName}` (no category — see storage-paths.js). */
+export function getImageStoragePath(recipeId, fileName) {
+  return `${recipeImagesFolder(recipeId)}/${fileName}`;
 }
 
 // --- Image ID Helper ---

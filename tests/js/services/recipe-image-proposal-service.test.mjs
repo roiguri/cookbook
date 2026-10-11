@@ -56,7 +56,7 @@ describe('RecipeImageProposalService', () => {
       expect(firestoreMocks.updateDocument).not.toHaveBeenCalled();
     });
 
-    it('uploads each file to its category path and appends entries to pendingImages', async () => {
+    it('uploads each file to the recipe images folder and appends entries to pendingImages', async () => {
       firestoreMocks.getDocument.mockResolvedValue({
         id: 'r1',
         pendingImages: [{ id: 'existing', full: 'x' }],
@@ -66,10 +66,10 @@ describe('RecipeImageProposalService', () => {
       const result = await RecipeImageProposalService.propose('r1', files, 'desserts', 'user-1');
 
       expect(storageMocks.uploadFile).toHaveBeenCalledTimes(2);
-      // Storage paths include the new id + extension under the category prefix.
+      // Storage paths: the recipe's images folder, new id + extension (no category).
       const paths = storageMocks.uploadFile.mock.calls.map((args) => args[1]);
-      expect(paths[0]).toMatch(/^img\/recipes\/full\/desserts\/r1\/img-\d+-[a-z0-9]+\.jpg$/);
-      expect(paths[1]).toMatch(/^img\/recipes\/full\/desserts\/r1\/img-\d+-[a-z0-9]+\.png$/);
+      expect(paths[0]).toMatch(/^recipes\/r1\/images\/img-\d+-[a-z0-9]+\.jpg$/);
+      expect(paths[1]).toMatch(/^recipes\/r1\/images\/img-\d+-[a-z0-9]+\.png$/);
 
       // updateDocument receives existing + new entries, in that order.
       const update = firestoreMocks.updateDocument.mock.calls[0];

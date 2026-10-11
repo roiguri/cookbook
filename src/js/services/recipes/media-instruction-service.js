@@ -1,5 +1,6 @@
 // src/js/services/recipes/media-instruction-service.js
 
+import { recipeMediaFolder } from '../../utils/recipes/storage-paths.js';
 import { StorageService } from '../_firebase/storage-service.js';
 import {
   validateMediaFile,
@@ -37,15 +38,18 @@ function getMediaType(file) {
 export class MediaInstructionService {
   /**
    * Validate, upload, and build metadata for one media-instruction file.
-   * Storage path follows `recipes/{recipeId}/media-instructions/{id}_{sanitizedName}`.
+   * Storage path: `recipes/{recipeId}/media/{id}_{sanitizedName}`, or
+   * `{options.folder}/{id}_{sanitizedName}` (e.g. an edit suggestion's folder).
    *
    * @param {File} file
    * @param {string} recipeId
    * @param {string} userId
    * @param {Function} [onProgress] - Optional (percent: number) => void.
+   * @param {Object} [options]
+   * @param {string} [options.folder] - Target folder; defaults to the recipe's media folder.
    * @returns {Promise<Object>} metadata entry
    */
-  static async upload(file, recipeId, userId, onProgress) {
+  static async upload(file, recipeId, userId, onProgress, { folder } = {}) {
     const validation = validateMediaFile(file);
     if (!validation.isValid) {
       throw new Error(`בדיקת הקובץ נכשלה: ${validation.errors.join(', ')}`);
@@ -60,7 +64,7 @@ export class MediaInstructionService {
     try {
       const mediaId = generateMediaInstructionId();
       const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = `recipes/${recipeId}/media-instructions/${mediaId}_${sanitizedFileName}`;
+      const storagePath = `${folder || recipeMediaFolder(recipeId)}/${mediaId}_${sanitizedFileName}`;
 
       const mediaType = getMediaType(file);
       if (!mediaType) {
