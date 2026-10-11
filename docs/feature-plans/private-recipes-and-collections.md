@@ -58,6 +58,7 @@ Access rules (enforced in `firestore.rules` / `storage.rules`, not only the UI):
 | 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)                                                | —                                                                                                             | ✅ 2026-10-10                               |
 | 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published                                         | "Recipe not found" state                                                                                      | ✅ 2026-10-11 (PRs #332, #333)              |
 | 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates a `recipe_submissions` doc per open proposal. Old fields kept and still written | None                                                                                                          | ✅ staging 2026-10-11 (PR #336) — prod held |
+| 2b  | Restructure Storage         | Script copies every recipe file to `recipes/{id}/images                                                                                        | media/`, rewrites paths in recipes and edit suggestions. Old files kept                                       | None                                        | ⏳ next |
 | 3a  | Private recipes and To try  | New private recipes (no publishing yet)                                                                                                        | My recipes (To try / My library tabs), Mark as tested, Save privately, private/to-try badges                  | ⬜ needs design                             |
 | 3b  | Submissions and publishing  | Submissions; approval creates the published copy (Cloud Function)                                                                              | Submit to the family book, pending/rejected badges, dashboard submissions queue with approve-as-copy / reject | ⬜ needs design                             |
 | 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                                                    | Favourite button unchanged; add to collection; collections view                                               | ⬜ needs design                             |
@@ -83,16 +84,26 @@ Reviewed by an independent agent on 2026-10-11; its findings are folded in here.
 5. **Indexes:** add composite indexes for the new queries to `firestore.indexes.json` in the same release (a missing index only fails at runtime).
 6. **Rollout:** refresh the test copy from production → rehearse the script (dry run, apply) → deploy → staging test. Production window: **backup → deploy indexes (let them build) → run the script (additive, safe with the old site) → merge `main`, wait for Netlify → deploy rules + functions → smoke test.**
 
-### Open question: Storage structure and privacy (decide before 3a)
+### Release 2b — Restructure Storage (decided 2026-10-11)
 
-**Further thinking is required on Storage — folder structure and privacy — before release 3a.**
+Decision: **full restructure** to one folder per recipe, plus a private per-user area and a staging area for suggestion uploads. Privacy model: private material lives under `users/{uid}/…`, readable only by its owner and managers; download URLs still work for whoever has one, but you only get a URL if the rules allow the read (accepted trade-off for a family app).
 
-- **Private recipes' photos aren't private.** `storage.rules` allow anyone to read recipe images, and the app displays them through Firebase **download URLs, which bypass Storage rules**: anyone holding the link can open the file. The risk is low (links contain an unguessable recipe id and are only shown to people who can see the recipe), but it isn't real privacy. Options:
-  - **(a) Accept it and document it** — the common Firebase trade-off; unguessable ids. _Current suggestion._
-  - **(b) Load private recipes' images through the SDK** with rule-checked reads, and restrict reads to author / manager / published — more work, slower.
-  - **(c) Separate private folder** (e.g. `private/{uid}/{recipeId}/…`) and move files on publish.
-- **Structure for copies (3b):** the published copy needs its own photos, media instructions and resized variants, copied server-side; otherwise deleting the author's private original would delete the published recipe's files. Decide the folder layout together with the privacy option above.
-- **Authors deleting their own private recipe (3a):** the Storage side already allows it (`isRecipeAuthor`); the Firestore recipe `delete` rule is still managers-only and must allow the author for private recipes.
+| Today                                                                                              | New layout                                                                          |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `img/recipes/full/{category}/{recipeId}/{file}` + resized `_400x400` / `_1080x1080` WebP beside it | `recipes/{recipeId}/images/{file}` (+ resized beside it)                            |
+| `img/recipes/full/{category}/{file}` (26 legacy files, no recipe folder)                           | `recipes/{recipeId}/images/{file}` — matched to their recipe through its `images[]` |
+| `recipes/{recipeId}/media-instructions/{file}`                                                     | `recipes/{recipeId}/media/{file}`                                                   |
+| Edit-suggestion uploads land in the live recipe's folder                                           | `suggestions/{suggestionId}/images                                                  | media/{file}`; copied into the recipe's folder on approval |
+| —                                                                                                  | `users/{uid}/recipes/{recipeId}/images                                              | media/…` — private recipes (3a)                            |
+| `Avatars/`, `documents/`, `grandmas_cookbook/`                                                     | unchanged (out of scope)                                                            |
+
+Why: the category in the path forces file moves on every category change (the migration can fail half way); a recipe's files are split across two trees; unapproved uploads touch live recipes; there is no private area. With one folder per recipe, copying (3b's publish-as-copy) and deleting are single-prefix operations.
+
+1. **Code:** path helpers for the new layout; uploads write there; **category changes no longer move files**; edit suggestions upload to `suggestions/{id}/`; approving a suggestion copies its files into the recipe's folder through a **Cloud Function** (admin SDK, idempotent) — the same mechanism 3b's approve-as-copy reuses.
+2. **Rules** (`storage.rules`): `recipes/{recipeId}/**` public read, writes as today (tagged uploads; manager / uploader / recipe author); `suggestions/{id}/**` read and delete by the uploader and managers; `users/{uid}/**` read/write by the owner, read by managers. Old paths stay manager-write until cleanup. Rules tests for all of it.
+3. **Script** `003-restructure-storage.mjs` (requires `002` to have run): copies each recipe's images (with their resized variants) and media to the new layout, then rewrites the paths in `recipes` (`images[].full`, media paths) and in `recipe_edit_suggestions` (`storagePaths`, image references). Dry run unless `--apply`; idempotent; **copies, never deletes**.
+4. **Resize extension:** add the new image folders to its watched paths (`INCLUDE_PATH_LIST`), keeping the old one until cleanup. This is a configuration change on each project — it's in the runbook.
+5. **Cleanup (release 5):** delete the old `img/recipes/**` and `recipes/*/media-instructions/**` trees once nothing references them.
 
 ### Notes for releases 3–4 (from the review)
 
@@ -109,6 +120,7 @@ Reviewed by an independent agent on 2026-10-11; its findings are folded in here.
 - **Missing thumbnails in production:** ~12 recipes have no `_400x400` / `_1080x1080` WebP variants, so every page load logs a 404 and falls back to the full image. Regenerate them (re-upload the originals or run the resize extension backfill).
 - **Orphaned Storage files** from failed image proposals: since the 2026-01-12 strict rules, a non-author's proposal uploaded files and then failed the Firestore write. Find files under `img/recipes/` that no recipe, edit suggestion or media instruction references, review the list, then delete.
 - **Old fields** `approved`, `userId`, `users.favorites` (see release 5 row).
+- **Old Storage trees** `img/recipes/**` and `recipes/*/media-instructions/**` after release 2b; remove the old path from the resize extension's watched paths.
 - **Optional nicety:** a "photos only" shortcut that opens Suggest an edit focused on images, if proposing photos turns out to be too many clicks.
 
 ### Release 1 — Lock down security (shipped 2026-10-11)
@@ -155,6 +167,19 @@ Setup: the rules are deployed to the test project (`firebase deploy --only fires
 
 New screens are designed as artboards in the "Cookbook screens" canvas (https://claude.ai/artifact/SsMxNM5PKyJwdYXnfeqLz5) using the "Our Kitchen Chronicles" design system (https://claude.ai/artifact/GNWbK9XsFAjWC4uFZ3QoJ7), attached explicitly — never set an account default. Screens: not-found state; My recipes; card and recipe-page status badges and owner actions; Save privately / Submit with the untested warning; dashboard submissions queue; nav entry; add-to-collection and collections view. Releases 3 and 4 implement from the canvas.
 
+## Production rollout runbook
+
+Production is held until the whole feature is complete (user decision 2026-10-11), so it rolls out **in one window following this list, top to bottom**. Every release adds its production steps here when it reaches staging — including steps that aren't code (extension settings, function deletions). Before production, do a **dress rehearsal**: fresh production copy into test (`000-copy-prod-to-test.sh`), then run this exact list against `--project staging` and run the staging checklists.
+
+- [ ] 1. Back up production Firestore (managed export) and note the time (point-in-time recovery covers 7 days; Storage has versioning + soft delete).
+- [ ] 2. Deploy indexes: `firebase deploy --only firestore:indexes --project production` — wait until they finish building. _(release 2)_
+- [ ] 3. `node scripts/migrations/002-convert-model.mjs --project production` (dry run), check counts, then `--apply`. _(release 2)_
+- [ ] 4. `node scripts/migrations/003-restructure-storage.mjs --project production` (dry run), check counts, then `--apply`. _(release 2b)_
+- [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production. _(release 2b)_
+- [ ] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
+- [ ] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
+- [ ] 8. Smoke test: signed out, test account, manager — per the staging checklists.
+
 ## Release procedure
 
 Pipeline per release: feature branch → `development` → `staging` → `main`. Each release runs its **deploy window twice**: on the test project when it reaches `staging`, then on production after the `main` merge.
@@ -194,4 +219,4 @@ Lessons from the first run: the test project's Firestore service agent needs rea
 
 1. Read this file, then the State column above.
 2. Check `git log --oneline development` and open PRs for the release in progress.
-3. For the next release, start from its section above (release 2: "Release 2 — Convert the data model"); security-rule changes need the user's approval before any deploy.
+3. For the next release, start from its section above (release 2b: "Release 2b — Restructure Storage"); before any production step read "Production rollout runbook"; security-rule changes need the user's approval before any deploy.
