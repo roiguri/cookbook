@@ -127,7 +127,16 @@ export default {
       markTestedBtn,
       deleteBtn,
     };
-    this._menuAuthUnsubscribe = authService.addAuthObserver(() => this.refreshMenu());
+    this._menuAuthUnsubscribe = authService.addAuthObserver(({ user: current }) => {
+      // Signing out of a private recipe leaves the page at once (as My recipes
+      // does); published recipes stay open to signed-out visitors.
+      if (!current && this.currentRecipe?.visibility === VISIBILITY.PRIVATE) {
+        this.currentRecipe = null;
+        window.spa?.router?.navigate('/home');
+        return;
+      }
+      this.refreshMenu();
+    });
 
     // Toggle dropdown on button click
     menuButton.addEventListener('click', (e) => {
