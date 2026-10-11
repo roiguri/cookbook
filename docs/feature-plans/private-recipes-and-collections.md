@@ -215,6 +215,21 @@ Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -re
 2. **No "נשלחו לפרסום" tab.** Every submitted recipe already lives in My library or To try; its status shows as a badge on the card, and the note and actions (resubmit, cancel) are in the recipe page's ⋮ menu (the "My private recipe" pending / rejected designs). A "rejected only" filter can be added later under "עוד מסננים". Slice 3b-C dropped.
 3. **Plain users** keep "submit and forget" — no view of their submissions.
 
+### Release 3c — "הספרייה שלי": one library (plan, 2026-10-11)
+
+**Why.** With My recipes, favourites and (later) collections, "where are the recipes I care about?" had four answers and the nav kept growing. Recipe apps keep **two places**: discover (the family book) and **my library** (everything that's mine — written or saved), with collections as one more lens inside the library. Layout options were mocked (phone A–D + desktop) on a temporary canvas: https://claude.ai/artifact/2SNzQHvWGxZfpT1zFFAmx4 — **option B** chosen.
+
+**Decisions (2026-10-11)**
+
+- The page is **"הספרייה שלי"** (route stays `/my-recipes`). One list — the same list behaviour as Categories (`RecipeListController`, filter band, grid, cards) — with **scope chips** instead of tabs: **הכל · המתכונים שלי · שמרתי · לנסות** (`?view=`), each with a count. **הכל** (default) = my recipes + the recipes I saved, without duplicates.
+- **No data-model change.** "שמרתי" = today's favourites (the heart); "לנסות" stays a stage of my own recipes (a "to try" mark for saved family recipes is **not** decided — see the collections issue).
+- **Plain users get the page too**, with "שמרתי" only (no chips row, no new-recipe button). Approved family and managers get all four chips.
+- **Nav:** "המתכונים שלי" → **"הספרייה שלי"** for every signed-in user; the **"מועדפים"** item goes (its view is "שמרתי"; Categories keeps its "show only favourites" filter); **"מתכון חדש"** leaves the nav for approved family — the button lives in the library head. Plain users and signed-out visitors keep "הצעת מתכון".
+- Phone: the category row stays the shared filter component (reuse over the mock's dropdown).
+- **Collections:** mocked later and tracked in a GitHub issue — the plan is a fifth chip "אוספים" showing collection covers, each collection opening this same layout.
+
+**Build (one slice):** saved recipes load by id from the favourites list (tolerating removed / unreadable ones); scope state in the URL; counts; per-chip empty states; badges as today (own view; saved family recipes carry none); nav changes in `auth-controller`; plain-user access to the page.
+
 ### Notes for releases 3–4 (from the review)
 
 - **Stage is the author's alone (decided 2026-10-11).** Submitting, approval and publishing never change the private original's `stage`: a "to try" recipe can be submitted (the save choice warns, but allows it), and stays in the author's To try tab — with its pending/published badge — until the author marks it tested.
