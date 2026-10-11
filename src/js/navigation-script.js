@@ -269,7 +269,7 @@ function updateActiveNavigation() {
           }
         } else {
           // A link without a query (e.g. /my-recipes) stays active across the
-          // page's own query states (e.g. /my-recipes?tab=library).
+          // page's own query states (e.g. /my-recipes?view=saved).
           shouldBeActive = !linkSearchParams || linkSearchParams === currentSearchParams;
         }
       }
