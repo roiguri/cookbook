@@ -99,6 +99,7 @@ export default {
 
         // Approved family save to their private library (and choose whether to
         // submit); plain users propose to the family book.
+        this.canKeepPrivate = isApproved;
         this.applyCopy(isApproved);
 
         if (typeof proposeRecipeForm.setFormDisabled === 'function') {
@@ -286,8 +287,7 @@ export default {
       if (clearBtn) clearBtn.disabled = false;
       if (importBtn) importBtn.disabled = false;
 
-      if (heroTitle) heroTitle.innerHTML = 'הצע <em>מתכון</em> לספר.';
-      if (heroDek) heroDek.textContent = 'כתוב אותו כפי שהיית מספר אותו לחבר.';
+      this.applyCopy(this.canKeepPrivate);
     }
 
     this.updatePreviewButton();

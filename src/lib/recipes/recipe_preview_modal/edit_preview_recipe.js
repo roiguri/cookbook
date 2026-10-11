@@ -249,33 +249,45 @@ class EditPreviewRecipe extends HTMLElement {
     const toggleImg = toggleBtn.querySelector('.toggle-icon');
     const toggleLbl = toggleBtn.querySelector('.btn-label');
 
+    // Edit ↔ preview keeps the editor alive (hidden) so unsaved edits survive;
+    // the preview renders the form's current data, as the propose page does.
     toggleBtn.addEventListener('click', () => {
+      const formOf = (editComp) => editComp?.shadowRoot?.querySelector('recipe-form-component');
       if (this.mode === 'preview') {
         this.mode = 'edit';
 
         const recipeComp = modalBody.querySelector('recipe-component');
         if (recipeComp) modalBody.removeChild(recipeComp);
 
-        const editComp = document.createElement('edit-recipe-component');
-        editComp.setAttribute('recipe-id', this.recipeId);
-        editComp.setAttribute('hide-form-actions', '');
-        if (this.approveOnSave) editComp.setAttribute('approve-on-save', '');
-        modalBody.appendChild(editComp);
+        let editComp = modalBody.querySelector('edit-recipe-component');
+        if (editComp) {
+          editComp.style.display = '';
+        } else {
+          editComp = document.createElement('edit-recipe-component');
+          editComp.setAttribute('recipe-id', this.recipeId);
+          editComp.setAttribute('hide-form-actions', '');
+          if (this.approveOnSave) editComp.setAttribute('approve-on-save', '');
+          modalBody.appendChild(editComp);
+        }
 
         toggleImg.src = this.path + 'eye.png';
         toggleImg.alt = 'צפה';
         toggleLbl.textContent = 'תצוגה מקדימה';
-        saveBtn.disabled = true;
+        saveBtn.disabled = !formOf(editComp)?.isDirty;
         clearBtn.disabled = false;
       } else {
         this.mode = 'preview';
 
         const editComp = modalBody.querySelector('edit-recipe-component');
-        if (editComp) modalBody.removeChild(editComp);
-
         const recipeComp = document.createElement('recipe-component');
-        recipeComp.setAttribute('recipe-id', this.recipeId);
-        modalBody.appendChild(recipeComp);
+        if (editComp) {
+          editComp.style.display = 'none';
+          modalBody.appendChild(recipeComp);
+          recipeComp.setData(formOf(editComp).getRecipeData());
+        } else {
+          recipeComp.setAttribute('recipe-id', this.recipeId);
+          modalBody.appendChild(recipeComp);
+        }
 
         toggleImg.src = this.path + 'pencil.png';
         toggleImg.alt = 'ערוך';
