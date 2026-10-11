@@ -16,6 +16,18 @@ describe('getRecipeStatus', () => {
     expect(getRecipeStatus({ approved: false })).toBe(RECIPE_STATUS.PRIVATE);
   });
 
+  it('the submission comes first for a private recipe', () => {
+    const r = { visibility: 'private', stage: 'to-try' };
+    expect(getRecipeStatus({ ...r, submissionStatus: 'pending' })).toBe(RECIPE_STATUS.PENDING);
+    expect(getRecipeStatus({ ...r, submissionStatus: 'rejected' })).toBe(RECIPE_STATUS.REJECTED);
+  });
+
+  it('"published" shows only in the author’s own view', () => {
+    const r = { visibility: 'published', stage: 'tested', submissionStatus: 'approved' };
+    expect(getRecipeStatus(r)).toBeNull();
+    expect(getRecipeStatus({ ...r, ownView: true })).toBe(RECIPE_STATUS.PUBLISHED);
+  });
+
   it('no recipe, no status', () => {
     expect(getRecipeStatus(null)).toBeNull();
   });
