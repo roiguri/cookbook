@@ -56,16 +56,20 @@ class RecipeComponent extends HTMLElement {
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    // Only reload if the component is already connected and the recipe-id actually changed
-    if (name === 'recipe-id' && oldValue !== newValue && this.isConnected && this.shadowRoot) {
+    // Only react once connectedCallback has run. On upgrade the initial attributes
+    // arrive here first while the element is already in the DOM; reacting then
+    // fetched the recipe twice and wired the servings stepper twice (#204).
+    if (!this._connected) return;
+    if (name === 'recipe-id' && oldValue !== newValue) {
       this.recipeId = newValue;
       this.fetchAndPopulateRecipeData();
-    } else if (name === 'active-step' && this.isConnected && this.shadowRoot) {
+    } else if (name === 'active-step') {
       this.scrollToStep(parseInt(newValue));
     }
   }
 
   connectedCallback() {
+    this._connected = true;
     this.render();
     this.recipeId = this.getAttribute('recipe-id');
     if (this.recipeId) {
@@ -74,6 +78,9 @@ class RecipeComponent extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._connected = false;
+    this._servingsListeners?.abort();
+
     // Clean up event listener to prevent memory leaks
     const scroller = this.shadowRoot?.getElementById('Recipe_component__media-scroller');
     if (scroller && this._handleMediaClick) {
@@ -1449,24 +1456,40 @@ class RecipeComponent extends HTMLElement {
     }
     updateButtons();
 
-    servingsInput.addEventListener('change', () => applyServings(parseInt(servingsInput.value)));
+    // setData() can run more than once on the same element (e.g. the edit
+    // preview re-renders it); replace the previous listeners, don't stack them.
+    this._servingsListeners?.abort();
+    this._servingsListeners = new AbortController();
+    const { signal } = this._servingsListeners;
+
+    servingsInput.addEventListener('change', () => applyServings(parseInt(servingsInput.value)), {
+      signal,
+    });
 
     if (decBtn) {
-      decBtn.addEventListener('click', () => {
-        const val = parseInt(servingsInput.value);
-        if (val > 1) {
-          servingsInput.value = val - 1;
-          applyServings(val - 1);
-        }
-      });
+      decBtn.addEventListener(
+        'click',
+        () => {
+          const val = parseInt(servingsInput.value);
+          if (val > 1) {
+            servingsInput.value = val - 1;
+            applyServings(val - 1);
+          }
+        },
+        { signal },
+      );
     }
 
     if (incBtn) {
-      incBtn.addEventListener('click', () => {
-        const val = parseInt(servingsInput.value);
-        servingsInput.value = val + 1;
-        applyServings(val + 1);
-      });
+      incBtn.addEventListener(
+        'click',
+        () => {
+          const val = parseInt(servingsInput.value);
+          servingsInput.value = val + 1;
+          applyServings(val + 1);
+        },
+        { signal },
+      );
     }
   }
 
