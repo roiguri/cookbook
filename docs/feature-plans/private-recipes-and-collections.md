@@ -229,7 +229,7 @@ New screens are designed as artboards in the "Cookbook screens" canvas (https://
 
 ## Before production: open issues to resolve
 
-Found while testing on staging (2026-10-11). **Resolve and verify both before the production rollout.**
+Found while testing on staging, or raised for discussion (2026-10-11). **Resolve and verify all of them before the production rollout.**
 
 ### 1. Stale code in browsers (service worker)
 
@@ -246,6 +246,12 @@ Found while testing on staging (2026-10-11). **Resolve and verify both before th
 - **To decide:** pay-as-you-go with a budget alert instead of prepaid credits; which AI Studio project each environment's `GEMINI_API_KEY` belongs to.
 - **To verify:** a successful AI call on production right before the rollout (or check AI Studio balances), and failures surfaced clearly to users instead of "unexpected error".
 
+### 3. Search and private recipes (to discuss)
+
+- **Today (3a-B):** the header search and the Categories page search only **published** recipes (`listPublished`) — your own private recipes never show up there. The My recipes page searches your private recipes, but only **within the open tab** (My library _or_ To try).
+- **To decide:** should the header search also find the signed-in user's own private recipes (with their status badge), or a "my recipes" result group? Should My recipes search across both tabs? How private recipes appear in Categories (if at all), and later in collections (release 4) and My meal.
+- **Constraint:** Firestore can't return "published OR mine" in one query — it's two queries (published + `listMine`) merged in the client, which the shared list/search code would do in one place.
+
 ## Production rollout runbook
 
 Production is held until the whole feature is complete (user decision 2026-10-11), so it rolls out **in one window following this list, top to bottom**. Every release adds its production steps here when it reaches staging — including steps that aren't code (extension settings, function deletions). Before production, do a **dress rehearsal**: fresh production copy into test (`000-copy-prod-to-test.sh`), then run this exact list against `--project staging` and run the staging checklists.
@@ -257,7 +263,7 @@ Production is held until the whole feature is complete (user decision 2026-10-11
 - [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production. _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
 - [ ] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
 - [ ] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
-- [ ] 0. Pre-flight: both items in "Before production: open issues to resolve" are done and verified.
+- [ ] 0. Pre-flight: every item in "Before production: open issues to resolve" is done and verified.
 - [ ] 8. Smoke test (with a normal reload, not a hard refresh — checks the service-worker fix): signed out, test account, manager — per the staging checklists.
 
 ## Release procedure
