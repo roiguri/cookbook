@@ -172,6 +172,14 @@ export function formatRecipeData(rawData) {
     mediaInstructions: Array.isArray(rawData.mediaInstructions) ? rawData.mediaInstructions : [],
     comments: Array.isArray(rawData.comments) ? rawData.comments : [],
     approved: typeof rawData.approved === 'boolean' ? rawData.approved : false,
+    authorId: rawData.authorId ?? rawData.userId ?? null,
+    visibility:
+      rawData.visibility === 'published' || rawData.visibility === 'private'
+        ? rawData.visibility
+        : rawData.approved === true
+          ? 'published'
+          : 'private',
+    stage: rawData.stage === 'to-try' ? 'to-try' : 'tested',
     creationTime: rawData.creationTime || null,
     updatedAt: rawData.updatedAt || null,
     relatedRecipes: Array.isArray(rawData.relatedRecipes) ? rawData.relatedRecipes : [],

@@ -188,9 +188,7 @@ class RecipeRelatedField extends FormFieldMixin(HTMLElement) {
     const searchTerms = term.toLowerCase().trim().split(/\s+/);
 
     try {
-      const results = await RecipeService.list({
-        where: [['approved', '==', true]],
-      });
+      const results = await RecipeService.listPublished();
 
       const filtered = results.filter((doc) => {
         if (doc.id === this._excludeId) return false;

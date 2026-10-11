@@ -49,11 +49,10 @@ export default {
 
     try {
       const queryParams = {
-        where: [['approved', '==', true]],
         orderBy: ['creationTime', 'desc'],
         limit: 4,
       };
-      const recipes = await RecipeService.list(queryParams);
+      const recipes = await RecipeService.listPublished(queryParams);
 
       if (!recipes.length) return;
 

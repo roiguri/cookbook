@@ -207,13 +207,13 @@ export default {
 
   async loadInitialRecipes() {
     try {
-      let queryParams = { where: [['approved', '==', true]] };
+      let queryParams = { where: [] };
 
       if (this.currentCategory !== 'all') {
         queryParams.where.push(['category', '==', this.currentCategory]);
       }
 
-      this.allRecipes = await RecipeService.list(queryParams);
+      this.allRecipes = await RecipeService.listPublished(queryParams);
 
       let filteredRecipes = [...this.allRecipes];
 

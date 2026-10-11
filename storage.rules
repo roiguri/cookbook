@@ -19,13 +19,15 @@ service firebase.storage {
           && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'manager';
     }
 
-    // The author of the recipe a file belongs to. A recipe's images are uploaded
+    // The author of the recipe a file belongs to (`authorId`, falling back to the
+    // legacy `userId`). A recipe's images are uploaded
     // before its document exists, so a missing recipe simply means "not the author".
     function isRecipeAuthor(recipeId) {
       let path = /databases/(default)/documents/recipes/$(recipeId);
       return isAuthenticated()
           && firestore.exists(path)
-          && firestore.get(path).data.get('userId', null) == request.auth.uid;
+          && firestore.get(path).data.get('authorId', firestore.get(path).data.get('userId', null))
+               == request.auth.uid;
     }
 
     // Every upload is tagged with its uploader (StorageService.uploadFile sets

@@ -16,6 +16,7 @@ import { captureError } from '../logger.js';
  * Public API:
  *   - get(recipeId)
  *   - list(queryParams)
+ *   - listPublished(queryParams)
  *   - generateId()
  *   - create({ recipeData, imagesToUpload, mediaItemsOrdered, uploadedBy })
  *   - update(recipeId, { changes, images, imagesToDelete, mediaItemsOrdered, uploadedBy, approved })
@@ -24,10 +25,38 @@ import { captureError } from '../logger.js';
  *   - replaceImage(recipeId, imageId, blob, options)
  *
  * Image proposal/moderation (the pending-images workflow) lives in
- * RecipeImageProposalService.
+ * RecipeImageProposalService; the family-book approval queue in
+ * RecipeSubmissionService.
+ *
+ * Visibility: `visibility` ('private' | 'published') is the source of truth for
+ * whether a recipe is public. Until the cleanup release the legacy `approved`
+ * flag (and `userId`, mirrored by `authorId`) is still written; this service
+ * keeps the pairs in sync on every write, and firestore.rules requires that
+ * `approved` and `visibility` agree.
  */
 
 const RECIPES_COLLECTION = 'recipes';
+
+export const VISIBILITY = Object.freeze({ PRIVATE: 'private', PUBLISHED: 'published' });
+export const STAGE = Object.freeze({ TO_TRY: 'to-try', TESTED: 'tested' });
+
+/**
+ * Fill in the new-model fields of a recipe being created, from whichever of the
+ * legacy/new fields the caller passed: authorId <-> userId, visibility <-> approved,
+ * and a default `stage` of 'tested'.
+ */
+function withModelFields(data) {
+  const out = { ...data };
+  const authorId = out.authorId ?? out.userId ?? null;
+  out.authorId = authorId;
+  if (authorId !== null) out.userId = authorId;
+  const published =
+    out.visibility !== undefined ? out.visibility === VISIBILITY.PUBLISHED : out.approved === true;
+  out.visibility = published ? VISIBILITY.PUBLISHED : VISIBILITY.PRIVATE;
+  out.approved = published;
+  if (out.stage === undefined) out.stage = STAGE.TESTED;
+  return out;
+}
 
 async function uploadImagesAtomic(recipeId, category, imagesToUpload, uploadedBy) {
   // allSettled (not all) so we can clean up resolutions when any sibling
@@ -158,13 +187,28 @@ export class RecipeService {
   }
 
   /**
+   * Query published recipes only. The visibility filter is required for anyone
+   * who isn't a manager: Firestore rejects a query that could return a recipe
+   * the caller may not read.
+   * @param {Object} [queryParams] - Extra `where` clauses, `orderBy`, `limit`.
+   * @returns {Promise<Array<Object>>}
+   */
+  static async listPublished(queryParams = {}) {
+    return await FirestoreService.queryDocuments(RECIPES_COLLECTION, {
+      ...queryParams,
+      where: [['visibility', '==', VISIBILITY.PUBLISHED], ...(queryParams.where || [])],
+    });
+  }
+
+  /**
    * Create a new recipe. Generates an ID, uploads images and media
    * instructions, then writes the document. On error any successfully
    * uploaded image files are cleaned up (best-effort).
    *
    * @param {Object} params
    * @param {Object} params.recipeData - Base recipe fields (no images/mediaInstructions/toDelete).
-   *                                     Caller sets userId + approved; creationTime is service-stamped.
+   *                                     Caller sets authorId (or legacy userId) and visibility (or legacy approved);
+   *                                     the other of each pair and a default stage are filled in. creationTime is service-stamped.
    * @param {Array<{file: File, isPrimary: boolean}>} [params.imagesToUpload]
    * @param {Array<Object>} [params.mediaItemsOrdered] - Ordered media items
    *        from the editor; each entry has either `file` (pending) or
@@ -177,7 +221,7 @@ export class RecipeService {
       throw new Error('RecipeService.create: recipeData is required');
     }
     const recipeId = RecipeService.generateId();
-    const cleanedData = stripUndefined(recipeData);
+    const cleanedData = withModelFields(stripUndefined(recipeData));
     let uploadedImages = [];
 
     try {
@@ -246,8 +290,9 @@ export class RecipeService {
    * @param {Array<string>} [params.mediaToDelete] - Storage paths of media files
    *        removed in the editor, deleted on save (deferred-delete contract).
    * @param {string} [params.uploadedBy] - User UID for new uploads.
-   * @param {boolean} [params.approved] - Pass `true` to auto-approve (e.g.
-   *        manager edits). Omit to leave the approval flag untouched.
+   * @param {boolean} [params.approved] - Pass `true` to publish (e.g. manager
+   *        edits), `false` to unpublish. Also sets `visibility`. Omit to leave
+   *        both untouched.
    * @returns {Promise<{ mediaUploadResults: Object, migrationWarnings: Array }>}
    */
   static async update(
@@ -366,7 +411,10 @@ export class RecipeService {
     const docPayload = { ...stripUndefined(changes) };
     if (newImages !== undefined) docPayload.images = newImages;
     if (mediaInstructions !== undefined) docPayload.mediaInstructions = mediaInstructions;
-    if (approved !== undefined) docPayload.approved = approved;
+    if (approved !== undefined) {
+      docPayload.approved = approved;
+      docPayload.visibility = approved ? VISIBILITY.PUBLISHED : VISIBILITY.PRIVATE;
+    }
 
     await FirestoreService.updateDocument(RECIPES_COLLECTION, recipeId, docPayload);
 

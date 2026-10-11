@@ -188,23 +188,28 @@ exports.extractRecipeFromVideo = onCall(
 );
 
 /**
- * Notify managers when a new recipe is submitted for approval.
+ * Notify managers when a recipe is submitted to the family book for approval.
  *
- * Fires on every recipe create; only sends when `approved === false` so it
- * skips manager-authored recipes that are created already-approved and the
- * processRecipeTransfer pipeline (which also lands recipes with approved=false
- * — that's intentional, those should be reviewed too).
+ * Fires on every new `recipe_submissions` document. (It used to fire on every
+ * recipe create with `approved === false`; once authors keep private recipes
+ * they haven't submitted, that would ping managers for every private draft.)
  *
  * One push per event for v1. Batching tracked separately.
  */
-exports.onRecipeCreated = onDocumentCreated('recipes/{recipeId}', async (event) => {
+exports.onRecipeSubmitted = onDocumentCreated('recipe_submissions/{recipeId}', async (event) => {
   const snap = event.data;
   if (!snap) return;
-  const recipe = snap.data() || {};
-  if (recipe.approved === true) return;
+  const submission = snap.data() || {};
+  if (submission.status !== 'pending') return;
 
   const recipeId = event.params.recipeId;
-  const recipeName = recipe.name || 'מתכון חדש';
+  let recipeName = 'מתכון חדש';
+  try {
+    const recipeSnap = await db.collection('recipes').doc(recipeId).get();
+    recipeName = recipeSnap.get('name') || recipeName;
+  } catch (error) {
+    console.warn(`[onRecipeSubmitted] could not read recipe ${recipeId}:`, error);
+  }
 
   try {
     const result = await sendNotificationToRole('manager', {
@@ -217,9 +222,9 @@ exports.onRecipeCreated = onDocumentCreated('recipes/{recipeId}', async (event) 
         recipeId,
       },
     });
-    console.log(`[onRecipeCreated] notified managers for ${recipeId}:`, result);
+    console.log(`[onRecipeSubmitted] notified managers for ${recipeId}:`, result);
   } catch (error) {
-    console.error(`[onRecipeCreated] notification failed for ${recipeId}:`, error);
-    // Don't rethrow — notification failure must not block the recipe creation.
+    console.error(`[onRecipeSubmitted] notification failed for ${recipeId}:`, error);
+    // Don't rethrow — notification failure must not block the submission.
   }
 });

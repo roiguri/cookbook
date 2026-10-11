@@ -159,10 +159,8 @@ class HeaderSearchBar extends HTMLElement {
     if (!searchText.trim()) return;
 
     try {
-      // Load all approved recipes
-      const recipes = await RecipeService.list({
-        where: [['approved', '==', true]],
-      });
+      // Load all published recipes
+      const recipes = await RecipeService.listPublished({});
 
       // Filter recipes using the same logic as categories page
       const filteredRecipes = FilterUtils.searchRecipes(recipes, searchText);

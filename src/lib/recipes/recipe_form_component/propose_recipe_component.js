@@ -14,7 +14,8 @@
  *
  */
 
-import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeService, VISIBILITY, STAGE } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeSubmissionService } from '../../../js/services/recipes/recipe-submission-service.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import { logError, getErrorMessage } from '../../../js/utils/error-handler.js';
 import { showToast } from '../../notifications/toast-notification/toast-notification.js';
@@ -69,20 +70,23 @@ class ProposeRecipeComponent extends HTMLElement {
       } = recipeData;
       const imagesToUpload = (formImages || []).map(({ file, isPrimary }) => ({ file, isPrimary }));
 
+      // A proposal is a private recipe of the author's, submitted to the family book.
       const recipeDataForFirestore = {
         ...baseFields,
-        userId: uploadedBy,
-        approved: false,
+        authorId: uploadedBy,
+        visibility: VISIBILITY.PRIVATE,
+        stage: STAGE.TESTED,
       };
 
       const mediaItemsOrdered = formComponent?.getAllMediaInOrder?.() || [];
 
-      const { mediaUploadResults } = await RecipeService.create({
+      const { recipeId, mediaUploadResults } = await RecipeService.create({
         recipeData: recipeDataForFirestore,
         imagesToUpload,
         mediaItemsOrdered,
         uploadedBy,
       });
+      await RecipeSubmissionService.submit({ recipeId, authorId: uploadedBy });
 
       this.clearForm();
 

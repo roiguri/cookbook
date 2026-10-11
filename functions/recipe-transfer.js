@@ -312,7 +312,12 @@ function prepareCookbookRecipe(recipeData, metadata) {
     ...(recipeData.description && { description: recipeData.description }),
     ...(recipeData.sourceUrl && { attribution: recipeData.sourceUrl }),
 
+    // Transferred recipes have no author in this app; they enter as unpublished.
+    // (This pipeline is gated, #202; it is due for removal in the cleanup release.)
     approved: false,
+    visibility: 'private',
+    authorId: null,
+    stage: 'tested',
     allowImageSuggestions: true,
     images: [],
     pendingImages: [],
