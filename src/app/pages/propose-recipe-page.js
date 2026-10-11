@@ -43,7 +43,7 @@ export default {
   },
 
   getTitle() {
-    return AppConfig.getPageTitle('הצעת מתכון');
+    return AppConfig.getPageTitle(authService.isApproved() ? 'מתכון חדש' : 'הצעת מתכון');
   },
 
   getMeta() {
