@@ -9,7 +9,7 @@ This plan moves to the usual recipe-app shape: every recipe has an **author** an
 Lifecycle of a recipe:
 
 ```
-To try ──mark tested──▶ My library ──submit──▶ Pending review ──approve──▶ Published (a copy in the family book)
+To try ──mark tested──▶ My library ──submit──▶ Pending review ──approve──▶ Published (the same recipe, now in the family book)
   ▲                          ▲                       │
   │                          └──rejected or withdrawn┘
   └──────────── fork (your own untested copy) ◀───────────────────────────────── Published
@@ -19,50 +19,50 @@ Working copy of this plan with diagrams (Claude Doc): https://claude.ai/code/art
 
 ## Decisions (settled 2026-10-10)
 
-| Decision                                       | Decided                                                                                                        |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Who can create private recipes                 | Approved family and managers only (sign-up is open to any Google account; one rule condition to widen)         |
-| Own private recipes in collections and My Meal | Always allowed for the author                                                                                  |
-| What publishing does                           | **Copy.** Approval creates a new published recipe keeping `authorId` + `sourceRecipeId`; author keeps theirs   |
-| Editing your own published recipe              | Through edit suggestions, like everyone else                                                                   |
-| Managers and private recipes                   | Readable by managers, not listed in the dashboard                                                              |
-| Untested recipes you collect                   | A `stage` field on your own recipes (`to-try` / `tested`), **not** a collection                                |
-| Submitting an untested recipe                  | Allowed; the Submit button warns                                                                               |
-| Deploy ordering                                | Nobody uses the app during a deploy window → no dual-write; each release is one back-to-back window            |
-| Family book model (reviewed 2026-10-11)        | **Not a collection.** `visibility` on the recipe + a `recipe_submissions` queue; collections are personal only |
-| Approval before release 3b                     | In place: the recipe itself becomes published; copy-on-publish arrives in 3b                                   |
-| Recipes with no recorded author                | `authorId: null` — never anyone's recipe; only managers edit them                                              |
-| Resubmitting a recipe that's already published | Becomes an edit suggestion on the published copy (`publishedId`), never a second copy                          |
-| Pending submissions per recipe                 | At most one (submission doc id = the private recipe's id)                                                      |
+| Decision                                       | Decided                                                                                                                                                                                              |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Who can create private recipes                 | Approved family and managers only (sign-up is open to any Google account; one rule condition to widen)                                                                                               |
+| Own private recipes in collections and My Meal | Always allowed for the author                                                                                                                                                                        |
+| What publishing does                           | **In place** (changed from copy, 2026-10-11): the recipe itself becomes published and stays in its author's library (badge "פורסם"); one recipe, no duplicates in favourites / collections / My meal |
+| Editing your own published recipe              | Through edit suggestions, like everyone else                                                                                                                                                         |
+| Managers and private recipes                   | Readable by managers, not listed in the dashboard                                                                                                                                                    |
+| Untested recipes you collect                   | A `stage` field on your own recipes (`to-try` / `tested`), **not** a collection                                                                                                                      |
+| Submitting an untested recipe                  | Allowed; the Submit button warns                                                                                                                                                                     |
+| Deploy ordering                                | Nobody uses the app during a deploy window → no dual-write; each release is one back-to-back window                                                                                                  |
+| Family book model (reviewed 2026-10-11)        | **Not a collection.** `visibility` on the recipe + a `recipe_submissions` queue; collections are personal only                                                                                       |
+| Approval before release 3b                     | In place — and it stays that way (see "What publishing does")                                                                                                                                        |
+| Recipes with no recorded author                | `authorId: null` — never anyone's recipe; only managers edit them                                                                                                                                    |
+| Resubmitting a recipe that's already published | Not possible — a published recipe changes through edit suggestions, its author included                                                                                                              |
+| Pending submissions per recipe                 | At most one (submission doc id = the private recipe's id)                                                                                                                                            |
 
 ## Target model
 
-| Path                                | Key fields                                                                                                                                                                                            |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `recipes/{id}`                      | `authorId`, `visibility` (`private` \| `published`), `stage` (`to-try` \| `tested`), `testedAt`, `sourceRecipeId` (published copies), `forkedFrom`, content as today                                  |
-| `recipe_submissions/{recipeId}`     | `recipeId` (the private original), `authorId`, `status` (`pending` \| `approved` \| `rejected`), `reviewedBy`, `reviewedAt`, `note`/`rejectionReason`, `publishedId` (the copy, from 3b), `createdAt` |
-| `collections/{id}`                  | `ownerId`, `name`, `kind` (`favorites` \| `personal`; a curated `book` kind can be added later if ever needed)                                                                                        |
-| `collections/{id}/items/{recipeId}` | `addedBy`, `addedAt`                                                                                                                                                                                  |
-| `recipes/{id}/notes/{uid}`          | per-user `text`, `rating`, `cookLog` — later phase                                                                                                                                                    |
-| `recipe_edit_suggestions/{id}`      | unchanged                                                                                                                                                                                             |
-| `users/{uid}`                       | `role`, profile, tokens — `favorites` moves to a collection                                                                                                                                           |
-| `active_meals/{uid}`                | unchanged for now                                                                                                                                                                                     |
-| Storage `img/recipes/…`             | read follows the recipe's visibility; approval copies photos to the published recipe                                                                                                                  |
+| Path                                | Key fields                                                                                                                                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `recipes/{id}`                      | `authorId`, `visibility` (`private` \| `published`), `stage` (`to-try` \| `tested`), `testedAt`, `forkedFrom`, content as today                                                                                  |
+| `recipe_submissions/{recipeId}`     | `recipeId` (the private original), `authorId`, `status` (`pending` \| `approved` \| `rejected`), `reviewedBy`, `reviewedAt`, `note`/`rejectionReason`, `createdAt` (`publishedId` unused since publish-in-place) |
+| `collections/{id}`                  | `ownerId`, `name`, `kind` (`favorites` \| `personal`; a curated `book` kind can be added later if ever needed)                                                                                                   |
+| `collections/{id}/items/{recipeId}` | `addedBy`, `addedAt`                                                                                                                                                                                             |
+| `recipes/{id}/notes/{uid}`          | per-user `text`, `rating`, `cookLog` — later phase                                                                                                                                                               |
+| `recipe_edit_suggestions/{id}`      | unchanged                                                                                                                                                                                                        |
+| `users/{uid}`                       | `role`, profile, tokens — `favorites` moves to a collection                                                                                                                                                      |
+| `active_meals/{uid}`                | unchanged for now                                                                                                                                                                                                |
+| Storage `img/recipes/…`             | files stay where they are on approval; authors may change their recipe's files only while it is private (3b)                                                                                                     |
 
 Access rules (enforced in `firestore.rules` / `storage.rules`, not only the UI): published recipes are public; private recipes are readable by their author and managers; only approved family and managers create private recipes; non-managers can never change `visibility`, `authorId`, `stage` or `sourceRecipeId`, nor a submission's `status` beyond `pending`; while both exist, `approved` and `visibility` must agree; the author is `authorId`, falling back to the legacy `userId`; a collection item may only point at a recipe its owner can read.
 
 ## Releases
 
-| #   | Release                     | Data                                                                                                                                           | UI                                                                                                            | State                                       |
-| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)                                                | —                                                                                                             | ✅ 2026-10-10                               |
-| 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published                                         | "Recipe not found" state                                                                                      | ✅ 2026-10-11 (PRs #332, #333)              |
-| 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates a `recipe_submissions` doc per open proposal. Old fields kept and still written | None                                                                                                          | ✅ staging 2026-10-11 (PR #336) — prod held |
-| 2b  | Restructure Storage         | Script copies every recipe file to `recipes/{id}/images                                                                                        | media/`, rewrites paths in recipes and edit suggestions. Old files kept                                       | None                                        | ✅ staging 2026-10-11 (PR #340) — prod held |
-| 3a  | Private recipes and To try  | New private recipes (no publishing yet)                                                                                                        | My recipes (To try / My library tabs), Mark as tested, Save privately, private/to-try badges                  | ⬜ needs design                             |
-| 3b  | Submissions and publishing  | Submissions; approval creates the published copy (Cloud Function)                                                                              | Submit to the family book, pending/rejected badges, dashboard submissions queue with approve-as-copy / reject | ⬜ needs design                             |
-| 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                                                    | Favourite button unchanged; add to collection; collections view                                               | ⬜ needs design                             |
-| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`, `pendingImages`; removes orphaned proposal images                                      | None                                                                                                          | ⬜ after 2–4 settle                         |
+| #   | Release                     | Data                                                                                                                                           | UI                                                                                                                 | State                                       |
+| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| 0   | Prep: prod → test data copy | Test project replaced with a copy of production (`scripts/migrations/000-copy-prod-to-test.sh`)                                                | —                                                                                                                  | ✅ 2026-10-10                               |
+| 1   | Lock down security          | None. Rules tests (emulator) + tightened Firestore/Storage rules; every recipe query filters published                                         | "Recipe not found" state                                                                                           | ✅ 2026-10-11 (PRs #332, #333)              |
+| 2   | Convert the data model      | Script adds `authorId`, `visibility`, `stage: tested`; creates a `recipe_submissions` doc per open proposal. Old fields kept and still written | None                                                                                                               | ✅ staging 2026-10-11 (PR #336) — prod held |
+| 2b  | Restructure Storage         | Script copies every recipe file to `recipes/{id}/images                                                                                        | media/`, rewrites paths in recipes and edit suggestions. Old files kept                                            | None                                        | ✅ staging 2026-10-11 (PR #340) — prod held |
+| 3a  | Private recipes and To try  | New private recipes (no publishing yet)                                                                                                        | My recipes (To try / My library tabs), Mark as tested, Save privately, private/to-try badges                       | ⬜ needs design                             |
+| 3b  | Submissions and publishing  | Submissions; approval publishes in place, reject keeps the recipe with a note; authorless recipes get an author (`004`)                        | Submit to the family book, pending/rejected/published badges, "נשלחו לפרסום" tab, dashboard queue with reject note | ⬜ needs design                             |
+| 4   | Collections                 | Script copies `users.favorites` into a favourites collection. Old list kept                                                                    | Favourite button unchanged; add to collection; collections view                                                    | ⬜ needs design                             |
+| 5   | Clean up                    | Script deletes `approved`, `userId`, `users.favorites`, `pendingImages`; removes orphaned proposal images                                      | None                                                                                                               | ⬜ after 2–4 settle                         |
 
 Later, each purely additive: personal notes and "made it" log, forks, meal plans, shopping lists.
 
@@ -142,7 +142,7 @@ Designs: the "Release 3 · My recipes", "Card badges", "My private recipe" and "
 
 - `RecipeService.listMine({ stage })`: `authorId == uid` and `visibility == 'private'` (+ `stage`), newest first — composite index added to `firestore.indexes.json`.
 - Rules: creating a private recipe that isn't submitted in the same batch becomes **approved family / managers only** (`getAfter` on the submission); role `user` keeps proposing (create + submit). Authors may **delete** their own private recipes. Marking tested is an author update of `stage` (already allowed).
-- Files of private recipes stay in `recipes/{id}/…` in 3a (privacy model as decided in 2b); the `users/{uid}/…` area is used once publish-as-copy (3b) separates private originals from published copies.
+- Files of private recipes stay in `recipes/{id}/…` in 3a (privacy model as decided in 2b); with publish-in-place (3b) a recipe keeps its files when published, so the `users/{uid}/…` area stays unused for recipes.
 
 **3a-B notes.** No rules or index changes were needed: the existing read rule already allows the author's query (`authorId == uid && visibility == 'private'`, emulator-tested), and `listMine` uses equality filters only, sorting newest-first in code — one query feeds both tabs and their counts; category is filtered in code. In 3a the library also lists recipes awaiting approval (pending/rejected badges come with 3b).
 
@@ -170,51 +170,59 @@ Designs: the "Release 3 · My recipes", "Card badges", "My private recipe" and "
 
 Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -review / -reject / -approved), "My private recipe" pending + rejected, and "My recipes · Submitted". Same principles as 3a: **one implementation per status/action, reuse over pixel-matching the mock.**
 
+**Publish in place (decided 2026-10-11, replacing copy-on-publish).** A copy would give the author the recipe twice (their original + the book's copy) — favourites, collections and My meal would point at one or the other, and the two would drift apart. Instead the approved recipe itself becomes published and stays in its author's library with a "פורסם" badge. After publishing, everyone — the author included — changes it through edit suggestions; only managers delete it. The design's copy wording ("עותק", "המקור הפרטי לא משתנה") is adapted accordingly.
+
 **What changes for the user**
 
-- **Approve = publish a copy.** The manager's approval creates a new published recipe (`sourceRecipeId` → the private original, author kept) with copies of its photos/media. The private original is untouched and stays in the author's library or To try (stage is the author's alone). Later changes to the published copy go through edit suggestions.
+- **Approve** publishes the recipe (as today); the stage stays the author's (a published "to try" recipe stays in their To try).
 - **Reject = a note, not a delete.** The manager must write what to fix; the recipe stays private. The author sees the note on the recipe page and in "נשלחו לפרסום", and can edit and **resubmit** (the queue marks it "הגשה חוזרת").
-- **The author controls the submission:** "שליחה לפרסום" from the recipe menu (any private recipe not yet submitted), "ביטול השליחה" while pending, "הסרה מהרשימה" for a rejected one. A pending recipe can still be edited — the manager reviews the latest version.
-- **Badges:** pending / rejected / published join to-try / private, from the submission — on cards, the recipe page and the owner menu (status line + note).
+- **The author controls the submission:** "שליחה לפרסום" from the recipe menu (a private recipe not yet submitted), "ביטול השליחה" while pending, "הסרה מהרשימה" for a rejected one. A pending recipe can still be edited — the manager reviews the latest version.
+- **My recipes = everything I authored:** library (tested) and To try (to-try) include published recipes, with a "פורסם" badge there (not on Categories cards). Recipes with no recorded author get one via `004-backfill-author.mjs` (on production: the manager's account).
+- **Badges:** pending / rejected / published join to-try / private — on cards, the recipe page and the owner menu (status line + note).
 - **"נשלחו לפרסום" tab** in My recipes, with status chips (הכל / ממתינים / נדחו / פורסמו).
-- **Dashboard queue** in the design's shape: per-row "עוד לא נוסה" and "הגשה חוזרת" flags, a review dialog (the recipe preview + approve / reject), reject with a required note, and an "approved → copy published" confirmation.
+- **Dashboard queue** (existing list and preview dialog): per-row "עוד לא נוסה" and "הגשה חוזרת" flags, reject with a required note, a short "פורסם בספר" confirmation after approving.
+
+**Side effects found in review (2026-10-11)**
+
+- **Storage:** authors could replace/delete files of any recipe they wrote, published included (since 2b) — bypassing edit suggestions. Fixed in 3b-A: author file changes only while the recipe is private.
+- **Rules:** an author may change only `stage`/`testedAt` of their published recipe (mark tested).
+- **`listMine`** drops its `visibility == private` filter (all my recipes; rules already allow `authorId == uid`).
+- **Owner menu on my published recipe:** status "פורסם", mark tested (if to try), add to meal, suggest edit — no edit or delete.
+- **Unused copy fields** (`sourceRecipeId` checks in the rules, `publishedId`): harmless; removed in the cleanup release.
 
 **Reuse map**
 
-| Design element                               | Built on                                                            | Change                                                                                                                                                                          |
-| -------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approve → copy                               | `promoteSuggestionFiles` (Cloud Function that copies Storage files) | New manager callable `publishSubmission`: copy doc + files, mark submission approved + `publishedId` — one server-side transaction-like step (client can't copy Storage files). |
-| Reject with note, resubmit, withdraw, remove | `RecipeSubmissionService`, `confirmation-modal` (now with a body)   | `reject(id, { note })` keeps the recipe; `resubmit`, `withdraw`, `remove`; the note field is the save-choice dialog pattern.                                                    |
-| Status on cards / page / menu                | `getRecipeStatus`, `<status-badge>`, owner menu                     | Status takes the submission into account; lists attach the author's submissions (one query).                                                                                    |
-| Review dialog                                | `recipe-preview-modal` (already has approve / reject)               | Banner ("עוד לא נוסה"), the copy note, new handlers.                                                                                                                            |
-| Submitted tab                                | My recipes page + `RecipeListController`                            | Third tab; data source = the author's submissions joined with their recipes.                                                                                                    |
+| Design element                               | Built on                                                      | Change                                                                                                      |
+| -------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Approve                                      | `RecipeSubmissionService.approve` (in place, already)         | Unchanged; confirmation dialog after approving.                                                             |
+| Reject with note, resubmit, withdraw, remove | `RecipeSubmissionService`, `confirmation-modal` (with a body) | `reject(id, { note })` keeps the recipe; `resubmit`, `withdraw`, `remove`.                                  |
+| Status on cards / page / menu                | `getRecipeStatus`, `<status-badge>`, owner menu               | Status takes the submission and authorship into account; lists attach the author's submissions (one query). |
+| Review dialog                                | `recipe-preview-modal` (already has approve / reject)         | "עוד לא נוסה" banner, reject → note.                                                                        |
+| Submitted tab                                | My recipes page + `RecipeListController`                      | Third tab; data source = the author's submissions joined with their recipes.                                |
 
 **Slices** (each: PR → `development`; `staging` pushed when there's something to test)
 
-| Slice | What                                                                                                                                             | Status |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| 3b-A  | Backend: `publishSubmission` function, reject-with-note, resubmit / withdraw / remove; rules for the author's submission actions; emulator tests | ⬜     |
-| 3b-B  | Statuses: pending / rejected / published on cards, recipe page, owner menu (send, cancel, resubmit, note)                                        | ⬜     |
-| 3b-C  | "נשלחו לפרסום" tab with status chips                                                                                                             | ⬜     |
-| 3b-D  | Dashboard queue, review / reject / approved dialogs                                                                                              | ⬜     |
-| 3b-E  | Cleanup: deleting a recipe removes its submission (author and dashboard); queue self-heal updated                                                | ⬜     |
+| Slice | What                                                                                                                                                                                                          | Status |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 3b-A  | Rules + services: reject with note (recipe kept), resubmit / withdraw / remove by the author, author stage change on published, Storage author-files-while-private; `004-backfill-author.mjs`; emulator tests | ⬜     |
+| 3b-B  | My recipes includes published; statuses pending / rejected / published on cards, page, owner menu (send, cancel, resubmit, note)                                                                              | ⬜     |
+| 3b-C  | "נשלחו לפרסום" tab with status chips                                                                                                                                                                          | ⬜     |
+| 3b-D  | Dashboard: queue flags, reject note, approved confirmation                                                                                                                                                    | ⬜     |
+| 3b-E  | Cleanup: deleting a recipe removes its submission (author and dashboard); queue self-heal updated                                                                                                             | ⬜     |
 
 **Open decisions**
 
-1. **Credit on the published copy** — the design says "עם הקרדיט של יעל". Show the author's name on the published recipe (needs their display name, readable by everyone), or keep `authorId` only for now?
+1. **Credit on published recipes** — the design says "עם הקרדיט של יעל". Show the author's name on the recipe page (needs their display name, readable by everyone), or keep `authorId` internal for now?
 2. **Submitted tab layout** — the design uses status rows (note + actions inline). Reuse would be the normal card grid with badges, the note and actions living on the recipe page menu. Rows as designed, or cards?
-3. **Already-published originals** — once approved, can the author send the original again to update the book? _Suggested: no — changes to the book go through edit suggestions (as the approved dialog says)._
-4. **Plain users (`user`)** — they have no My recipes. Should they get the "נשלחו לפרסום" view (to see rejections and resubmit), or stay as today (submit and forget)?
+3. **Plain users (`user`)** — they have no My recipes, so a rejection note never reaches them. Give them the "נשלחו לפרסום" view, or keep "submit and forget"?
 
 ### Notes for releases 3–4 (from the review)
 
 - **Stage is the author's alone (decided 2026-10-11).** Submitting, approval and publishing never change the private original's `stage`: a "to try" recipe can be submitted (the save choice warns, but allows it), and stays in the author's To try tab — with its pending/published badge — until the author marks it tested.
 
-- **3b approval copy** runs server-side (callable or trigger, admin SDK), copies the recipe and its photos (`img/recipes/{type}/{category}/{recipeId}/…` plus the `_400x400`/`_1080x1080` variants), is idempotent via `publishedId`, and writes the submission `status` last.
-- **Copy-on-publish changes the recipe id:** curated links (`relatedRecipes`) to the private original must map through `sourceRecipeId`; published recipes must never link to private ones.
+- ~~3b approval copy / copy-on-publish changes the recipe id~~ — superseded: publishing is in place (2026-10-11), so ids and links don't change.
 - **Missing recipes:** favourites, My Meal and related links can point at deleted or now-unreadable recipes — load recipes one by one (never one `in` query over mixed ids), tolerate not-found, show a "removed" state.
 - **Search:** authors will want their own private recipes too — a second query (`authorId == uid`) merged client-side (rules can't express OR).
-- **Copies:** decide whether the published copy keeps the original's `creationTime`.
 - **Release 4 favourites:** stale open tabs may still write `users.favorites` after the script; have the new client read both, and re-run the idempotent copy right before release 5.
 
 ### Cleanup backlog (release 5 — don't forget)
@@ -223,6 +231,7 @@ Designs: "Release 3 · Family-book submissions (manager)" (Dashboard-queue / -re
 - **Missing thumbnails in production:** ~12 recipes have no `_400x400` / `_1080x1080` WebP variants, so every page load logs a 404 and falls back to the full image. Regenerate them (re-upload the originals or run the resize extension backfill).
 - **Orphaned Storage files** from failed image proposals: since the 2026-01-12 strict rules, a non-author's proposal uploaded files and then failed the Firestore write. Find files under `img/recipes/` that no recipe, edit suggestion or media instruction references, review the list, then delete.
 - **Old fields** `approved`, `userId`, `users.favorites` (see release 5 row).
+- **Copy-on-publish leftovers** (publishing became in-place, 2026-10-11): the `sourceRecipeId` conditions in `firestore.rules` (create/update) and the unused `publishedId` field on `recipe_submissions`.
 - **Old Storage trees** `img/recipes/**` and `recipes/*/media-instructions/**` after release 2b; remove the old path from the resize extension's watched paths.
 - **Replace the Resize Images extension** (decided 2026-10-11). Firebase shuts the Extensions service down on **2027-03-31**: installed extensions keep running, but can no longer be reconfigured or uninstalled. Replace it with its function kit (`@firebase-function-kits/storage-resize-images`, 0.0.1 as of 2026-10) once that matures, or with our own small `sharp` function writing the same `_400x400` / `_1080x1080` WebP files. No data or app change is needed. **Revisit January 2027; hard deadline 2027-03-31.**
 - **Optional nicety:** a "photos only" shortcut that opens Suggest an edit focused on images, if proposing photos turns out to be too many clicks.
@@ -304,6 +313,7 @@ Production is held until the whole feature is complete (user decision 2026-10-11
 - [ ] 2. Deploy indexes: `firebase deploy --only firestore:indexes --project production` — wait until they finish building. _(release 2)_
 - [ ] 3. `node scripts/migrations/002-convert-model.mjs --project production` (dry run), check counts, then `--apply`. _(release 2)_
 - [ ] 4. `node scripts/migrations/003-restructure-storage.mjs --project production` (dry run), check counts, then `--apply`. _(release 2b)_
+- [ ] 4b. `node scripts/migrations/004-backfill-author.mjs --project production --author <manager-uid>` (dry run), check the count (test copy, 2026-10-11: 29 published recipes without an author), then `--apply`. The uid is production's own (Authentication → Users, or your doc in `users`); never commit it. _(release 3b)_
 - [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production. _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
 - [ ] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
 - [ ] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
@@ -337,7 +347,7 @@ Local dev and staging share the test project — deploying rules or running a sc
 
 **Production safety nets** (checked 2026-10-10): Firestore point-in-time recovery (7 days) and weekly scheduled backups (98-day retention); Storage object versioning + 7-day soft delete. **Auth users have no backup.**
 
-Cloud Functions are affected in releases 2, 3b and 5: `functions/recipe-transfer.js` writes `approved`; the new-proposal notification moves to `recipe_submissions` in release 2; the approval copy is a function in 3b.
+Cloud Functions are affected in releases 2, 3b and 5: `functions/recipe-transfer.js` writes `approved`; the new-proposal notification moves to `recipe_submissions` in release 2; 3b needs no new function (publishing is in place).
 
 ## Prod → test copy (release 0)
 
