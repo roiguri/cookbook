@@ -5,6 +5,7 @@ import favoritesService from '../../js/services/users/favorites-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import { buildLibraryViews, LIBRARY_VIEW } from '../../js/utils/recipes/library-views.js';
+import { attachScrollFades } from '../../js/utils/scroll-fades.js';
 import { RecipeListController } from '../../lib/collections/recipe-list/recipe-list-controller.js';
 import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
 import '../../styles/pages/categories-spa.css';
@@ -209,20 +210,9 @@ export default {
   setupChipFades() {
     const row = this.container.querySelector('#mr-chips');
     if (!row) return;
-    const update = () => {
-      const max = row.scrollWidth - row.clientWidth;
-      const pos = Math.abs(row.scrollLeft); // RTL scrolls to negative values
-      row.classList.toggle('mr-more-start', pos > 2);
-      row.classList.toggle('mr-more-end', max - pos > 2);
-    };
-    row.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-    this.updateChipFades = update;
-    update();
-    this.chipFadesCleanup = () => {
-      row.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
+    const fades = attachScrollFades(row);
+    this.updateChipFades = fades.update;
+    this.chipFadesCleanup = fades.detach;
   },
 
   renderCounts() {

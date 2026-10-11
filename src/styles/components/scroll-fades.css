@@ -1,0 +1,39 @@
+/* ==========================================================================
+   Scroll fades — a soft fade on each edge of a horizontally scrolling row that
+   has more content beyond it. Classes are set by attachScrollFades()
+   (src/js/utils/scroll-fades.js) by the visible edge, so LTR and RTL rows
+   share them.
+   ========================================================================== */
+
+.scroll-fades {
+  --fade: 28px;
+  scrollbar-width: none;
+}
+
+.scroll-fades::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .scroll-fades {
+    --fade: 48px;
+  }
+}
+
+.scroll-fades.more-left {
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade));
+}
+
+.scroll-fades.more-right {
+  mask-image: linear-gradient(to left, transparent, #000 var(--fade));
+}
+
+.scroll-fades.more-left.more-right {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent
+  );
+}

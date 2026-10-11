@@ -189,16 +189,23 @@ class RecipeComponent extends HTMLElement {
        HEADER
        ========================================================= */
     /* Category, with the recipe's status badge beside it (private recipes) */
+    /* A normal line (as the category label alone had), so the spacing above
+       the title is unchanged; the badge sits inline beside the label. */
     .Recipe_component__eyebrow-row {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
       margin-bottom: 16px;
     }
 
     .Recipe_component__eyebrow-row .Recipe_component__eyebrow {
       margin-bottom: 0;
+    }
+
+    .Recipe_component__eyebrow-row status-badge {
+      margin-inline-start: 12px;
+      vertical-align: middle;
+      /* "middle" centres on the line's larger text; nudge down to the small
+         label's centre (measured at desktop and phone widths). */
+      position: relative;
+      top: 0.2em;
     }
 
     .Recipe_component__eyebrow {

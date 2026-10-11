@@ -6,6 +6,7 @@ const MOCK_IMAGE_SRC =
 
 const FULL_RECIPE_DATA = {
   name: 'בדיקת מתכון מלא',
+  visibility: 'published', // family-book recipe: no status badge
   prepTime: 30,
   waitTime: 60,
   difficulty: 'בינוני',
@@ -22,6 +23,7 @@ const FULL_RECIPE_DATA = {
 
 const SECTIONED_RECIPE_DATA = {
   name: 'מתכון עם שלבים',
+  visibility: 'published', // family-book recipe: no status badge
   prepTime: 45,
   waitTime: 15,
   difficulty: 'קשה',

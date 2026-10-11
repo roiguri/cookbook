@@ -1,19 +1,22 @@
 <div class="home-page">
-  <!-- Hero -->
-  <section class="hero">
-    <div class="section-inner">
-      <h1 class="hero-title">A family cookbook,<br />written by <em>everyone</em></h1>
-      <p class="hero-lede">
-        Generations of Friday dinners, holidays, and Tuesday-night improvisations — collected and
-        kept safe for the kids who'll inherit them.
-      </p>
-    </div>
-  </section>
+  <!-- Quote -->
+  <div class="quote-section">
+    <span class="quote-ornament">A thought for the cook</span>
+    <blockquote>
+      <span class="quote-open">"</span><em>Cooking</em> is like painting or writing a song. Just as
+      there are only so many notes or colors, there are only so many flavors — it's how you combine
+      them that sets you apart.<span class="quote-close">"</span>
+    </blockquote>
+    <cite><b>— Wolfgang Puck</b></cite>
+  </div>
 
   <!-- Categories -->
   <section class="section quick-links">
     <div class="section-inner">
-      <div class="category-tiles">
+      <div class="section-head">
+        <h2><em>Discover</em></h2>
+      </div>
+      <div class="category-tiles" id="category-tiles">
         <a href="/categories?category=appetizers" class="category-tile" aria-label="Appetizers">
           <div class="tile-img">
             <img
@@ -176,6 +179,50 @@
     </div>
   </section>
 
+  <!-- On your list: the reader's own to-try recipes + an "add a recipe" tile while there's room (approved family and managers) -->
+  <section class="section next-recipes" id="next-recipes-section" hidden>
+    <div class="section-inner">
+      <div class="section-head">
+        <h2>On your <em>list</em></h2>
+        <div class="section-meta">
+          <a href="/my-recipes?view=to-try" id="next-all-link" hidden>
+            All
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M3 8h10M9 4l4 4-4 4"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
+        </div>
+      </div>
+      <recipe-strip id="next-recipes-strip" mobile-single-row hide-statuses="to-try">
+        <a slot="after" class="add-tile" href="/propose-recipe" id="next-add-tile" hidden>
+          <span class="add-tile__icon" aria-hidden="true">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </span>
+          <span class="add-tile__title" dir="rtl">מתכון חדש</span>
+          <span class="add-tile__text" dir="rtl"
+            >מצאתם מתכון שתרצו לנסות? כתבו אותו או ייבאו מקישור, והוא יחכה כאן.</span
+          >
+        </a>
+      </recipe-strip>
+    </div>
+  </section>
+
   <!-- Featured Recipes -->
   <section class="section featured-recipes">
     <div class="section-inner">
@@ -196,18 +243,7 @@
           </a>
         </div>
       </div>
-      <recipe-strip id="featured-recipes-strip"></recipe-strip>
+      <recipe-strip id="featured-recipes-strip" mobile-single-row></recipe-strip>
     </div>
   </section>
-
-  <!-- Quote -->
-  <div class="quote-section">
-    <span class="quote-ornament">A thought for the cook</span>
-    <blockquote>
-      <span class="quote-open">"</span><em>Cooking</em> is like painting or writing a song. Just as
-      there are only so many notes or colors, there are only so many flavors — it's how you combine
-      them that sets you apart.<span class="quote-close">"</span>
-    </blockquote>
-    <cite><b>— Wolfgang Puck</b></cite>
-  </div>
 </div>
