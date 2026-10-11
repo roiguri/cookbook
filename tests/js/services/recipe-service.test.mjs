@@ -13,6 +13,7 @@ const firestoreMocks = {
   updateDocument: jest.fn(),
   deleteDocument: jest.fn(),
   queryDocuments: jest.fn(),
+  batchWrite: jest.fn(),
   generateId: jest.fn(() => 'recipe-123'),
 };
 
@@ -83,6 +84,25 @@ describe('RecipeService', () => {
   });
 
   describe('create', () => {
+    it('commits extra writes (e.g. the submission) in one batch with the recipe', async () => {
+      firestoreMocks.batchWrite.mockResolvedValue();
+      const submissionOp = { type: 'set', collection: 'recipe_submissions', id: 'x', data: {} };
+      const alsoWrite = jest.fn(() => [submissionOp]);
+
+      await RecipeService.create({
+        recipeData: { name: 'Cake', authorId: 'u1', visibility: 'private' },
+        uploadedBy: 'u1',
+        alsoWrite,
+      });
+
+      expect(alsoWrite).toHaveBeenCalledWith('recipe-123');
+      expect(firestoreMocks.setDocument).not.toHaveBeenCalled();
+      const ops = firestoreMocks.batchWrite.mock.calls[0][0];
+      expect(ops[0]).toMatchObject({ type: 'set', collection: 'recipes', id: 'recipe-123' });
+      expect(ops[0].data).toMatchObject({ name: 'Cake', authorId: 'u1' });
+      expect(ops[1]).toBe(submissionOp);
+    });
+
     it('uploads images, writes doc, returns id and media result', async () => {
       recipeImageServiceMocks.uploadFile
         .mockResolvedValueOnce({ id: 'img-1', full: 'p/1.jpg' })

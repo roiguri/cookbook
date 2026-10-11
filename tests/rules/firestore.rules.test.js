@@ -157,9 +157,28 @@ describe('reading recipes', () => {
 });
 
 describe('creating recipes', () => {
-  test('a signed-in user can create a private recipe in their own name', async () => {
+  test('approved family can keep a private recipe without submitting it (My recipes)', async () => {
     await assertSucceeds(setDoc(doc(db(OTHER), 'recipes', 'new'), newPrivate(OTHER)));
-    await assertSucceeds(setDoc(doc(db(USER), 'recipes', 'new2'), newPrivate(USER)));
+    await assertSucceeds(
+      setDoc(doc(db(OTHER), 'recipes', 'try'), { ...newPrivate(OTHER), stage: 'to-try' }),
+    );
+  });
+
+  test('a plain user can only create a recipe submitted in the same batch', async () => {
+    const user = db(USER);
+    await assertFails(setDoc(doc(user, 'recipes', 'new2'), newPrivate(USER)));
+
+    const batch = writeBatch(user);
+    batch.set(doc(user, 'recipes', 'new3'), newPrivate(USER));
+    batch.set(doc(user, 'recipe_submissions', 'new3'), submission('new3', USER));
+    await assertSucceeds(batch.commit());
+  });
+
+  test('a plain user cannot pass with someone else’s submission', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'recipe_submissions', 'taken'), submission('taken', OTHER));
+    });
+    await assertFails(setDoc(doc(db(USER), 'recipes', 'taken'), newPrivate(USER)));
   });
 
   test('a non-manager cannot create a published recipe', async () => {

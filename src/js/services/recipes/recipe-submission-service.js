@@ -29,6 +29,7 @@ export const SUBMISSION_STATUS = Object.freeze({
  * Public API:
  *   - submit({ recipeId, authorId })
  *   - get(recipeId)
+ *   - submissionWrite({ recipeId, authorId })  // batch op for RecipeService.create({ alsoWrite })
  *   - listPending()                       // manager: [{ submission, recipe }]
  *   - approve(recipeId, { reviewedBy })   // manager
  *   - reject(recipeId, { reviewedBy })    // manager: deletes the proposal, as before
@@ -42,18 +43,37 @@ export class RecipeSubmissionService {
    * @returns {Promise<void>}
    */
   static async submit({ recipeId, authorId } = {}) {
+    const op = RecipeSubmissionService.submissionWrite({ recipeId, authorId });
+    await FirestoreService.setDocument(COLLECTION, op.id, op.data);
+  }
+
+  /**
+   * The write that submits a recipe, for committing in the same batch as the
+   * recipe itself (`RecipeService.create({ alsoWrite })`) — required for users
+   * who may not keep private recipes of their own.
+   * @param {Object} params
+   * @param {string} params.recipeId
+   * @param {string} params.authorId
+   * @returns {{ type: 'set', collection: string, id: string, data: Object }}
+   */
+  static submissionWrite({ recipeId, authorId } = {}) {
     if (!recipeId) throw new Error('RecipeSubmissionService.submit: recipeId is required');
     if (!authorId) throw new Error('RecipeSubmissionService.submit: authorId is required');
-    await FirestoreService.setDocument(COLLECTION, recipeId, {
-      recipeId,
-      authorId,
-      status: SUBMISSION_STATUS.PENDING,
-      reviewedBy: null,
-      reviewedAt: null,
-      rejectionReason: null,
-      publishedId: null,
-      createdAt: Timestamp.now(),
-    });
+    return {
+      type: 'set',
+      collection: COLLECTION,
+      id: recipeId,
+      data: {
+        recipeId,
+        authorId,
+        status: SUBMISSION_STATUS.PENDING,
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null,
+        publishedId: null,
+        createdAt: Timestamp.now(),
+      },
+    };
   }
 
   /**

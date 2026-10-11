@@ -146,6 +146,8 @@ Designs: the "Release 3 · My recipes", "Card badges", "My private recipe" and "
 
 **3a-B notes.** No rules or index changes were needed: the existing read rule already allows the author's query (`authorId == uid && visibility == 'private'`, emulator-tested), and `listMine` uses equality filters only, sorting newest-first in code — one query feeds both tabs and their counts; category is filtered in code. In 3a the library also lists recipes awaiting approval (pending/rejected badges come with 3b).
 
+**3a-C notes.** Same `/propose-recipe` page and `propose-recipe-component` for everyone: approved family/managers see "מתכון חדש" and the save choice (built on `confirmation-modal`, which gained an optional body); plain users keep the proposal flow unchanged. A submitted recipe and its `recipe_submissions` record are written **in one batch** (`RecipeService.create({ alsoWrite })`). Rule: creating a private recipe that isn't submitted in the same batch requires approved/manager. Until 3b, approval still publishes in place, so an approved recipe leaves My recipes.
+
 **Decisions (2026-10-11)**
 
 1. Role `user` gets no My recipes (no header entry, no page); they keep proposing as today.
@@ -154,13 +156,13 @@ Designs: the "Release 3 · My recipes", "Card badges", "My private recipe" and "
 
 **Slices** (each: branch → PR → `development` → `staging` → staging test with the inspector; production held)
 
-| Slice | What                                                                                                                                                      | Status                     |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| 3a-A  | Extract the Categories list behaviour into a shared list controller — **no visible change**                                                               | ✅ staging                 |
-| 3a-B  | My recipes page: tabs (To try / My library), `listMine`, card status badges, empty state, header entry; index + read rules for own private recipes        | ✅ staging (awaiting test) |
-| 3a-C  | New recipe save choice (cooked? · who sees?), import → To try, untested warning; rule: unsubmitted private recipes are approved-family only               | ⏳ next                    |
-| 3a-D  | Private recipe page: owner ⋮ menu (status, mark tested, add to meal, delete) and the card's "mark tested"; rule: authors delete their own private recipes | ⬜                         |
-| 3a-E  | Edit own recipe (propose page edit mode)                                                                                                                  | ⬜                         |
+| Slice | What                                                                                                                                                      | Status                                      |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 3a-A  | Extract the Categories list behaviour into a shared list controller — **no visible change**                                                               | ✅ staging                                  |
+| 3a-B  | My recipes page: tabs (To try / My library), `listMine`, card status badges, empty state, header entry; index + read rules for own private recipes        | ✅ staging                                  |
+| 3a-C  | New recipe save choice (cooked? · who sees?), import → To try, untested warning; rule: unsubmitted private recipes are approved-family only               | ✅ staging (rules not yet deployed to test) |
+| 3a-D  | Private recipe page: owner ⋮ menu (status, mark tested, add to meal, delete) and the card's "mark tested"; rule: authors delete their own private recipes | ⬜                                          |
+| 3a-E  | Edit own recipe (propose page edit mode)                                                                                                                  | ⬜                                          |
 
 ### Notes for releases 3–4 (from the review)
 

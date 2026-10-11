@@ -60,6 +60,19 @@ describe('RecipeSubmissionService', () => {
     });
   });
 
+  describe('submissionWrite', () => {
+    it('builds the same pending submission as a batch operation', () => {
+      const op = RecipeSubmissionService.submissionWrite({ recipeId: 'r1', authorId: 'u1' });
+      expect(op).toMatchObject({
+        type: 'set',
+        collection: 'recipe_submissions',
+        id: 'r1',
+        data: { recipeId: 'r1', authorId: 'u1', status: 'pending' },
+      });
+      expect(() => RecipeSubmissionService.submissionWrite({ recipeId: 'r1' })).toThrow();
+    });
+  });
+
   describe('listPending', () => {
     it('returns pending submissions with their recipes, newest first', async () => {
       firestoreMocks.queryDocuments.mockResolvedValue([
