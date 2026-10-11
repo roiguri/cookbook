@@ -105,6 +105,7 @@ export default {
     const addToMealBtn = container.querySelector('#add-to-meal-btn');
     const markTestedBtn = container.querySelector('#mark-tested-btn');
     const deleteBtn = container.querySelector('#delete-recipe-btn');
+    const editBtn = container.querySelector('#edit-recipe-btn');
     // The recipe shown now (the page can switch recipes in place).
     const currentId = () =>
       container.querySelector('recipe-component')?.getAttribute('recipe-id') || recipeId;
@@ -126,6 +127,7 @@ export default {
       addToMealBtn,
       markTestedBtn,
       deleteBtn,
+      editBtn,
     };
     this._menuAuthUnsubscribe = authService.addAuthObserver(({ user: current }) => {
       // Signing out of a private recipe leaves the page at once (as My recipes
@@ -215,6 +217,22 @@ export default {
       }
     });
 
+    // Owner: edit — the same editor (with preview) the manager dashboard uses,
+    // without publishing on save.
+    editBtn?.addEventListener('click', async () => {
+      menuDropdown.classList.remove('open');
+      await import('../../lib/recipes/recipe_preview_modal/edit_preview_recipe.js');
+      container.querySelector('edit-preview-recipe')?.remove();
+      const editor = document.createElement('edit-preview-recipe');
+      editor.setAttribute('recipe-id', currentId());
+      editor.setAttribute('start-mode', 'edit');
+      container.appendChild(editor);
+      editor.addEventListener('recipe-updated', () =>
+        container.querySelector('recipe-component')?.fetchAndPopulateRecipeData(),
+      );
+      requestAnimationFrame(() => editor.openModal());
+    });
+
     // Owner: delete a private recipe (with its photos, media and pending submission)
     deleteBtn?.addEventListener('click', async () => {
       menuDropdown.classList.remove('open');
@@ -293,6 +311,7 @@ export default {
     }
     if (els.markTestedBtn) els.markTestedBtn.hidden = !(isOwner && toTry);
     if (els.deleteBtn) els.deleteBtn.hidden = !isOwner;
+    if (els.editBtn) els.editBtn.hidden = !isOwner;
     // Edit suggestions are for published recipes only.
     if (els.suggestEditBtn) els.suggestEditBtn.style.display = isPrivate ? 'none' : 'flex';
   },
