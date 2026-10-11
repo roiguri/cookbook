@@ -335,20 +335,22 @@ Staging and the test project carry everything (rules, functions incl. `onRecipeR
 
 ## Production rollout runbook
 
+**Shipped to production — 2026-10-11 (releases 2, 2b, 3a, 3b, 3c, search, home):** `main` @ `37777fa`. Backups first: Firestore managed export + a full Storage copy (576 files) in the transfer bucket (`prod-backup-before-release3-20261011T195034Z`, `prod-storage-before-release3-…`). `002` 62 converted + 7 submissions · `003` 53 recipes repointed, 283 files copied (rehearsal + 3 files from an AI-enhance backup made at 19:45) · `004` 29 recipes authored by the manager · extension paths set (`updateMask=config.params`; `config` is rejected) · Netlify production deploy ready · rules + storage + functions deployed (`onRecipeCreated` removed; `onRecipeSubmitted`, `onRecipeResubmitted`, `promoteSuggestionFiles` created) · integrity scan clean · signed-out smoke on the live site, desktop + phone, 0 console errors. Old fields and Storage trees stay until release 5.
+
 **Dress rehearsal — 2026-10-11 (on the test project, fresh production copy):** copy verified (62 recipes · 573 files · 9 accounts, prod = test) → indexes → `002` (62 converted, 7 pending submissions for open proposals, re-run no-op) → `003` (53 recipes repointed, 56 photos + 4 media, 280 files copied, re-run no-op) → `004` (29 recipes authored by the manager, re-run 0) → extension paths already set on test → rules + storage + functions deployed with `--force` → integrity scan clean (60 file paths, 7 pending submissions) → signed-out smoke, desktop + phone, 0 console errors. Remaining: the user's manual checklist on this data.
 
 Production is held until the whole feature is complete (user decision 2026-10-11), so it rolls out **in one window following this list, top to bottom**. Every release adds its production steps here when it reaches staging — including steps that aren't code (extension settings, function deletions). Before production, do a **dress rehearsal**: fresh production copy into test (`000-copy-prod-to-test.sh`), then run this exact list against `--project staging` and run the staging checklists.
 
-- [ ] 1. Back up production Firestore (managed export) and note the time (point-in-time recovery covers 7 days; Storage has versioning + soft delete).
-- [ ] 2. Deploy indexes: `firebase deploy --only firestore:indexes --project production` — wait until they finish building. _(release 2)_
-- [ ] 3. `node scripts/migrations/002-convert-model.mjs --project production` (dry run), check counts, then `--apply`. _(release 2)_
-- [ ] 4. `node scripts/migrations/003-restructure-storage.mjs --project production` (dry run), check counts, then `--apply`. _(release 2b)_
-- [ ] 4b. `node scripts/migrations/004-backfill-author.mjs --project production --author <manager-uid>` (dry run), check the count (test copy, 2026-10-11: 29 published recipes without an author), then `--apply`. The uid is production's own (Authentication → Users, or your doc in `users`); never commit it. _(release 3b)_
-- [ ] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production — set it to exactly what test has: `/img/recipes/full,/recipes/*/images,/suggestions/*/images,/users/*/recipes/*/images` (production today: `/img/recipes/full` only, read 2026-10-11). _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
-- [ ] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
-- [ ] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
-- [ ] 0. Pre-flight: every item in "Before production: open issues to resolve" is done and verified.
-- [ ] 8. Smoke test (with a normal reload, not a hard refresh — checks the service-worker fix): signed out, test account, manager — per the staging checklists.
+- [x] 1. Back up production Firestore (managed export) and note the time (point-in-time recovery covers 7 days; Storage has versioning + soft delete).
+- [x] 2. Deploy indexes: `firebase deploy --only firestore:indexes --project production` — wait until they finish building. _(release 2)_
+- [x] 3. `node scripts/migrations/002-convert-model.mjs --project production` (dry run), check counts, then `--apply`. _(release 2)_
+- [x] 4. `node scripts/migrations/003-restructure-storage.mjs --project production` (dry run), check counts, then `--apply`. _(release 2b)_
+- [x] 4b. `node scripts/migrations/004-backfill-author.mjs --project production --author <manager-uid>` (dry run), check the count (test copy, 2026-10-11: 29 published recipes without an author), then `--apply`. The uid is production's own (Authentication → Users, or your doc in `users`); never commit it. _(release 3b)_
+- [x] 5. Resize extension: add the new image folders to `INCLUDE_PATH_LIST` on production — set it to exactly what test has: `/img/recipes/full,/recipes/*/images,/suggestions/*/images,/users/*/recipes/*/images` (production today: `/img/recipes/full` only, read 2026-10-11). _(release 2b)_ **Only possible before 2027-03-31** (Extensions shutdown) — after that, replace the extension first (see the cleanup backlog).
+- [x] 6. Fast-forward `main` to `staging`, push, wait for the Netlify production deploy.
+- [x] 7. `firebase deploy --only firestore:rules,storage,functions --project production --force` (`--force` approves removing `onRecipeCreated`). _(release 2)_
+- [x] 0. Pre-flight: every item in "Before production: open issues to resolve" is done and verified.
+- [x] 8. Smoke test (with a normal reload, not a hard refresh — checks the service-worker fix): signed out, test account, manager — per the staging checklists.
 
 ## Release procedure
 
