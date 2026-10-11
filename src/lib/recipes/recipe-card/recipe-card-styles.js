@@ -91,6 +91,50 @@ export const recipeCardStyles = `
     color: var(--ink-4, #a6a49a);
 }
 
+/* ---- Compact (no photo block) ----
+   Set by a strip whose recipes all lack an image. Only the no-image layout
+   changes; a card with a photo never goes compact. */
+:host([compact]) {
+    height: 100%;
+}
+
+:host([compact]) .recipe-card:has(.no-image-placeholder) {
+    height: 100%;
+}
+
+:host([compact]) .no-image-placeholder {
+    display: contents;
+}
+
+:host([compact]) .no-image-placeholder::before,
+:host([compact]) .no-image-placeholder::after,
+:host([compact]) .no-image-icon {
+    display: none;
+}
+
+/* A status gets its own short line at the top */
+:host([compact]) .no-image-placeholder status-badge {
+    position: static;
+    align-self: flex-start;
+    margin: 12px 16px 0;
+}
+
+/* The heart sits at the empty (left) end of the meta row */
+:host([compact]) .recipe-card:has(.no-image-placeholder) .favorite-btn {
+    top: auto;
+    bottom: 10px;
+    right: auto;
+    left: 10px;
+    width: 28px;
+    height: 28px;
+    padding: 5px;
+}
+
+:host([compact]) .recipe-card:has(.no-image-placeholder) .recipe-meta {
+    min-height: 28px;
+    padding-left: 36px;
+}
+
 /* ---- Content ---- */
 .recipe-content {
     padding: 14px 16px 16px;

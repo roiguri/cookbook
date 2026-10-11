@@ -1,5 +1,7 @@
 import '../recipe-card/recipe-card.js';
 
+const hasImage = (recipe) => Array.isArray(recipe?.images) && recipe.images.length > 0;
+
 class RecipeStrip extends HTMLElement {
   constructor() {
     super();
@@ -38,7 +40,13 @@ class RecipeStrip extends HTMLElement {
 
   /**
    * Populate the strip with recipes. A `hide-statuses` attribute on the strip is
-   * passed to its cards. Content the page puts in the strip's
+   * passed to its cards.
+   *
+   * With `compact-if-no-images`, when none of the recipes has an image all the
+   * cards go compact (no photo placeholder) and the strip gets `compact`.
+   * Needs recipe objects (IDs alone don't say whether there's an image).
+   *
+   * Content the page puts in the strip's
    * `after` slot (e.g. an "add a recipe" tile) follows the cards as the last
    * grid item.
    *
@@ -57,8 +65,12 @@ class RecipeStrip extends HTMLElement {
     const grid = this.shadowRoot.querySelector('.grid');
     grid.innerHTML = '';
 
+    const compact = this._allWithoutImages(items || []);
+    this.toggleAttribute('compact', compact);
+
     (items || []).forEach((item) => {
       const card = document.createElement('recipe-card');
+      if (compact) card.setAttribute('compact', '');
       // Statuses the strip's context already says (e.g. "to try" in a to-try row)
       if (this.hasAttribute('hide-statuses')) {
         card.setAttribute('hide-statuses', this.getAttribute('hide-statuses'));
@@ -75,6 +87,12 @@ class RecipeStrip extends HTMLElement {
     const after = document.createElement('slot');
     after.name = 'after';
     grid.appendChild(after);
+  }
+
+  /** Opted in, and every item is a recipe object without an image. */
+  _allWithoutImages(items) {
+    if (!this.hasAttribute('compact-if-no-images') || !items.length) return false;
+    return items.every((item) => item && typeof item === 'object' && !hasImage(item));
   }
 }
 
