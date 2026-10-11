@@ -64,6 +64,7 @@ test.describe('Recipe Card Visuals', () => {
       // Now set the data
       card.recipeData = {
         id: 'mock-recipe',
+        visibility: 'published', // family-book recipe: no status badge
         name: 'Succulent Visual Burger',
         category: 'main-courses',
         prepTime: 20,
@@ -133,6 +134,7 @@ test.describe('Recipe Card Visuals', () => {
       // Set Data (triggers render)
       card.recipeData = {
         id: 'mock-recipe-auth',
+        visibility: 'published', // family-book recipe: no status badge
         name: 'Build Your Own Burger',
         category: 'main-courses',
         prepTime: 20,

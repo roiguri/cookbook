@@ -13,39 +13,9 @@
   width: 100%;
 }
 
-/* ---- Hero ---- */
-.spa-content .home-page .hero {
-  padding: 32px var(--gutter) 28px;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.spa-content .home-page .hero-title {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-style: italic;
-  font-size: var(--step-5);
-  line-height: 0.95;
-  letter-spacing: -0.02em;
-  margin: 0 0 14px;
-  color: var(--text-strong);
-}
-
-.spa-content .home-page .hero-title em {
-  font-style: normal;
-  color: var(--primary-dark);
-}
-
-.spa-content .home-page .hero-lede {
-  font-size: var(--step-1);
-  line-height: 1.5;
-  color: var(--text-muted);
-  max-width: 52ch;
-  margin: 0;
-}
-
 /* ---- Section pattern ---- */
 .spa-content .home-page .section {
-  padding: 24px var(--gutter);
+  padding: 14px var(--gutter);
   margin-top: 0;
 }
 
@@ -68,6 +38,16 @@
   text-decoration: none;
   white-space: nowrap;
   transition: color var(--dur-1) var(--ease);
+}
+
+.spa-content .home-page .section-meta a[hidden] {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .spa-content .home-page .section-meta a.phone-only {
+    display: none;
+  }
 }
 
 .spa-content .home-page .section-meta a:hover {
@@ -96,6 +76,77 @@
 .spa-content .home-page .section-head h2 em {
   font-style: normal;
   color: var(--primary-dark);
+}
+
+/* Room between the last section and the footer */
+.spa-content .home-page .section.featured-recipes {
+  padding-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+  .spa-content .home-page .section.featured-recipes {
+    padding-bottom: 28px;
+  }
+}
+
+/* ---- "Add a recipe" tile (follows the to-try cards in their strip) ---- */
+.spa-content .home-page .add-tile {
+  min-height: 220px;
+  padding: 24px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  text-decoration: none;
+  border: 1.5px dashed var(--hairline-strong);
+  border-radius: var(--r-lg);
+  background: color-mix(in oklab, var(--surface-1) 60%, transparent);
+  color: var(--ink-2);
+  transition:
+    border-color var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease);
+}
+
+.spa-content .home-page .add-tile--alone {
+  grid-column: 1 / -1;
+  min-height: 160px;
+}
+
+.spa-content .home-page .add-tile[hidden] {
+  display: none;
+}
+
+.spa-content .home-page .add-tile:hover {
+  border-color: var(--primary);
+  background: var(--surface-1);
+}
+
+.spa-content .home-page .add-tile__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  color: var(--button-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spa-content .home-page .add-tile__title {
+  font-family: var(--font-display-he);
+  font-size: var(--step-2);
+  color: var(--ink);
+}
+
+.spa-content .home-page .add-tile__text {
+  font-family: var(--font-ui-he);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  max-width: 26ch;
 }
 
 /* ---- Category tiles ---- */
@@ -155,7 +206,7 @@
 /* ---- Quote ---- */
 .spa-content .home-page .quote-section {
   margin-top: 0;
-  padding: 48px var(--gutter) 56px;
+  padding: 28px var(--gutter) 20px;
   text-align: center;
   position: relative;
 }
@@ -169,7 +220,7 @@
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .spa-content .home-page .quote-ornament::before,
@@ -182,7 +233,7 @@
 
 .spa-content .home-page .quote-section blockquote {
   margin: 0 auto;
-  max-width: 28ch;
+  max-width: 44ch;
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
@@ -209,7 +260,7 @@
 
 .spa-content .home-page .quote-section cite {
   display: block;
-  margin-top: 32px;
+  margin-top: 18px;
   font-family: var(--font-ui);
   font-style: normal;
   font-size: 12px;
@@ -232,16 +283,8 @@
     #Mobile
 \*------------------------------------*/
 @media (max-width: 768px) {
-  .spa-content .home-page .hero {
-    padding: 20px var(--gutter) 18px;
-  }
-
-  .spa-content .home-page .hero-title {
-    font-size: var(--step-4);
-  }
-
   .spa-content .home-page .section {
-    padding: 18px var(--gutter);
+    padding: 10px var(--gutter);
   }
 
   .spa-content .home-page .section-head {
@@ -252,21 +295,32 @@
     font-size: var(--step-3);
   }
 
+  /* One scrolling line of jars, edge to edge (fades: scroll-fades.css) */
   .spa-content .home-page .category-tiles {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: flex;
     gap: var(--sp-sm, 10px);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+    scroll-padding-inline: var(--gutter);
+    padding-block: 4px 8px;
+  }
+
+  .spa-content .home-page .category-tile {
+    flex: 0 0 84px;
+    scroll-snap-align: start;
   }
 
   .spa-content .home-page .quote-section {
-    padding: 36px var(--gutter) 44px;
+    padding: 20px var(--gutter) 12px;
   }
 
   .spa-content .home-page .quote-section blockquote {
-    font-size: clamp(1.4rem, 1rem + 2vw, 1.8rem);
+    font-size: clamp(1.2rem, 0.95rem + 1.5vw, 1.5rem);
   }
 
   .spa-content .home-page .quote-ornament {
-    margin-bottom: 24px;
+    margin-bottom: 14px;
   }
 }

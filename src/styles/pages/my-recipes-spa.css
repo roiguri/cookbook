@@ -195,38 +195,12 @@
     justify-self: end;
   }
 
-  /* The chips scroll sideways without a scrollbar; a fade marks each edge
-     that has more chips beyond it (classes set by the page on scroll). */
+  /* The chips scroll sideways; edge fades come from scroll-fades.css */
   .spa-content .my-recipes-page .mr-bar nav {
     grid-area: chips;
     width: 100%;
     overflow-x: auto;
-    scrollbar-width: none;
     padding-block: 2px;
-    --fade: 28px;
-  }
-
-  .spa-content .my-recipes-page .mr-bar nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* RTL: the start (first chips) is on the right */
-  .spa-content .my-recipes-page .mr-bar nav.mr-more-start {
-    mask-image: linear-gradient(to left, transparent, #000 var(--fade));
-  }
-
-  .spa-content .my-recipes-page .mr-bar nav.mr-more-end {
-    mask-image: linear-gradient(to right, transparent, #000 var(--fade));
-  }
-
-  .spa-content .my-recipes-page .mr-bar nav.mr-more-start.mr-more-end {
-    mask-image: linear-gradient(
-      to left,
-      transparent,
-      #000 var(--fade),
-      #000 calc(100% - var(--fade)),
-      transparent
-    );
   }
 
   .spa-content .my-recipes-page .mr-chips {

@@ -16,6 +16,7 @@
 @import 'components/search_bar.css';
 @import 'components/spa.css';
 @import 'components/lazy-loading.css';
+@import 'components/scroll-fades.css';
 
 /* ---- Global resets ---- */
 html {
