@@ -35,12 +35,9 @@ const VIEWS = {
   },
 };
 
-// `?view=`; links from before the library (`?tab=`) still land in the right place.
+// `?view=`; "all" when absent or unknown.
 function viewFromParams(params) {
-  if (Object.values(LIBRARY_VIEW).includes(params?.view)) return params.view;
-  if (params?.tab === 'to-try') return LIBRARY_VIEW.TO_TRY;
-  if (params?.tab === 'library') return LIBRARY_VIEW.MINE;
-  return LIBRARY_VIEW.ALL;
+  return Object.values(LIBRARY_VIEW).includes(params?.view) ? params.view : LIBRARY_VIEW.ALL;
 }
 
 /**
