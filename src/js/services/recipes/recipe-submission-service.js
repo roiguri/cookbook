@@ -37,6 +37,7 @@ export const SUBMISSION_STATUS = Object.freeze({
  *   - cancel(recipeId)                    // author: cancel pending / remove rejected
  *   - resubmit(recipeId)                  // author: rejected → pending (resubmission)
  *   - listForAuthor(authorId)             // author: their submissions
+ *   - listMineWithStatus(authorId)        // author: their recipes + submission status
  *   - listPending()                       // manager: [{ submission, recipe }]
  *   - approve(recipeId, { reviewedBy })   // manager
  *   - reject(recipeId, { note, reviewedBy }) // manager: keep the recipe, with a note
@@ -228,6 +229,23 @@ export class RecipeSubmissionService {
       status: SUBMISSION_STATUS.PENDING,
       resubmittedAt: serverTimestamp(),
     });
+  }
+
+  /**
+   * An author's recipes (RecipeService.listMine) with what their status badges
+   * need: `submissionStatus` from their submissions, and `ownView: true`.
+   * Shared by My recipes and search.
+   * @param {string} authorId
+   * @returns {Promise<Array<Object>>}
+   */
+  static async listMineWithStatus(authorId) {
+    if (!authorId) return [];
+    const [mine, submissions] = await Promise.all([
+      RecipeService.listMine(authorId),
+      RecipeSubmissionService.listForAuthor(authorId).catch(() => []),
+    ]);
+    const statusOf = new Map(submissions.map((s) => [s.recipeId, s.status]));
+    return mine.map((r) => ({ ...r, submissionStatus: statusOf.get(r.id), ownView: true }));
   }
 
   /**

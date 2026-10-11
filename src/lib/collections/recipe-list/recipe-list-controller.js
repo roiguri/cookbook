@@ -38,8 +38,10 @@ const EMPTY_FILTERS = Object.freeze({
 export class RecipeListController {
   /**
    * @param {Object} options
-   * @param {({ category: string }) => Promise<Array<Object>>} options.loadRecipes -
-   *   Data source. Receives the current category ('all' for none).
+   * @param {({ category: string, searchQuery: string }) => Promise<Array<Object>>} options.loadRecipes -
+   *   Data source. Receives the current category ('all' for none) and search
+   *   text (the list filters by it; a source may widen what it returns while
+   *   searching, e.g. the reader's own private recipes).
    * @param {(state: RecipeListController) => void} [options.onStateChanged] -
    *   Called when the visible state changes (e.g. to update the page title).
    * @param {(state: RecipeListController) => void} [options.onUrlChanged] -
@@ -218,7 +220,10 @@ export class RecipeListController {
 
   async loadInitialRecipes() {
     try {
-      this.allRecipes = await this.loadRecipes({ category: this.currentCategory });
+      this.allRecipes = await this.loadRecipes({
+        category: this.currentCategory,
+        searchQuery: this.currentSearchQuery,
+      });
 
       let filteredRecipes = [...this.allRecipes];
 

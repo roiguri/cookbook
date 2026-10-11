@@ -1,4 +1,6 @@
 import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import { RecipeSearchService } from '../../js/services/recipes/recipe-search-service.js';
+import authService from '../../js/services/auth/auth-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { getLocalizedCategoryName } from '../../js/utils/recipes/recipe-data-utils.js';
 import { RecipeListController } from '../../lib/collections/recipe-list/recipe-list-controller.js';
@@ -26,10 +28,17 @@ export default {
       // Search, filters, category chips, pagination and favourites are shared with
       // every recipe list page; this page supplies the data source, title and URL.
       this.list = new RecipeListController({
-        loadRecipes: ({ category }) =>
-          RecipeService.listPublished({
-            where: category !== 'all' ? [['category', '==', category]] : [],
-          }),
+        // Browsing shows the family book; a search also finds the reader's own
+        // private recipes (approved family and managers).
+        loadRecipes: ({ category, searchQuery }) =>
+          searchQuery
+            ? RecipeSearchService.listSearchable({
+                category,
+                ownerId: authService.isApproved() ? authService.getCurrentUser()?.uid : null,
+              })
+            : RecipeService.listPublished({
+                where: category !== 'all' ? [['category', '==', category]] : [],
+              }),
         onStateChanged: (state) => this.updatePageTitle(state),
         onUrlChanged: (state) => this.updateURL(state),
         context: 'Categories page',

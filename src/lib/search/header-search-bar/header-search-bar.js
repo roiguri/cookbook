@@ -1,4 +1,5 @@
-import { RecipeService } from '../../../js/services/recipes/recipe-service.js';
+import { RecipeSearchService } from '../../../js/services/recipes/recipe-search-service.js';
+import authService from '../../../js/services/auth/auth-service.js';
 import { FilterUtils } from '../../../js/utils/filter-utils.js';
 import { showToast } from '../../notifications/toast-notification/toast-notification.js';
 import { debounce } from '../../../js/utils/common-utils.js';
@@ -159,8 +160,11 @@ class HeaderSearchBar extends HTMLElement {
     if (!searchText.trim()) return;
 
     try {
-      // Load all published recipes
-      const recipes = await RecipeService.listPublished({});
+      // The same recipes the results page searches: the family book, plus the
+      // reader's own private recipes (approved family and managers).
+      const recipes = await RecipeSearchService.listSearchable({
+        ownerId: authService.isApproved() ? authService.getCurrentUser()?.uid : null,
+      });
 
       // Filter recipes using the same logic as categories page
       const filteredRecipes = FilterUtils.searchRecipes(recipes, searchText);
