@@ -24,8 +24,8 @@ import { captureError } from '../logger.js';
  *   - setPrimaryImage(recipeId, imageId)
  *   - replaceImage(recipeId, imageId, blob, options)
  *
- * Image proposal/moderation (the pending-images workflow) lives in
- * RecipeImageProposalService; the family-book approval queue in
+ * Image changes from other family members go through edit suggestions
+ * (RecipeEditSuggestionService); the family-book approval queue lives in
  * RecipeSubmissionService.
  *
  * Visibility: `visibility` ('private' | 'published') is the source of truth for
@@ -267,7 +267,6 @@ export class RecipeService {
       docPayload.creationTime = Timestamp.now();
       if (uploadedImages.length > 0) {
         docPayload.images = uploadedImages;
-        docPayload.allowImageSuggestions = true;
       }
       if (mediaInstructions.length > 0) {
         docPayload.mediaInstructions = mediaInstructions;
@@ -468,17 +467,6 @@ export class RecipeService {
           imageDeletes.push(
             RecipeImageService.deleteFiles(image).catch((err) =>
               console.warn(`Failed to delete files for image ${image.id}:`, err),
-            ),
-          );
-        }
-      }
-    }
-    if (Array.isArray(recipe.pendingImages)) {
-      for (const image of recipe.pendingImages) {
-        if (image && image.full) {
-          imageDeletes.push(
-            RecipeImageService.deleteFiles(image).catch((err) =>
-              console.warn(`Failed to delete files for pending image ${image.id}:`, err),
             ),
           );
         }

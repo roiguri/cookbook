@@ -59,7 +59,7 @@ async function deleteSuggestionStorage(storagePaths) {
  * stays lean and a full audit trail is kept.
  *
  * New image/media files referenced by a suggestion are uploaded to the recipe's
- * Storage area at suggestion time (mirroring RecipeImageProposalService) and
+ * Storage area at suggestion time and
  * recorded in `storagePaths[]` for orphan cleanup on rejection.
  *
  * Public API:
