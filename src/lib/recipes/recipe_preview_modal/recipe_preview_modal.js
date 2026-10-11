@@ -69,6 +69,8 @@ class RecipePreviewModal extends HTMLElement {
     // Review context (manager queue): the author hadn't tried it yet; and whether a
     // rejection keeps the recipe with a note (family) or discards it (plain users).
     this.untested = this.hasAttribute('untested');
+    this.sentBy = this.getAttribute('sent-by');
+    this.sentDate = this.getAttribute('sent-date');
     this.rejectMode = this.getAttribute('reject-mode') === 'discard' ? 'discard' : 'note';
     this.render();
     this.modal = this.shadowRoot.querySelector('custom-modal');
@@ -148,8 +150,9 @@ class RecipePreviewModal extends HTMLElement {
         cursor: not-allowed;
       }
 
+      /* Below the modal's close button, with room before the recipe */
       .review-banner {
-        margin: 12px 16px 0;
+        margin: 56px 16px 8px;
         padding: 10px 14px;
         border-radius: var(--r-md);
         background: var(--neutral);
@@ -163,6 +166,14 @@ class RecipePreviewModal extends HTMLElement {
 
       .review-banner b {
         color: var(--ink);
+      }
+
+      .review-banner p {
+        margin: 0;
+      }
+
+      .review-banner p + p {
+        margin-top: 4px;
       }
 
       .review-note {
@@ -190,11 +201,7 @@ class RecipePreviewModal extends HTMLElement {
         <custom-modal height="90vh" width="90vw" fullscreen-mobile>
           <loading-spinner overlay border-radius="10px" style="z-index:1000; display:none;" id="modal-spinner"></loading-spinner>
           <div class="error-message"></div>
-          ${
-            this.untested
-              ? '<div class="review-banner" dir="rtl"><b>המתכון סומן ״עוד לא נוסה״.</b> הוא נשלח לפני שבושל.</div>'
-              : ''
-          }
+          ${this.reviewBanner()}
           <div class="modal-content">
             <recipe-component recipe-id="${this.recipeId}"></recipe-component>
           </div>
@@ -210,6 +217,24 @@ class RecipePreviewModal extends HTMLElement {
         </custom-modal>
       </div>
     `;
+  }
+
+  /** Review context for the manager: who sent it, and whether it was tried. */
+  reviewBanner() {
+    const lines = [];
+    if (this.sentBy) {
+      const sent = document.createElement('p');
+      sent.append('הוגש על ידי ');
+      const who = document.createElement('b');
+      who.textContent = this.sentBy;
+      sent.append(who);
+      if (this.sentDate) sent.append(` ב־${this.sentDate}`);
+      lines.push(sent.outerHTML);
+    }
+    if (this.untested) {
+      lines.push('<p><b>המתכון סומן ״עוד לא נוסה״.</b> הוא נשלח לפני שבושל.</p>');
+    }
+    return lines.length ? `<div class="review-banner" dir="rtl">${lines.join('')}</div>` : '';
   }
 
   setupButtons() {
