@@ -33,7 +33,7 @@
  * - Lazy loading for images
  * - Consistent dimensions to prevent layout shifts
  */
-import { getRecipeStatus, RECIPE_STATUS } from '../../../js/utils/recipes/recipe-status.js';
+import { getRecipeStatus } from '../../../js/utils/recipes/recipe-status.js';
 import '../status-badge/status-badge.js';
 import { icons } from '../../../js/icons.js';
 import authService from '../../../js/services/auth/auth-service.js';
@@ -654,9 +654,11 @@ class RecipeCard extends HTMLElement {
       photo.appendChild(badge);
     }
 
-    // "Mark tested" on a To-try card, where the list asks for it (My recipes)
+    // "Mark tested" on the reader's own to-try recipe, where the list asks for it
+    // (the library) — whatever its badge (a pending recipe can still be to try).
     const content = clone.querySelector('.recipe-content');
-    if (status === RECIPE_STATUS.TO_TRY && this.hasAttribute('show-mark-tested') && content) {
+    const ownToTry = this._recipeData?.ownView && this._recipeData?.stage === 'to-try';
+    if (ownToTry && this.hasAttribute('show-mark-tested') && content) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn-ghost btn-sm mark-tested-btn';

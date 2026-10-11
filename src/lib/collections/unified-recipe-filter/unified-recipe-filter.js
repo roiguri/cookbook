@@ -229,6 +229,11 @@ class UnifiedRecipeFilter extends HTMLElement {
 
     // Initialize filter manager
     if (this.filterManager) {
+      // A list that already scopes to saved recipes (the library) hides the
+      // "favourites only" option.
+      if (this.getAttribute('favorites-filter') === 'false') {
+        this.filterManager.setAttribute('favorites-filter', 'false');
+      }
       this.filterManager.setAttribute('current-filters', JSON.stringify(this.state.filters));
       this.filterManager.setAttribute('has-active-filters', this.state.hasActiveFilters.toString());
       if (this.baseRecipes.length > 0) {

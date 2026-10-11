@@ -141,6 +141,9 @@ class FilterManager extends HTMLElement {
         <style>${styles}</style>
         ${template}
       `;
+      if (this.getAttribute('favorites-filter') === 'false') {
+        this.shadowRoot.querySelector('.filter-modal')?.setAttribute('favorites-filter', 'false');
+      }
 
       this.updateUI();
     } catch (error) {

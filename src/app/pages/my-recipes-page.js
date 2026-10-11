@@ -91,6 +91,8 @@ export default {
       .querySelector('#recipe-presentation-grid')
       ?.addEventListener('recipe-mark-tested', this.onMarkTested);
 
+    this.setupChipFades();
+
     // Saving or un-saving a recipe changes what the library holds.
     this.onFavoriteChanged = () => this.list?.reloadAndDisplay();
     document.addEventListener('recipe-favorite-changed', this.onFavoriteChanged);
@@ -110,6 +112,8 @@ export default {
   async unmount() {
     this.list?.stop();
     this.list = null;
+    this.chipFadesCleanup?.();
+    this.chipFadesCleanup = null;
     if (this.onFavoriteChanged) {
       document.removeEventListener('recipe-favorite-changed', this.onFavoriteChanged);
       this.onFavoriteChanged = null;
@@ -198,11 +202,35 @@ export default {
     $('#mr-new').hidden = !this.hasOwnRecipes;
   },
 
+  /**
+   * On a phone the chips scroll sideways; fade whichever edge has more chips
+   * beyond it, so it's always clear there's more to see.
+   */
+  setupChipFades() {
+    const row = this.container.querySelector('#mr-chips');
+    if (!row) return;
+    const update = () => {
+      const max = row.scrollWidth - row.clientWidth;
+      const pos = Math.abs(row.scrollLeft); // RTL scrolls to negative values
+      row.classList.toggle('mr-more-start', pos > 2);
+      row.classList.toggle('mr-more-end', max - pos > 2);
+    };
+    row.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    this.updateChipFades = update;
+    update();
+    this.chipFadesCleanup = () => {
+      row.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  },
+
   renderCounts() {
     Object.entries(this.counts).forEach(([view, count]) => {
       const el = this.container?.querySelector(`[data-count="${view}"]`);
       if (el) el.textContent = String(count);
     });
+    this.updateChipFades?.(); // counts change the chips' width
   },
 
   applyView() {
