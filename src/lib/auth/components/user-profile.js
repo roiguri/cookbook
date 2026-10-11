@@ -5,6 +5,24 @@ import { UserService } from '../../../js/services/users/user-service.js';
 
 let avatarCache = null;
 
+// Firebase auth codes the profile's password / Google-link actions can raise.
+// Newer projects report a wrong current password as invalid-credential.
+const AUTH_ERRORS = {
+  'auth/wrong-password': 'הסיסמה הנוכחית שגויה.',
+  'auth/invalid-credential': 'הסיסמה הנוכחית שגויה.',
+  'auth/weak-password': 'הסיסמה החדשה חלשה מדי. יש להשתמש בלפחות 6 תווים.',
+  'auth/too-many-requests': 'יותר מדי ניסיונות. נסה שנית מאוחר יותר.',
+  'auth/network-request-failed': 'שגיאת רשת. בדוק את החיבור שלך.',
+  'auth/requires-recent-login': 'יש להתנתק ולהתחבר מחדש לפני פעולה זו.',
+  'auth/popup-closed-by-user': 'חלון ההתחברות נסגר לפני סיום.',
+  'auth/popup-blocked': 'חלון קופץ נחסם. אנא אפשר חלונות קופצים ונסה שנית.',
+  'auth/credential-already-in-use': 'חשבון Google זה כבר מחובר למשתמש אחר.',
+  'auth/provider-already-linked': 'חשבון Google כבר מחובר.',
+  'auth/no-such-provider': 'חשבון Google אינו מחובר.',
+};
+
+const authErrorMessage = (error, fallback) => AUTH_ERRORS[error?.code] || fallback;
+
 class UserProfile extends HTMLElement {
   constructor() {
     super();
@@ -518,11 +536,7 @@ class UserProfile extends HTMLElement {
       this.shadowRoot.getElementById('new-pw').value = '';
       this.shadowRoot.getElementById('confirm-pw').value = '';
     } catch (error) {
-      const msg =
-        error.code === 'auth/wrong-password'
-          ? 'הסיסמה הנוכחית שגויה.'
-          : error.message || 'עדכון הסיסמה נכשל.';
-      this._showFeedback('pw-feedback', 'err', msg);
+      this._showFeedback('pw-feedback', 'err', authErrorMessage(error, 'עדכון הסיסמה נכשל.'));
     } finally {
       btn.disabled = false;
       btn.textContent = 'עדכן סיסמה';
@@ -578,7 +592,11 @@ class UserProfile extends HTMLElement {
           googleLinked ? 'חשבון Google נותק.' : 'חשבון Google חובר.',
         );
       } catch (error) {
-        this._showFeedback('providers-feedback', 'err', error.message || 'הפעולה נכשלה. נסה שנית.');
+        this._showFeedback(
+          'providers-feedback',
+          'err',
+          authErrorMessage(error, 'הפעולה נכשלה. נסה שנית.'),
+        );
         btn.disabled = false;
       }
     });

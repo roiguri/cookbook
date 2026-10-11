@@ -420,21 +420,36 @@ class AuthService {
   async updatePassword(currentPassword, newPassword) {
     const user = this.getCurrentUser();
     if (!user) throw new Error('No user is signed in');
-    const credential = EmailAuthProvider.credential(user.email, currentPassword);
-    await reauthenticateWithCredential(user, credential);
-    await updatePassword(user, newPassword);
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+    } catch (error) {
+      this._handleAuthError('update-password', error);
+      throw error;
+    }
   }
 
   async linkWithGoogle() {
     const user = this.getCurrentUser();
     if (!user) throw new Error('No user is signed in');
-    return await linkWithPopup(user, new GoogleAuthProvider(), browserPopupRedirectResolver);
+    try {
+      return await linkWithPopup(user, new GoogleAuthProvider(), browserPopupRedirectResolver);
+    } catch (error) {
+      this._handleAuthError('link-google', error);
+      throw error;
+    }
   }
 
   async unlinkProvider(providerId) {
     const user = this.getCurrentUser();
     if (!user) throw new Error('No user is signed in');
-    return await unlink(user, providerId);
+    try {
+      return await unlink(user, providerId);
+    } catch (error) {
+      this._handleAuthError('unlink-provider', error);
+      throw error;
+    }
   }
 
   /**
