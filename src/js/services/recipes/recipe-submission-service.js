@@ -1,6 +1,6 @@
 // src/js/services/recipes/recipe-submission-service.js
 
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, serverTimestamp } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeService, VISIBILITY } from './recipe-service.js';
 
@@ -23,16 +23,24 @@ export const SUBMISSION_STATUS = Object.freeze({
  * The document id is the submitted recipe's id, which enforces at most one
  * submission per recipe.
  *
- * Until release 3b, approval publishes the submitted recipe in place
- * (`publishedId` is the recipe itself); from 3b it creates a published copy.
+ * Approval publishes the submitted recipe in place (decided 2026-10-11): it
+ * stays in its author's library, now in the family book. A rejection keeps the
+ * recipe private with the manager's note; the author can edit and resubmit.
+ * Plain users' submissions are "submit and forget" (they have no My recipes),
+ * so a rejected one is discarded instead.
  *
  * Public API:
  *   - submit({ recipeId, authorId })
  *   - get(recipeId)
  *   - submissionWrite({ recipeId, authorId })  // batch op for RecipeService.create({ alsoWrite })
  *   - withdraw(recipeId)                  // author/manager, best-effort
+ *   - cancel(recipeId)                    // author: cancel pending / remove rejected
+ *   - resubmit(recipeId)                  // author: rejected → pending (resubmission)
+ *   - listForAuthor(authorId)             // author: their submissions
  *   - listPending()                       // manager: [{ submission, recipe }]
  *   - approve(recipeId, { reviewedBy })   // manager
+ *   - reject(recipeId, { note, reviewedBy }) // manager: keep the recipe, with a note
+ *   - discard(recipeId)                   // manager: delete a plain user's rejected proposal
  *   - reject(recipeId, { reviewedBy })    // manager: deletes the proposal, as before
  */
 export class RecipeSubmissionService {
@@ -151,15 +159,74 @@ export class RecipeSubmissionService {
   }
 
   /**
-   * Reject a submission. Matches the existing behaviour: the proposed recipe is
-   * deleted (with its media), and so is its submission.
+   * Reject a submission with a note: the recipe stays private in its author's
+   * library; the author sees the note and can edit and resubmit.
+   * @param {string} recipeId
+   * @param {Object} params
+   * @param {string} params.note - What to fix (required — the rules enforce it).
+   * @param {string} [params.reviewedBy] - Manager UID.
+   * @returns {Promise<void>}
+   */
+  static async reject(recipeId, { note, reviewedBy } = {}) {
+    if (!recipeId) throw new Error('RecipeSubmissionService.reject: recipeId is required');
+    const text = typeof note === 'string' ? note.trim() : '';
+    if (!text) throw new Error('RecipeSubmissionService.reject: a note is required');
+    await FirestoreService.updateDocument(COLLECTION, recipeId, {
+      status: SUBMISSION_STATUS.REJECTED,
+      rejectionReason: text,
+      reviewedBy: reviewedBy || null,
+      reviewedAt: Timestamp.now(),
+    });
+  }
+
+  /**
+   * Discard a plain user's proposal (they have no My recipes to see a note in):
+   * the recipe is deleted with its media, and so is its submission.
    * @param {string} recipeId
    * @returns {Promise<void>}
    */
-  static async reject(recipeId) {
-    if (!recipeId) throw new Error('RecipeSubmissionService.reject: recipeId is required');
+  static async discard(recipeId) {
+    if (!recipeId) throw new Error('RecipeSubmissionService.discard: recipeId is required');
     await RecipeService.delete(recipeId);
     await FirestoreService.deleteDocument(COLLECTION, recipeId).catch(() => {});
+  }
+
+  /**
+   * The author cancels a pending submission or removes a rejected one. Unlike
+   * `withdraw`, failures are reported.
+   * @param {string} recipeId
+   * @returns {Promise<void>}
+   */
+  static async cancel(recipeId) {
+    if (!recipeId) throw new Error('RecipeSubmissionService.cancel: recipeId is required');
+    await FirestoreService.deleteDocument(COLLECTION, recipeId);
+  }
+
+  /**
+   * The author resubmits a rejected recipe (after editing it): back to pending,
+   * marked as a resubmission for the queue. The manager's last note is kept.
+   * @param {string} recipeId
+   * @returns {Promise<void>}
+   */
+  static async resubmit(recipeId) {
+    if (!recipeId) throw new Error('RecipeSubmissionService.resubmit: recipeId is required');
+    await FirestoreService.updateDocument(COLLECTION, recipeId, {
+      status: SUBMISSION_STATUS.PENDING,
+      resubmittedAt: serverTimestamp(),
+    });
+  }
+
+  /**
+   * An author's submissions (any status), e.g. to show pending / rejected /
+   * published badges on their recipes.
+   * @param {string} authorId
+   * @returns {Promise<Array<Object>>}
+   */
+  static async listForAuthor(authorId) {
+    if (!authorId) return [];
+    return await FirestoreService.queryDocuments(COLLECTION, {
+      where: [['authorId', '==', authorId]],
+    });
   }
 
   static async _markApproved(recipeId, { reviewedBy }) {

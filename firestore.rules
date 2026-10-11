@@ -135,6 +135,8 @@ service cloud.firestore {
       // - An author can edit their own private recipe, but can't publish it or
       //   change its author or provenance. Published recipes change through edit
       //   suggestions (recipe_edit_suggestions), the author included.
+      // - The stage (to try / tested) is the author's alone, so on their published
+      //   recipe the author may change only `stage` and `testedAt` (mark tested).
       allow update: if isConsistent(request.resource.data)
                     && (isManager()
                         || (isAuthor()
@@ -142,7 +144,11 @@ service cloud.firestore {
                             && !isPublished(request.resource.data)
                             && authorOf(request.resource.data) == authorOf(resource.data)
                             && request.resource.data.get('userId', null) == resource.data.get('userId', null)
-                            && request.resource.data.get('sourceRecipeId', null) == resource.data.get('sourceRecipeId', null)));
+                            && request.resource.data.get('sourceRecipeId', null) == resource.data.get('sourceRecipeId', null))
+                        || (isAuthor()
+                            && isPublished(resource.data)
+                            && request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasOnly(['stage', 'testedAt'])));
 
       // DELETE:
       // - Managers can delete any recipe.
@@ -170,13 +176,28 @@ service cloud.firestore {
                     && getAfter(/databases/$(database)/documents/recipes/$(recipeId)).data
                          .get('visibility', null) == 'private';
 
-      allow update: if isManager();
+      // Managers review (approve / reject). A rejection must say what to fix.
+      // The author may resubmit a rejected recipe: back to pending, marked as a
+      // resubmission; the manager's last note and review fields are kept.
+      allow update: if (isManager()
+                        && (request.resource.data.status != 'rejected'
+                            || request.resource.data.get('rejectionReason', '') is string
+                               && request.resource.data.get('rejectionReason', '').size() > 0))
+                    || (isAuthenticated()
+                        && resource.data.authorId == request.auth.uid
+                        && resource.data.status == 'rejected'
+                        && request.resource.data.status == 'pending'
+                        && request.resource.data.resubmittedAt == request.time
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['status', 'resubmittedAt']));
 
-      // Managers, or the author withdrawing a submission that is still pending.
+      // Managers, or the author: cancelling a pending submission, or removing a
+      // rejected one (e.g. before deleting the recipe). An approved submission is
+      // the published recipe's record and stays.
       allow delete: if isManager()
                     || (isAuthenticated()
                         && resource.data.authorId == request.auth.uid
-                        && resource.data.status == 'pending');
+                        && resource.data.status in ['pending', 'rejected']);
     }
 
     // =========================================================================

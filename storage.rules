@@ -45,11 +45,24 @@ service firebase.storage {
           && isTaggedAsCaller(request.resource);
     }
 
-    // Who may overwrite or delete an existing recipe file: managers, the person
-    // who uploaded it (e.g. cleaning up a failed or rejected edit suggestion),
-    // or the recipe's author.
+    // A recipe that isn't in the family book: private, or not created yet (its
+    // images are uploaded before its document is written). `visibility` decides;
+    // the legacy `approved` flag counts too until the cleanup release.
+    function isNotPublished(recipeId) {
+      let path = /databases/(default)/documents/recipes/$(recipeId);
+      return !firestore.exists(path)
+          || (firestore.get(path).data.get('visibility', null) != 'published'
+              && firestore.get(path).data.get('approved', false) != true);
+    }
+
+    // Who may overwrite or delete an existing recipe file: managers; and, while the
+    // recipe isn't published, the person who uploaded it (e.g. cleaning up after a
+    // failed save) or the recipe's author. Once published, a recipe's files change
+    // only through edit suggestions (approved by a manager), the author included.
     function canChangeRecipeFile(recipeId) {
-      return isManager() || isTaggedAsCaller(resource) || isRecipeAuthor(recipeId);
+      return isManager()
+          || (isNotPublished(recipeId)
+              && (isTaggedAsCaller(resource) || isRecipeAuthor(recipeId)));
     }
 
     // ========================================

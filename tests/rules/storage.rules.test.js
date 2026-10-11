@@ -11,7 +11,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, deleteObject, getBytes } from 'firebase/storage';
 
 const STORAGE_RULES = process.env.STORAGE_RULES || 'storage.rules';
@@ -28,7 +28,8 @@ const MANAGER = 'manager-uid';
 const IMAGE = 'recipes/recipe1/images/primary.jpg'; // recipe1: legacy userId author
 const MODERN_IMAGE = 'recipes/recipe2/images/primary.jpg'; // recipe2: authorId author
 const MEDIA = 'recipes/recipe1/media/m1_step.jpg';
-const UPLOADED = 'recipes/recipe1/images/1700000000.jpg'; // tagged by UPLOADER
+const UPLOADED = 'recipes/recipe1/images/1700000000.jpg'; // tagged by UPLOADER (published recipe)
+const UPLOADED_PRIVATE = 'recipes/recipe2/images/1700000002.jpg'; // tagged by UPLOADER (private recipe)
 const NEW_RECIPE_IMAGE = 'recipes/not-created-yet/images/primary.jpg';
 const STAGED = 'suggestions/s1/images/1700000001.jpg'; // edit suggestion by UPLOADER
 const PRIVATE = `users/${AUTHOR}/recipes/r9/images/primary.jpg`;
@@ -84,6 +85,7 @@ beforeEach(async () => {
       [MODERN_IMAGE, null],
       [MEDIA, null],
       [UPLOADED, UPLOADER],
+      [UPLOADED_PRIVATE, UPLOADER],
       [STAGED, UPLOADER],
       [PRIVATE, AUTHOR],
       [LEGACY_IMAGE, null],
@@ -123,13 +125,31 @@ describe('recipe files (recipes/{id}/images|media)', () => {
     await assertFails(deleteObject(ref(storage(OTHER), MODERN_IMAGE)));
   });
 
-  test('the uploader can delete their own file', async () => {
-    await assertSucceeds(deleteObject(ref(storage(UPLOADER), UPLOADED)));
+  test('while the recipe is private, the uploader and the author can change its files', async () => {
+    await assertSucceeds(deleteObject(ref(storage(UPLOADER), UPLOADED_PRIVATE)));
+    await assertSucceeds(deleteObject(ref(storage(AUTHOR), MODERN_IMAGE)));
   });
 
-  test('the recipe author can delete its files (legacy userId and authorId)', async () => {
-    await assertSucceeds(deleteObject(ref(storage(AUTHOR), IMAGE)));
-    await assertSucceeds(deleteObject(ref(storage(AUTHOR), MODERN_IMAGE)));
+  test('once published, the author and the uploader can no longer change its files', async () => {
+    // recipe1 is published the legacy way (approved: true, author in userId)
+    await assertFails(deleteObject(ref(storage(AUTHOR), IMAGE)));
+    await assertFails(deleteObject(ref(storage(UPLOADER), UPLOADED)));
+    // and the same through `visibility`
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'recipes', 'recipe2'), {
+        visibility: 'published',
+        approved: true,
+      });
+    });
+    await assertFails(deleteObject(ref(storage(AUTHOR), MODERN_IMAGE)));
+    await assertFails(deleteObject(ref(storage(UPLOADER), UPLOADED_PRIVATE)));
+  });
+
+  test('the uploader can clean up after a failed save (recipe not created yet)', async () => {
+    const path = 'recipes/failed-save/images/1700000003.jpg'; // its own path: storage isn't reset between tests
+    await assertSucceeds(uploadBytes(ref(storage(UPLOADER), path), bytes, meta(UPLOADER)));
+    await assertFails(deleteObject(ref(storage(OTHER), path)));
+    await assertSucceeds(deleteObject(ref(storage(UPLOADER), path)));
   });
 
   test('a manager can overwrite and delete any recipe file', async () => {
