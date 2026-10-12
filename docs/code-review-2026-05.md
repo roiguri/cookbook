@@ -1,6 +1,8 @@
 # Deep Code Review — May 2026
 
-> Expert review across architecture, performance, and security for the Cookbook vanilla JS SPA. Findings are prioritized P0 → P4 with file:line references and concrete fixes. Nothing in this document has been implemented yet.
+> Expert review across architecture, performance, and security for the Cookbook vanilla JS SPA. Findings are prioritized P0 → P4 with file:line references and concrete fixes. Line references are as of May 2026.
+>
+> **Status (2026-10-12):** S1, S5 and B1 are resolved and B2 was a false positive — each is marked **✅** below. Everything else is still open; tracked as issues: S2 #318, S3 #319, P1 #325, P2 #323, P3 #324, P4 #326.
 
 ## Scope
 
@@ -19,7 +21,9 @@ All findings were spot-checked against the actual code. Two initially flagged "l
 
 ## P0 — Critical Security (Fix First)
 
-### S1. Storage: any authenticated user can delete any recipe image
+### S1. Storage: any authenticated user can delete any recipe image ✅
+
+- **Status:** Resolved (#317). The recipe-rules lockdown (`48b9df2`) and the per-recipe Storage layout (`9650c02`, release 2b) restrict deletes: recipe files need `canChangeRecipeFile(recipeId)`, tagged uploads need manager or the uploader, user files need owner or manager. Covered by `npm run test:rules`.
 
 - **Where:** [storage.rules:22](../storage.rules#L22), [storage.rules:45](../storage.rules#L45)
 - **Issue:** `allow delete: if isAuthenticated();` — no owner check. Any signed-in user can wipe another user's images and media instructions.
@@ -49,13 +53,17 @@ All findings were spot-checked against the actual code. Two initially flagged "l
 
 ## P1 — High-Priority Bugs & Memory Leaks
 
-### B1. `manager-dashboard-page` document listener never removed
+### B1. `manager-dashboard-page` document listener never removed ✅
+
+- **Status:** Resolved (#321, `ab8d281`). Both document listeners (`recipe-updated`, `image-enhanced-saved`) are stored on the page and removed in `unmount()`.
 
 - **Where:** [manager-dashboard-page.js:162](../src/app/pages/manager-dashboard-page.js#L162)
 - **Issue:** `document.addEventListener('recipe-updated', ...)` registered in `setupEditRecipeListener()` with no removal in `unmount()` at line 46. Each visit to the dashboard adds a new listener; navigation cycles cause duplicate `refreshRecipes()` calls.
 - **Fix:** Store the bound handler on `this._onRecipeUpdated`, attach with that reference, remove in `unmount()`.
 
-### B2. PageManager `isLoading` flag can stick
+### B2. PageManager `isLoading` flag can stick ✅
+
+- **Status:** False positive (#322). `loadPage()` has wrapped the whole load in `try { … } catch { … } finally { this.isLoading = false; }` since the SPA migration (`65557c5`), so a throw from `unloadCurrentPage()` or `render()` can't leave it stuck.
 
 - **Where:** [page-manager.js:14-47](../src/app/core/page-manager.js#L14)
 - **Issue:** If `unmountCurrentPage()` or `render()` throws, `isLoading` never resets and all subsequent navigation is silently dropped.
@@ -133,7 +141,9 @@ All findings were spot-checked against the actual code. Two initially flagged "l
 
 ## P3 — Lower-Severity Security
 
-### S5. Recipes are publicly readable including unapproved
+### S5. Recipes are publicly readable including unapproved ✅
+
+- **Status:** Resolved (#320) by the private-recipes data model (release 2, `1f7d9a4`): `allow read: if resource == null || isPublished(resource.data) || isAuthor() || isManager();`. Covered by `npm run test:rules`.
 
 - **Where:** [firestore.rules:80](../firestore.rules#L80) (`allow read: if true;`)
 - **Risk:** Pending user submissions exposed to scrapers/bots.
@@ -199,17 +209,17 @@ Recommended order — each is a self-contained session:
 
 | Order | Item                                         | Rough effort         |
 | ----- | -------------------------------------------- | -------------------- |
-| 1     | S1 (Storage delete)                          | 30 min + tests       |
+| 1     | ~~S1 (Storage delete)~~ ✅                   | done                 |
 | 2     | S2 + S3 (SSRF + buffer cap)                  | 1 hr                 |
 | 3     | S4 (Pub/Sub validation)                      | 30 min               |
-| 4     | B1 + B2 (listener leak + isLoading)          | 30 min               |
+| 4     | ~~B1 + B2 (listener leak + isLoading)~~ ✅   | done                 |
 | 5     | B3 (AbortController/mountId pattern)         | 1.5 hr               |
 | 6     | B4 + B5 (auth/listener audit)                | 1 hr                 |
 | 7     | P2 + P3 (server-side pagination)             | 2 hr (depends on R4) |
 | 8     | P1 (defer Firebase)                          | 1 hr                 |
 | 9     | P4 (responsive images)                       | 1.5 hr               |
 | 10    | P6 + P7 (image perf)                         | 1 hr                 |
-| 11    | S5 + S6 + S7 + S8 (hardening)                | 1.5 hr               |
+| 11    | ~~S5~~ ✅ + S6 + S7 + S8 (hardening)         | 1 hr                 |
 | 12    | R1 → R2 → R3 → R4 → R5 (refactors, in order) | spread over weeks    |
 
 ---
