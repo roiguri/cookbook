@@ -216,8 +216,8 @@ Recommended order — each is a self-contained session:
 | Order | Item                                         | Rough effort         |
 | ----- | -------------------------------------------- | -------------------- |
 | 1     | ~~S1 (Storage delete)~~ ✅                   | done                 |
-| 2     | S2 + S3 (SSRF + buffer cap)                  | 1 hr                 |
-| 3     | S4 (Pub/Sub validation)                      | 30 min               |
+| 2     | ~~S2 + S3 (SSRF + buffer cap)~~ ✅           | done                 |
+| 3     | ~~S4 (Pub/Sub validation)~~ ✅               | done                 |
 | 4     | ~~B1 + B2 (listener leak + isLoading)~~ ✅   | done                 |
 | 5     | B3 (AbortController/mountId pattern)         | 1.5 hr               |
 | 6     | B4 + B5 (auth/listener audit)                | 1 hr                 |
