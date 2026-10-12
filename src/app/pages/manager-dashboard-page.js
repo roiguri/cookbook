@@ -310,7 +310,7 @@ export default {
   async updateUserRole(userId, newRole) {
     try {
       await UserService.update(userId, { role: newRole });
-      this.showSuccessMessage('תפקיד המשתמש עודכן בהצלחה');
+      this.showSuccess('תפקיד המשתמש עודכן בהצלחה', 'התפקיד עודכן');
     } catch (error) {
       this.handleError(error);
     }
@@ -446,7 +446,7 @@ export default {
       this.toggleLoading(true);
       // Removes its family-book submission too, so the queue never points at it.
       await RecipeSubmissionService.deleteRecipe(recipeId);
-      this.showSuccessMessage('המתכון נמחק בהצלחה');
+      this.showSuccess('המתכון נמחק בהצלחה', 'המתכון נמחק');
       this.refreshManager.refreshRecipes();
     } catch (error) {
       this.handleError(error);
@@ -959,10 +959,6 @@ export default {
     } else {
       spinner.removeAttribute('active');
     }
-  },
-
-  showSuccessMessage(message) {
-    this.showSuccess(message, 'המתכון נמחק');
   },
 
   showSuccess(message, title = 'הצלחה') {
