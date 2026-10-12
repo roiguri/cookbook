@@ -88,33 +88,32 @@ describe('RecipeIngredientsList — numeric amount (Phase 5)', () => {
     it('passes a positive numeric amount with unit + item', () => {
       expect(makeEl().validateItemFields({ amount: 0.5, unit: 'כוס', item: 'קמח' })).toEqual({});
     });
-    it('flags missing / non-positive / non-numeric amount', () => {
+    it('accepts a missing amount and a missing unit', () => {
       const el = makeEl();
-      expect(el.validateItemFields({ amount: null, unit: 'כוס', item: 'קמח' }).amount).toBe(true);
+      expect(el.validateItemFields({ amount: null, unit: '', item: 'מלח לפי הטעם' })).toEqual({});
+      expect(el.validateItemFields({ amount: 3, unit: '', item: 'ביצים' })).toEqual({});
+    });
+    it('flags non-positive / non-numeric amount', () => {
+      const el = makeEl();
       expect(el.validateItemFields({ amount: 0, unit: 'כוס', item: 'קמח' }).amount).toBe(true);
       expect(el.validateItemFields({ amount: '1/2', unit: 'כוס', item: 'קמח' }).amount).toBe(true);
     });
-    it('still flags empty unit / item', () => {
-      const el = makeEl();
-      expect(el.validateItemFields({ amount: 1, unit: '', item: 'קמח' }).unit).toBe(true);
-      expect(el.validateItemFields({ amount: 1, unit: 'כוס', item: '' }).item).toBe(true);
+    it('flags empty item', () => {
+      expect(makeEl().validateItemFields({ amount: 1, unit: 'כוס', item: '' }).item).toBe(true);
     });
   });
 
   describe('buildItemErrorMessage — banner text per failed field', () => {
     it('amount only → amount-specific message', () => {
-      expect(makeEl().buildItemErrorMessage(['amount'])).toMatch(/כמות מספרית/);
-    });
-    it('unit only → unit-specific message', () => {
-      expect(makeEl().buildItemErrorMessage(['unit'])).toMatch(/יחידת מידה/);
+      expect(makeEl().buildItemErrorMessage(['amount'])).toMatch(/כמות שהוזנה/);
     });
     it('item only → item-specific message', () => {
-      expect(makeEl().buildItemErrorMessage(['item'])).toMatch(/שם פריט/);
+      expect(makeEl().buildItemErrorMessage(['item'])).toBe('חובה למלא שם פריט לכל מרכיב.');
     });
-    it('multiple fields → generic "all fields" message', () => {
-      expect(makeEl().buildItemErrorMessage(['amount', 'unit'])).toMatch(
-        /כמות, יחידה ופריט|שדות המרכיב/,
-      );
+    it('amount + item → both messages', () => {
+      const message = makeEl().buildItemErrorMessage(['amount', 'item']);
+      expect(message).toMatch(/שם פריט/);
+      expect(message).toMatch(/כמות שהוזנה/);
     });
   });
 });

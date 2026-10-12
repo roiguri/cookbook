@@ -40,6 +40,7 @@
   --secondary: #bc4749;
   --secondary-light: #d47779;
   --secondary-dark: #9a3a3c;
+  --caution: #b7791f; /* amber — non-blocking "please check" warnings */
 
   /* ---- New surface ladder (still warm, now structured) ---- */
   --surface-0: #faf6ec; /* page */

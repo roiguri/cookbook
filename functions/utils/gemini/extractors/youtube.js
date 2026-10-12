@@ -1,5 +1,5 @@
 const { createClient } = require('../client');
-const { RECIPE_SCHEMA, validateRecipeData } = require('../recipe-schema');
+const { RECIPE_SCHEMA, DATA_FORMATTING_RULES, validateRecipeData } = require('../recipe-schema');
 
 /**
  * Parses a YouTube URL into `{ videoId, normalizedUrl }`. Returns `null` for
@@ -57,10 +57,9 @@ REQUIRED METADATA (always populate):
 - difficulty: Assess complexity based on number of ingredients, steps, and techniques.
 - mainIngredient: Identify the primary/central ingredient (in Hebrew).
 
-Data Formatting:
-- Ingredients: Split into item, amount, unit. amount MUST be a number — convert fractions/mixed to decimals (½ → 0.5, ⅓ → 0.333, 1 ½ → 1.5). Use null when the video gives a range ("2-3"), "to taste", or no clear quantity; keep item/unit.
-- Instructions: Split into logical steps; one technique per step.
-- Language: Translate ALL text to Hebrew, regardless of the spoken language in the video.
+${DATA_FORMATTING_RULES}
+- Instructions in a video: one technique per step.
+- Language: Translate to Hebrew regardless of the spoken language in the video.
 
 If the video does not contain a recognizable recipe (no ingredients OR no preparation steps), return a response with name set to null.`;
 

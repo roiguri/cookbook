@@ -34,6 +34,9 @@ class RecipeFormComponent extends HTMLElement {
     // disable-form-protection silences nav-away prompts but keeps dirty-state
     // events flowing (used by the edit flow for save-button gating).
     this._navGuardEnabled = !this.hasAttribute('disable-form-protection');
+    // Blank amount/unit rows the user already confirmed or reviewed (ids from
+    // getBlankFieldRows), so the blank-field question is asked once per row.
+    this._acknowledgedBlankRows = new Set();
 
     this.clearButtonText = this.hasAttribute('clear-button-text')
       ? this.getAttribute('clear-button-text')
@@ -397,13 +400,64 @@ class RecipeFormComponent extends HTMLElement {
     this.dispatchEvent(recipeDataEvent);
   }
 
-  handleFormSubmit() {
+  async handleFormSubmit() {
     // validateForm() already collected the data; no second collection needed.
-    if (this.validateForm()) {
-      this.dispatchRecipeData();
-    } else {
+    if (!this.validateForm()) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
+    if (!(await this.confirmBlankIngredientFields())) return;
+    this.dispatchRecipeData();
+  }
+
+  /**
+   * Amount and unit are optional, but a blank one is often an oversight. Asks
+   * once about rows not asked about before: "continue anyway" submits, "review"
+   * highlights the blank fields and stays on the form. Either way those rows are
+   * not asked about again.
+   * @returns {Promise<boolean>} whether to go on with the submit
+   */
+  async confirmBlankIngredientFields() {
+    const ingredients = this._fields.ingredients;
+    if (!ingredients || typeof ingredients.getBlankFieldRows !== 'function') return true;
+
+    const blankRows = ingredients.getBlankFieldRows();
+    const newRows = blankRows.filter((row) => !this._acknowledgedBlankRows.has(row.id));
+    if (newRows.length === 0) return true;
+
+    blankRows.forEach((row) => this._acknowledgedBlankRows.add(row.id));
+
+    const modal = document.createElement('confirmation-modal');
+    document.body.appendChild(modal);
+    const shouldContinue = await modal.confirm(
+      this.blankFieldsMessage(newRows),
+      'כמות או יחידה חסרים',
+      'המשך בכל זאת',
+      'בדיקת השדות',
+    );
+    modal.remove();
+
+    if (shouldContinue) {
+      ingredients.clearBlankFieldWarnings();
+      return true;
+    }
+    ingredients.showBlankFieldWarnings(newRows);
+    return false;
+  }
+
+  /**
+   * @param {{ item: string, fields: string[] }[]} rows
+   * @returns {string}
+   */
+  blankFieldsMessage(rows) {
+    const missing = (fields) =>
+      fields.length === 2 ? 'כמות ויחידה' : fields[0] === 'amount' ? 'כמות' : 'יחידה';
+    // Name up to 4 rows; past that, name 3 and count the rest.
+    const shown = rows.length <= 4 ? rows : rows.slice(0, 3);
+    const listed = shown.map((row) => `${row.item} (${missing(row.fields)})`).join(', ');
+    const more = rows.length > shown.length ? ` ועוד ${rows.length - shown.length}` : '';
+    const count = rows.length === 1 ? 'במרכיב אחד' : `ב-${rows.length} מרכיבים`;
+    return `${count} לא מולאו כל השדות: ${listed}${more}. השארת אותם ריקים בכוונה?`;
   }
 
   async handleClearForm() {
@@ -467,6 +521,7 @@ class RecipeFormComponent extends HTMLElement {
    * cleared form is considered clean.
    */
   clearForm() {
+    this._acknowledgedBlankRows.clear();
     for (const field of this._fieldList) {
       if (typeof field.clear === 'function') field.clear();
     }
@@ -505,6 +560,11 @@ class RecipeFormComponent extends HTMLElement {
       if (data) {
         this.recipeData = data;
         await this.populateFromData(data, recipeId);
+        // Blanks already in a saved recipe were confirmed when it was saved;
+        // only ask about blanks introduced in this edit.
+        this._fields.ingredients?.getBlankFieldRows?.().forEach((row) => {
+          this._acknowledgedBlankRows.add(row.id);
+        });
       } else {
         console.warn('No such document!');
       }

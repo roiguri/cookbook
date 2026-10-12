@@ -234,3 +234,70 @@ describe('recipe-form-component — edit mode', () => {
     expect(el.isFormDirty()).toBe(false);
   });
 });
+
+describe('recipe-form-component — blank amount/unit warning', () => {
+  // jsdom does not implement scrollIntoView.
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = jest.fn();
+  });
+
+  const modal = () => document.querySelector('confirmation-modal');
+  const click = (id) => modal().shadowRoot.getElementById(id).click();
+  const warned = (el) =>
+    Array.from(
+      el._fields.ingredients.shadowRoot.querySelectorAll('.recipe-form__input--warning'),
+    ).map((input) => input.name);
+
+  test('no blank rows: continues without asking', async () => {
+    const el = await mount();
+    el._fields.ingredients.setValue([{ amount: 2, unit: 'כוסות', item: 'קמח' }]);
+    await expect(el.confirmBlankIngredientFields()).resolves.toBe(true);
+    expect(modal()).toBeNull();
+  });
+
+  test('"review" stops the submit and highlights the blank fields', async () => {
+    const el = await mount();
+    el._fields.ingredients.setValue([
+      { amount: 2, unit: 'כוסות', item: 'קמח' },
+      { amount: 3, unit: '', item: 'ביצים' },
+      { amount: null, unit: '', item: 'מלח לפי הטעם' },
+    ]);
+    const pending = el.confirmBlankIngredientFields();
+    await waitFor(() => modal());
+    expect(modal().shadowRoot.getElementById('modal-message').textContent).toContain(
+      'ביצים (יחידה), מלח לפי הטעם (כמות ויחידה)',
+    );
+    click('modal-reject-button');
+    await expect(pending).resolves.toBe(false);
+    expect(warned(el)).toEqual(['unit', 'quantity', 'unit']);
+  });
+
+  test('rows already asked about are not asked about again', async () => {
+    const el = await mount();
+    el._fields.ingredients.setValue([{ amount: 3, unit: '', item: 'ביצים' }]);
+    const first = el.confirmBlankIngredientFields();
+    await waitFor(() => modal());
+    click('modal-reject-button');
+    await first;
+    await expect(el.confirmBlankIngredientFields()).resolves.toBe(true);
+  });
+
+  test('"continue anyway" goes on with the submit', async () => {
+    const el = await mount();
+    el._fields.ingredients.setValue([{ amount: null, unit: '', item: 'שמן לטיגון' }]);
+    const pending = el.confirmBlankIngredientFields();
+    await waitFor(() => modal());
+    click('modal-approve-button');
+    await expect(pending).resolves.toBe(true);
+    expect(warned(el)).toEqual([]);
+  });
+
+  test('blanks already saved in an edited recipe are not asked about', async () => {
+    const el = await mountEdit({
+      ...EDIT_RECIPE,
+      ingredients: [{ amount: null, unit: '', item: 'מלח לפי הטעם' }],
+    });
+    await expect(el.confirmBlankIngredientFields()).resolves.toBe(true);
+    expect(modal()).toBeNull();
+  });
+});
