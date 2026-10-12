@@ -160,7 +160,7 @@ class RecipeFormComponent extends HTMLElement {
               <div>
                 <span class="recipe-sect__n">03 — הוראות הכנה</span>
                 <h2 class="recipe-sect__h">שלבים <em>ושלבי עבודה.</em></h2>
-                <p class="recipe-sect__sub">חלק את השיטה לשלבים. הוסף תמונה לכל שלב אם זה עוזר.</p>
+                <p class="recipe-sect__sub">חלק את השיטה לשלבים.</p>
               </div>
             </header>
             <recipe-instructions-list id="instructions-list" mode="flat"></recipe-instructions-list>
