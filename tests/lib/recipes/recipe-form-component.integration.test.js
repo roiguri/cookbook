@@ -280,6 +280,8 @@ describe('recipe-form-component — blank amount/unit warning', () => {
     click('modal-reject-button');
     await first;
     await expect(el.confirmBlankIngredientFields()).resolves.toBe(true);
+    // Going ahead clears the review highlights.
+    expect(warned(el)).toEqual([]);
   });
 
   test('"continue anyway" goes on with the submit', async () => {

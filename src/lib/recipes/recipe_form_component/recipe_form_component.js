@@ -423,7 +423,10 @@ class RecipeFormComponent extends HTMLElement {
 
     const blankRows = ingredients.getBlankFieldRows();
     const newRows = blankRows.filter((row) => !this._acknowledgedBlankRows.has(row.id));
-    if (newRows.length === 0) return true;
+    if (newRows.length === 0) {
+      ingredients.clearBlankFieldWarnings();
+      return true;
+    }
 
     blankRows.forEach((row) => this._acknowledgedBlankRows.add(row.id));
 

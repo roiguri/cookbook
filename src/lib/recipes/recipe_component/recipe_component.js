@@ -535,6 +535,13 @@ class RecipeComponent extends HTMLElement {
 
     .Recipe_component__ingredients-list > * { grid-column: 1 / -1; }
 
+    /* Margins do not collapse inside a grid; keep the spacing they had when
+       they did: the header's 16px bottom margin absorbed the first section
+       title's 18px top margin, and a title's 18px absorbed the 4px below the
+       previous section. */
+    .Recipe_component__ingredients-list > .Recipe_component__section-title:first-child { margin-top: 2px; }
+    .Recipe_component__ingredients-list > .Recipe_component__section-ingredients:not(:last-child) { margin-bottom: 0; }
+
     /* No row has an amount or unit: drop the quantity column entirely. */
     .Recipe_component__ingredients-list.no-qty-col { grid-template-columns: 1fr 20px; }
 
