@@ -382,7 +382,7 @@ export default {
             section.items.forEach((item, iIndex) => {
               const key = `${id}-${sIndex}-${iIndex}`;
               if (!this.state.unselectedIngredients.has(key)) {
-                sectionText += `- ${formatIngredientAmount(item.amount)} ${item.unit} ${item.item}\n`;
+                sectionText += `- ${this._ingredientText(item)}\n`;
                 sectionHasItems = true;
               }
             });
@@ -395,7 +395,7 @@ export default {
           scaledIngredients.forEach((item, iIndex) => {
             const key = `${id}-0-${iIndex}`;
             if (!this.state.unselectedIngredients.has(key)) {
-              text += `- ${formatIngredientAmount(item.amount)} ${item.unit} ${item.item}\n`;
+              text += `- ${this._ingredientText(item)}\n`;
             }
           });
         }
@@ -533,6 +533,51 @@ export default {
       await Promise.all(promises);
       this.renderIngredientsList();
     }
+  },
+
+  /**
+   * One-line ingredient text for the copied shopping list. Amount and unit are
+   * optional, so empty parts are skipped ("מלח לפי הטעם", not "  מלח לפי הטעם").
+   * @param {{amount: number|null, unit: string, item: string}} item
+   * @returns {string}
+   */
+  _ingredientText(item) {
+    return [formatIngredientAmount(item.amount), item.unit, item.item]
+      .map((part) => (part ?? '').toString().trim())
+      .filter(Boolean)
+      .join(' ');
+  },
+
+  /**
+   * Appends the amount / unit / item spans of an ingredient row to `label`,
+   * skipping an empty amount or unit so the flex gap does not leave holes.
+   * @param {HTMLElement} label
+   * @param {{amount: number|null, unit: string, item: string}} item
+   */
+  _appendIngredientParts(label, item) {
+    const amount = formatIngredientAmount(item.amount);
+    if (amount) {
+      const amountSpan = document.createElement('span');
+      amountSpan.className = 'amount';
+      amountSpan.textContent = amount;
+      // Keep "1 1/2" LTR-isolated inside the RTL Hebrew layout.
+      amountSpan.setAttribute('dir', 'ltr');
+      amountSpan.style.unicodeBidi = 'isolate';
+      label.appendChild(amountSpan);
+    }
+
+    const unit = (item.unit ?? '').toString().trim();
+    if (unit) {
+      const unitSpan = document.createElement('span');
+      unitSpan.className = 'unit';
+      unitSpan.textContent = unit;
+      label.appendChild(unitSpan);
+    }
+
+    const itemSpan = document.createElement('span');
+    itemSpan.className = 'item';
+    itemSpan.textContent = item.item;
+    label.appendChild(itemSpan);
   },
 
   _recipeHasSelectedItems(recipe, recipeId) {
@@ -717,28 +762,9 @@ export default {
             const box = document.createElement('span');
             box.className = 'check-box';
 
-            const amountSpan = document.createElement('span');
-            amountSpan.className = 'amount';
-            amountSpan.textContent = formatIngredientAmount(item.amount);
-            // Keep "1 1/2" LTR-isolated inside the RTL Hebrew layout.
-            amountSpan.setAttribute('dir', 'ltr');
-            amountSpan.style.unicodeBidi = 'isolate';
-
-            const unitSpan = document.createElement('span');
-            unitSpan.className = 'unit';
-            unitSpan.textContent = item.unit;
-
-            const itemSpan = document.createElement('span');
-            itemSpan.className = 'item';
-            itemSpan.textContent = item.item;
-
             label.appendChild(checkbox);
             label.appendChild(box);
-            label.appendChild(amountSpan);
-            label.appendChild(document.createTextNode(' '));
-            label.appendChild(unitSpan);
-            label.appendChild(document.createTextNode(' '));
-            label.appendChild(itemSpan);
+            this._appendIngredientParts(label, item);
 
             li.appendChild(label);
             ul.appendChild(li);
@@ -797,28 +823,9 @@ export default {
             const box = document.createElement('span');
             box.className = 'check-box';
 
-            const amountSpan = document.createElement('span');
-            amountSpan.className = 'amount';
-            amountSpan.textContent = formatIngredientAmount(item.amount);
-            // Keep "1 1/2" LTR-isolated inside the RTL Hebrew layout.
-            amountSpan.setAttribute('dir', 'ltr');
-            amountSpan.style.unicodeBidi = 'isolate';
-
-            const unitSpan = document.createElement('span');
-            unitSpan.className = 'unit';
-            unitSpan.textContent = item.unit;
-
-            const itemSpan = document.createElement('span');
-            itemSpan.className = 'item';
-            itemSpan.textContent = item.item;
-
             label.appendChild(checkbox);
             label.appendChild(box);
-            label.appendChild(amountSpan);
-            label.appendChild(document.createTextNode(' '));
-            label.appendChild(unitSpan);
-            label.appendChild(document.createTextNode(' '));
-            label.appendChild(itemSpan);
+            this._appendIngredientParts(label, item);
 
             li.appendChild(label);
             ul.appendChild(li);

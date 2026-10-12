@@ -1,3 +1,44 @@
+// Hebrew units the model should use. Mirrors HEBREW_UNITS in
+// src/js/utils/recipes/recipe-ingredients-utils.js — keep the two in sync.
+const HEBREW_UNITS = [
+  'כוס',
+  'כוסות',
+  'כף',
+  'כפות',
+  'כפית',
+  'כפיות',
+  'מ"ל',
+  'ליטר',
+  'ליטרים',
+  'גרם',
+  'ק"ג',
+  'יחידה',
+  'יחידות',
+  'חתיכה',
+  'חתיכות',
+  'פרוסה',
+  'פרוסות',
+  'ענף',
+  'ענפים',
+  'שקית',
+  'קופסה',
+  'צרור',
+  'קורט',
+];
+
+const ITEM_DESCRIPTION =
+  'The ingredient name in Hebrew. When there is no numeric quantity, keep the ' +
+  'qualifier in the name (e.g. "מלח לפי הטעם", "שמן לטיגון").';
+
+const AMOUNT_DESCRIPTION =
+  'Quantity as a number: convert fractions/mixed numbers to decimals ' +
+  '(½→0.5, ⅓→0.333, 1 ½→1.5). For a range ("2-3") use the lower value. ' +
+  'null only when the source gives no quantity at all ("to taste", "for frying").';
+
+const UNIT_DESCRIPTION =
+  'Unit of measurement in Hebrew (e.g. כוס, כף, כפית, גרם, מ"ל). null for ' +
+  'countable items with no unit ("3 ביצים") and when there is no amount.';
+
 const RECIPE_SCHEMA = {
   description: 'Recipe data extraction schema',
   type: 'object',
@@ -14,17 +55,24 @@ const RECIPE_SCHEMA = {
     },
     prepTime: {
       type: 'number',
-      description: 'Preparation time in minutes',
+      description:
+        'Active hands-on preparation time in minutes. Infer it from the steps when they ' +
+        'give indicators; null when nothing in the source supports a number.',
       nullable: true,
     },
     waitTime: {
       type: 'number',
-      description: 'Wait/Cooking time in minutes',
+      description:
+        'Passive time in minutes (baking, cooking, rising, chilling, marinating), summed ' +
+        'across the durations the steps mention. 0 when the recipe clearly has no passive ' +
+        'time; null when nothing in the source supports a number.',
       nullable: true,
     },
     servings: {
       type: 'number',
-      description: 'Number of servings',
+      description:
+        'Number of servings. Infer it when the source gives indicators (e.g. "for a 24cm ' +
+        'pan", "makes 20 cookies"); null otherwise.',
       nullable: true,
     },
     difficulty: {
@@ -66,20 +114,17 @@ const RECIPE_SCHEMA = {
         properties: {
           item: {
             type: 'string',
-            description: 'The ingredient name',
+            description: ITEM_DESCRIPTION,
             nullable: false,
           },
           amount: {
             type: 'number',
-            description:
-              'Quantity as a number: convert fractions/mixed numbers to decimals ' +
-              '(½→0.5, ⅓→0.333, 1 ½→1.5). Use null when there is no clear single ' +
-              'numeric quantity (e.g. a range like 2-3, or "to taste").',
+            description: AMOUNT_DESCRIPTION,
             nullable: true,
           },
           unit: {
             type: 'string',
-            description: 'The unit of measurement (e.g. "cups", "g", "tbsp")',
+            description: UNIT_DESCRIPTION,
             nullable: true,
           },
         },
@@ -105,15 +150,9 @@ const RECIPE_SCHEMA = {
             items: {
               type: 'object',
               properties: {
-                item: { type: 'string', nullable: false },
-                amount: {
-                  type: 'number',
-                  nullable: true,
-                  description:
-                    'Quantity as a number: fractions/mixed → decimals ' +
-                    '(½→0.5, ⅓→0.333, 1 ½→1.5). null for ranges or "to taste".',
-                },
-                unit: { type: 'string', nullable: true },
+                item: { type: 'string', description: ITEM_DESCRIPTION, nullable: false },
+                amount: { type: 'number', description: AMOUNT_DESCRIPTION, nullable: true },
+                unit: { type: 'string', description: UNIT_DESCRIPTION, nullable: true },
               },
               required: ['item'],
             },
@@ -174,6 +213,19 @@ const RECIPE_SCHEMA = {
   required: ['name'],
 };
 
+const DATA_FORMATTING_RULES = `Data Formatting:
+- Language: Translate ALL text to Hebrew.
+- Ingredients: Split each into item, amount and unit.
+  - amount MUST be a number. Convert any fraction or mixed number to a decimal (½ → 0.5, ⅓ → 0.333, 1 ½ → 1.5). For a range ("2-3") use the lower value.
+  - unit: a Hebrew measurement unit, preferably one of: ${HEBREW_UNITS.join(', ')}. Use the plural form for amounts above 1 (2 כוסות, 3 כפות). Translate foreign units (cup → כוס, tbsp → כף, tsp → כפית, g → גרם, kg → ק"ג, ml → מ"ל, l → ליטר, pinch → קורט). Never leave the unit empty when the source states one.
+  - Countable items with no unit ("3 eggs", "2 onions") get amount and a null unit: { item: "ביצים", amount: 3, unit: null }. Do not write "יחידות" for them.
+  - No quantity at all ("salt to taste", "oil for frying"): amount null, unit null, and keep the qualifier in item: { item: "מלח לפי הטעם", amount: null, unit: null }.
+- Times (minutes) and servings: use what the source states. When it doesn't, infer only from concrete indicators in the source, and use null when there are none. Do not guess.
+  - prepTime: active hands-on work (chopping, mixing, shaping). Infer it when the steps make it reasonably clear; otherwise null.
+  - waitTime: passive time (baking, simmering, rising, chilling, marinating). Add up the durations the steps mention ("bake 40 minutes" + "chill 1 hour" → 100). If the source only gives a total time, split it between prepTime and waitTime. 0 when the recipe clearly has no passive time; null when it is unclear.
+  - servings: infer it from indicators such as pan size or a stated yield ("makes 20 cookies"); otherwise null.
+- Instructions: Split into logical steps.`;
+
 const IMAGE_EXTRACTION_PROMPT = `Extract the complete recipe details from the provided image(s).
 
 CRITICAL RULES FOR STRUCTURE:
@@ -188,10 +240,7 @@ REQUIRED METADATA (always populate these based on recipe content):
 - difficulty: Assess complexity based on number of ingredients, steps, and techniques required
 - mainIngredient: Identify the primary/central ingredient (in Hebrew)
 
-Data Formatting:
-- Ingredients: Split into item, amount, and unit. amount MUST be a number — convert any fraction or mixed number to a decimal (½ → 0.5, ⅓ → 0.333, 1 ½ → 1.5). Use null (not a string) when there is no single clear numeric quantity, e.g. a range ("2-3") or "to taste"; keep item/unit.
-- Instructions: Split into logical steps.
-- Language: Translate ALL text to Hebrew.`;
+${DATA_FORMATTING_RULES}`;
 
 const URL_EXTRACTION_PROMPT = `Extract the complete recipe details from the webpage at the provided URL.
 
@@ -206,10 +255,7 @@ REQUIRED METADATA (always populate these based on recipe content):
 - difficulty: Assess complexity based on number of ingredients, steps, and techniques required
 - mainIngredient: Identify the primary/central ingredient (in Hebrew)
 
-Data Formatting:
-- Ingredients: Split into item, amount, and unit. amount MUST be a number — convert any fraction or mixed number to a decimal (½ → 0.5, ⅓ → 0.333, 1 ½ → 1.5). Use null (not a string) when there is no single clear numeric quantity, e.g. a range ("2-3") or "to taste"; keep item/unit.
-- Instructions: Split into logical steps.
-- Language: Translate ALL text to Hebrew.
+${DATA_FORMATTING_RULES}
 
 IMPORTANT: If you cannot find a valid recipe on the page, return a response with name set to null to indicate failure.`;
 
@@ -229,6 +275,7 @@ function validateRecipeData(data) {
 
 module.exports = {
   RECIPE_SCHEMA,
+  DATA_FORMATTING_RULES,
   IMAGE_EXTRACTION_PROMPT,
   URL_EXTRACTION_PROMPT,
   validateRecipeData,

@@ -8,14 +8,15 @@ There is also a live token reference at `src/styles/design-system.html`.
 
 ### Palette (raw)
 
-| Token                                    | Value     | Use                         |
-| ---------------------------------------- | --------- | --------------------------- |
-| `--primary`                              | `#6a994e` | Brand green; primary CTAs   |
-| `--primary-dark`                         | `#386641` | Hover/active for primary    |
-| `--primary-bright`                       | `#a7c957` | Accents, highlights         |
-| `--secondary`                            | `#bc4749` | Brand red; warnings, errors |
-| `--secondary-light` / `--secondary-dark` | —         | Hover/active for secondary  |
-| `--neutral`                              | `#f2e8cf` | Warm cream                  |
+| Token                                    | Value     | Use                                                          |
+| ---------------------------------------- | --------- | ------------------------------------------------------------ |
+| `--primary`                              | `#6a994e` | Brand green; primary CTAs                                    |
+| `--primary-dark`                         | `#386641` | Hover/active for primary                                     |
+| `--primary-bright`                       | `#a7c957` | Accents, highlights                                          |
+| `--secondary`                            | `#bc4749` | Brand red; warnings, errors                                  |
+| `--secondary-light` / `--secondary-dark` | —         | Hover/active for secondary                                   |
+| `--caution`                              | `#b7791f` | Amber; non-blocking "please check" highlights (never errors) |
+| `--neutral`                              | `#f2e8cf` | Warm cream                                                   |
 
 ### Surface ladder
 

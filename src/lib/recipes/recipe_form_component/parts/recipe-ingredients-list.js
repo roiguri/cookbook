@@ -45,8 +45,8 @@ class RecipeIngredientsList extends SectionedListComponent {
           '.recipe-form__input--quantity, .recipe-form__input--unit, .recipe-form__input--item, .recipe-form__input--section-name',
         )
       ) {
-        // Clear error highlighting when user changes the value
-        target.classList.remove('recipe-form__input--invalid');
+        // Clear error / blank-field highlighting when user changes the value
+        target.classList.remove('recipe-form__input--invalid', 'recipe-form__input--warning');
       }
     });
   }
@@ -100,19 +100,19 @@ class RecipeIngredientsList extends SectionedListComponent {
   }
 
   /**
-   * Validates individual ingredient fields
+   * Only the item name is required. Amount and unit are optional so rows like
+   * "מלח לפי הטעם" or "3 ביצים" are valid; an amount that is entered must
+   * still be a positive number.
    * @param {Object} item - Ingredient item to validate
    * @returns {Object} Object with field names as keys for invalid fields
    */
   validateItemFields(item) {
     const errors = {};
 
-    // amount is already parsed by getItemData → must be a positive number.
-    if (typeof item.amount !== 'number' || !(item.amount > 0)) {
+    // amount is already parsed by getItemData (null when empty or unparseable;
+    // unparseable text is caught in validate() from the DOM).
+    if (item.amount !== null && !(item.amount > 0)) {
       errors.amount = true;
-    }
-    if (!item.unit || !item.unit.trim()) {
-      errors.unit = true;
     }
     if (!item.item || !item.item.trim()) {
       errors.item = true;
@@ -122,22 +122,129 @@ class RecipeIngredientsList extends SectionedListComponent {
   }
 
   /**
-   * Ingredient-specific banner message for partially-filled rows.
+   * Adds quantity text that does not parse as an amount ("abc", "2-3") to the
+   * base validation. getItemData maps such text to null — the same as an empty
+   * field — so it can only be detected from the inputs themselves.
+   * @returns {Object} Validation result with isValid flag and detailed errors
+   */
+  validate() {
+    const result = super.validate();
+    const amountKeys = this.getUnparseableAmountErrorKeys();
+    if (amountKeys.length === 0) return result;
+
+    const errors = { ...result.errors };
+    amountKeys.forEach((key) => {
+      errors[key] = true;
+    });
+
+    if (!errors.noIngredients) {
+      const failedFields = new Set(['amount']);
+      Object.keys(errors).forEach((key) => {
+        if (/items\[\d+\]\.item$/.test(key)) failedFields.add('item');
+      });
+      errors.invalidItem = this.buildItemErrorMessage(Array.from(failedFields));
+    }
+
+    return { isValid: false, errors };
+  }
+
+  /**
+   * Error keys (in the format setValidationState understands) for every
+   * quantity input holding text that is not a valid amount.
+   * @returns {string[]}
+   */
+  getUnparseableAmountErrorKeys() {
+    const isUnparseable = (row) => {
+      const input = row.querySelector('.recipe-form__input--quantity');
+      const text = input ? input.value.trim() : '';
+      return text !== '' && parseAmount(text) === null;
+    };
+    const keys = [];
+
+    if (this.isSectionMode) {
+      this.shadowRoot.querySelectorAll(this.sectionContainerSelector).forEach((sectionEl) => {
+        const sectionIndex = sectionEl.dataset.sectionIndex;
+        sectionEl.querySelectorAll(`.${this.itemClass}`).forEach((row, itemIndex) => {
+          if (isUnparseable(row)) keys.push(`sections[${sectionIndex}].items[${itemIndex}].amount`);
+        });
+      });
+    } else {
+      this.shadowRoot.querySelectorAll(`#items-container .${this.itemClass}`).forEach((row, i) => {
+        if (isUnparseable(row)) keys.push(`items[${i}].amount`);
+      });
+    }
+
+    return keys;
+  }
+
+  /**
+   * Named rows whose amount and/or unit is blank. Both are optional, but a
+   * blank is often an oversight, so the form asks before submitting.
+   * Unparseable amount text is not "blank" — validate() blocks it instead.
+   * @returns {{ id: string, item: string, fields: string[], inputs: HTMLInputElement[] }[]}
+   */
+  getBlankFieldRows() {
+    const rows = [];
+    this.shadowRoot.querySelectorAll(`.${this.itemClass}`).forEach((row) => {
+      const itemInput = row.querySelector('.recipe-form__input--item');
+      const item = itemInput ? itemInput.value.trim() : '';
+      if (!item) return;
+
+      const fields = [];
+      const inputs = [];
+      [
+        ['amount', '.recipe-form__input--quantity'],
+        ['unit', '.recipe-form__input--unit'],
+      ].forEach(([field, selector]) => {
+        const input = row.querySelector(selector);
+        if (input && !input.value.trim()) {
+          fields.push(field);
+          inputs.push(input);
+        }
+      });
+
+      if (fields.length > 0)
+        rows.push({ id: `${item}::${fields.join(',')}`, item, fields, inputs });
+    });
+    return rows;
+  }
+
+  /**
+   * Highlights the blank amount/unit inputs of `rows` (from getBlankFieldRows)
+   * and brings the first one into view. A highlight clears once its input is
+   * edited.
+   * @param {{ inputs: HTMLInputElement[] }[]} rows
+   */
+  showBlankFieldWarnings(rows) {
+    this.clearBlankFieldWarnings();
+    rows.forEach((row) => {
+      row.inputs.forEach((input) => input.classList.add('recipe-form__input--warning'));
+    });
+    const first = rows[0]?.inputs[0];
+    if (first) {
+      first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      first.focus({ preventScroll: true });
+    }
+  }
+
+  clearBlankFieldWarnings() {
+    this.shadowRoot.querySelectorAll('.recipe-form__input--warning').forEach((input) => {
+      input.classList.remove('recipe-form__input--warning');
+    });
+  }
+
+  /**
+   * Ingredient-specific banner message for invalid rows.
    * @param {string[]} failedFields
    * @returns {string}
    */
   buildItemErrorMessage(failedFields) {
     const fields = new Set(failedFields);
-    if (fields.size === 1 && fields.has('amount')) {
-      return 'יש להזין כמות מספרית תקינה (לדוגמה: 1, 1/2, 2.5).';
-    }
-    if (fields.size === 1 && fields.has('unit')) {
-      return 'חובה למלא יחידת מידה לכל מרכיב.';
-    }
-    if (fields.size === 1 && fields.has('item')) {
-      return 'חובה למלא שם פריט לכל מרכיב.';
-    }
-    return 'חובה להשלים את כל שדות המרכיב (כמות, יחידה ופריט).';
+    const amountMessage = 'כמות שהוזנה חייבת להיות מספר, כמו 2 או 1/2 — או להישאר ריקה.';
+    const itemMessage = 'חובה למלא שם פריט לכל מרכיב.';
+    if (fields.has('amount') && fields.has('item')) return `${itemMessage} ${amountMessage}`;
+    if (fields.has('amount')) return amountMessage;
+    return itemMessage;
   }
 
   setValidationState(errors) {

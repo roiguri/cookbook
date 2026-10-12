@@ -105,9 +105,12 @@ class SuggestionDiffView extends HTMLElement {
     const ing = it.ingredient || {};
     const amount = formatIngredientAmount(ing.amount);
     const unit = (ing.unit ?? '').toString().trim();
-    // Row stays RTL (right-aligned, like the rest of the section); only the
-    // amount · unit · item triplet reads LTR inside its own group.
-    return `<li class="line ing ${this.cls(op.type)}"><span class="ing-fields"><span class="amt">${this.esc(amount)}</span><span class="unit">${this.esc(unit)}</span><span class="nm">${this.esc(ing.item || it.text)}</span></span></li>`;
+    // The row reads RTL like the recipe page ("2 כוסות קמח"); only the amount
+    // is LTR-isolated so "1 1/2" does not bidi-reorder.
+    // Amount and unit are optional; omit empty ones so the flex gap leaves no hole.
+    const amt = amount ? `<span class="amt" dir="ltr">${this.esc(amount)}</span>` : '';
+    const unt = unit ? `<span class="unit">${this.esc(unit)}</span>` : '';
+    return `<li class="line ing ${this.cls(op.type)}"><span class="ing-fields">${amt}${unt}<span class="nm">${this.esc(ing.item || it.text)}</span></span></li>`;
   }
 
   instructionLine(op) {
@@ -264,9 +267,9 @@ class SuggestionDiffView extends HTMLElement {
       .lines { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
       .sub-head { font-family: var(--font-display, serif); font-size:14px; font-weight:600; color: var(--ink-2, rgba(31,29,24,0.75)); margin:8px 0 2px; }
       .line { font-size:14.5px; padding:4px 10px; border-radius: var(--r-xs,6px); display:flex; gap:10px; align-items:baseline; }
-      /* triplet reads LTR (amount · unit · item) while the row stays RTL */
-      .ing-fields { display:inline-flex; direction:ltr; gap:6px; align-items:baseline; flex-wrap:wrap; }
-      .ing .amt { color: var(--ink-3, rgba(31,29,24,0.6)); }
+      /* amount · unit · item, read RTL like the recipe page */
+      .ing-fields { display:inline-flex; gap:6px; align-items:baseline; flex-wrap:wrap; }
+      .ing .amt { color: var(--ink-3, rgba(31,29,24,0.6)); unicode-bidi:isolate; }
       .ing .unit { color: var(--ink-3, rgba(31,29,24,0.6)); }
       .d-ctx { color: var(--ink, #1f1d18); }
       .d-add { background: rgba(106,153,78,0.14); color: var(--primary-dark,#386641); }

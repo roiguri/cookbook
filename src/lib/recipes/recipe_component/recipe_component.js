@@ -521,17 +521,34 @@ class RecipeComponent extends HTMLElement {
     .Recipe_component__yield-num input::-webkit-inner-spin-button,
     .Recipe_component__yield-num input::-webkit-outer-spin-button { -webkit-appearance: none; }
 
-    /* Ingredient list */
+    /* Ingredient list — one grid for the whole list (sections included, via
+       subgrid) so the quantity column has a single width and every name
+       starts on the same line, with or without an amount/unit. */
     .Recipe_component__ingredients-list {
       list-style: none;
       padding: 0;
       margin: 0;
+      display: grid;
+      grid-template-columns: auto 1fr 20px;
+      column-gap: 10px;
     }
+
+    .Recipe_component__ingredients-list > * { grid-column: 1 / -1; }
+
+    /* Margins do not collapse inside a grid; keep the spacing they had when
+       they did: the header's 16px bottom margin absorbed the first section
+       title's 18px top margin, and a title's 18px absorbed the 4px below the
+       previous section. */
+    .Recipe_component__ingredients-list > .Recipe_component__section-title:first-child { margin-top: 2px; }
+    .Recipe_component__ingredients-list > .Recipe_component__section-ingredients:not(:last-child) { margin-bottom: 0; }
+
+    /* No row has an amount or unit: drop the quantity column entirely. */
+    .Recipe_component__ingredients-list.no-qty-col { grid-template-columns: 1fr 20px; }
 
     .Recipe_component__ingredients-list li {
       display: grid;
-      grid-template-columns: auto 1fr 20px;
-      gap: 10px;
+      grid-template-columns: subgrid;
+      grid-column: 1 / -1;
       align-items: center;
       padding: 9px 0;
       border-bottom: 1px dashed var(--hairline, rgba(31,29,24,0.1));
@@ -541,6 +558,7 @@ class RecipeComponent extends HTMLElement {
     }
 
     .Recipe_component__ingredients-list li:last-child { border-bottom: 0; }
+    .Recipe_component__ingredients-list li.no-qty .name { grid-column: -3; }
 
     .qty {
       font-family: var(--font-mono, monospace);
@@ -612,12 +630,14 @@ class RecipeComponent extends HTMLElement {
       list-style: none;
       padding: 0;
       margin: 0 0 4px;
+      display: grid;
+      grid-template-columns: subgrid;
     }
 
     .Recipe_component__section-ingredients li {
       display: grid;
-      grid-template-columns: auto 1fr 20px;
-      gap: 10px;
+      grid-template-columns: subgrid;
+      grid-column: 1 / -1;
       align-items: center;
       padding: 9px 0;
       border-bottom: 1px dashed var(--hairline, rgba(31,29,24,0.1));
@@ -1111,7 +1131,7 @@ class RecipeComponent extends HTMLElement {
     }
   }
 
-  // TODO: add bullets and grid layout (align amounts)
+  // TODO: add bullets
   populateIngredientsList(recipe) {
     const ingredientsList = this.shadowRoot.getElementById('Recipe_component__ingredients-list');
     ingredientsList.innerHTML = '';
@@ -1144,24 +1164,37 @@ class RecipeComponent extends HTMLElement {
         ingredientsList.appendChild(li);
       });
     }
+
+    ingredientsList.classList.toggle('no-qty-col', !ingredientsList.querySelector('.qty'));
   }
 
   _createIngredientListItem(ingredient) {
     const li = document.createElement('li');
     li.addEventListener('click', () => li.classList.toggle('checked'));
 
-    const qtySpan = document.createElement('span');
-    qtySpan.className = 'qty';
     const amount = formatIngredientAmount(ingredient.amount);
-    // Amount is LTR (e.g. "1 1/2"); isolate it so it does not bidi-reorder
-    // inside the RTL Hebrew list.
-    const amountEl = document.createElement('span');
-    amountEl.className = 'qty-amount';
-    amountEl.setAttribute('dir', 'ltr');
-    amountEl.textContent = amount;
-    qtySpan.appendChild(amountEl);
-    if (ingredient.unit) {
-      qtySpan.appendChild(document.createTextNode(` ${ingredient.unit}`));
+    const unit = (ingredient.unit ?? '').toString().trim();
+
+    // Amount and unit are optional ("מלח לפי הטעם"); a row without either has
+    // no quantity column and the name takes its place.
+    if (amount || unit) {
+      const qtySpan = document.createElement('span');
+      qtySpan.className = 'qty';
+      if (amount) {
+        // Amount is LTR (e.g. "1 1/2"); isolate it so it does not bidi-reorder
+        // inside the RTL Hebrew list.
+        const amountEl = document.createElement('span');
+        amountEl.className = 'qty-amount';
+        amountEl.setAttribute('dir', 'ltr');
+        amountEl.textContent = amount;
+        qtySpan.appendChild(amountEl);
+      }
+      if (unit) {
+        qtySpan.appendChild(document.createTextNode(amount ? ` ${unit}` : unit));
+      }
+      li.appendChild(qtySpan);
+    } else {
+      li.classList.add('no-qty');
     }
 
     const nameSpan = document.createElement('span');
@@ -1171,7 +1204,6 @@ class RecipeComponent extends HTMLElement {
     const checkSpan = document.createElement('span');
     checkSpan.className = 'check';
 
-    li.appendChild(qtySpan);
     li.appendChild(nameSpan);
     li.appendChild(checkSpan);
 

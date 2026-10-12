@@ -177,6 +177,15 @@
   box-shadow: 0 0 0 3px rgba(188, 71, 73, 0.12) !important;
 }
 
+/* Non-blocking: a field left blank that the user is asked to double-check.
+   Stays amber while focused (review focuses the first one). */
+.recipe-form__input--warning,
+.recipe-form__input--warning:focus {
+  border-color: var(--caution, #b7791f);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--caution, #b7791f) 18%, transparent);
+  background: color-mix(in srgb, var(--caution, #b7791f) 6%, var(--surface-0, #faf7f2));
+}
+
 /* ============ CHIPS (multi-select) ============ */
 
 .recipe-form__chips {
@@ -516,13 +525,15 @@ fieldset {
     gap: 6px;
   }
 
+  /* Wide enough for the "כמות" / "יחידה" placeholders — empty amount and
+     unit fields are common, so the placeholder must never be clipped. */
   .recipe-form__input--quantity {
-    width: 55px;
+    width: 72px;
     order: 1;
   }
 
   .recipe-form__input--unit {
-    width: 80px;
+    width: 96px;
     order: 2;
   }
 
