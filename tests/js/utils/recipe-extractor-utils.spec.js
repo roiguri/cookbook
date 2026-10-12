@@ -43,7 +43,9 @@ describe('Recipe Extractor Utils', () => {
 
       expect(result.name).toBe('Minimal Recipe');
       expect(result.category).toBe('');
-      expect(result.prepTime).toBe(0);
+      expect(result.prepTime).toBeNull();
+      expect(result.waitTime).toBeNull();
+      expect(result.servings).toBeNull();
       expect(result.difficulty).toBe('בינונית'); // Default
       expect(result.ingredients).toEqual([]);
     });

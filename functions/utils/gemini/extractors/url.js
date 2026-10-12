@@ -19,9 +19,9 @@ Return the recipe data as a valid JSON object with this structure:
 {
   "name": "recipe name in Hebrew",
   "description": "short description",
-  "prepTime": number (minutes, estimated when not stated — never null),
-  "waitTime": number (minutes, estimated when not stated — never null),
-  "servings": number (estimated when not stated),
+  "prepTime": number (minutes) or null when the source gives no indication,
+  "waitTime": number (minutes) or null when the source gives no indication,
+  "servings": number or null when the source gives no indication,
   "difficulty": "קלה" | "בינונית" | "קשה",
   "category": "appetizers" | "main-courses" | "side-dishes" | "soups-stews" | "salads" | "desserts" | "breakfast-brunch" | "breads-pastries" | "snacks" | "beverages",
   "mainIngredient": "main ingredient in Hebrew",

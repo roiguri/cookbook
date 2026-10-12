@@ -56,22 +56,24 @@ const RECIPE_SCHEMA = {
     prepTime: {
       type: 'number',
       description:
-        'Active hands-on preparation time in minutes. Always a positive number: ' +
-        'estimate it from the steps when the source does not state it.',
-      nullable: false,
+        'Active hands-on preparation time in minutes. Infer it from the steps when they ' +
+        'give indicators; null when nothing in the source supports a number.',
+      nullable: true,
     },
     waitTime: {
       type: 'number',
       description:
-        'Passive time in minutes (baking, cooking, rising, chilling, marinating), ' +
-        'summed across all steps. Estimate it from the steps when not stated; 0 only ' +
-        'when the recipe has no passive time.',
-      nullable: false,
+        'Passive time in minutes (baking, cooking, rising, chilling, marinating), summed ' +
+        'across the durations the steps mention. 0 when the recipe clearly has no passive ' +
+        'time; null when nothing in the source supports a number.',
+      nullable: true,
     },
     servings: {
       type: 'number',
-      description: 'Number of servings. Estimate from the quantities when not stated.',
-      nullable: false,
+      description:
+        'Number of servings. Infer it when the source gives indicators (e.g. "for a 24cm ' +
+        'pan", "makes 20 cookies"); null otherwise.',
+      nullable: true,
     },
     difficulty: {
       type: 'string',
@@ -208,7 +210,7 @@ const RECIPE_SCHEMA = {
       nullable: true,
     },
   },
-  required: ['name', 'prepTime', 'waitTime', 'servings'],
+  required: ['name'],
 };
 
 const DATA_FORMATTING_RULES = `Data Formatting:
@@ -218,10 +220,10 @@ const DATA_FORMATTING_RULES = `Data Formatting:
   - unit: a Hebrew measurement unit, preferably one of: ${HEBREW_UNITS.join(', ')}. Use the plural form for amounts above 1 (2 כוסות, 3 כפות). Translate foreign units (cup → כוס, tbsp → כף, tsp → כפית, g → גרם, kg → ק"ג, ml → מ"ל, l → ליטר, pinch → קורט). Never leave the unit empty when the source states one.
   - Countable items with no unit ("3 eggs", "2 onions") get amount and a null unit: { item: "ביצים", amount: 3, unit: null }. Do not write "יחידות" for them.
   - No quantity at all ("salt to taste", "oil for frying"): amount null, unit null, and keep the qualifier in item: { item: "מלח לפי הטעם", amount: null, unit: null }.
-- Times (minutes, numbers only — never null):
-  - prepTime: active hands-on work (chopping, mixing, shaping). If the source does not state it, estimate it from the steps. Always a positive number.
-  - waitTime: passive time (baking, simmering, rising, chilling, marinating). Add up every such duration mentioned in the steps ("bake 40 minutes" + "chill 1 hour" → 100). If the source only gives a total time, split it between prepTime and waitTime. Use 0 only when there is no passive time.
-- servings: If not stated, estimate it from the quantities.
+- Times (minutes) and servings: use what the source states. When it doesn't, infer only from concrete indicators in the source, and use null when there are none. Do not guess.
+  - prepTime: active hands-on work (chopping, mixing, shaping). Infer it when the steps make it reasonably clear; otherwise null.
+  - waitTime: passive time (baking, simmering, rising, chilling, marinating). Add up the durations the steps mention ("bake 40 minutes" + "chill 1 hour" → 100). If the source only gives a total time, split it between prepTime and waitTime. 0 when the recipe clearly has no passive time; null when it is unclear.
+  - servings: infer it from indicators such as pan size or a stated yield ("makes 20 cookies"); otherwise null.
 - Instructions: Split into logical steps.`;
 
 const IMAGE_EXTRACTION_PROMPT = `Extract the complete recipe details from the provided image(s).
