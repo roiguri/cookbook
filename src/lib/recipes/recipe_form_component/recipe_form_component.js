@@ -540,16 +540,24 @@ class RecipeFormComponent extends HTMLElement {
   }
 
   async handleFormSubmit() {
-    // validateForm() already collected the data; no second collection needed.
-    if (!this.validateForm()) {
-      // Show the banner (the list of problems); the side button then walks the fields.
-      this.shadowRoot
-        .querySelector('.recipe-form__problems')
-        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      return;
+    // A save can wait on the blank-field question; ignore repeat requests (a
+    // host's save button, a double tap) until it settles, so nothing is sent twice.
+    if (this._submitting) return;
+    this._submitting = true;
+    try {
+      // validateForm() already collected the data; no second collection needed.
+      if (!this.validateForm()) {
+        // Show the banner (the list of problems); the side button then walks the fields.
+        this.shadowRoot
+          .querySelector('.recipe-form__problems')
+          ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        return;
+      }
+      if (!(await this.confirmBlankIngredientFields())) return;
+      this.dispatchRecipeData();
+    } finally {
+      this._submitting = false;
     }
-    if (!(await this.confirmBlankIngredientFields())) return;
-    this.dispatchRecipeData();
   }
 
   /**
