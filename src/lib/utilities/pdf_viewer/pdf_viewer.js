@@ -132,7 +132,7 @@ class PDFViewer extends HTMLElement {
           <details class="toc__cat" data-name="${escapeHtml(catName.toLowerCase())}" open>
             <summary class="toc__summary">
               <span class="toc__cat-name">${escapeHtml(catName)}</span>
-              <span class="toc__cat-range">${range.startPage}–${range.endPage}</span>
+              <span class="toc__cat-range">${escapeHtml(range.startPage)}–${escapeHtml(range.endPage)}</span>
             </summary>
             <ul class="toc__list">${recipesHtml}</ul>
           </details>
