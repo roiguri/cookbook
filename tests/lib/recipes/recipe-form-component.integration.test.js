@@ -303,3 +303,35 @@ describe('recipe-form-component — blank amount/unit warning', () => {
     expect(modal()).toBeNull();
   });
 });
+
+describe('recipe-form-component — one save at a time', () => {
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = jest.fn();
+  });
+
+  test('a second save while the blank-field question is open does not send twice', async () => {
+    const el = await mountEdit();
+    el._fields.ingredients.setValue([
+      { amount: 2, unit: 'כוסות', item: 'קמח' },
+      { amount: null, unit: '', item: 'מלח לפי הטעם' },
+    ]);
+    const sent = [];
+    el.addEventListener('recipe-data-collected', () => sent.push(1));
+
+    const first = el.handleFormSubmit();
+    await waitFor(() => document.querySelector('confirmation-modal'));
+    await el.handleFormSubmit(); // ignored while the first is waiting
+    expect(sent).toHaveLength(0);
+
+    document
+      .querySelector('confirmation-modal')
+      .shadowRoot.getElementById('modal-approve-button')
+      .click();
+    await first;
+    expect(sent).toHaveLength(1);
+
+    // Settled: a later save works again.
+    await el.handleFormSubmit();
+    expect(sent).toHaveLength(2);
+  });
+});
