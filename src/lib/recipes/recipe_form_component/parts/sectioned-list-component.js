@@ -22,6 +22,13 @@ export class SectionedListComponent extends DynamicListComponent {
     this.sectionNameInputSelector = '.recipe-form__input--section-name';
     this.sectionValidationErrorKey = 'sectionTitles';
     this.sectionValidationErrorMessage = 'חובה למלא לפחות 2 קטגוריות עם כותרת ומצרכים.';
+
+    // Problem reporting (see getProblems) — overridden by subclasses.
+    this.sectionModeHint = '';
+    this.problemListLabel = '';
+    this.emptyListErrorKey = '';
+    this.sectionCountRule = '';
+    this._lastErrors = {};
   }
 
   /**
@@ -124,6 +131,12 @@ export class SectionedListComponent extends DynamicListComponent {
     const addSectionButton = this.shadowRoot.querySelector('#add-section');
 
     itemsContainer.innerHTML = '';
+    if (this.sectionModeHint) {
+      const hint = document.createElement('p');
+      hint.className = 'recipe-form__mode-hint';
+      hint.textContent = this.sectionModeHint;
+      itemsContainer.appendChild(hint);
+    }
     this.sections.forEach((section, index) => {
       const sectionDiv = this.createSectionHTML(section, index);
       itemsContainer.insertAdjacentHTML('beforeend', sectionDiv);
@@ -531,7 +544,100 @@ export class SectionedListComponent extends DynamicListComponent {
       isValid = validationResult.isValid;
     }
 
+    this._lastErrors = errors;
     return { isValid, errors };
+  }
+
+  /**
+   * Describes what is wrong after the last validate(), for the form's problems
+   * banner. Reads the outlined inputs (setValidationState is the one place that
+   * maps error keys to inputs), so call it after setValidationState.
+   * Problems not tied to one input carry `stillApplies()`, re-checked against
+   * the latest validate() while the user fixes things.
+   * @returns {Array<{kind: 'missing'|'wrong'|'rule', label: string, target?: Element,
+   *   group?: string, groupLead?: string, explanation?: string, stillApplies?: () => boolean}>}
+   */
+  getProblems() {
+    const errors = this._lastErrors || {};
+    const firstInput = () => this.shadowRoot.querySelector('#items-container input');
+    const listIsEmpty = () => {
+      const value = this.getValue();
+      return !Array.isArray(value) || value.length === 0;
+    };
+
+    if (
+      !this.isSectionMode &&
+      this.emptyListErrorKey &&
+      errors[this.emptyListErrorKey] &&
+      listIsEmpty()
+    ) {
+      return [
+        {
+          kind: 'missing',
+          label: this.problemListLabel,
+          target: firstInput(),
+          stillApplies: () => !this.isSectionMode && listIsEmpty(),
+        },
+      ];
+    }
+
+    const problems = [];
+    if (this.isSectionMode) {
+      this.shadowRoot.querySelectorAll(this.sectionContainerSelector).forEach((sectionEl, i) => {
+        const titleInput = sectionEl.querySelector(this.sectionNameInputSelector);
+        if (titleInput?.classList.contains('recipe-form__input--invalid')) {
+          problems.push({
+            kind: 'missing',
+            label: `שם ${this.sectionTitlePrefix} ${i + 1}`,
+            target: titleInput,
+          });
+        }
+      });
+    }
+
+    this.shadowRoot.querySelectorAll(`.${this.itemClass}`).forEach((row, rowIndex) => {
+      const sectionEl = row.closest('[data-section-index]');
+      const sectionNumber = sectionEl ? Number(sectionEl.dataset.sectionIndex) + 1 : null;
+      row.querySelectorAll('.recipe-form__input--invalid').forEach((input) => {
+        const problem = this.describeInvalidInput(input, {
+          row,
+          rowNumber: rowIndex + 1,
+          sectionNumber,
+        });
+        if (problem) problems.push(problem);
+      });
+    });
+
+    if (this.isSectionMode && problems.length === 0) {
+      const ruleBroken = () => {
+        const latest = this._lastErrors || {};
+        return (
+          this.isSectionMode && Boolean(latest.sections || latest[this.sectionValidationErrorKey])
+        );
+      };
+      const label = errors.sections
+        ? this.sectionCountRule
+        : errors[this.sectionValidationErrorKey]
+          ? this.sectionValidationErrorMessage
+          : '';
+      if (label) {
+        problems.push({
+          kind: 'rule',
+          label,
+          target: this.shadowRoot.querySelector('#add-section'),
+          stillApplies: ruleBroken,
+        });
+      }
+    }
+    return problems;
+  }
+
+  /**
+   * Subclass hook: one outlined input → a problem for the banner (or null).
+   * @returns {Object|null}
+   */
+  describeInvalidInput(_input, _context) {
+    return null;
   }
 
   /**

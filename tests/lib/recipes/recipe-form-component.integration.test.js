@@ -140,12 +140,13 @@ describe('recipe-form-component — orchestrator fan-out', () => {
     expect(el._attributionInput.disabled).toBe(true);
   });
 
-  test('validateForm flags an empty form and shows the error banner', async () => {
+  test('validateForm flags an empty form and shows the problems banner', async () => {
     const el = await mount();
     const valid = el.validateForm();
     expect(valid).toBe(false);
-    const banner = el.shadowRoot.querySelector('.recipe-form__error-message');
-    expect(banner.style.display).toBe('block');
+    const banner = el.shadowRoot.querySelector('.recipe-form__problems');
+    expect(banner.hidden).toBe(false);
+    expect(banner.textContent).toContain('חובה למלא');
   });
 
   test('markSaved re-baselines and emits a clean dirty event', async () => {
@@ -301,5 +302,156 @@ describe('recipe-form-component — blank amount/unit warning', () => {
     });
     await expect(el.confirmBlankIngredientFields()).resolves.toBe(true);
     expect(modal()).toBeNull();
+  });
+});
+
+describe('recipe-form-component — problems banner', () => {
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = jest.fn();
+    global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+    global.cancelAnimationFrame = (id) => clearTimeout(id);
+  });
+
+  const banner = (el) => el.shadowRoot.querySelector('.recipe-form__problems');
+  const links = (el) =>
+    Array.from(banner(el).querySelectorAll('.recipe-form__problem-link')).map((b) => b.textContent);
+  const md = (el, id) => el._fields.metadata.shadowRoot.getElementById(id);
+  const fillMetadata = (el) => {
+    md(el, 'name').value = 'עוגה';
+    md(el, 'dish-type').value = 'desserts';
+    md(el, 'prep-time').value = '20';
+    md(el, 'servings-form').value = '4';
+    md(el, 'difficulty').value = 'קלה';
+  };
+  const setSteps = (el) => el._fields.instructions.setValue(['מערבבים ואופים.']);
+  const tick = () => new Promise((r) => setTimeout(r, 5));
+
+  test('an empty form lists the required fields and both lists', async () => {
+    const el = await mount();
+    el.validateForm();
+    const line = banner(el).querySelector('.recipe-form__problems-line').textContent;
+    expect(line).toContain('חובה למלא:');
+    expect(links(el)).toEqual(
+      expect.arrayContaining(['שם המנה', 'קטגוריה', 'זמן הכנה', 'כמות מנות', 'דרגת קושי']),
+    );
+    // More than 5 → collapsed with "ו-N נוספים"
+    const more = banner(el).querySelector('.recipe-form__problem-more');
+    expect(more.textContent).toMatch(/^ו-\d+ נוספים$/);
+    more.click();
+    expect(links(el)).toEqual(expect.arrayContaining(['מצרכים', 'הוראות הכנה']));
+    expect(banner(el).querySelector('.recipe-form__problem-more')).toBeNull();
+  });
+
+  test('wrong amounts are grouped under one explanation, named by their item', async () => {
+    const el = await mount();
+    fillMetadata(el);
+    setSteps(el);
+    el._fields.ingredients.setValue([
+      { amount: null, unit: '', item: 'קמח' },
+      { amount: null, unit: '', item: 'סוכר' },
+    ]);
+    const rows = el._fields.ingredients.shadowRoot.querySelectorAll(
+      '.recipe-form__input--quantity',
+    );
+    rows[0].value = '2-3';
+    rows[1].value = 'חצי';
+    expect(el.validateForm()).toBe(false);
+    const items = banner(el).querySelectorAll('li');
+    expect(items).toHaveLength(1);
+    expect(items[0].textContent).toBe(
+      'כמות ב־קמח · סוכר: צריכה להיות מספר, כמו 2 או 1/2 – או להישאר ריקה.',
+    );
+  });
+
+  test('a wrong prep time is explained, an empty one is only listed', async () => {
+    const el = await mount();
+    fillMetadata(el);
+    setSteps(el);
+    el._fields.ingredients.setValue([{ amount: 2, unit: 'כוסות', item: 'קמח' }]);
+    md(el, 'prep-time').value = '0';
+    md(el, 'difficulty').value = '';
+    el.validateForm();
+    expect(banner(el).textContent).toContain('חובה למלא: דרגת קושי');
+    expect(banner(el).textContent).toContain('זמן הכנה: צריך להיות מספר דקות גדול מ-0.');
+  });
+
+  test('blank amounts / units show as a non-blocking amber line', async () => {
+    const el = await mount();
+    el._fields.ingredients.setValue([{ amount: 3, unit: '', item: 'ביצים' }]);
+    el.validateForm();
+    const warn = banner(el).querySelector('.recipe-form__problems-warn');
+    expect(warn.textContent).toBe('לבדיקה (לא חובה): ביצים (יחידה)');
+    // Already shown, so the save-time question will not ask about it again.
+    expect(el._acknowledgedBlankRows.has('ביצים::unit')).toBe(true);
+  });
+
+  test('fixing a field drops it from the banner and the side-button count', async () => {
+    const el = await mount();
+    fillMetadata(el);
+    setSteps(el);
+    el._fields.ingredients.setValue([{ amount: 2, unit: 'כוסות', item: 'קמח' }]);
+    md(el, 'dish-type').value = '';
+    md(el, 'difficulty').value = '';
+    el.validateForm();
+    const count = () => el.shadowRoot.querySelector('.recipe-form__jump-count').textContent;
+    expect(count()).toBe('2');
+
+    md(el, 'dish-type').value = 'desserts';
+    md(el, 'dish-type').dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    await tick();
+    expect(links(el)).toEqual(['דרגת קושי']);
+    expect(count()).toBe('1');
+
+    md(el, 'difficulty').value = 'קלה';
+    md(el, 'difficulty').dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    await tick();
+    expect(banner(el).hidden).toBe(true);
+    expect(el.shadowRoot.querySelector('.recipe-form__jump-anchor').hidden).toBe(true);
+  });
+
+  test('the side button moves through the problems in order', async () => {
+    const el = await mount();
+    fillMetadata(el);
+    setSteps(el);
+    el._fields.ingredients.setValue([{ amount: 2, unit: 'כוסות', item: 'קמח' }]);
+    md(el, 'name').value = '';
+    md(el, 'difficulty').value = '';
+    el.validateForm();
+    const focused = [];
+    md(el, 'name').focus = () => focused.push('name');
+    md(el, 'difficulty').focus = () => focused.push('difficulty');
+    const jump = el.shadowRoot.querySelector('.recipe-form__jump');
+    jump.click();
+    jump.click();
+    jump.click();
+    expect(focused).toEqual(['name', 'difficulty', 'name']);
+  });
+});
+
+describe('recipe-form-component — problems banner edge cases', () => {
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = jest.fn();
+  });
+
+  test('six missing fields are all listed (no "ו-1 נוספים")', async () => {
+    const el = await mount();
+    el._fields.ingredients.setValue([{ amount: 2, unit: 'כוסות', item: 'קמח' }]);
+    el.validateForm();
+    const banner = el.shadowRoot.querySelector('.recipe-form__problems');
+    // name, category, prep time, servings, difficulty, instructions = 6
+    expect(banner.querySelectorAll('.recipe-form__problem-link')).toHaveLength(6);
+    expect(banner.querySelector('.recipe-form__problem-more')).toBeNull();
+  });
+
+  test('a row with an error is not repeated in the amber line', async () => {
+    const el = await mount();
+    el._fields.ingredients.setValue([
+      { amount: null, unit: '', item: 'קמח' },
+      { amount: 3, unit: '', item: 'ביצים' },
+    ]);
+    el._fields.ingredients.shadowRoot.querySelector('.recipe-form__input--quantity').value = '2-3';
+    el.validateForm();
+    const warn = el.shadowRoot.querySelector('.recipe-form__problems-warn');
+    expect(warn.textContent).toBe('לבדיקה (לא חובה): ביצים (יחידה)');
   });
 });

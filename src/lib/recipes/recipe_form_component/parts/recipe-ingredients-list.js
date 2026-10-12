@@ -26,6 +26,33 @@ class RecipeIngredientsList extends SectionedListComponent {
     this.sectionNameInputSelector = '.recipe-form__input--section-name';
     this.sectionValidationErrorKey = 'sectionTitles';
     this.sectionValidationErrorMessage = 'חובה למלא לפחות 2 קטגוריות עם כותרת ומצרכים.';
+
+    this.sectionModeHint = 'במצב קטגוריות: לפחות 2 קטגוריות, לכל אחת כותרת ומצרך אחד לפחות.';
+    this.problemListLabel = 'מצרכים';
+    this.emptyListErrorKey = 'noIngredients';
+    this.sectionCountRule = 'צריך לפחות 2 קטגוריות, לכל אחת כותרת ומצרך.';
+  }
+
+  /**
+   * A wrong amount is grouped under one explanation and named by its item; a
+   * missing item is named by its row.
+   */
+  describeInvalidInput(input, { row, rowNumber }) {
+    if (input.classList.contains('recipe-form__input--quantity')) {
+      const item = row.querySelector('.recipe-form__input--item')?.value.trim();
+      return {
+        kind: 'wrong',
+        group: 'amount',
+        groupLead: 'כמות ב־',
+        label: item || `שורה ${rowNumber}`,
+        explanation: 'צריכה להיות מספר, כמו 2 או 1/2 – או להישאר ריקה.',
+        target: input,
+      };
+    }
+    if (input.classList.contains('recipe-form__input--item')) {
+      return { kind: 'missing', label: `פריט (שורה ${rowNumber})`, target: input };
+    }
+    return null;
   }
 
   connectedCallback() {
@@ -211,17 +238,18 @@ class RecipeIngredientsList extends SectionedListComponent {
 
   /**
    * Highlights the blank amount/unit inputs of `rows` (from getBlankFieldRows)
-   * and brings the first one into view. A highlight clears once its input is
-   * edited.
+   * and, unless `scroll` is false, brings the first one into view. A highlight
+   * clears once its input is edited.
    * @param {{ inputs: HTMLInputElement[] }[]} rows
+   * @param {{ scroll?: boolean }} [options]
    */
-  showBlankFieldWarnings(rows) {
+  showBlankFieldWarnings(rows, { scroll = true } = {}) {
     this.clearBlankFieldWarnings();
     rows.forEach((row) => {
       row.inputs.forEach((input) => input.classList.add('recipe-form__input--warning'));
     });
     const first = rows[0]?.inputs[0];
-    if (first) {
+    if (first && scroll) {
       first.scrollIntoView({ behavior: 'smooth', block: 'center' });
       first.focus({ preventScroll: true });
     }

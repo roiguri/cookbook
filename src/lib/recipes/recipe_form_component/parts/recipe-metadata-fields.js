@@ -84,7 +84,7 @@ class RecipeMetadataFields extends FormFieldMixin(HTMLElement) {
             <textarea id="description" name="description" class="recipe-form__textarea"
               style="min-height: 72px;"
               placeholder="משפט-שניים. יוצג על כרטיס המתכון."></textarea>
-            <span class="recipe-form__hint">אופציונלי · מוצג על כרטיס המתכון ובדף המתכון.</span>
+            <span class="recipe-form__hint">מוצג על כרטיס המתכון ובדף המתכון.</span>
           </div>
         </div>
 
@@ -92,11 +92,11 @@ class RecipeMetadataFields extends FormFieldMixin(HTMLElement) {
         <div class="recipe-form__row">
           <div class="recipe-form__group">
             <label for="prep-time" class="recipe-form__label">זמן הכנה פעיל (דקות) <span class="recipe-form__req">*</span></label>
-            <input type="number" id="prep-time" name="prep-time" class="recipe-form__input" min="0" placeholder="45" />
+            <input type="number" id="prep-time" name="prep-time" class="recipe-form__input" min="0" placeholder="למשל 45" />
           </div>
           <div class="recipe-form__group">
             <label for="wait-time" class="recipe-form__label">זמן המתנה (דקות)</label>
-            <input type="number" id="wait-time" name="wait-time" class="recipe-form__input" min="0" placeholder="360" />
+            <input type="number" id="wait-time" name="wait-time" class="recipe-form__input" min="0" placeholder="למשל 360" />
           </div>
         </div>
 
@@ -105,7 +105,7 @@ class RecipeMetadataFields extends FormFieldMixin(HTMLElement) {
           <div class="recipe-form__group">
             <label for="servings-form" class="recipe-form__label">כמות <span class="recipe-form__req">*</span></label>
             <div class="recipe-form__yield-row">
-              <input type="number" id="servings-form" name="servings" class="recipe-form__input recipe-form__input--number" min="1" placeholder="4" />
+              <input type="number" id="servings-form" name="servings" class="recipe-form__input recipe-form__input--number" min="1" placeholder="למשל 4" />
               <input type="text" id="servings-unit" name="servings-unit"
                 class="recipe-form__input recipe-form__select--unit"
                 placeholder="מנות, כיכרות..." />
@@ -204,6 +204,43 @@ class RecipeMetadataFields extends FormFieldMixin(HTMLElement) {
     }
 
     return { isValid: Object.keys(filtered).length === 0, errors: filtered };
+  }
+
+  /**
+   * Describes the outlined fields for the form's problems banner: an empty one
+   * is "missing", one with a value is "wrong" and carries an explanation.
+   * Call after setValidationState.
+   * @returns {Array<{kind: string, label: string, target: Element, group?: string, explanation?: string}>}
+   */
+  getProblems() {
+    const FIELDS = [
+      { id: 'name', label: 'שם המנה' },
+      { id: 'dish-type', label: 'קטגוריה' },
+      { id: 'prep-time', label: 'זמן הכנה', explanation: 'צריך להיות מספר דקות גדול מ-0.' },
+      { id: 'wait-time', label: 'זמן המתנה', explanation: 'צריך להיות מספר דקות, 0 או יותר.' },
+      { id: 'servings-form', label: 'כמות מנות', explanation: 'צריכה להיות מספר גדול מ-0.' },
+      { id: 'difficulty', label: 'דרגת קושי' },
+      { id: 'main-ingredient', label: 'מרכיב עיקרי', explanation: 'הערך לא תקין.' },
+      { id: 'tags', label: 'תגיות', explanation: 'הערך לא תקין.' },
+    ];
+    const problems = [];
+    FIELDS.forEach(({ id, label, explanation }) => {
+      const el = this.shadowRoot.getElementById(id);
+      if (!el?.classList.contains('recipe-form__input--invalid')) return;
+      const hasValue = el.tagName !== 'SELECT' && el.value.trim() !== '';
+      problems.push(
+        hasValue
+          ? {
+              kind: 'wrong',
+              group: id,
+              label,
+              explanation: explanation || 'הערך לא תקין.',
+              target: el,
+            }
+          : { kind: 'missing', label, target: el },
+      );
+    });
+    return problems;
   }
 
   populateFields(data) {
