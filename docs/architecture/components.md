@@ -65,6 +65,8 @@ The contract every field exposes:
 | `markPristine()`             | snapshot the current value as the clean baseline — provided                       |
 | `validate()`                 | `{ isValid, errors }` — defaults to always-valid; override if the field validates |
 | `setValidationState(errors)` | reflect errors in the UI — default no-op; override to surface per-field errors    |
+| `getProblems()`              | what the last validation found, as `FormProblem`s for the banner — default `[]`   |
+| `showProblems(problems)`     | outline exactly these problems, clear other outlines — provided                   |
 | `setDisabled(disabled)`      | enable/disable controls — default no-op; override if interactive                  |
 
 Two standardized events, dispatched **on the host** with `{ bubbles: true, composed: true }`:
@@ -80,6 +82,7 @@ The orchestrator collects field refs once into a `_fields` map (keyed by logical
 
 - **aggregates values** — `buildRecipeData()` calls each field's `getValue()`;
 - **fans out validation** — collects every `validate()`, then calls each `setValidationState(allErrors)`;
+- **reports problems** — after a failed save, collects every `getProblems()` into one banner (`parts/form-problems.js`): empty required fields, wrong values (grouped, each kind explained once) and rules. While the user fixes things it keeps the problems whose `stillApplies()` is still true and hands each field its own via `showProblems()`. The orchestrator never reads a field's inputs; the field owns its rules, its outlines and what `focus()` does;
 - **listens** for `value-changed` / `dirty-changed` bubbling up from any field (debounced), recomputes form-level dirtiness, and re-emits `form-dirty-changed` to its parent (e.g. an edit modal gating its save button).
 
 ### How to add a new form field
@@ -88,7 +91,7 @@ The orchestrator collects field refs once into a `_fields` map (keyed by logical
 2. **Override `getValue()` and `setValue(value)`.** `setValue` should populate the UI and call `markPristine()` so the new value becomes the clean baseline.
 3. Override `_getEmptyValue()` if the empty state isn't `null` (e.g. `[]` for a list, `{}` for a record).
 4. **Call `_emitValueChanged({ ...extra })` and `_emitDirtyChanged()` at every mutation point** (input handlers, add/remove row, etc.). This is what lets the orchestrator notice changes — the mixin does not auto-wire DOM listeners.
-5. Override `validate()` / `setValidationState()` only if the field has its own validation; override `setDisabled()` only if it has interactive controls.
+5. Override `validate()` / `setValidationState()` only if the field has its own validation; then also override `getProblems()`, building each entry with `fieldProblem(elements, { kind, label, … }, stillApplies)` from `form-field-base.js` so the banner can list it, jump to it and drop it once fixed. Override `setDisabled()` only if it has interactive controls.
 6. Register with `customElements.define('your-field', YourField)` and add it to the orchestrator's `collectFieldRefs()` `_fields` map under a logical key. Aggregation in `buildRecipeData()` reads that key.
 7. Add a sibling test under `tests/lib/...` exercising the contract (`getValue`/`setValue` round-trip, `isDirty` after mutation, events fired).
 

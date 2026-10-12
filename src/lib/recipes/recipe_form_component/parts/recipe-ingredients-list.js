@@ -6,6 +6,7 @@
  */
 
 import { SectionedListComponent } from './sectioned-list-component.js';
+import { fieldProblem } from '../../../forms/form-field-base.js';
 import {
   parseAmount,
   formatIngredientAmount,
@@ -26,6 +27,40 @@ class RecipeIngredientsList extends SectionedListComponent {
     this.sectionNameInputSelector = '.recipe-form__input--section-name';
     this.sectionValidationErrorKey = 'sectionTitles';
     this.sectionValidationErrorMessage = 'חובה למלא לפחות 2 קטגוריות עם כותרת ומצרכים.';
+
+    this.sectionModeHint = 'במצב קטגוריות: חובה למלא עבור כל קטגוריה כותרת ומצרך אחד לפחות.';
+    this.problemListLabel = 'מצרכים';
+    this.emptyListErrorKey = 'noIngredients';
+    this.sectionCountRule = 'צריך לפחות 2 קטגוריות, לכל אחת כותרת ומצרך.';
+  }
+
+  /**
+   * A wrong amount is grouped under one explanation and named by its item; a
+   * missing item is named by its row. The amount rule stays here.
+   */
+  describeInvalidInput(input, { row, rowNumber }) {
+    if (input.classList.contains('recipe-form__input--quantity')) {
+      const item = row.querySelector('.recipe-form__input--item')?.value.trim();
+      return fieldProblem(
+        [input],
+        {
+          kind: 'wrong',
+          group: 'amount',
+          groupLead: 'כמות ב־',
+          label: item || `שורה ${rowNumber}`,
+          explanation: 'צריכה להיות מספר, כמו 2 או 1/2 – או להישאר ריקה.',
+        },
+        () => input.isConnected && input.value.trim() !== '' && !(parseAmount(input.value) > 0),
+      );
+    }
+    if (input.classList.contains('recipe-form__input--item')) {
+      return fieldProblem(
+        [input],
+        { kind: 'missing', label: `פריט (שורה ${rowNumber})` },
+        () => input.isConnected && input.value.trim() === '',
+      );
+    }
+    return null;
   }
 
   connectedCallback() {
@@ -179,11 +214,25 @@ class RecipeIngredientsList extends SectionedListComponent {
 
   /**
    * Named rows whose amount and/or unit is blank. Both are optional, but a
-   * blank is often an oversight, so the form asks before submitting.
-   * Unparseable amount text is not "blank" — validate() blocks it instead.
-   * @returns {{ id: string, item: string, fields: string[], inputs: HTMLInputElement[] }[]}
+   * blank is often an oversight, so the form points them out. Unparseable
+   * amount text is not "blank" — validate() blocks it instead.
+   * @returns {{ id: string, item: string, fields: string[], hasError: boolean, focus: () => void }[]}
    */
   getBlankFieldRows() {
+    return this._blankFieldRows().map(({ id, item, fields, row, inputs }) => ({
+      id,
+      item,
+      fields,
+      hasError: Boolean(row.querySelector('.recipe-form__input--invalid')),
+      focus: () => {
+        inputs[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+        inputs[0].focus({ preventScroll: true });
+      },
+    }));
+  }
+
+  /** @returns {{ id: string, item: string, fields: string[], row: Element, inputs: HTMLInputElement[] }[]} */
+  _blankFieldRows() {
     const rows = [];
     this.shadowRoot.querySelectorAll(`.${this.itemClass}`).forEach((row) => {
       const itemInput = row.querySelector('.recipe-form__input--item');
@@ -204,24 +253,27 @@ class RecipeIngredientsList extends SectionedListComponent {
       });
 
       if (fields.length > 0)
-        rows.push({ id: `${item}::${fields.join(',')}`, item, fields, inputs });
+        rows.push({ id: `${item}::${fields.join(',')}`, item, fields, row, inputs });
     });
     return rows;
   }
 
   /**
-   * Highlights the blank amount/unit inputs of `rows` (from getBlankFieldRows)
-   * and brings the first one into view. A highlight clears once its input is
-   * edited.
-   * @param {{ inputs: HTMLInputElement[] }[]} rows
+   * Highlights the blank amount/unit inputs of the rows with these ids (from
+   * getBlankFieldRows) and, unless `scroll` is false, brings the first into
+   * view. A highlight clears once its input is edited.
+   * @param {string[]} ids
+   * @param {{ scroll?: boolean }} [options]
    */
-  showBlankFieldWarnings(rows) {
+  showBlankFieldWarnings(ids, { scroll = true } = {}) {
     this.clearBlankFieldWarnings();
+    const wanted = new Set(ids);
+    const rows = this._blankFieldRows().filter((row) => wanted.has(row.id));
     rows.forEach((row) => {
       row.inputs.forEach((input) => input.classList.add('recipe-form__input--warning'));
     });
     const first = rows[0]?.inputs[0];
-    if (first) {
+    if (first && scroll) {
       first.scrollIntoView({ behavior: 'smooth', block: 'center' });
       first.focus({ preventScroll: true });
     }

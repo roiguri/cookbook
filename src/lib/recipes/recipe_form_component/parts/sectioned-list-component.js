@@ -7,6 +7,7 @@
  */
 
 import { DynamicListComponent } from './dynamic-list-component.js';
+import { fieldProblem } from '../../../forms/form-field-base.js';
 
 export class SectionedListComponent extends DynamicListComponent {
   constructor() {
@@ -22,6 +23,13 @@ export class SectionedListComponent extends DynamicListComponent {
     this.sectionNameInputSelector = '.recipe-form__input--section-name';
     this.sectionValidationErrorKey = 'sectionTitles';
     this.sectionValidationErrorMessage = 'חובה למלא לפחות 2 קטגוריות עם כותרת ומצרכים.';
+
+    // Problem reporting (see getProblems) — overridden by subclasses.
+    this.sectionModeHint = '';
+    this.problemListLabel = '';
+    this.emptyListErrorKey = '';
+    this.sectionCountRule = '';
+    this._lastErrors = {};
   }
 
   /**
@@ -124,6 +132,12 @@ export class SectionedListComponent extends DynamicListComponent {
     const addSectionButton = this.shadowRoot.querySelector('#add-section');
 
     itemsContainer.innerHTML = '';
+    if (this.sectionModeHint) {
+      const hint = document.createElement('p');
+      hint.className = 'recipe-form__mode-hint';
+      hint.textContent = this.sectionModeHint;
+      itemsContainer.appendChild(hint);
+    }
     this.sections.forEach((section, index) => {
       const sectionDiv = this.createSectionHTML(section, index);
       itemsContainer.insertAdjacentHTML('beforeend', sectionDiv);
@@ -531,7 +545,103 @@ export class SectionedListComponent extends DynamicListComponent {
       isValid = validationResult.isValid;
     }
 
+    this._lastErrors = errors;
     return { isValid, errors };
+  }
+
+  /**
+   * The outlined inputs after the last validate() + setValidationState(), as
+   * problems for the form's banner. List-level problems (an empty list, a
+   * section-count rule) are re-checked against the latest validate().
+   * @returns {import('../../../forms/form-field-base.js').FormProblem[]}
+   */
+  getProblems() {
+    const errors = this._lastErrors || {};
+    const listIsEmpty = () => {
+      const value = this.getValue();
+      return !Array.isArray(value) || value.length === 0;
+    };
+
+    if (
+      !this.isSectionMode &&
+      this.emptyListErrorKey &&
+      errors[this.emptyListErrorKey] &&
+      listIsEmpty()
+    ) {
+      const firstRow = this.shadowRoot.querySelector(`#items-container .${this.itemClass}`);
+      const inputs = firstRow ? [...firstRow.querySelectorAll('input')] : [];
+      return [
+        fieldProblem(
+          inputs,
+          { kind: 'missing', label: this.problemListLabel },
+          () => !this.isSectionMode && listIsEmpty(),
+        ),
+      ];
+    }
+
+    const problems = [];
+    const isEmpty = (input) => input.isConnected && input.value.trim() === '';
+    if (this.isSectionMode) {
+      this.shadowRoot.querySelectorAll(this.sectionContainerSelector).forEach((sectionEl, i) => {
+        const titleInput = sectionEl.querySelector(this.sectionNameInputSelector);
+        if (titleInput?.classList.contains('recipe-form__input--invalid')) {
+          problems.push(
+            fieldProblem(
+              [titleInput],
+              { kind: 'missing', label: `שם ${this.sectionTitlePrefix} ${i + 1}` },
+              () => isEmpty(titleInput),
+            ),
+          );
+        }
+      });
+    }
+
+    this.shadowRoot.querySelectorAll(`.${this.itemClass}`).forEach((row, rowIndex) => {
+      const sectionEl = row.closest('[data-section-index]');
+      const sectionNumber = sectionEl ? Number(sectionEl.dataset.sectionIndex) + 1 : null;
+      row.querySelectorAll('.recipe-form__input--invalid').forEach((input) => {
+        const problem = this.describeInvalidInput(input, {
+          row,
+          rowNumber: rowIndex + 1,
+          sectionNumber,
+        });
+        if (problem) problems.push(problem);
+      });
+    });
+
+    if (this.isSectionMode && problems.length === 0) {
+      const label = errors.sections
+        ? this.sectionCountRule
+        : errors[this.sectionValidationErrorKey]
+          ? this.sectionValidationErrorMessage
+          : '';
+      if (label) {
+        const addSection = this.shadowRoot.querySelector('#add-section');
+        problems.push({
+          ...fieldProblem([], { kind: 'rule', label }, () => {
+            const latest = this._lastErrors || {};
+            return (
+              this.isSectionMode &&
+              Boolean(latest.sections || latest[this.sectionValidationErrorKey])
+            );
+          }),
+          focus: () => {
+            addSection?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            addSection?.focus({ preventScroll: true });
+          },
+        });
+      }
+    }
+    return problems;
+  }
+
+  /**
+   * Subclass hook: one outlined input → a problem for the banner (or null).
+   * Build it with fieldProblem() so the field keeps owning the check.
+   * @returns {import('../../../forms/form-field-base.js').FormProblem|null}
+   */
+  describeInvalidInput(_input, _context) {
+    return null;
   }
 
   /**

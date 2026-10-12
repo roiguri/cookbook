@@ -497,9 +497,162 @@ fieldset {
   margin-bottom: 8px;
 }
 
+/* ============ GUIDANCE: legend, mode hints, problems banner ============ */
+
+.recipe-form__legend,
+.recipe-form__mode-hint {
+  margin: 0 0 14px;
+  font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-3, #6b6a63);
+}
+
+.recipe-form__mode-hint {
+  margin-bottom: 12px;
+}
+
+/* After a failed save: what to fill, what to fix, what to check. */
+.recipe-form__problems {
+  display: grid;
+  gap: 8px;
+  font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--secondary-dark, #9a3a3c);
+  background: color-mix(in oklab, var(--secondary, #bc4749) 8%, white);
+  border: 1px solid color-mix(in oklab, var(--secondary, #bc4749) 20%, white);
+  border-radius: var(--r-sm, 8px);
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+
+/* The rules above set display; keep [hidden] working (no empty box on load). */
+.recipe-form__problems[hidden],
+.recipe-form__jump-anchor[hidden] {
+  display: none;
+}
+
+.recipe-form__problems {
+  scroll-margin-top: 24px;
+}
+
+.recipe-form__problems strong {
+  font-weight: 600;
+}
+
+.recipe-form__problems-line,
+.recipe-form__problems-warn {
+  margin: 0;
+}
+
+.recipe-form__problems ul {
+  margin: 2px 0 0;
+  padding-inline-start: 18px;
+  display: grid;
+  gap: 3px;
+}
+
+.recipe-form__problems-warn {
+  color: var(--caution, #b7791f);
+  border-top: 1px solid color-mix(in oklab, currentColor 25%, transparent);
+  padding-top: 8px;
+}
+
+.recipe-form__problem-link,
+.recipe-form__problem-more {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.recipe-form__problem-more {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.recipe-form__problem-link:focus-visible,
+.recipe-form__problem-more:focus-visible,
+.recipe-form__jump:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: var(--r-xs, 4px);
+}
+
+/* Side button: jumps to the next problem; sticks above the host's save bar
+   (hosts set --recipe-form-jump-bottom to clear their own bar). */
+.recipe-form__jump-anchor {
+  position: sticky;
+  bottom: var(--recipe-form-jump-bottom, 16px);
+  height: 0;
+  z-index: var(--z-elevated, 10);
+}
+
+.recipe-form__jump {
+  position: absolute;
+  bottom: 0;
+  /* Room for the badge, which sticks out 6px; modal bodies clip overflow. */
+  inset-inline-end: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline-strong, rgba(31, 29, 24, 0.18));
+  background: var(--surface-1, #fff);
+  color: var(--secondary-dark, #9a3a3c);
+  box-shadow: var(--shadow-2, 0 4px 14px rgba(0, 0, 0, 0.16));
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.recipe-form__jump svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.recipe-form__jump-count {
+  position: absolute;
+  top: -6px;
+  inset-inline-end: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: var(--r-pill, 999px);
+  background: var(--secondary, #bc4749);
+  color: var(--button-color, #fff);
+  font: 700 11px/20px var(--font-ui, system-ui, sans-serif);
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--surface-1, #fff);
+}
+
 /* ============ RESPONSIVE ============ */
 
 @media (max-width: 768px) {
+  .recipe-form__jump {
+    width: 34px;
+    height: 34px;
+  }
+
+  .recipe-form__jump svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .recipe-form__jump-count {
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+    line-height: 18px;
+  }
+
   .recipe-sect {
     padding: 20px 16px;
     border-radius: var(--r-lg, 16px);

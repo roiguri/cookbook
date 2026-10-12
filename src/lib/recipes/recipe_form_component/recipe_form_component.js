@@ -15,6 +15,8 @@ import './parts/recipe-related-field.js';
 import '../../media/media-instructions-editor/media-instructions-editor.js';
 import '../recipe_import_modal/recipe_import_modal.js';
 import { mapExtractedDataToForm } from '../../../js/utils/recipe-extractor-utils.js';
+import { renderProblems, countProblems } from './parts/form-problems.js';
+import { icons } from '../../../js/icons.js';
 import authService from '../../../js/services/auth/auth-service.js';
 
 import styles from './recipe_form_component.css?inline';
@@ -37,6 +39,13 @@ class RecipeFormComponent extends HTMLElement {
     // Blank amount/unit rows the user already confirmed or reviewed (ids from
     // getBlankFieldRows), so the blank-field question is asked once per row.
     this._acknowledgedBlankRows = new Set();
+    // Blank amount/unit rows already in the saved recipe (edit / suggestion):
+    // intentional, so never listed or asked about.
+    this._savedBlankRows = new Set();
+    // Problems banner state after a failed save (null = banner not showing).
+    this._problems = null;
+    this._problemsExpanded = new Set();
+    this._jumpIndex = 0;
 
     this.clearButtonText = this.hasAttribute('clear-button-text')
       ? this.getAttribute('clear-button-text')
@@ -116,8 +125,10 @@ class RecipeFormComponent extends HTMLElement {
         <div class="recipe-form__error-message" style="display: none;">
           נא למלא את כל שדות החובה
         </div>
+        <div class="recipe-form__problems" aria-live="polite" hidden></div>
 
         <form id="recipe-form">
+          <p class="recipe-form__legend">שדות עם <span class="recipe-form__req">*</span> הם חובה. כל השאר אפשר להשאיר ריק.</p>
 
           <!-- 01 — פרטי המתכון -->
           <section class="recipe-sect" id="s-details">
@@ -136,8 +147,8 @@ class RecipeFormComponent extends HTMLElement {
             <header class="recipe-sect__header">
               <div>
                 <span class="recipe-sect__n">02 — מצרכים</span>
-                <h2 class="recipe-sect__h">כמויות <em>ויחידות.</em></h2>
-                <p class="recipe-sect__sub">קבץ מצרכים לקטגוריות אם זה עוזר — "לבצק", "לציפוי" וכדומה.</p>
+                <h2 class="recipe-sect__h">המצרכים <em>שצריך.</em></h2>
+                <p class="recipe-sect__sub">רק הפריט חובה. כמות ויחידה – כשיש, למשל ״3 ביצים״ או ״מלח לפי הטעם״. אפשר לקבץ לקטגוריות – ״לבצק״, ״לציפוי״.</p>
               </div>
             </header>
             <recipe-ingredients-list id="ingredients-list"></recipe-ingredients-list>
@@ -149,7 +160,7 @@ class RecipeFormComponent extends HTMLElement {
               <div>
                 <span class="recipe-sect__n">03 — הוראות הכנה</span>
                 <h2 class="recipe-sect__h">שלבים <em>ושלבי עבודה.</em></h2>
-                <p class="recipe-sect__sub">חלק את השיטה לשלבים. הוסף תמונה לכל שלב אם זה עוזר.</p>
+                <p class="recipe-sect__sub">חלק את השיטה לשלבים.</p>
               </div>
             </header>
             <recipe-instructions-list id="instructions-list" mode="flat"></recipe-instructions-list>
@@ -233,6 +244,13 @@ class RecipeFormComponent extends HTMLElement {
           </form-button-group>
 
         </form>
+
+        <div class="recipe-form__jump-anchor" hidden>
+          <button type="button" class="recipe-form__jump">
+            ${icons.arrowDown}
+            <span class="recipe-form__jump-count" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
       <message-modal></message-modal>
     `;
@@ -251,6 +269,21 @@ class RecipeFormComponent extends HTMLElement {
     const buttonGroup = this.shadowRoot.getElementById('form-buttons');
     buttonGroup.addEventListener('clear-clicked', () => this.handleClearForm());
     buttonGroup.addEventListener('submit-clicked', () => this.handleFormSubmit());
+
+    // After a failed save the banner follows the user's fixes. Input events from
+    // the fields are composed, so they reach this shadow root; clicks cover rows
+    // being added or removed.
+    const refresh = () => {
+      if (!this._problems) return;
+      cancelAnimationFrame(this._problemsRaf);
+      this._problemsRaf = requestAnimationFrame(() => this.refreshProblems());
+    };
+    this.shadowRoot.addEventListener('input', refresh);
+    this.shadowRoot.addEventListener('click', refresh);
+
+    this.shadowRoot
+      .querySelector('.recipe-form__jump')
+      .addEventListener('click', () => this.jumpToNextProblem());
   }
 
   /**
@@ -278,19 +311,125 @@ class RecipeFormComponent extends HTMLElement {
     }
 
     const errorMessage = this.shadowRoot.querySelector('.recipe-form__error-message');
-    if (errorMessage) {
-      if (isValid) {
-        errorMessage.style.display = 'none';
-      } else {
-        const messages = Object.values(allErrors).filter((e) => typeof e === 'string');
-        errorMessage.textContent = messages.length
-          ? messages.join(' ')
-          : 'ישנם שגיאות בטופס. אנא תקן אותן.';
-        errorMessage.style.display = 'block';
-      }
+    if (errorMessage) errorMessage.style.display = 'none';
+
+    if (isValid) {
+      this.hideProblems();
+    } else {
+      this._problemsExpanded.clear();
+      this.openProblemsBanner({
+        problems: this.collectProblems(),
+        warnings: this.collectBlankWarnings(),
+      });
     }
 
     return isValid;
+  }
+
+  /**
+   * Problems reported by the fields (the field contract's getProblems), in
+   * form order, each tagged with the field that owns it.
+   * Call after setValidationState.
+   */
+  collectProblems() {
+    return this._fieldList.flatMap((field) =>
+      typeof field.getProblems === 'function'
+        ? field.getProblems().map((problem) => ({ ...problem, owner: field }))
+        : [],
+    );
+  }
+
+  /**
+   * Ingredient rows with a blank amount or unit, highlighted in amber next to
+   * the errors. Skips rows saved that way and rows that already have an error.
+   * Shown here, they are not asked about again on a later save.
+   */
+  collectBlankWarnings() {
+    const ingredients = this._fields.ingredients;
+    if (!ingredients || typeof ingredients.getBlankFieldRows !== 'function') return [];
+    const rows = ingredients
+      .getBlankFieldRows()
+      .filter((row) => !this._savedBlankRows.has(row.id) && !row.hasError);
+    ingredients.showBlankFieldWarnings(
+      rows.map((row) => row.id),
+      { scroll: false },
+    );
+    rows.forEach((row) => this._acknowledgedBlankRows.add(row.id));
+    return rows;
+  }
+
+  openProblemsBanner(model) {
+    this._problems = model;
+    this._jumpIndex = 0;
+    this.renderProblemsBanner();
+  }
+
+  hideProblems() {
+    this._problems = null;
+    const banner = this.shadowRoot.querySelector('.recipe-form__problems');
+    if (banner) {
+      banner.hidden = true;
+      banner.replaceChildren();
+    }
+    const anchor = this.shadowRoot.querySelector('.recipe-form__jump-anchor');
+    if (anchor) anchor.hidden = true;
+  }
+
+  renderProblemsBanner() {
+    const count = countProblems(this._problems.problems);
+    if (count === 0) {
+      this.hideProblems();
+      return;
+    }
+    const banner = this.shadowRoot.querySelector('.recipe-form__problems');
+    renderProblems(banner, this._problems, {
+      expanded: this._problemsExpanded,
+      onToggle: (key) => {
+        this._problemsExpanded.add(key);
+        this.renderProblemsBanner();
+      },
+    });
+    banner.hidden = false;
+
+    const anchor = this.shadowRoot.querySelector('.recipe-form__jump-anchor');
+    anchor.hidden = false;
+    anchor.querySelector('.recipe-form__jump-count').textContent = String(count);
+    anchor
+      .querySelector('.recipe-form__jump')
+      .setAttribute('aria-label', `${count} דברים לתקן – מעבר לבא`);
+  }
+
+  /**
+   * Re-checks the problems while the banner is showing, each by its own
+   * field's rules (stillApplies), and lets each field re-outline what is left.
+   * Only drops what the user fixed: nothing new is flagged until the next
+   * save, so a half-typed row is not called out mid-typing.
+   */
+  refreshProblems() {
+    if (!this._problems) return;
+    // List-level problems check against their field's latest validate().
+    for (const field of this._fieldList) {
+      if (typeof field.validate === 'function') field.validate();
+    }
+    const problems = this._problems.problems.filter((p) => p.stillApplies());
+    const owners = new Set(this._problems.problems.map((p) => p.owner));
+    owners.forEach((owner) => owner.showProblems(problems.filter((p) => p.owner === owner)));
+
+    const ingredients = this._fields.ingredients;
+    const blankIds = new Set(ingredients?.getBlankFieldRows?.().map((row) => row.id) || []);
+    const warnings = this._problems.warnings.filter((w) => blankIds.has(w.id));
+
+    this._problems = { problems, warnings };
+    this.renderProblemsBanner();
+  }
+
+  /** The side button: next problem, wrapping around. */
+  jumpToNextProblem() {
+    const problems = this._problems?.problems || [];
+    if (!problems.length) return;
+    const problem = problems[this._jumpIndex % problems.length];
+    this._jumpIndex = (this._jumpIndex + 1) % problems.length;
+    problem.focus();
   }
 
   /** Collects the current form data into this.recipeData (submit payload). */
@@ -408,7 +547,10 @@ class RecipeFormComponent extends HTMLElement {
     try {
       // validateForm() already collected the data; no second collection needed.
       if (!this.validateForm()) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Show the banner (the list of problems); the side button then walks the fields.
+        this.shadowRoot
+          .querySelector('.recipe-form__problems')
+          ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
         return;
       }
       if (!(await this.confirmBlankIngredientFields())) return;
@@ -452,7 +594,7 @@ class RecipeFormComponent extends HTMLElement {
       ingredients.clearBlankFieldWarnings();
       return true;
     }
-    ingredients.showBlankFieldWarnings(newRows);
+    ingredients.showBlankFieldWarnings(newRows.map((row) => row.id));
     return false;
   }
 
@@ -466,7 +608,7 @@ class RecipeFormComponent extends HTMLElement {
     // Name up to 4 rows; past that, name 3 and count the rest.
     const shown = rows.length <= 4 ? rows : rows.slice(0, 3);
     const listed = shown.map((row) => `${row.item} (${missing(row.fields)})`).join(', ');
-    const more = rows.length > shown.length ? ` ועוד ${rows.length - shown.length}` : '';
+    const more = rows.length > shown.length ? ` ו-${rows.length - shown.length} נוספים` : '';
     const count = rows.length === 1 ? 'במרכיב אחד' : `ב-${rows.length} מרכיבים`;
     return `${count} לא מולאו כל השדות: ${listed}${more}. השארת אותם ריקים בכוונה?`;
   }
@@ -533,6 +675,7 @@ class RecipeFormComponent extends HTMLElement {
    */
   clearForm() {
     this._acknowledgedBlankRows.clear();
+    this._savedBlankRows.clear();
     for (const field of this._fieldList) {
       if (typeof field.clear === 'function') field.clear();
     }
@@ -546,6 +689,7 @@ class RecipeFormComponent extends HTMLElement {
 
     const errorMessage = this.shadowRoot.querySelector('.recipe-form__error-message');
     if (errorMessage) errorMessage.style.display = 'none';
+    this.hideProblems();
 
     this.captureBaseline();
     this.recomputeDirty();
@@ -575,6 +719,7 @@ class RecipeFormComponent extends HTMLElement {
         // only ask about blanks introduced in this edit.
         this._fields.ingredients?.getBlankFieldRows?.().forEach((row) => {
           this._acknowledgedBlankRows.add(row.id);
+          this._savedBlankRows.add(row.id);
         });
       } else {
         console.warn('No such document!');

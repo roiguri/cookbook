@@ -7,6 +7,7 @@
  */
 
 import { SectionedListComponent } from './sectioned-list-component.js';
+import { fieldProblem } from '../../../forms/form-field-base.js';
 
 class RecipeInstructionsList extends SectionedListComponent {
   constructor() {
@@ -30,6 +31,20 @@ class RecipeInstructionsList extends SectionedListComponent {
     this.sectionNameInputSelector = '.recipe-form__input--stage-name';
     this.sectionValidationErrorKey = 'instructions';
     this.sectionValidationErrorMessage = 'חובה למלא לפחות 2 שלבים עם כותרת והוראות.';
+
+    this.sectionModeHint = 'במצב שלבים: חובה למלא עבור כל שלב כותרת והוראה אחת לפחות.';
+    this.problemListLabel = 'הוראות הכנה';
+    this.emptyListErrorKey = 'instructions';
+    this.sectionCountRule = 'צריך לפחות 2 שלבים, לכל אחד כותרת והוראה.';
+  }
+
+  /** An empty instruction inside a stage is named by its stage. */
+  describeInvalidInput(input, { sectionNumber }) {
+    return fieldProblem(
+      [input],
+      { kind: 'missing', label: sectionNumber ? `הוראה (שלב ${sectionNumber})` : 'הוראות הכנה' },
+      () => input.isConnected && input.value.trim() === '',
+    );
   }
 
   connectedCallback() {

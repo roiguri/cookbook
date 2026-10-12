@@ -51,6 +51,11 @@
  * while scrolling through the form, then releases naturally when the footer
  * comes into view — no JS needed.
  */
+/* The form's "next problem" button sits just above the sticky action bar. */
+.spa-content .propose-form {
+  --recipe-form-jump-bottom: 84px;
+}
+
 .spa-content .propose-action-bar {
   position: sticky;
   bottom: 0;

@@ -16,6 +16,8 @@
  *   - markPristine()              → snapshot the current value as the clean baseline
  *   - validate()                  → { isValid, errors }
  *   - setValidationState(errors)  → reflect errors in the UI
+ *   - getProblems()               → FormProblem[] describing what the last validation found
+ *   - showProblems(problems)      → outline exactly these problems (this field's own)
  *   - setDisabled(disabled)       → enable/disable the field's controls
  *
  * Standardized events (dispatched on the host, bubbles + composed):
@@ -140,6 +142,27 @@ export function FormFieldMixin(Base) {
     }
 
     /**
+     * What the last validate() + setValidationState() found, for the form's
+     * problems banner. Default: none. Build entries with {@link fieldProblem}.
+     * @returns {FormProblem[]}
+     */
+    getProblems() {
+      return [];
+    }
+
+    /**
+     * Outlines exactly `problems` (ones this field returned from getProblems)
+     * and clears every other outline — used as the user fixes things.
+     * @param {FormProblem[]} problems
+     */
+    showProblems(problems) {
+      this.shadowRoot
+        ?.querySelectorAll('.recipe-form__input--invalid')
+        .forEach((el) => el.classList.remove('recipe-form__input--invalid'));
+      problems.forEach((problem) => problem.highlight());
+    }
+
+    /**
      * Enables/disables the field's controls. Default: no-op. Override as needed.
      * @param {boolean} _disabled
      */
@@ -159,6 +182,42 @@ export function FormFieldMixin(Base) {
  * @param {*} b
  * @returns {boolean}
  */
+/**
+ * A problem a field reports to the form (see getProblems). The form only reads
+ * the data fields and calls focus() / stillApplies(); the field owns the rest.
+ * @typedef {Object} FormProblem
+ * @property {'missing'|'wrong'|'rule'} kind
+ * @property {string} label - shown as the link text
+ * @property {string} [group] - wrong values sharing a group share one explanation
+ * @property {string} [groupLead] - text before the group's links (e.g. "כמות ב־")
+ * @property {string} [explanation] - why a wrong value is wrong
+ * @property {() => void} focus - bring the problem into view and focus it
+ * @property {() => boolean} stillApplies - re-check against the field's own rules
+ * @property {() => void} highlight - outline it (called by the field's showProblems)
+ */
+
+/**
+ * Builds a {@link FormProblem} for elements inside a field.
+ * @param {Element[]} elements - outlined by highlight(); the first is focused
+ * @param {Object} props - kind, label and optional group / groupLead / explanation
+ * @param {() => boolean} stillApplies
+ * @returns {FormProblem}
+ */
+export function fieldProblem(elements, props, stillApplies) {
+  const els = elements.filter(Boolean);
+  return {
+    ...props,
+    stillApplies,
+    focus: () => {
+      const el = els[0];
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.focus({ preventScroll: true });
+    },
+    highlight: () => els.forEach((el) => el.classList.add('recipe-form__input--invalid')),
+  };
+}
+
 export function deepEqual(a, b) {
   if (a === b) return true;
 

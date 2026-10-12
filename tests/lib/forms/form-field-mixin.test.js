@@ -1,5 +1,10 @@
 import { jest } from '@jest/globals';
-import { FormFieldMixin, deepEqual, deepClone } from 'src/lib/forms/form-field-base.js';
+import {
+  FormFieldMixin,
+  deepEqual,
+  deepClone,
+  fieldProblem,
+} from 'src/lib/forms/form-field-base.js';
 
 // Minimal concrete field backed by a plain internal value, for testing the mixin in isolation.
 class TestField extends FormFieldMixin(HTMLElement) {
@@ -158,5 +163,51 @@ describe('FormFieldMixin', () => {
     const el = new Bare();
     expect(() => el.getValue()).toThrow(/getValue/);
     expect(() => el.setValue(1)).toThrow(/setValue/);
+  });
+});
+
+describe('problems contract', () => {
+  test('a field reports no problems by default', () => {
+    expect(makeField().getProblems()).toEqual([]);
+  });
+
+  test('fieldProblem: data plus focus / stillApplies / highlight owned by the field', () => {
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.scrollIntoView = jest.fn();
+    let broken = true;
+    const problem = fieldProblem([input], { kind: 'missing', label: 'שם' }, () => broken);
+
+    expect(problem).toMatchObject({ kind: 'missing', label: 'שם' });
+    expect(problem.stillApplies()).toBe(true);
+    broken = false;
+    expect(problem.stillApplies()).toBe(false);
+
+    problem.highlight();
+    expect(input.classList.contains('recipe-form__input--invalid')).toBe(true);
+    problem.focus();
+    expect(document.activeElement).toBe(input);
+  });
+
+  test('showProblems outlines exactly the given problems', () => {
+    class ShadowField extends FormFieldMixin(HTMLElement) {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' }).innerHTML = '<input id="a"><input id="b">';
+      }
+      getValue() {
+        return null;
+      }
+      setValue() {}
+    }
+    customElements.define('shadow-test-field', ShadowField);
+    const el = new ShadowField();
+    const [a, b] = el.shadowRoot.querySelectorAll('input');
+    a.classList.add('recipe-form__input--invalid');
+    b.classList.add('recipe-form__input--invalid');
+
+    el.showProblems([fieldProblem([b], { kind: 'missing', label: 'b' }, () => true)]);
+    expect(a.classList.contains('recipe-form__input--invalid')).toBe(false);
+    expect(b.classList.contains('recipe-form__input--invalid')).toBe(true);
   });
 });
