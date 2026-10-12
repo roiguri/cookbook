@@ -13,9 +13,11 @@ export function mapExtractedDataToForm(extractedData) {
     name: extractedData.name || '',
     category: extractedData.category || '',
     mainIngredient: extractedData.mainIngredient || '',
-    prepTime: extractedData.prepTime || 0,
-    waitTime: extractedData.waitTime || 0,
-    servings: extractedData.servings || 1,
+    // No value from the import stays empty, so the form flags it, rather than
+    // showing a 0 / 1 that reads as a real value.
+    prepTime: extractedData.prepTime ?? null,
+    waitTime: extractedData.waitTime ?? null,
+    servings: extractedData.servings ?? null,
     difficulty: extractedData.difficulty || 'בינונית',
     description: extractedData.description || '',
     servingsUnit: extractedData.servingsUnit || 'מנות',
