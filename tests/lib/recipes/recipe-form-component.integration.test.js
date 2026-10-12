@@ -455,3 +455,24 @@ describe('recipe-form-component — problems banner edge cases', () => {
     expect(warn.textContent).toBe('לבדיקה (לא חובה): ביצים (יחידה)');
   });
 });
+
+describe('recipe-form-component — saved blanks', () => {
+  test('blanks already in the saved recipe are not listed in the amber line', async () => {
+    const el = await mountEdit({
+      ...EDIT_RECIPE,
+      name: '',
+      ingredients: [
+        { amount: null, unit: '', item: 'מלח לפי הטעם' },
+        { amount: 2, unit: 'כוסות', item: 'קמח' },
+      ],
+    });
+    el._fields.ingredients.setValue([
+      { amount: null, unit: '', item: 'מלח לפי הטעם' },
+      { amount: 2, unit: 'כוסות', item: 'קמח' },
+      { amount: 3, unit: '', item: 'ביצים' },
+    ]);
+    el.validateForm();
+    const warn = el.shadowRoot.querySelector('.recipe-form__problems-warn');
+    expect(warn.textContent).toBe('לבדיקה (לא חובה): ביצים (יחידה)');
+  });
+});

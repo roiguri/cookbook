@@ -16,21 +16,13 @@
 
 export const VISIBLE_LINKS = 5;
 
-/**
- * @typedef {Object} FormProblem
- * @property {'missing'|'wrong'|'rule'} kind
- * @property {string} label
- * @property {Element} [target] - the field to jump to
- * @property {string} [group] - wrong values with the same group share one explanation
- * @property {string} [groupLead] - text before the group's links ("כמות ב־")
- * @property {string} [explanation]
- */
+/** @typedef {import('../../../forms/form-field-base.js').FormProblem} FormProblem */
 
 /**
  * @typedef {Object} BlankFieldWarning
  * @property {string} item
  * @property {string[]} fields - 'amount' | 'unit'
- * @property {Element[]} inputs
+ * @property {() => void} focus
  */
 
 const blankFieldsLabel = (fields) =>
@@ -50,10 +42,9 @@ export function countProblems(problems) {
  * Renders the banner into `container`.
  * @param {HTMLElement} container
  * @param {{ problems: FormProblem[], warnings: BlankFieldWarning[] }} model
- * @param {{ expanded: Set<string>, onToggle: (key: string) => void,
- *   onFocus: (target: Element) => void }} handlers
+ * @param {{ expanded: Set<string>, onToggle: (key: string) => void }} handlers
  */
-export function renderProblems(container, { problems, warnings }, { expanded, onToggle, onFocus }) {
+export function renderProblems(container, { problems, warnings }, { expanded, onToggle }) {
   container.replaceChildren();
 
   const linkList = (key, entries, renderExtra) => {
@@ -67,7 +58,7 @@ export function renderProblems(container, { problems, warnings }, { expanded, on
       link.type = 'button';
       link.className = 'recipe-form__problem-link';
       link.textContent = entry.label;
-      if (entry.target) link.addEventListener('click', () => onFocus(entry.target));
+      link.addEventListener('click', () => entry.focus());
       frag.append(link);
       if (renderExtra) frag.append(renderExtra(entry));
     });
@@ -129,16 +120,12 @@ export function renderProblems(container, { problems, warnings }, { expanded, on
     });
     rules.forEach((rule) => {
       const li = document.createElement('li');
-      if (rule.target) {
-        const link = document.createElement('button');
-        link.type = 'button';
-        link.className = 'recipe-form__problem-link';
-        link.textContent = rule.label;
-        link.addEventListener('click', () => onFocus(rule.target));
-        li.append(link);
-      } else {
-        li.textContent = rule.label;
-      }
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'recipe-form__problem-link';
+      link.textContent = rule.label;
+      link.addEventListener('click', () => rule.focus());
+      li.append(link);
       list.append(li);
     });
     block.append(heading('צריך לתקן'), list);
@@ -149,7 +136,7 @@ export function renderProblems(container, { problems, warnings }, { expanded, on
   if (warnings.length) {
     const line = document.createElement('p');
     line.className = 'recipe-form__problems-warn';
-    const entries = warnings.map((w) => ({ label: w.item, target: w.inputs[0], fields: w.fields }));
+    const entries = warnings.map((w) => ({ label: w.item, focus: w.focus, fields: w.fields }));
     line.append(
       heading('לבדיקה (לא חובה)'),
       linkList('warn', entries, (entry) => ` (${blankFieldsLabel(entry.fields)})`),

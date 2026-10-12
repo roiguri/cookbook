@@ -17,7 +17,6 @@ import '../recipe_import_modal/recipe_import_modal.js';
 import { mapExtractedDataToForm } from '../../../js/utils/recipe-extractor-utils.js';
 import { renderProblems, countProblems } from './parts/form-problems.js';
 import { icons } from '../../../js/icons.js';
-import { parseAmount } from '../../../js/utils/recipes/recipe-ingredients-utils.js';
 import authService from '../../../js/services/auth/auth-service.js';
 
 import styles from './recipe_form_component.css?inline';
@@ -40,6 +39,9 @@ class RecipeFormComponent extends HTMLElement {
     // Blank amount/unit rows the user already confirmed or reviewed (ids from
     // getBlankFieldRows), so the blank-field question is asked once per row.
     this._acknowledgedBlankRows = new Set();
+    // Blank amount/unit rows already in the saved recipe (edit / suggestion):
+    // intentional, so never listed or asked about.
+    this._savedBlankRows = new Set();
     // Problems banner state after a failed save (null = banner not showing).
     this._problems = null;
     this._problemsExpanded = new Set();
@@ -315,7 +317,7 @@ class RecipeFormComponent extends HTMLElement {
       this.hideProblems();
     } else {
       this._problemsExpanded.clear();
-      this.showProblems({
+      this.openProblemsBanner({
         problems: this.collectProblems(),
         warnings: this.collectBlankWarnings(),
       });
@@ -324,11 +326,14 @@ class RecipeFormComponent extends HTMLElement {
     return isValid;
   }
 
-  /** Problems reported by the fields, in form order. Call after setValidationState. */
+  /**
+   * Problems reported by the fields (the field contract's getProblems), in
+   * form order, each tagged with the field that owns it.
+   * Call after setValidationState.
+   */
   collectProblems() {
-    const { metadata, ingredients, instructions } = this._fields;
-    return [metadata, ingredients, instructions].flatMap((field) =>
-      field && typeof field.getProblems === 'function'
+    return this._fieldList.flatMap((field) =>
+      typeof field.getProblems === 'function'
         ? field.getProblems().map((problem) => ({ ...problem, owner: field }))
         : [],
     );
@@ -336,26 +341,24 @@ class RecipeFormComponent extends HTMLElement {
 
   /**
    * Ingredient rows with a blank amount or unit, highlighted in amber next to
-   * the errors. Shown here, they are not asked about again on a later save.
+   * the errors. Skips rows saved that way and rows that already have an error.
+   * Shown here, they are not asked about again on a later save.
    */
   collectBlankWarnings() {
     const ingredients = this._fields.ingredients;
     if (!ingredients || typeof ingredients.getBlankFieldRows !== 'function') return [];
-    // A row that already has an error is fixed first; don't list it twice.
     const rows = ingredients
       .getBlankFieldRows()
-      .filter(
-        (row) =>
-          !row.inputs[0]
-            .closest('.recipe-form__ingredient-entry')
-            ?.querySelector('.recipe-form__input--invalid'),
-      );
-    ingredients.showBlankFieldWarnings(rows, { scroll: false });
+      .filter((row) => !this._savedBlankRows.has(row.id) && !row.hasError);
+    ingredients.showBlankFieldWarnings(
+      rows.map((row) => row.id),
+      { scroll: false },
+    );
     rows.forEach((row) => this._acknowledgedBlankRows.add(row.id));
     return rows;
   }
 
-  showProblems(model) {
+  openProblemsBanner(model) {
     this._problems = model;
     this._jumpIndex = 0;
     this.renderProblemsBanner();
@@ -385,7 +388,6 @@ class RecipeFormComponent extends HTMLElement {
         this._problemsExpanded.add(key);
         this.renderProblemsBanner();
       },
-      onFocus: (target) => this.focusProblem(target),
     });
     banner.hidden = false;
 
@@ -398,32 +400,20 @@ class RecipeFormComponent extends HTMLElement {
   }
 
   /**
-   * Re-checks the fields while the banner is showing. Only drops what the user
-   * fixed: nothing new is flagged until the next save, so a half-typed row is
-   * not called out mid-typing.
+   * Re-checks the problems while the banner is showing, each by its own
+   * field's rules (stillApplies), and lets each field re-outline what is left.
+   * Only drops what the user fixed: nothing new is flagged until the next
+   * save, so a half-typed row is not called out mid-typing.
    */
   refreshProblems() {
     if (!this._problems) return;
+    // List-level problems check against their field's latest validate().
     for (const field of this._fieldList) {
       if (typeof field.validate === 'function') field.validate();
     }
-    const stillThere = (p) =>
-      p.stillApplies ? p.stillApplies() : Boolean(p.target?.isConnected) && this.isStillInvalid(p);
-    const problems = this._problems.problems.filter(stillThere);
-
-    // Re-sync outlines: typing clears an input's outline, and a fixed problem
-    // may have outlined more than its own input (an empty list outlines a whole
-    // row). A field whose list-level problem remains keeps its outlines.
-    const owners = new Set(this._problems.problems.map((p) => p.owner).filter(Boolean));
-    owners.forEach((owner) => {
-      if (problems.some((p) => p.owner === owner && p.stillApplies)) return;
-      owner.shadowRoot
-        .querySelectorAll('.recipe-form__input--invalid')
-        .forEach((el) => el.classList.remove('recipe-form__input--invalid'));
-    });
-    problems
-      .filter((p) => p.kind !== 'rule' && !p.stillApplies)
-      .forEach((p) => p.target.classList.add('recipe-form__input--invalid'));
+    const problems = this._problems.problems.filter((p) => p.stillApplies());
+    const owners = new Set(this._problems.problems.map((p) => p.owner));
+    owners.forEach((owner) => owner.showProblems(problems.filter((p) => p.owner === owner)));
 
     const ingredients = this._fields.ingredients;
     const blankIds = new Set(ingredients?.getBlankFieldRows?.().map((row) => row.id) || []);
@@ -433,34 +423,13 @@ class RecipeFormComponent extends HTMLElement {
     this.renderProblemsBanner();
   }
 
-  /** Whether a field problem still holds, judged by the field's own rules. */
-  isStillInvalid(problem) {
-    const el = problem.target;
-    const value = (el.value || '').trim();
-    if (problem.kind === 'missing') return value === '';
-    if (problem.group === 'amount') return value !== '' && !(parseAmount(value) > 0);
-    if (el.type === 'number') {
-      const n = Number(value);
-      return value === '' || !Number.isFinite(n) || (el.id === 'wait-time' ? n < 0 : n <= 0);
-    }
-    return true;
-  }
-
-  focusProblem(target) {
-    if (!target) return;
-    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    target.focus({ preventScroll: true });
-  }
-
   /** The side button: next problem, wrapping around. */
   jumpToNextProblem() {
-    const targets = (this._problems?.problems || [])
-      .map((p) => p.target)
-      .filter((t) => t?.isConnected);
-    if (!targets.length) return;
-    const target = targets[this._jumpIndex % targets.length];
-    this._jumpIndex = (this._jumpIndex + 1) % targets.length;
-    this.focusProblem(target);
+    const problems = this._problems?.problems || [];
+    if (!problems.length) return;
+    const problem = problems[this._jumpIndex % problems.length];
+    this._jumpIndex = (this._jumpIndex + 1) % problems.length;
+    problem.focus();
   }
 
   /** Collects the current form data into this.recipeData (submit payload). */
@@ -573,8 +542,10 @@ class RecipeFormComponent extends HTMLElement {
   async handleFormSubmit() {
     // validateForm() already collected the data; no second collection needed.
     if (!this.validateForm()) {
-      // Go to the first problem; the banner at the top lists all of them.
-      this.jumpToNextProblem();
+      // Show the banner (the list of problems); the side button then walks the fields.
+      this.shadowRoot
+        .querySelector('.recipe-form__problems')
+        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
     }
     if (!(await this.confirmBlankIngredientFields())) return;
@@ -615,7 +586,7 @@ class RecipeFormComponent extends HTMLElement {
       ingredients.clearBlankFieldWarnings();
       return true;
     }
-    ingredients.showBlankFieldWarnings(newRows);
+    ingredients.showBlankFieldWarnings(newRows.map((row) => row.id));
     return false;
   }
 
@@ -696,6 +667,7 @@ class RecipeFormComponent extends HTMLElement {
    */
   clearForm() {
     this._acknowledgedBlankRows.clear();
+    this._savedBlankRows.clear();
     for (const field of this._fieldList) {
       if (typeof field.clear === 'function') field.clear();
     }
@@ -739,6 +711,7 @@ class RecipeFormComponent extends HTMLElement {
         // only ask about blanks introduced in this edit.
         this._fields.ingredients?.getBlankFieldRows?.().forEach((row) => {
           this._acknowledgedBlankRows.add(row.id);
+          this._savedBlankRows.add(row.id);
         });
       } else {
         console.warn('No such document!');

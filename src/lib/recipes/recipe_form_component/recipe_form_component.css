@@ -527,6 +527,16 @@ fieldset {
   margin-bottom: 14px;
 }
 
+/* The rules above set display; keep [hidden] working (no empty box on load). */
+.recipe-form__problems[hidden],
+.recipe-form__jump-anchor[hidden] {
+  display: none;
+}
+
+.recipe-form__problems {
+  scroll-margin-top: 24px;
+}
+
 .recipe-form__problems strong {
   font-weight: 600;
 }
@@ -587,7 +597,8 @@ fieldset {
 .recipe-form__jump {
   position: absolute;
   bottom: 0;
-  inset-inline-end: 0;
+  /* Room for the badge, which sticks out 6px; modal bodies clip overflow. */
+  inset-inline-end: 10px;
   width: 40px;
   height: 40px;
   border-radius: 50%;

@@ -9,7 +9,7 @@ import {
   CATEGORY_MAP,
   validateRecipeData,
 } from '../../../../js/utils/recipes/recipe-data-utils.js';
-import { FormFieldMixin } from '../../../forms/form-field-base.js';
+import { FormFieldMixin, fieldProblem } from '../../../forms/form-field-base.js';
 
 /** Recipe-data keys this component owns (for filtering validation results). */
 const METADATA_KEYS = [
@@ -207,38 +207,46 @@ class RecipeMetadataFields extends FormFieldMixin(HTMLElement) {
   }
 
   /**
-   * Describes the outlined fields for the form's problems banner: an empty one
-   * is "missing", one with a value is "wrong" and carries an explanation.
-   * Call after setValidationState.
-   * @returns {Array<{kind: string, label: string, target: Element, group?: string, explanation?: string}>}
+   * The outlined fields as problems for the form's banner: an empty one is
+   * "missing", one with a value is "wrong" and carries an explanation. Whether
+   * a problem is fixed is judged by this component's own validate().
+   * @returns {import('../../../forms/form-field-base.js').FormProblem[]}
    */
   getProblems() {
     const FIELDS = [
-      { id: 'name', label: 'שם המנה' },
-      { id: 'dish-type', label: 'קטגוריה' },
-      { id: 'prep-time', label: 'זמן הכנה', explanation: 'צריך להיות מספר דקות גדול מ-0.' },
-      { id: 'wait-time', label: 'זמן המתנה', explanation: 'צריך להיות מספר דקות, 0 או יותר.' },
-      { id: 'servings-form', label: 'כמות מנות', explanation: 'צריכה להיות מספר גדול מ-0.' },
-      { id: 'difficulty', label: 'דרגת קושי' },
-      { id: 'main-ingredient', label: 'מרכיב עיקרי', explanation: 'הערך לא תקין.' },
-      { id: 'tags', label: 'תגיות', explanation: 'הערך לא תקין.' },
+      { id: 'name', key: 'name', label: 'שם המנה' },
+      { id: 'dish-type', key: 'category', label: 'קטגוריה' },
+      {
+        id: 'prep-time',
+        key: 'prepTime',
+        label: 'זמן הכנה',
+        explanation: 'צריך להיות מספר דקות גדול מ-0.',
+      },
+      {
+        id: 'wait-time',
+        key: 'waitTime',
+        label: 'זמן המתנה',
+        explanation: 'צריך להיות מספר דקות, 0 או יותר.',
+      },
+      {
+        id: 'servings-form',
+        key: 'servings',
+        label: 'כמות מנות',
+        explanation: 'צריכה להיות מספר גדול מ-0.',
+      },
+      { id: 'difficulty', key: 'difficulty', label: 'דרגת קושי' },
+      { id: 'main-ingredient', key: 'mainIngredient', label: 'מרכיב עיקרי' },
+      { id: 'tags', key: 'tags', label: 'תגיות' },
     ];
     const problems = [];
-    FIELDS.forEach(({ id, label, explanation }) => {
+    FIELDS.forEach(({ id, key, label, explanation }) => {
       const el = this.shadowRoot.getElementById(id);
       if (!el?.classList.contains('recipe-form__input--invalid')) return;
       const hasValue = el.tagName !== 'SELECT' && el.value.trim() !== '';
-      problems.push(
-        hasValue
-          ? {
-              kind: 'wrong',
-              group: id,
-              label,
-              explanation: explanation || 'הערך לא תקין.',
-              target: el,
-            }
-          : { kind: 'missing', label, target: el },
-      );
+      const props = hasValue
+        ? { kind: 'wrong', group: id, label, explanation: explanation || 'הערך לא תקין.' }
+        : { kind: 'missing', label };
+      problems.push(fieldProblem([el], props, () => Boolean(this.validate().errors[key])));
     });
     return problems;
   }

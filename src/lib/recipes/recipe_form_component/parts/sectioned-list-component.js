@@ -7,6 +7,7 @@
  */
 
 import { DynamicListComponent } from './dynamic-list-component.js';
+import { fieldProblem } from '../../../forms/form-field-base.js';
 
 export class SectionedListComponent extends DynamicListComponent {
   constructor() {
@@ -549,17 +550,13 @@ export class SectionedListComponent extends DynamicListComponent {
   }
 
   /**
-   * Describes what is wrong after the last validate(), for the form's problems
-   * banner. Reads the outlined inputs (setValidationState is the one place that
-   * maps error keys to inputs), so call it after setValidationState.
-   * Problems not tied to one input carry `stillApplies()`, re-checked against
-   * the latest validate() while the user fixes things.
-   * @returns {Array<{kind: 'missing'|'wrong'|'rule', label: string, target?: Element,
-   *   group?: string, groupLead?: string, explanation?: string, stillApplies?: () => boolean}>}
+   * The outlined inputs after the last validate() + setValidationState(), as
+   * problems for the form's banner. List-level problems (an empty list, a
+   * section-count rule) are re-checked against the latest validate().
+   * @returns {import('../../../forms/form-field-base.js').FormProblem[]}
    */
   getProblems() {
     const errors = this._lastErrors || {};
-    const firstInput = () => this.shadowRoot.querySelector('#items-container input');
     const listIsEmpty = () => {
       const value = this.getValue();
       return !Array.isArray(value) || value.length === 0;
@@ -571,26 +568,30 @@ export class SectionedListComponent extends DynamicListComponent {
       errors[this.emptyListErrorKey] &&
       listIsEmpty()
     ) {
+      const firstRow = this.shadowRoot.querySelector(`#items-container .${this.itemClass}`);
+      const inputs = firstRow ? [...firstRow.querySelectorAll('input')] : [];
       return [
-        {
-          kind: 'missing',
-          label: this.problemListLabel,
-          target: firstInput(),
-          stillApplies: () => !this.isSectionMode && listIsEmpty(),
-        },
+        fieldProblem(
+          inputs,
+          { kind: 'missing', label: this.problemListLabel },
+          () => !this.isSectionMode && listIsEmpty(),
+        ),
       ];
     }
 
     const problems = [];
+    const isEmpty = (input) => input.isConnected && input.value.trim() === '';
     if (this.isSectionMode) {
       this.shadowRoot.querySelectorAll(this.sectionContainerSelector).forEach((sectionEl, i) => {
         const titleInput = sectionEl.querySelector(this.sectionNameInputSelector);
         if (titleInput?.classList.contains('recipe-form__input--invalid')) {
-          problems.push({
-            kind: 'missing',
-            label: `שם ${this.sectionTitlePrefix} ${i + 1}`,
-            target: titleInput,
-          });
+          problems.push(
+            fieldProblem(
+              [titleInput],
+              { kind: 'missing', label: `שם ${this.sectionTitlePrefix} ${i + 1}` },
+              () => isEmpty(titleInput),
+            ),
+          );
         }
       });
     }
@@ -609,23 +610,25 @@ export class SectionedListComponent extends DynamicListComponent {
     });
 
     if (this.isSectionMode && problems.length === 0) {
-      const ruleBroken = () => {
-        const latest = this._lastErrors || {};
-        return (
-          this.isSectionMode && Boolean(latest.sections || latest[this.sectionValidationErrorKey])
-        );
-      };
       const label = errors.sections
         ? this.sectionCountRule
         : errors[this.sectionValidationErrorKey]
           ? this.sectionValidationErrorMessage
           : '';
       if (label) {
+        const addSection = this.shadowRoot.querySelector('#add-section');
         problems.push({
-          kind: 'rule',
-          label,
-          target: this.shadowRoot.querySelector('#add-section'),
-          stillApplies: ruleBroken,
+          ...fieldProblem([], { kind: 'rule', label }, () => {
+            const latest = this._lastErrors || {};
+            return (
+              this.isSectionMode &&
+              Boolean(latest.sections || latest[this.sectionValidationErrorKey])
+            );
+          }),
+          focus: () => {
+            addSection?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            addSection?.focus({ preventScroll: true });
+          },
         });
       }
     }
@@ -634,7 +637,8 @@ export class SectionedListComponent extends DynamicListComponent {
 
   /**
    * Subclass hook: one outlined input → a problem for the banner (or null).
-   * @returns {Object|null}
+   * Build it with fieldProblem() so the field keeps owning the check.
+   * @returns {import('../../../forms/form-field-base.js').FormProblem|null}
    */
   describeInvalidInput(_input, _context) {
     return null;
