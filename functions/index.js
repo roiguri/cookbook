@@ -17,10 +17,6 @@ const { sendNotificationToRole } = require('./notifications');
 initializeApp();
 const db = getFirestore();
 
-// Pub/Sub recipe-transfer pipeline (currently gated, see #202). Whole
-// implementation lives in ./recipe-transfer.js so this file stays lean.
-exports.processRecipeTransfer = require('./recipe-transfer.js').processRecipeTransfer;
-
 async function logFailedUrlExtraction(url, error, userId, kind = 'url') {
   try {
     const collectionRef = db.collection('failed_url_extractions');

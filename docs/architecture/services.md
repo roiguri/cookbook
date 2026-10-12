@@ -234,7 +234,6 @@ For server-side enforcement, the truth is in `firestore.rules` and `storage.rule
 `functions/index.js` hosts:
 
 - **Gemini-backed recipe extraction** — pulls a recipe from an image upload or a URL. Triggered by the client via callable functions (called through `ai-enhancement-service.js`).
-- **Batch recipe import** — triggered by Pub/Sub for bulk operations.
-- **Firestore triggers** — downstream side effects on recipe creation/update.
+- **Firestore triggers** — manager notifications on `recipe_submissions` create/resubmit.
 
 Image resizing is **not** a Cloud Function any more — it's the Firebase "Resize Images" extension; configuration and bulk-reprocessing notes live in [`docs/firebase-image-optimization.md`](../firebase-image-optimization.md).

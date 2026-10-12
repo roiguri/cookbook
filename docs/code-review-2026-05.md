@@ -2,7 +2,7 @@
 
 > Expert review across architecture, performance, and security for the Cookbook vanilla JS SPA. Findings are prioritized P0 → P4 with file:line references and concrete fixes. Line references are as of May 2026.
 >
-> **Status (2026-10-12):** S1, S5 and B1 are resolved and B2 was a false positive — each is marked **✅** below. Everything else is still open; tracked as issues: S2 #318, S3 #319, P1 #325, P2 #323, P3 #324, P4 #326.
+> **Status (2026-10-12):** S1, S3, S4, S5 and B1 are resolved and S2 and B2 were false positives — each is marked **✅** below. Everything else is still open; tracked as issues: P1 #325, P2 #323, P3 #324, P4 #326.
 
 ## Scope
 
@@ -30,20 +30,26 @@ All findings were spot-checked against the actual code. Two initially flagged "l
 - **Fix:** Restrict delete to manager only. `isManager()` helper would need to be added to storage.rules (Firestore-style `firestore.get()` cross-service is supported).
 - **Verification:** Add a Storage Rules unit test (`@firebase/rules-unit-testing`) attempting delete as a non-manager — must fail.
 
-### S2. Cloud Function SSRF in `extractRecipeFromUrl`
+### S2. Cloud Function SSRF in `extractRecipeFromUrl` ✅
+
+- **Status:** False positive (#318). The function never fetches the URL itself: `functions/utils/gemini/extractors/url.js` passes it to Gemini's `urlContext` tool, so Google's servers fetch the page, not our function (true since URL import was added, `aea8f38`).
 
 - **Where:** [functions/index.js:529-583](../functions/index.js#L529)
 - **Issue:** Function fetches arbitrary user-supplied URLs server-side. Validation is only `new URL(url)`. Approved/manager role gating helps but does not prevent insider abuse or compromised accounts probing internal Google Cloud metadata (`169.254.169.254`), private IPs, or `file://`.
 - **Fix:** Block private/loopback/link-local IPs, restrict scheme to `http(s)`, follow redirects with re-validation, and consider a domain allowlist if practical.
 - **Verification:** Manual call from Firebase Emulator with `http://169.254.169.254/...` — must reject with `invalid-argument`.
 
-### S3. Cloud Function unbounded image buffer
+### S3. Cloud Function unbounded image buffer ✅
+
+- **Status:** Resolved (#319). The code lived in the gated Pub/Sub recipe-transfer pipeline, which was removed (#206).
 
 - **Where:** [functions/index.js:13-78](../functions/index.js#L13) (`processRecipeImages`)
 - **Issue:** `await response.arrayBuffer()` with no Content-Length check. Storage rules cap uploads at 50MB but `downloadUrl` is fetched fresh on the server and could be redirected.
 - **Fix:** Inspect `response.headers.get('content-length')` before buffering; reject >50MB.
 
-### S4. Pub/Sub trigger lacks origin validation
+### S4. Pub/Sub trigger lacks origin validation ✅
+
+- **Status:** Resolved — the Pub/Sub trigger `processRecipeTransfer` was removed (#206).
 
 - **Where:** `processRecipeTransfer` in [functions/index.js](../functions/index.js)
 - **Issue:** No payload signature/source check. Relies entirely on IAM. Defense-in-depth gap.
@@ -210,8 +216,8 @@ Recommended order — each is a self-contained session:
 | Order | Item                                         | Rough effort         |
 | ----- | -------------------------------------------- | -------------------- |
 | 1     | ~~S1 (Storage delete)~~ ✅                   | done                 |
-| 2     | S2 + S3 (SSRF + buffer cap)                  | 1 hr                 |
-| 3     | S4 (Pub/Sub validation)                      | 30 min               |
+| 2     | ~~S2 + S3 (SSRF + buffer cap)~~ ✅           | done                 |
+| 3     | ~~S4 (Pub/Sub validation)~~ ✅               | done                 |
 | 4     | ~~B1 + B2 (listener leak + isLoading)~~ ✅   | done                 |
 | 5     | B3 (AbortController/mountId pattern)         | 1.5 hr               |
 | 6     | B4 + B5 (auth/listener audit)                | 1 hr                 |
