@@ -2,8 +2,12 @@ import './auth-content.js';
 import '../../modals/confirmation_modal/confirmation_modal.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import { UserService } from '../../../js/services/users/user-service.js';
+import { avatarPngBlob } from '../../../js/utils/avatar/avatar-png.js';
 
 let avatarCache = null;
+
+// A built avatar's download URL points at user-avatars/{uid}.png (path URL-encoded).
+const isBuiltAvatar = (url) => typeof url === 'string' && url.includes('user-avatars%2F');
 
 // Firebase auth codes the profile's password / Google-link actions can raise.
 // Newer projects report a wrong current password as invalid-credential.
@@ -271,9 +275,13 @@ class UserProfile extends HTMLElement {
       <!-- Avatar panel -->
       <div class="profile-body" data-panel="avatar" hidden>
         <section class="section">
-          <h4 class="section-title">בחר אווטאר</h4>
+          <h4 class="section-title">עצב אווטאר משלך</h4>
+          <avatar-builder id="avatar-builder"></avatar-builder>
+        </section>
+        <section class="section">
+          <h4 class="section-title">או בחר אווטאר מוכן</h4>
           <div class="avatar-grid" id="avatar-grid"></div>
-          <span class="feedback" id="avatar-feedback" style="margin-top:12px;display:none;"></span>
+          <span class="feedback" id="avatar-feedback" style="margin-top:12px;"></span>
           <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn btn-quiet" type="button" id="use-initials-btn">השתמש בראשי תיבות</button>
           </div>
@@ -347,7 +355,10 @@ class UserProfile extends HTMLElement {
     });
 
     if (panelName === 'details') this._populateDetails();
-    if (panelName === 'avatar') this._loadAvatars();
+    if (panelName === 'avatar') {
+      this._loadBuilder();
+      this._loadAvatars();
+    }
     if (panelName === 'security') this._populateSecurity();
   }
 
@@ -388,6 +399,38 @@ class UserProfile extends HTMLElement {
   }
 
   // ---- Avatar panel ----
+
+  // The builder starts from the user's saved choices (users/{uid}.avatarConfig).
+  async _loadBuilder() {
+    await import('../avatar-builder/avatar-builder.js');
+    const builder = this.shadowRoot.getElementById('avatar-builder');
+    if (!builder._profileBound) {
+      builder._profileBound = true;
+      builder.addEventListener('avatar-builder-save', (e) =>
+        this._saveBuiltAvatar(builder, e.detail.config),
+      );
+      builder.config = authService._userData?.avatarConfig || null;
+    }
+    builder.active = isBuiltAvatar(this.selectedAvatarUrl) && !!authService._userData?.avatarConfig;
+  }
+
+  async _saveBuiltAvatar(builder, config) {
+    const user = authService.getCurrentUser();
+    if (!user) return;
+    try {
+      const blob = await avatarPngBlob(config);
+      const url = await UserService.uploadAvatarImage(user.uid, blob);
+      await authService.updateProfile({ avatarUrl: url, avatarConfig: config });
+      this.selectedAvatarUrl = url;
+      this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
+      builder.markSaved(config);
+      this._flashFeedback('avatar-feedback', 'ok', '✓ האווטאר נשמר');
+    } catch (error) {
+      console.error('Error saving built avatar:', error);
+      builder.setBusy(false);
+      this._showFeedback('avatar-feedback', 'err', 'שמירת האווטאר נכשלה. נסה שנית.');
+    }
+  }
 
   async _loadAvatars() {
     const grid = this.shadowRoot.getElementById('avatar-grid');
@@ -440,12 +483,18 @@ class UserProfile extends HTMLElement {
     this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
     btn.classList.add('on');
     this.selectedAvatarUrl = url;
+    this._deactivateBuilder();
     try {
       await authService.updateProfile({ avatarUrl: url });
       this._flashFeedback('avatar-feedback', 'ok', '✓ נשמר');
     } catch (error) {
       this._showFeedback('avatar-feedback', 'err', error.message || 'השמירה נכשלה. נסה שנית.');
     }
+  }
+
+  _deactivateBuilder() {
+    const builder = this.shadowRoot.getElementById('avatar-builder');
+    if (builder) builder.active = false;
   }
 
   async _useInitials() {
@@ -455,6 +504,7 @@ class UserProfile extends HTMLElement {
       await authService.updateProfile({ avatarUrl: null });
       this.selectedAvatarUrl = null;
       this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
+      this._deactivateBuilder();
       this._showFeedback('avatar-feedback', 'ok', 'ראשי תיבות מוצגים כעת כאווטאר שלך.');
     } catch (error) {
       this._showFeedback('avatar-feedback', 'err', error.message || 'הפעולה נכשלה. נסה שנית.');

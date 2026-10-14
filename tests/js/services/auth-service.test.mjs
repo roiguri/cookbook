@@ -527,6 +527,39 @@ describe('AuthService', () => {
       expect(mockUser.delete).toHaveBeenCalled();
     });
 
+    test('deleteAccount also deletes a built avatar image', async () => {
+      const { deleteObject, ref } = await import('firebase/storage');
+      deleteObject.mockResolvedValue(undefined);
+      authService._userData = { avatarConfig: { v: 1, parts: {}, colors: {} } };
+
+      await authService.deleteAccount();
+
+      expect(ref).toHaveBeenCalledWith(expect.anything(), `user-avatars/${mockUser.uid}.png`);
+      expect(deleteObject).toHaveBeenCalled();
+      expect(mockUser.delete).toHaveBeenCalled();
+    });
+
+    test('deleteAccount still deletes the account when the avatar cleanup fails', async () => {
+      const { deleteObject } = await import('firebase/storage');
+      deleteObject.mockRejectedValue(new Error('storage/object-not-found'));
+      authService._userData = { avatarConfig: { v: 1, parts: {}, colors: {} } };
+
+      await authService.deleteAccount();
+
+      expect(deleteDoc).toHaveBeenCalled();
+      expect(mockUser.delete).toHaveBeenCalled();
+    });
+
+    test('deleteAccount skips Storage when no avatar was built', async () => {
+      const { deleteObject } = await import('firebase/storage');
+      deleteObject.mockClear();
+      authService._userData = { avatarUrl: 'https://cdn/Avatars/a.svg' };
+
+      await authService.deleteAccount();
+
+      expect(deleteObject).not.toHaveBeenCalled();
+    });
+
     test('deleteAccount should throw error if no user is signed in', async () => {
       authService._currentUser = null;
 

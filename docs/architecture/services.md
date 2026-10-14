@@ -53,7 +53,7 @@ Reference only — the JSDoc on each service class is canonical.
 | `RecipeEditSuggestionService` | `create`, `listPending`, `get`, `approve`, `supersedePending`, `reject`                                                 |
 | `MediaInstructionService`     | `upload`, `delete`, `deleteMany`, `removeAll`, `getUrl`                                                                 |
 | `PdfService`                  | `getPageIndex`, `getPageImageUrl`                                                                                       |
-| `UserService`                 | (user-doc CRUD; canonical reference: JSDoc on the class)                                                                |
+| `UserService`                 | (user-doc CRUD; `listAvatarOptions`, `uploadAvatarImage`, `deleteAvatarImage` — see [avatars.md](./avatars.md))         |
 | `ActiveMealService`           | (active_meals lifecycle)                                                                                                |
 | `FavoritesService`            | favorites toggle (delegates to `UserService`)                                                                           |
 | `AuthService`                 | sign-in/out, current user, `waitForAuth()`, role                                                                        |
