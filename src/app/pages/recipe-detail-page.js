@@ -42,10 +42,13 @@ export default {
 
     try {
       await this.initializeRecipeComponent(container, recipeId);
-      await this.importComponents();
+      // The buttons are set up right away, with the recipe; the modals some menu
+      // actions open load alongside, and those actions wait for them.
+      this._componentsReady = this.importComponents();
       this.setupShareHandlers(container);
       this.setupMenuHandlers(container, recipeId);
       this.setupSuggestionListener(container);
+      await this._componentsReady;
     } catch (error) {
       console.error('Failed to load recipe detail page:', error);
       this.showError(container, 'Failed to load recipe details');
@@ -155,6 +158,8 @@ export default {
       cancelSubmissionBtn,
     };
     this._menuAuthUnsubscribe = authService.addAuthObserver(({ user: current }) => {
+      // Sign-in is known now (either way): share appears together with ⋮.
+      if (this._share) this._share.authKnown = true;
       // Signing out of a private recipe leaves the page at once (as My recipes
       // does); published recipes stay open to signed-out visitors.
       if (!current && this.currentRecipe?.visibility === VISIBILITY.PRIVATE) {
@@ -188,8 +193,9 @@ export default {
 
     // Handle "Suggest Edit" click
     if (suggestEditBtn) {
-      suggestEditBtn.addEventListener('click', () => {
+      suggestEditBtn.addEventListener('click', async () => {
         menuDropdown.classList.remove('open');
+        await this._componentsReady;
         const modal = container.querySelector('suggest-edit-modal');
         if (modal) {
           modal.openForRecipe(currentId());
@@ -203,6 +209,7 @@ export default {
     if (addToMealBtn) {
       addToMealBtn.addEventListener('click', async () => {
         menuDropdown.classList.remove('open');
+        await this._componentsReady;
         const currentUser = authService.getCurrentUser();
         if (!currentUser) return;
 
@@ -292,6 +299,7 @@ export default {
     // Owner: send a private recipe to the family book
     submitBtn?.addEventListener('click', async () => {
       menuDropdown.classList.remove('open');
+      await this._componentsReady;
       const recipe = this.currentRecipe;
       const untested = recipe?.stage === STAGE.TO_TRY;
       const confirmed = await this.getConfirmModal().confirm(
@@ -319,6 +327,7 @@ export default {
     // Owner: cancel a pending submission
     cancelSubmissionBtn?.addEventListener('click', async () => {
       menuDropdown.classList.remove('open');
+      await this._componentsReady;
       const confirmed = await this.getConfirmModal().confirm(
         'המתכון יוסר מתור האישור ויישאר פרטי בספרייה שלכם.',
         'לבטל את השליחה?',
@@ -340,6 +349,7 @@ export default {
     // Owner: delete a private recipe (with its photos, media and pending submission)
     deleteBtn?.addEventListener('click', async () => {
       menuDropdown.classList.remove('open');
+      await this._componentsReady;
       const recipe = this.currentRecipe;
       const id = currentId();
       const confirmed = await this.getConfirmModal().confirm(
@@ -380,7 +390,14 @@ export default {
     const linkBtn = container.querySelector('#share-link-btn');
     const familyIcon = container.querySelector('#share-family-icon');
     if (familyIcon) familyIcon.outerHTML = icons.users;
-    this._share = { container, wrap, button, dropdown, familyBtn, linkBtn };
+    this._share = { container, wrap, button, dropdown, familyBtn, linkBtn, authKnown: false };
+    // Appear when sign-in is known — the moment ⋮ is shown or not — so the two
+    // buttons arrive together.
+    authService.waitForAuth().finally(() => {
+      if (!this._share) return;
+      this._share.authKnown = true;
+      this.refreshShare();
+    });
 
     // The text uses the servings the reader chose on the page.
     container.addEventListener('servings-changed', (event) => {
@@ -450,12 +467,17 @@ export default {
     return isAuthor ? 'family' : 'text';
   },
 
-  /** Shown once the recipe is found; a menu unless it goes straight to text. */
+  /**
+   * Shown with the page once sign-in is known, at the same moment as ⋮ (hidden
+   * for a missing recipe; a tap before the recipe arrives does nothing); a menu
+   * unless it goes straight to text.
+   */
   refreshShare() {
     const els = this._share;
     if (!els) return;
     const recipe = this._notFound ? null : this.currentRecipe;
-    els.wrap.hidden = !recipe;
+    // ⋮ shows as soon as there's a user; signed-out pages learn it from the auth observer.
+    els.wrap.hidden = this._notFound || !(els.authKnown || authService.getCurrentUser());
     if (!recipe) this.closeShareMenu();
     const mode = recipe ? this.shareMode() : 'text';
     if (mode !== 'text') els.button.setAttribute('aria-haspopup', 'menu');
