@@ -51,8 +51,19 @@ Each release ships something usable on its own and builds on the previous one.
 ### R2: Links that look good
 
 - WhatsApp and other apps show the recipe's photo, title and description instead of the generic app title.
-- Needs a Netlify Edge Function on `/recipe/*` (the app is an SPA with no server rendering) reading the recipe through the Firestore REST API, signed out, so the rules filter private recipes. Probably a JPEG thumbnail too: our thumbnails are WebP, which WhatsApp may not preview reliably.
 - **Impact:** R1's links get opened, not ignored.
+
+**How it works.** Link-preview bots read the HTML without running JavaScript, and every route serves the same `index.html`. A Netlify **Edge Function** runs before the page is returned: on `/recipe/:id` it reads the recipe through the Firestore REST API, signed out (the rules refuse private recipes, so a private name never reaches a preview), and rewrites the `<head>`: `<title>`, `description` and the Open Graph tags. Other pages get the site's default tags. Visitors see no difference; on any error the page is returned unchanged.
+
+**Decisions (2026-10-14):**
+
+- **Photo:** the recipe's primary **public** photo (`access: 'public'` only; family-only photos never appear in a preview), plain, no branding overlay. Shown as a large card.
+- **Fallback card:** when there's no public photo, or the recipe is private or missing: a static branded image, the **green card** (spoon logo, "Our Kitchen / Chronicles" on two lines so a centre square crop still reads, "ספר המתכונים של המשפחה"). Mock: "Sharing · R2" row on the Cookbook screens canvas (`OgCard-green`).
+- **Text:** the title is the recipe name; the description is the recipe's own, or a line like "קינוחים · 30 דקות הכנה · 20 מנות". The browser tab shows the recipe name too.
+- **Images stay off Netlify:** photos are served from Firebase Storage, the fallback card as a static site file. No Netlify Image CDN.
+- **Two steps:**
+  - **R2a:** the Edge Function, default tags, the fallback card, the tab title. The photo tag points at the existing `_1080x1080.webp`; a real WhatsApp test decides whether WebP is enough.
+  - **R2b:** our own `sharp` function replacing the Resize Images extension (#390, deadline 2027-03-31). **Not needed for previews:** the R2a test (2026-10-14, draft deploy, WhatsApp) showed the WebP photo, the green card, and no name for a private recipe. R2b stays part of the extension work in #390.
 
 ### R3: Share with family in the app (#383)
 
@@ -75,11 +86,11 @@ Sharing a link from Instagram or a website into the app's import. Independent of
 
 R1 → R2 → R3 → R4. R1 and R2 give the most for the least work and set up what R3 reuses. Most sharing in this family happens on phones over WhatsApp, so PDF comes last; nothing depends on R4, so it can move earlier if printing becomes the priority.
 
-## Status (branch `feat/recipe-sharing`)
+## Status
 
-| Release | State       |
-| ------- | ----------- |
-| R1      | 🔨 building |
-| R2      | ⏳ planned  |
-| R3      | ⏳ planned  |
-| R4      | ⏳ planned  |
+| Release | State                             |
+| ------- | --------------------------------- |
+| R1      | ✅ merged to `development` (#412) |
+| R2      | ✅ R2a tested in WhatsApp (#414)  |
+| R3      | ⏳ planned                        |
+| R4      | ⏳ planned                        |

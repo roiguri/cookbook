@@ -74,6 +74,10 @@ export default {
         if (event.detail && 'found' in event.detail) {
           this.currentRecipe = event.detail.recipe;
           this._servings = null; // a new recipe shows its own servings
+          // The tab (and a share sheet's title) shows the recipe's name.
+          if (this.currentRecipe?.name) {
+            document.title = AppConfig.getPageTitle(this.currentRecipe.name);
+          }
           this.refreshMenu();
         }
       });
@@ -728,10 +732,9 @@ export default {
     }
   },
 
-  getTitle(params) {
-    return params.id
-      ? AppConfig.getPageTitle(`Recipe ${params.id}`)
-      : AppConfig.getPageTitle('Recipe');
+  // Until the recipe loads; then the page shows its name (initializeRecipeComponent).
+  getTitle() {
+    return AppConfig.getPageTitle();
   },
 
   getMeta() {
