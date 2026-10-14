@@ -6,6 +6,7 @@ import {
   formatIngredientAmount,
   scaleIngredients,
 } from '../../js/utils/recipes/recipe-ingredients-utils.js';
+import { ingredientLine } from '../../js/utils/recipes/recipe-text.js';
 import { AppConfig } from '../../js/config/app-config.js';
 import { icons } from '../../js/icons.js';
 import '../../lib/modals/confirmation_modal/confirmation_modal.js';
@@ -338,6 +339,7 @@ export default {
     const copyBtn = this.container.querySelector('#copy-ingredients-btn');
     const shareBtn = this.container.querySelector('#share-ingredients-btn');
 
+    shareBtn.innerHTML = icons.share;
     // Show share button if supported
     if (navigator.share) {
       shareBtn.classList.remove('hidden');
@@ -382,7 +384,7 @@ export default {
             section.items.forEach((item, iIndex) => {
               const key = `${id}-${sIndex}-${iIndex}`;
               if (!this.state.unselectedIngredients.has(key)) {
-                sectionText += `- ${this._ingredientText(item)}\n`;
+                sectionText += `- ${ingredientLine(item)}\n`;
                 sectionHasItems = true;
               }
             });
@@ -395,7 +397,7 @@ export default {
           scaledIngredients.forEach((item, iIndex) => {
             const key = `${id}-0-${iIndex}`;
             if (!this.state.unselectedIngredients.has(key)) {
-              text += `- ${this._ingredientText(item)}\n`;
+              text += `- ${ingredientLine(item)}\n`;
             }
           });
         }
@@ -541,13 +543,6 @@ export default {
    * @param {{amount: number|null, unit: string, item: string}} item
    * @returns {string}
    */
-  _ingredientText(item) {
-    return [formatIngredientAmount(item.amount), item.unit, item.item]
-      .map((part) => (part ?? '').toString().trim())
-      .filter(Boolean)
-      .join(' ');
-  },
-
   /**
    * Appends the amount / unit / item spans of an ingredient row to `label`,
    * skipping an empty amount or unit so the flex gap does not leave holes.

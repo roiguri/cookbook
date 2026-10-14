@@ -1,9 +1,12 @@
 import { AppConfig } from '../../js/config/app-config.js';
+import { icons } from '../../js/icons.js';
 import authService from '../../js/services/auth/auth-service.js';
 import { ActiveMealService } from '../../js/services/meals/active-meal-service.js';
 import { RecipeService, STAGE, VISIBILITY } from '../../js/services/recipes/recipe-service.js';
 import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
 import { getRecipeStatus, RECIPE_STATUS } from '../../js/utils/recipes/recipe-status.js';
+import { recipeShareText } from '../../js/utils/recipes/recipe-text.js';
+import { shareOrCopy } from '../../js/utils/share.js';
 import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
 import '../../styles/pages/recipe-detail-spa.css';
 
@@ -28,12 +31,15 @@ export default {
     this.currentRecipe = null;
     this._notFound = false;
     this._menu = null;
+    this._share = null;
+    this._servings = null;
     this.currentSubmission = undefined;
     this._submissionFor = null;
 
     try {
       await this.initializeRecipeComponent(container, recipeId);
       await this.importComponents();
+      this.setupShareHandlers(container);
       this.setupMenuHandlers(container, recipeId);
       this.setupSuggestionListener(container);
     } catch (error) {
@@ -67,6 +73,7 @@ export default {
         // Only the fetch's event carries the recipe; keep the menu in step with it.
         if (event.detail && 'found' in event.detail) {
           this.currentRecipe = event.detail.recipe;
+          this._servings = null; // a new recipe shows its own servings
           this.refreshMenu();
         }
       });
@@ -153,6 +160,7 @@ export default {
     // Toggle dropdown on button click
     menuButton.addEventListener('click', (e) => {
       e.stopPropagation();
+      this.closeShareMenu();
       menuDropdown.classList.toggle('open');
       menuButton.setAttribute('aria-expanded', String(menuDropdown.classList.contains('open')));
     });
@@ -347,6 +355,106 @@ export default {
     this.refreshMenu();
   },
 
+  /**
+   * Share (R1 in docs/feature-plans/recipe-sharing.md): open to every reader of a
+   * recipe that was found, signed out included. A published recipe offers its
+   * link or the whole recipe as text; others can't open a private recipe's link,
+   * so it goes straight to the text.
+   */
+  setupShareHandlers(container) {
+    const wrap = container.querySelector('.recipe-share');
+    const button = container.querySelector('#share-recipe-btn');
+    const dropdown = container.querySelector('.share-menu');
+    if (!wrap || !button || !dropdown) return;
+
+    button.innerHTML = icons.share;
+    this._share = { wrap, button, dropdown };
+
+    // The text uses the servings the reader chose on the page.
+    container.addEventListener('servings-changed', (event) => {
+      this._servings = event.detail?.servings || null;
+    });
+
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const recipe = this.currentRecipe;
+      if (!recipe) return;
+      const menu = this._menu;
+      menu?.menuDropdown.classList.remove('open');
+      menu?.container.querySelector('.recipe-menu-button')?.setAttribute('aria-expanded', 'false');
+      if (recipe.visibility !== VISIBILITY.PUBLISHED) {
+        this.shareRecipe('text');
+        return;
+      }
+      const open = !dropdown.classList.contains('open');
+      dropdown.classList.toggle('open', open);
+      button.setAttribute('aria-expanded', String(open));
+    });
+
+    container.querySelector('#share-link-btn')?.addEventListener('click', () => {
+      this.closeShareMenu();
+      this.shareRecipe('link');
+    });
+    container.querySelector('#share-text-btn')?.addEventListener('click', () => {
+      this.closeShareMenu();
+      this.shareRecipe('text');
+    });
+
+    const closeOnOutsideClick = (event) => {
+      if (!wrap.contains(event.target)) this.closeShareMenu();
+    };
+    document.addEventListener('click', closeOnOutsideClick);
+    this._shareCleanup = () => document.removeEventListener('click', closeOnOutsideClick);
+
+    this.refreshShare();
+  },
+
+  closeShareMenu() {
+    if (!this._share) return;
+    this._share.dropdown.classList.remove('open');
+    this._share.button.setAttribute('aria-expanded', 'false');
+  },
+
+  /** Shown once the recipe is found; a menu only for a published recipe. */
+  refreshShare() {
+    const els = this._share;
+    if (!els) return;
+    const recipe = this._notFound ? null : this.currentRecipe;
+    els.wrap.hidden = !recipe;
+    if (!recipe) this.closeShareMenu();
+    if (recipe?.visibility === VISIBILITY.PUBLISHED)
+      els.button.setAttribute('aria-haspopup', 'menu');
+    else els.button.removeAttribute('aria-haspopup');
+  },
+
+  /**
+   * Send the current recipe through the share sheet, or copy it when the
+   * browser has none.
+   * @param {'link'|'text'} kind - The link (published recipes) or the whole recipe.
+   */
+  async shareRecipe(kind) {
+    const recipe = this.currentRecipe;
+    if (!recipe) return;
+    const url =
+      recipe.visibility === VISIBILITY.PUBLISHED
+        ? new URL(`${import.meta.env.BASE_URL}recipe/${recipe.id}`, window.location.origin).href
+        : undefined;
+    try {
+      let result;
+      if (kind === 'link' && url) {
+        result = await shareOrCopy({ title: recipe.name, text: recipe.name, url }, url);
+      } else {
+        const text = recipeShareText(recipe, { servings: this._servings, url });
+        result = await shareOrCopy({ title: recipe.name, text }, text);
+      }
+      if (result === 'copied')
+        showToast(kind === 'link' ? 'הקישור הועתק' : 'המתכון הועתק', 'success');
+    } catch (error) {
+      console.error('Error sharing recipe:', error);
+      showToast('לא הצלחנו להעתיק. נסו שוב.', 'error');
+    }
+  },
+
   /** One confirmation dialog for the page, created on first use. */
   getConfirmModal() {
     let modal = document.getElementById('recipe-confirm-modal');
@@ -365,6 +473,8 @@ export default {
    * the regular menu.
    */
   refreshMenu() {
+    // Share follows the same recipe / not-found state.
+    this.refreshShare();
     const els = this._menu;
     if (!els) return;
     const recipe = this.currentRecipe;
@@ -574,6 +684,9 @@ export default {
       this._menuAuthUnsubscribe = null;
     }
     this._menu = null;
+    this._shareCleanup?.();
+    this._shareCleanup = null;
+    this._share = null;
     if (this._reloadOnSignIn) {
       document.removeEventListener('auth-state-changed', this._reloadOnSignIn);
       this._reloadOnSignIn = null;
