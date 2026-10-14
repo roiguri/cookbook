@@ -34,6 +34,8 @@ export default {
     this._menu = null;
     this._share = null;
     this._sharedByFor = null;
+    this._sharedByPromise = null;
+    this._prefetchedFor = null;
     this._servings = null;
     this.currentSubmission = undefined;
     this._submissionFor = null;
@@ -398,6 +400,7 @@ export default {
         return;
       }
       if (familyBtn) familyBtn.hidden = mode !== 'family';
+      if (mode === 'family') this.prefetchFamily();
       if (linkBtn) linkBtn.hidden = mode !== 'published';
       const open = !dropdown.classList.contains('open');
       dropdown.classList.toggle('open', open);
@@ -454,8 +457,14 @@ export default {
     const recipe = this._notFound ? null : this.currentRecipe;
     els.wrap.hidden = !recipe;
     if (!recipe) this.closeShareMenu();
-    if (recipe && this.shareMode() !== 'text') els.button.setAttribute('aria-haspopup', 'menu');
+    const mode = recipe ? this.shareMode() : 'text';
+    if (mode !== 'text') els.button.setAttribute('aria-haspopup', 'menu');
     else els.button.removeAttribute('aria-haspopup');
+    // The author's private recipe: load who to share with now, so the picker opens filled.
+    if (mode === 'family' && this._prefetchedFor !== recipe.id) {
+      this._prefetchedFor = recipe.id;
+      this.prefetchFamily();
+    }
     this.refreshSharedBy();
   },
 
@@ -475,18 +484,15 @@ export default {
     const component = () => this._share?.container.querySelector('recipe-component');
     component()?.setSharedBy(null);
     if (!candidate) return;
-    RecipeShareService.getMine(recipe.id, user.uid).then((share) => {
+    this._sharedByPromise = RecipeShareService.getMine(recipe.id, user.uid).then((share) => {
       if (this._sharedByFor !== key || !share) return;
       component()?.setSharedBy(share.authorName);
       component()?.setStatus(null);
     });
   },
 
-  /** The author shares their private recipe with family (the picker modal). */
-  async openFamilyPicker() {
-    const recipe = this.currentRecipe;
-    const user = authService.getCurrentUser();
-    if (!recipe || !user) return;
+  /** The picker modal, created on first use. */
+  async getFamilyModal() {
     await import('../../lib/recipes/share-family-modal/share-family-modal.js');
     let modal = document.getElementById('share-family-modal');
     if (!modal) {
@@ -494,6 +500,23 @@ export default {
       modal.id = 'share-family-modal';
       document.body.appendChild(modal);
     }
+    return modal;
+  },
+
+  /** Start loading who to share with as the menu opens, so the picker opens filled. */
+  async prefetchFamily() {
+    const recipe = this.currentRecipe;
+    const user = authService.getCurrentUser();
+    if (!recipe || !user) return;
+    (await this.getFamilyModal()).prefetch({ recipeId: recipe.id, authorId: user.uid });
+  },
+
+  /** The author shares their private recipe with family (the picker modal). */
+  async openFamilyPicker() {
+    const recipe = this.currentRecipe;
+    const user = authService.getCurrentUser();
+    if (!recipe || !user) return;
+    const modal = await this.getFamilyModal();
     const profile = await authService.getUserData().catch(() => null);
     modal.openFor({
       recipeId: recipe.id,
@@ -772,10 +795,15 @@ export default {
     }
   },
 
+  // The overlay stays until the recipe and, for a recipe shared with the reader,
+  // the "shared with you" line are in place (no jump, no author status flash).
   async waitForReady(container) {
     if (this._readyPromise) {
       await this._readyPromise;
     }
+    await authService.waitForAuth(3000).catch(() => null);
+    this.refreshShare();
+    await this._sharedByPromise;
   },
 
   async handleRouteChange(params) {

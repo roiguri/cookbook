@@ -114,9 +114,12 @@ export default {
     await this.list.start();
   },
 
+  // The overlay stays until the first load: the counts, the "shared with me"
+  // chip and the cards appear together, with no "no recipes" flash before them.
   async waitForReady(container) {
     const filter = container.querySelector('#unified-filter');
     if (filter?.waitForReady) await filter.waitForReady();
+    await this.list?.firstLoad;
   },
 
   async unmount() {

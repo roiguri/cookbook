@@ -211,7 +211,31 @@ class ShareFamilyModal extends Modal {
         font-weight: 600;
         font-size: 13px;
       }
-      .fp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+      .fp-avatar { position: relative; }
+      .fp-avatar img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity var(--dur-1, 160ms) var(--ease, ease);
+      }
+      .fp-avatar img.is-loaded { opacity: 1; }
+      /* Placeholder rows while the family list loads: the same size as real rows. */
+      .fp-skel .fp-avatar { background: var(--surface-2, #f6eed6); }
+      .fp-skel-bar {
+        height: 12px;
+        width: 45%;
+        border-radius: var(--r-pill, 999px);
+        background: linear-gradient(90deg, var(--surface-2, #f6eed6) 25%, var(--surface-0, #faf6ec) 50%, var(--surface-2, #f6eed6) 75%);
+        background-size: 200% 100%;
+        animation: fp-shimmer 1.2s ease-in-out infinite;
+      }
+      .fp-skel:nth-child(2) .fp-skel-bar { width: 35%; }
+      .fp-skel:nth-child(3) .fp-skel-bar { width: 52%; }
+      @keyframes fp-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+      @media (prefers-reduced-motion: reduce) { .fp-skel-bar { animation: none; } }
       .fp-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
       .fp-name {
         font-size: 14.5px;
@@ -384,6 +408,8 @@ class ShareFamilyModal extends Modal {
     this._selected = new Set();
     this._family = [];
     this._shares = [];
+    this._familyCache = null; // { authorId, members } — kept for the session
+    this._pending = null; // { key, promise } — a load in flight
 
     $('fp-cancel').addEventListener('click', () => this.close({ byUser: true }));
     $('fp-share').addEventListener('click', () => this._share());
@@ -396,6 +422,33 @@ class ShareFamilyModal extends Modal {
       $('fp-access-list').hidden = !open;
       this.setFocusableElements();
     });
+  }
+
+  /**
+   * Start loading who can be picked and who has access, before the picker
+   * opens (the page calls it as the share menu opens), so it opens filled.
+   * @param {{recipeId: string, authorId: string}} params
+   */
+  prefetch({ recipeId, authorId }) {
+    return this._fetch(recipeId, authorId).catch(() => null);
+  }
+
+  _fetch(recipeId, authorId) {
+    const key = `${recipeId}:${authorId}`;
+    if (this._pending?.key === key) return this._pending.promise;
+    const cached = this._familyCache?.authorId === authorId ? this._familyCache.members : null;
+    const promise = Promise.all([
+      cached || RecipeShareService.listFamily(),
+      RecipeShareService.listForRecipe(recipeId, authorId),
+    ]).then(([family, shares]) => {
+      this._familyCache = { authorId, members: family };
+      return { family, shares };
+    });
+    this._pending = { key, promise };
+    promise.catch(() => {
+      if (this._pending?.promise === promise) this._pending = null;
+    });
+    return promise;
   }
 
   /**
@@ -415,13 +468,13 @@ class ShareFamilyModal extends Modal {
     $('fp-intro').textContent =
       `רק מי שתבחרו יוכלו לראות את ״${recipeName || ''}״. המתכון נשאר פרטי, והם תמיד יראו את הגרסה העדכנית.`;
     $('fp-done').hidden = true;
+    $('fp-intro').hidden = false;
     $('fp-q').value = '';
     $('fp-access-toggle').setAttribute('aria-expanded', 'false');
     $('fp-access-list').hidden = true;
-    this._showMessage('טוענים את בני המשפחה…');
-    $('fp-access').hidden = true;
-    $('fp-family').hidden = true;
+    this._showMessage('');
     this._updateShareButton();
+    this._renderSkeleton();
     this.open();
     await this._load();
   }
@@ -429,19 +482,41 @@ class ShareFamilyModal extends Modal {
   async _load() {
     const { recipeId, authorId } = this._recipe;
     try {
-      const [family, shares] = await Promise.all([
-        RecipeShareService.listFamily(),
-        RecipeShareService.listForRecipe(recipeId, authorId),
-      ]);
+      const { family, shares } = await this._fetch(recipeId, authorId);
       if (this._recipe?.recipeId !== recipeId) return;
+      this._pending = null; // next open reloads who has access
       this._family = family;
       this._shares = shares;
       this._showMessage(family.length ? '' : 'אין עדיין בני משפחה נוספים באתר לשתף איתם.');
       this._render();
     } catch (error) {
       console.error('Error loading the family list:', error);
+      this.shadowRoot.getElementById('fp-family').hidden = true;
       this._showMessage('לא הצלחנו לטעון את בני המשפחה. נסו שוב.');
     }
+  }
+
+  /** Placeholder rows, the size of real ones, while the lists load. */
+  _renderSkeleton() {
+    const $ = (id) => this.shadowRoot.getElementById(id);
+    $('fp-access').hidden = true;
+    $('fp-family').hidden = false;
+    $('fp-search').hidden = true;
+    $('fp-no-match').hidden = true;
+    $('fp-family-count').textContent = '';
+    $('fp-family-list').replaceChildren(
+      ...[0, 1, 2].map(() => {
+        const row = document.createElement('li');
+        row.className = 'fp-row fp-skel';
+        row.setAttribute('aria-hidden', 'true');
+        const avatar = document.createElement('span');
+        avatar.className = 'fp-avatar';
+        const bar = document.createElement('span');
+        bar.className = 'fp-skel-bar';
+        row.append(avatar, bar);
+        return row;
+      }),
+    );
   }
 
   _showMessage(text) {
@@ -458,14 +533,16 @@ class ShareFamilyModal extends Modal {
     const avatar = document.createElement('span');
     avatar.className = 'fp-avatar';
     avatar.setAttribute('aria-hidden', 'true');
+    // The initial shows at once; a photo fades in over it once loaded.
+    avatar.textContent = (name || '?').trim().charAt(0);
     if (avatarUrl) {
       const img = document.createElement('img');
-      img.src = avatarUrl;
       img.alt = '';
       img.referrerPolicy = 'no-referrer';
+      img.addEventListener('load', () => img.classList.add('is-loaded'));
+      img.addEventListener('error', () => img.remove());
+      img.src = avatarUrl;
       avatar.append(img);
-    } else {
-      avatar.textContent = (name || '?').trim().charAt(0);
     }
     return avatar;
   }
@@ -521,6 +598,9 @@ class ShareFamilyModal extends Modal {
       : others;
 
     $('fp-family').hidden = others.length === 0;
+    if (this._family.length) {
+      this._showMessage(others.length ? '' : 'כל בני המשפחה כבר יכולים לראות את המתכון.');
+    }
     $('fp-family-count').textContent = String(others.length);
     $('fp-search').hidden = others.length < SEARCH_FROM;
     $('fp-no-match').hidden = shown.length > 0 || !query;
@@ -574,6 +654,8 @@ class ShareFamilyModal extends Modal {
       const names = recipientUids.map((uid) => this._person(uid).name);
       const done = this.shadowRoot.getElementById('fp-done');
       this.shadowRoot.getElementById('fp-done-text').textContent = sharedWithText(names);
+      // The note takes the intro's place, so the modal doesn't grow and jump.
+      this.shadowRoot.getElementById('fp-intro').hidden = true;
       done.hidden = false;
       this.shadowRoot.getElementById('fp-cancel').textContent = 'סגירה';
       this._shares = await RecipeShareService.listForRecipe(recipeId, authorId);

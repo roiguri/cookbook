@@ -104,12 +104,15 @@ export class RecipeListController {
     this.hasActiveFilters = FilterUtils.hasActiveFilters(this.activeFilters);
   }
 
-  /** Wire the components and load the first page. */
+  /**
+   * Wire the components and load the first page. `firstLoad` settles once the
+   * first page is shown, so a page can keep its loading overlay until then.
+   */
   async start() {
     this.setupAuthObserver();
     this.setupEventListeners();
     this.updateUI();
-    this._loadAndDisplay().catch((err) => this.handleError(err, 'loadAndDisplay'));
+    this.firstLoad = this._loadAndDisplay().catch((err) => this.handleError(err, 'loadAndDisplay'));
   }
 
   /** Remove every listener added by `start()`. */
