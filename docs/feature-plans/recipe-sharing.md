@@ -91,6 +91,15 @@ Each release ships something usable on its own and builds on the previous one.
   - **Storage:** a private recipe's photos (`users/{author}/recipes/{id}/…`) are also readable by anyone with a share record for that recipe.
 - Rules tests on the emulator cover every allowed and refused case, list queries and Storage, before any deploy.
 
+**Author's design (2026-10-14, canvas row "Sharing · R3 · Share with family (author)"):**
+
+- **Entry:** on the author's own private recipe the share button opens a menu: "שיתוף עם בני משפחה" and "שליחת המתכון כטקסט". Anyone else viewing a private recipe (a manager) still goes straight to text.
+- **Picker** (the app's modal): title, a line that only the people picked will see it and always the latest version.
+  - **"עם גישה"** collapsed by default: one row with up to 3 avatars and the count; expands to the people with the share date and "הסרה" (immediate, no confirmation).
+  - **"בני משפחה"** with a count: full names (the account's name) with avatar initials and checkboxes. A name search sits above this list only when it's long (about 8+); it never filters "עם גישה".
+  - Only the lists scroll; title and buttons stay. Buttons at the left edge: "ביטול" on the right, "שיתוף עם N" to its left.
+- **After sharing:** the modal stays open with a one-line note and a small "שליחת קישור" button (R1's share). The note names one or two people, then "‹name› ועוד N"; it never wraps (ellipsis). The new people move into "עם גישה".
+
 **Steps:** R3a (this), R3b notifications, R3c claim link (if wanted).
 
 ### R4: PDF / print
