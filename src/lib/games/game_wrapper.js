@@ -4,6 +4,7 @@ import { PizzatronGame } from './pizzatron.js';
 import { KnifeSkillsGame } from './knife_skills.js';
 import { ChefSaysGame } from './chef_says.js';
 import { PancakeFlipGame } from './pancake_flip.js';
+import { PerfectPourGame } from './perfect_pour.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
@@ -95,6 +96,20 @@ const REGISTRY = [
     // Phones play it upright: the pans stack in a column. The game
     // implements pause()/resume(), so it freezes while the prompt is up.
     preferredOrientation: 'portrait',
+  },
+  {
+    key: 'pour',
+    name: 'מזיגה מדויקת',
+    icon: '🧃',
+    description: 'מזגו בדיוק עד הקו',
+    GameClass: PerfectPourGame,
+    defaultConfig: { toFill: 8, maxStrikes: 3 },
+    successMessage: 'כל הכבוד! יד של ברמן',
+    loadingText: 'סוחטים מיץ... חכה רגע!',
+    // /games only — never a filler game during async waits.
+    excludeFromRandom: true,
+    // No preferredOrientation: the glass sizes from the viewport, and an
+    // interrupted hold (rotation → pointercancel) stops without judging.
   },
 ];
 

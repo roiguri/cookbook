@@ -1,0 +1,314 @@
+/* Perfect Pour — hold-to-pour timing game. Companion to perfect_pour.js.
+   The juice level (--level) and target band (--lo / --hi) are fractions of
+   the glass height, so the glass can resize freely (rotation, desktop vs
+   modal) without the game state noticing. No preferred orientation: the
+   glass is sized from the viewport height in landscape and from the width
+   in portrait. */
+
+.pour-game {
+  --juice: #e69138;
+  /* The stage stacks bottle (~0.5×) + glass (1×) + hint, so the glass gets
+     what is left of the viewport after the page chrome, divided by ~1.55. */
+  --glass-h: clamp(160px, calc((100vh - 400px) / 1.55), 320px);
+
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-0) 100%);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  font-family: var(--font-ui-he, var(--font-ui));
+}
+
+/* Juice colours — same produce yellows/oranges as the knife juice. */
+.pour-game[data-juice='orange'] {
+  --juice: #e69138;
+}
+.pour-game[data-juice='lemon'] {
+  --juice: #e6c34a;
+}
+.pour-game[data-juice='grape'] {
+  --juice: #7b3f6e;
+}
+.pour-game[data-juice='tomato'] {
+  /* Not green: the target band is green and must stay readable. */
+  --juice: var(--secondary);
+}
+
+/* ---- HUD ---- */
+
+.pour-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.pour-strikes {
+  display: flex;
+  gap: 6px;
+}
+
+.pour-strike-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: rgba(31, 29, 24, 0.12);
+  border: 1px solid var(--hairline-strong);
+}
+
+.pour-strike-pip--filled {
+  background: var(--secondary);
+  border-color: var(--secondary-dark);
+}
+
+.pour-label {
+  font-weight: 600;
+  color: var(--ink-2);
+  font-size: var(--step-0);
+}
+
+.pour-counter {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pour-counter-sep {
+  margin: 0 2px;
+  color: var(--ink-3);
+}
+
+/* ---- Stage: the whole area is the press-and-hold target ---- */
+
+.pour-stage {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 12px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.pour-game[data-phase='result'] .pour-stage,
+.pour-game[data-phase='over'] .pour-stage {
+  cursor: default;
+}
+
+/* Bottle sits above the glass and tilts while pouring. */
+.pour-bottle {
+  position: relative;
+  width: calc(var(--glass-h) * 0.22);
+  height: calc(var(--glass-h) * 0.42);
+  margin-bottom: calc(var(--glass-h) * 0.06);
+  margin-inline-start: calc(var(--glass-h) * 0.32);
+  border-radius: 30% 30% 14% 14% / 18% 18% 8% 8%;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.45), transparent 40%),
+    color-mix(in srgb, var(--juice) 75%, var(--surface-1));
+  border: 2px solid color-mix(in srgb, var(--juice) 60%, var(--ink));
+  transform-origin: 50% 20%;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.pour-bottle::before {
+  /* neck + cap */
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 40%;
+  height: 22%;
+  transform: translateX(-50%);
+  border-radius: 4px 4px 0 0;
+  background: var(--ink-2);
+}
+
+.pour-game--pouring .pour-bottle {
+  transform: rotate(-115deg) translate(-20%, 10%);
+}
+
+.pour-glass {
+  position: relative;
+  width: calc(var(--glass-h) * 0.62);
+  height: var(--glass-h);
+  border: 4px solid rgba(31, 29, 24, 0.28);
+  border-top: 0;
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.25));
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+
+/* Visible stream: a pseudo-element on the glass so it lines up with the
+   glass regardless of the bottle's rotation. */
+.pour-game--pouring .pour-glass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 6px;
+  height: calc((1 - var(--level, 0)) * 100%);
+  transform: translateX(-50%);
+  background: var(--juice);
+  border-radius: 3px;
+  z-index: 2;
+}
+
+.pour-band {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(var(--lo, 0.5) * 100%);
+  height: calc((var(--hi, 0.6) - var(--lo, 0.5)) * 100%);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  border-block: 2px dashed var(--primary);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.pour-liquid {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: calc(var(--level, 0) * 100%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0 3px, transparent 3px), var(--juice);
+  z-index: 1;
+}
+
+.pour-game--good .pour-band {
+  background: color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.pour-game--bad .pour-glass {
+  animation: pour-shake 380ms var(--ease);
+}
+
+.pour-game--spill .pour-glass {
+  box-shadow:
+    0 6px 0 -2px var(--juice),
+    var(--shadow-1);
+}
+
+@keyframes pour-shake {
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+.pour-hint {
+  margin: 10px 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+.pour-game--pouring .pour-hint {
+  visibility: hidden;
+}
+
+/* ---- Toast ---- */
+
+.pour-toast {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translate(-50%, -6px);
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  color: var(--button-color);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.pour-toast--good {
+  background: var(--primary);
+}
+
+.pour-toast--bad {
+  background: var(--secondary);
+}
+
+.pour-toast--show {
+  animation: pour-toast 900ms var(--ease-out);
+}
+
+@keyframes pour-toast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  15%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---- Portrait phone: the fullscreen modal has far less chrome ---- */
+
+@media (max-width: 600px) {
+  .pour-game {
+    --glass-h: clamp(160px, calc((100vh - 260px) / 1.55), 340px);
+  }
+}
+
+/* ---- Landscape phone: compact stack ---- */
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .pour-game {
+    min-height: 0;
+    --glass-h: clamp(120px, 44vh, 220px);
+  }
+
+  .pour-hud {
+    padding: 6px 14px;
+  }
+
+  .pour-stage {
+    padding: 8px;
+  }
+
+  .pour-hint {
+    margin-top: 4px;
+  }
+
+  .pour-bottle {
+    height: calc(var(--glass-h) * 0.3);
+    margin-bottom: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pour-bottle {
+    transition: none;
+  }
+
+  .pour-game--bad .pour-glass {
+    animation: none;
+  }
+}
