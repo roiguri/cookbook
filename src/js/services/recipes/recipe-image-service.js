@@ -81,8 +81,11 @@ export class RecipeImageService {
   /**
    * Replace an image's Storage file with new bytes. Optionally preserves
    * the current file as a backup at `<path>_original.<ext>` (idempotent —
-   * only written if the backup doesn't already exist). Also best-effort
-   * deletes the stale 400/1080 WebP variants so consumers refresh promptly.
+   * only written if the backup doesn't already exist). The stale 400/1080 WebP
+   * variants are deleted (best-effort) **before** the upload: the upload
+   * triggers the resize extension, and deleting after it raced the extension's
+   * new variants and could remove them (a recipe was left without any).
+   * Until the new variants appear, readers fall back to the full image.
    *
    * @param {string} recipeId - Unused inside; kept in the signature for
    * @param {{ full: string }} image - The image entry to replace (must have `.full`).
@@ -117,14 +120,14 @@ export class RecipeImageService {
       }
     }
 
-    await StorageService.uploadFile(blob, originalPath);
-
     await Promise.all([
       StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_400x400.webp')).catch(() => {}), // silent: best-effort WebP variant cleanup
       StorageService.deleteFile(originalPath.replace(/\.[^.]+$/, '_1080x1080.webp')).catch(
         () => {}, // silent: best-effort WebP variant cleanup
       ),
     ]);
+
+    await StorageService.uploadFile(blob, originalPath);
 
     return { backupPath, backupCreated };
   }
