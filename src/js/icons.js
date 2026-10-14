@@ -156,6 +156,8 @@ export const icons = {
 
   chevronRight: svgStroke('0 0 24 24', '<polyline points="9 18 15 12 9 6"/>', '2'),
 
+  chevronDown: svgStroke('0 0 24 24', '<polyline points="6 9 12 15 18 9"/>', '2'),
+
   // Magnifying-glass search icon (stroke-based, circle + line)
   search: svgStroke('0 0 16 16', '<circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/>'),
 

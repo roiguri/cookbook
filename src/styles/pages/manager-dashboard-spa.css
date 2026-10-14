@@ -2,6 +2,10 @@
 
 .spa-content .manager-dashboard {
   max-width: 1200px;
+  /* Auto margins in the flex-column .spa-content would shrink-wrap the page
+     to its content (collapsed sections → narrow); pin it to the full width. */
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 16px 20px;
   direction: rtl;
@@ -85,6 +89,49 @@
   color: var(--primary-dark);
   margin: 0;
   flex: 1;
+}
+
+/* ---- Section toggle (title + badge; collapses on mobile only) ---- */
+
+.spa-content .manager-dashboard .section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: default;
+}
+
+.spa-content .manager-dashboard .section-badge {
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-size: var(--step--1, 0.8rem);
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.spa-content .manager-dashboard .section-badge[hidden] {
+  display: none;
+}
+
+.spa-content .manager-dashboard .section-badge--attention {
+  background: var(--secondary);
+  color: #fff;
+}
+
+.spa-content .manager-dashboard .section-chevron {
+  display: none;
 }
 
 /* ---- Refresh button ---- */
@@ -230,6 +277,55 @@
 
   .spa-content .manager-dashboard .dashboard-header {
     margin-bottom: 16px;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  /* The title fills the row on phones, so the master refresh joins the flow
+     (at the row's end, as on desktop) instead of overlapping it. */
+  .spa-content .manager-dashboard .master-refresh,
+  .spa-content .manager-dashboard .master-refresh:hover,
+  .spa-content .manager-dashboard .master-refresh:active {
+    position: static;
+    transform: none;
+    order: 1;
+  }
+
+  .spa-content .manager-dashboard .section-toggle {
+    cursor: pointer;
+    min-height: 32px;
+  }
+
+  .spa-content .manager-dashboard .section-toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--ring);
+    border-radius: var(--r-xs, 6px);
+  }
+
+  .spa-content .manager-dashboard .section-chevron {
+    display: inline-flex;
+    margin-inline-start: auto;
+    color: var(--ink-3);
+    transition: transform var(--dur-2, 280ms) var(--ease, ease);
+  }
+
+  .spa-content .manager-dashboard .section-chevron svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .spa-content .manager-dashboard section.is-collapsed .section-chevron {
+    transform: rotate(90deg);
+  }
+
+  /* Collapsed: header row only */
+  .spa-content .manager-dashboard section.is-collapsed > :not(.section-header) {
+    display: none;
+  }
+
+  .spa-content .manager-dashboard section.is-collapsed .section-header {
+    padding-bottom: 0;
+    border-bottom: 0;
   }
 }
 

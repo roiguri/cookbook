@@ -8,10 +8,14 @@ import notificationService from '../../js/services/users/notification-service.js
 import { AppConfig } from '../../js/config/app-config.js';
 import { CATEGORY_MAP } from '../../js/utils/recipes/recipe-data-utils.js';
 import { debounce } from '../../js/utils/common-utils.js';
+import { icons } from '../../js/icons.js';
 import {
   DashboardRefreshManager,
   DASHBOARD_SECTIONS,
 } from '../../lib/utilities/dashboard-refresh-manager.js';
+
+// Matches the mobile breakpoint in manager-dashboard-spa.css.
+const MOBILE_QUERY = '(max-width: 768px)';
 import '../../styles/pages/manager-dashboard-spa.css';
 
 export default {
@@ -40,6 +44,7 @@ export default {
     }
 
     await this.importComponents();
+    this.setupSectionCollapse();
     this.initializeRefreshManager();
     this.initializeDashboard();
     this.setupAuthListener();
@@ -55,6 +60,7 @@ export default {
     }
     document.removeEventListener('recipe-updated', this._onRecipeUpdated);
     document.removeEventListener('image-enhanced-saved', this._onImageEnhancedSaved);
+    this._mobileQuery?.removeEventListener('change', this._onMobileQueryChange);
   },
 
   getTitle() {
@@ -115,6 +121,48 @@ export default {
         this.redirectToHome();
       }
     });
+  },
+
+  /**
+   * On mobile every section starts collapsed to its header (title + count
+   * badge) so the manager can scan all of them and open only what's relevant.
+   * Collapsing is CSS-gated to the mobile breakpoint; desktop always shows all.
+   */
+  setupSectionCollapse() {
+    this._mobileQuery = window.matchMedia(MOBILE_QUERY);
+    const sections = document.querySelectorAll('.manager-dashboard .sections > section');
+
+    const syncAria = () => {
+      sections.forEach((section) => {
+        const expanded = !this._mobileQuery.matches || !section.classList.contains('is-collapsed');
+        section.querySelector('.section-toggle')?.setAttribute('aria-expanded', String(expanded));
+      });
+    };
+
+    sections.forEach((section) => {
+      section.classList.add('is-collapsed');
+      const toggle = section.querySelector('.section-toggle');
+      if (!toggle) return;
+      toggle.querySelector('.section-chevron').innerHTML = icons.chevronDown;
+      toggle.addEventListener('click', () => {
+        if (!this._mobileQuery.matches) return;
+        section.classList.toggle('is-collapsed');
+        syncAria();
+      });
+    });
+
+    this._onMobileQueryChange = syncAria;
+    this._mobileQuery.addEventListener('change', this._onMobileQueryChange);
+    syncAria();
+  },
+
+  /** Count badge in a section header; `attention` marks items awaiting action. */
+  setSectionCount(sectionId, count, { attention = false } = {}) {
+    const badge = document.querySelector(`#${sectionId} .section-badge`);
+    if (!badge) return;
+    badge.textContent = String(count);
+    badge.hidden = false;
+    badge.classList.toggle('section-badge--attention', attention && count > 0);
   },
 
   initializeRefreshManager() {
@@ -256,6 +304,7 @@ export default {
         content: this.createContent(user),
       }));
       userList.setItems(userItems);
+      this.setSectionCount('user-management', users.length);
     } catch (error) {
       this.handleError(error);
     }
@@ -335,6 +384,7 @@ export default {
       // Managers can read private recipes too, so this list must ask for published ones.
       const recipes = await RecipeService.listPublished();
       this.allRecipes = recipes;
+      this.setSectionCount('all-recipes', recipes.length);
       this.updateRecipeList(recipes);
       this.populateFilterOptions(recipes);
 
@@ -515,6 +565,8 @@ export default {
         content: this.createPendingRecipeContent(row.recipe),
       }));
 
+      this.setSectionCount('pending-recipes', recipeItems.length, { attention: true });
+
       // Always update the message based on current state
       if (recipeItems.length == 0) {
         noPendingMessage.textContent = 'אין מתכונים הממתינים לאישור';
@@ -667,6 +719,8 @@ export default {
         content: this.createPendingEditContent(suggestion),
       }));
 
+      this.setSectionCount('pending-edits', items.length, { attention: true });
+
       if (items.length === 0) {
         noPendingMessage.textContent = 'אין הצעות עריכה הממתינות לאישור';
       } else {
@@ -789,6 +843,8 @@ export default {
         header: this.createFailedUrlHeader(item),
         content: this.createFailedUrlContent(item),
       }));
+
+      this.setSectionCount('failed-urls', items.length, { attention: true });
 
       if (items.length === 0) {
         noItemsMessage.textContent = 'אין כתובות שנכשלו';
