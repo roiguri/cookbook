@@ -3,7 +3,8 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['coverage/', 'dist/'],
+    // .netlify/ is the Netlify CLI's local cache (netlify dev)
+    ignores: ['coverage/', 'dist/', '.netlify/'],
   },
   {
     files: ['**/*.{js,mjs,cjs}'],

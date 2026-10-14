@@ -70,3 +70,6 @@ dev-debug.log
 playwright-report/
 test-results/
 .playwright-mcp/
+
+# Link-preview edge function settings, written by the Vite build
+netlify/edge-functions/link-preview/site.generated.js
