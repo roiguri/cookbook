@@ -1,0 +1,321 @@
+/* Market Sort — fruit/vegetable sorting mini-game. Companion to
+   market_sort.js. Items fall down a single lane, so the game prefers portrait
+   on phones. The falling item's position is a fraction (--y, 0 → 1) of the
+   field height, so a rotation or resize mid-fall just rescales it. */
+
+.market-game {
+  --item: 84px;
+
+  position: relative;
+  width: 100%;
+  /* Desktop inline view: leave room for the site header, page hero, back
+     button and timer so the baskets stay above the fold. */
+  min-height: 420px;
+  height: calc(100vh - 340px);
+  max-height: 640px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-0) 100%);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-ui-he, var(--font-ui));
+}
+
+/* ---- HUD ---- */
+
+.market-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.market-strikes {
+  display: flex;
+  gap: 6px;
+}
+
+.market-strike-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: rgba(31, 29, 24, 0.12);
+  border: 1px solid var(--hairline-strong);
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+
+.market-strike-pip--filled {
+  background: var(--secondary);
+  border-color: var(--secondary-dark);
+}
+
+.market-counter {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.market-counter-sep {
+  margin: 0 2px;
+  color: var(--ink-3);
+}
+
+/* ---- Field ---- */
+
+.market-field {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  /* Striped awning lane down the middle. */
+  background: linear-gradient(
+    90deg,
+    transparent calc(50% - 60px),
+    color-mix(in srgb, var(--primary) 8%, transparent) calc(50% - 60px) calc(50% + 60px),
+    transparent calc(50% + 60px)
+  );
+}
+
+.market-item {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--y, 0) * (100% - var(--item)));
+  width: var(--item);
+  height: var(--item);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+  will-change: top, transform;
+}
+
+.market-item-emoji {
+  font-size: calc(var(--item) * 0.5);
+  line-height: 1;
+}
+
+.market-item-name {
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* RTL: fruit basket on the right, vegetables on the left. */
+.market-item--to-fruit {
+  animation: market-fly-right 320ms var(--ease-out) forwards;
+}
+
+.market-item--to-veg {
+  animation: market-fly-left 320ms var(--ease-out) forwards;
+}
+
+.market-item--splat {
+  animation: market-splat 320ms var(--ease-out) forwards;
+}
+
+@keyframes market-fly-right {
+  to {
+    transform: translate(calc(-50% + 30cqi), 140%) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes market-fly-left {
+  to {
+    transform: translate(calc(-50% - 30cqi), 140%) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes market-splat {
+  to {
+    transform: translateX(-50%) scale(1.3, 0.4);
+    opacity: 0;
+  }
+}
+
+.market-toast {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translate(-50%, -6px);
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+  background: var(--secondary);
+  color: var(--button-color);
+  font-weight: 700;
+  font-size: var(--step-0);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.market-toast--show {
+  animation: market-toast 1100ms var(--ease-out);
+}
+
+@keyframes market-toast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  15%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---- Baskets ---- */
+
+.market-game {
+  container-type: inline-size;
+}
+
+.market-baskets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.market-basket {
+  --tint: var(--secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  border: 2px solid color-mix(in srgb, var(--tint) 45%, transparent);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--tint) 12%, var(--surface-1));
+  font-family: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+
+.market-basket--veg {
+  --tint: var(--primary);
+}
+
+.market-basket:active {
+  transform: scale(0.97);
+}
+
+.market-basket:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.market-basket-emoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.market-basket-label {
+  font-size: var(--step-1);
+  font-weight: 700;
+}
+
+.market-basket--good {
+  animation: market-basket-good 300ms var(--ease-out);
+}
+
+.market-basket--bad {
+  animation: market-basket-bad 380ms var(--ease);
+  border-color: var(--secondary-dark);
+}
+
+@keyframes market-basket-good {
+  40% {
+    transform: scale(1.06);
+    background: color-mix(in srgb, var(--tint) 35%, var(--surface-1));
+  }
+}
+
+@keyframes market-basket-bad {
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+/* ---- Phones ---- */
+
+@media (max-width: 600px) {
+  .market-game {
+    min-height: 420px;
+    height: calc(100vh - 160px);
+  }
+}
+
+/* Landscape phone (after "continue anyway"): baskets move to the sides of
+   the lane so the fall keeps as much height as possible. */
+@media (max-height: 500px) {
+  .market-game {
+    --item: 64px;
+    min-height: 0;
+    height: calc(100vh - 90px);
+  }
+
+  .market-hud {
+    padding: 6px 14px;
+  }
+
+  .market-baskets {
+    position: absolute;
+    inset: auto 0 0 0;
+    top: 48px;
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+    background: none;
+    border: 0;
+    pointer-events: none;
+  }
+
+  .market-basket {
+    pointer-events: auto;
+    width: min(28cqi, 200px);
+    justify-self: start;
+  }
+
+  .market-basket--veg {
+    justify-self: end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-item--to-fruit,
+  .market-item--to-veg,
+  .market-item--splat,
+  .market-basket--good,
+  .market-basket--bad {
+    animation-duration: 1ms;
+  }
+}

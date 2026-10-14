@@ -4,6 +4,7 @@ import { PizzatronGame } from './pizzatron.js';
 import { KnifeSkillsGame } from './knife_skills.js';
 import { ChefSaysGame } from './chef_says.js';
 import { PancakeFlipGame } from './pancake_flip.js';
+import { MarketSortGame } from './market_sort.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
@@ -95,6 +96,21 @@ const REGISTRY = [
     // Three pans side by side — recommend landscape on phones. The game
     // implements pause()/resume(), so it freezes while the prompt is up.
     preferredOrientation: 'landscape',
+  },
+  {
+    key: 'market',
+    name: 'מיון בשוק',
+    icon: '🧺',
+    description: 'פירות לכאן, ירקות לשם',
+    GameClass: MarketSortGame,
+    defaultConfig: { toSort: 20, maxStrikes: 3 },
+    successMessage: 'כל הכבוד! הדוכן מסודר',
+    loadingText: 'פורשים את הדוכן... חכה רגע!',
+    // /games only — never a filler game during async waits.
+    excludeFromRandom: true,
+    // Items fall down a single lane — recommend portrait on phones. Pauses
+    // behind the rotate prompt via pause()/resume().
+    preferredOrientation: 'portrait',
   },
 ];
 
