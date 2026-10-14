@@ -9,13 +9,14 @@
   },
   "scripts": {
     "dev": "vite --config vite.config.js",
-    "dev:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-cookbook \"vite --config vite.config.js --mode emulators\"",
+    "dev:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-cookbook \"vite --config vite.config.js --mode emulators --host\"",
     "build": "vite build",
     "serve": "vite preview",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.mjs",
     "lint:fix": "eslint . --ext .js,.mjs --fix",
+    "check:avatars": "node scripts/avatars/check-avatars.mjs",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.rules.config.mjs\""
   },
   "repository": {
@@ -50,6 +51,8 @@
     "vite": "^6.4.3"
   },
   "dependencies": {
+    "@dicebear/avataaars": "9.4.3",
+    "@dicebear/core": "9.4.3",
     "@sentry/browser": "^10.52.0",
     "cropperjs": "^1.6.2",
     "firebase": "^11.6.1"

@@ -2,7 +2,6 @@ import './auth-content.js';
 import '../../modals/confirmation_modal/confirmation_modal.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import { UserService } from '../../../js/services/users/user-service.js';
-import { avatarPngBlob } from '../../../js/utils/avatar/avatar-png.js';
 
 let avatarCache = null;
 
@@ -138,6 +137,24 @@ class UserProfile extends HTMLElement {
           color: var(--primary-dark, #386641); font-weight: 600; font-size: 13px;
         }
         .avatar-pick img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Builder skeleton (same shimmer as the stock-avatar tiles) */
+        .builder-skeleton[hidden] { display: none; }
+        .sk {
+          display: block;
+          background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .sk-top { display: flex; align-items: center; gap: 18px; }
+        .sk-preview { width: 112px; height: 112px; border-radius: 50%; flex-shrink: 0; }
+        .sk-actions { display: flex; flex-direction: column; gap: 8px; }
+        .sk-btn { width: 132px; height: 38px; border-radius: var(--r-sm, 8px); }
+        .sk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 14px; }
+        .sk-chip { width: 64px; height: 30px; border-radius: var(--r-pill, 999px); }
+        .sk-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+        .sk-tile { aspect-ratio: 1 / 1; border-radius: var(--r-md, 12px); }
+        @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
 
         /* Skeleton loading */
         @keyframes shimmer {
@@ -276,7 +293,15 @@ class UserProfile extends HTMLElement {
       <div class="profile-body" data-panel="avatar" hidden>
         <section class="section">
           <h4 class="section-title">עצב אווטאר משלך</h4>
-          <avatar-builder id="avatar-builder"></avatar-builder>
+          <div class="builder-skeleton" id="builder-skeleton" aria-busy="true" aria-label="טוען את עורך האווטאר">
+            <div class="sk-top">
+              <span class="sk sk-preview"></span>
+              <span class="sk-actions"><span class="sk sk-btn"></span><span class="sk sk-btn"></span></span>
+            </div>
+            <div class="sk-chips">${'<span class="sk sk-chip"></span>'.repeat(8)}</div>
+            <div class="sk-tiles">${'<span class="sk sk-tile"></span>'.repeat(10)}</div>
+          </div>
+          <avatar-builder id="avatar-builder" hidden></avatar-builder>
         </section>
         <section class="section">
           <h4 class="section-title">או בחר אווטאר מוכן</h4>
@@ -402,8 +427,22 @@ class UserProfile extends HTMLElement {
 
   // The builder starts from the user's saved choices (users/{uid}.avatarConfig).
   async _loadBuilder() {
-    await import('../avatar-builder/avatar-builder.js');
     const builder = this.shadowRoot.getElementById('avatar-builder');
+    const skeleton = this.shadowRoot.getElementById('builder-skeleton');
+    try {
+      // The builder brings the avatar artwork library; the skeleton covers the download.
+      await import('../avatar-builder/avatar-builder.js');
+    } catch (error) {
+      console.error('Error loading avatar builder:', error);
+      this._showFeedback(
+        'avatar-feedback',
+        'err',
+        'טעינת עורך האווטאר נכשלה. בדוק את החיבור ונסה שנית.',
+      );
+      return;
+    }
+    skeleton.hidden = true;
+    builder.hidden = false;
     if (!builder._profileBound) {
       builder._profileBound = true;
       builder.addEventListener('avatar-builder-save', (e) =>
@@ -418,6 +457,7 @@ class UserProfile extends HTMLElement {
     const user = authService.getCurrentUser();
     if (!user) return;
     try {
+      const { avatarPngBlob } = await import('../../../js/utils/avatar/avatar-png.js');
       const blob = await avatarPngBlob(config);
       const url = await UserService.uploadAvatarImage(user.uid, blob);
       await authService.updateProfile({ avatarUrl: url, avatarConfig: config });

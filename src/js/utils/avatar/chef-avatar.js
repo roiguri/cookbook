@@ -1,205 +1,237 @@
 /**
- * Chef avatars: the part catalogue and a pure SVG renderer.
+ * Chef avatars: the part catalogue and an SVG renderer.
+ *
+ * Faces and hair are Avataaars (https://avataaars.com/, by Pablo Stanley, free for personal
+ * and commercial use) drawn through DiceBear. On top of them we draw our own kitchen layer
+ * in the same flat style: chef hats and kitchen clothing.
  *
  * An avatar is a small config of part and colour ids, stored on `users/{uid}.avatarConfig`:
  *
  *   { v: 1,
- *     parts:  { face, hair, eyes, brows, mouth, facialHair, glasses, extras, hat, outfit },
+ *     parts:  { hair, eyes, brows, mouth, facialHair, glasses, hat, outfit },
  *     colors: { skin, hair, outfit, background } }
  *
- * Every value is an id from the catalogue below, so a config is easy to validate and easy
- * to produce from elsewhere (e.g. a future "match my photo" function asking a vision model
- * to pick one id per part — `describeAvatarSchema()` gives it the vocabulary).
+ * Every value is an id from the catalogue below, so a config is easy to validate and easy to
+ * produce from elsewhere (e.g. a future "match my photo" function asking a vision model to
+ * pick one id per part — `describeAvatarSchema()` gives it the vocabulary).
  *
- * The drawing follows the stock chef avatars: a 64×64 grid, #343433 outlines at 1.5,
- * flat fills with one shade tone. No DOM access here — the output is an SVG string.
+ * How the kitchen layer is combined with Avataaars' output (DiceBear pinned to an exact
+ * version; tests fail if the structure changes):
+ *  - Clothing: the crew-neck shirt group is replaced by our outfit, cut to the same shape.
+ *  - Hats: hair is clipped to below the hat's bottom edge and beside it; the hat is drawn last.
+ *    Big and long hairstyles instead get a hat scaled to cover their crown (`HAT_FIT`).
+ *  - The figure is scaled down a little so tall hats and the outfit both fit the frame.
  */
+
+import { createAvatar } from '@dicebear/core';
+import * as avataaars from '@dicebear/avataaars';
 
 export const AVATAR_CONFIG_VERSION = 1;
 
-const INK = '#343433';
-const LINE = `stroke="${INK}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"`;
-const thin = (width = 1.1) =>
-  `stroke="${INK}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"`;
-const THIN = thin();
+// Figure scaling inside Avataaars' 280×280 frame (figure coordinates are inside its
+// translate(8) group). `crop()` converts a figure-space box to a frame viewBox.
+const SCALE = 0.84;
+const SHIFT_X = 8 * SCALE + 140 * (1 - SCALE);
+const SHIFT_Y = 280 * (1 - SCALE);
+const crop = (x, y, w, h) =>
+  [SHIFT_X + x * SCALE, SHIFT_Y + y * SCALE, w * SCALE, h * SCALE]
+    .map((n) => +n.toFixed(2))
+    .join(' ');
 
 // ---------------------------------------------------------------------------
 // Catalogue
 // ---------------------------------------------------------------------------
 
-/** Colour palettes. `hex` is the fill, `shade` the darker tone used for shading. */
+/** Colour palettes (`hex` without '#', as DiceBear takes them). */
 export const AVATAR_COLORS = {
   skin: {
     label: 'גוון עור',
     describe: 'skin tone, lightest to darkest',
     options: [
-      { id: 'porcelain', label: 'בהיר מאוד', hex: '#f8e1d4', shade: '#ecc9b8' },
-      { id: 'light', label: 'בהיר', hex: '#edccc3', shade: '#ddb3a7' },
-      { id: 'tan', label: 'שזוף', hex: '#e2ad8a', shade: '#cf9874' },
-      { id: 'olive', label: 'זית', hex: '#c88f63', shade: '#b37b51' },
-      { id: 'brown', label: 'חום', hex: '#a86c4d', shade: '#925c40' },
-      { id: 'deep', label: 'כהה', hex: '#6f4631', shade: '#5c3a28' },
+      { id: 'light', label: 'בהיר', hex: 'ffdbb4' },
+      { id: 'fair', label: 'בהיר-חם', hex: 'edb98a' },
+      { id: 'tan', label: 'שזוף', hex: 'd08b5b' },
+      { id: 'brown', label: 'חום', hex: 'ae5d29' },
+      { id: 'dark', label: 'כהה', hex: '614335' },
     ],
   },
   hair: {
     label: 'צבע שיער',
-    describe: 'hair, eyebrow and facial-hair colour',
+    describe: 'hair and facial-hair colour',
     options: [
-      { id: 'black', label: 'שחור', hex: '#2f2b28', shade: '#1f1c1a' },
-      { id: 'darkBrown', label: 'חום כהה', hex: '#4b3226', shade: '#33221a' },
-      { id: 'brown', label: 'חום', hex: '#80522f', shade: '#5f3c22' },
-      { id: 'auburn', label: 'ערמוני', hex: '#a3472a', shade: '#7c341f' },
-      { id: 'ginger', label: 'ג׳ינג׳י', hex: '#d0702f', shade: '#a85823' },
-      { id: 'blonde', label: 'בלונד', hex: '#e3b55c', shade: '#b98c3c' },
-      { id: 'grey', label: 'אפור', hex: '#a3a19c', shade: '#7c7a76' },
-      { id: 'white', label: 'לבן', hex: '#ecebe6', shade: '#b9b7b1' },
+      { id: 'black', label: 'שחור', hex: '2c1b18' },
+      { id: 'darkBrown', label: 'חום כהה', hex: '4a312c' },
+      { id: 'brown', label: 'חום', hex: '724133' },
+      { id: 'auburn', label: 'ערמוני', hex: 'a55728' },
+      { id: 'ginger', label: 'ג׳ינג׳י', hex: 'c93305' },
+      { id: 'lightBrown', label: 'חום בהיר', hex: 'b58143' },
+      { id: 'blonde', label: 'בלונד', hex: 'd6b370' },
+      { id: 'grey', label: 'אפור', hex: 'e8e1e1' },
     ],
   },
   outfit: {
     label: 'צבע בד',
-    describe: 'accent colour of the apron, scarf or bandana',
+    describe: 'accent colour of the apron, shirt, neckerchief or hat',
     options: [
-      { id: 'burgundy', label: 'בורדו', hex: '#b1304f', shade: '#8f2440' },
-      { id: 'green', label: 'ירוק', hex: '#6a994e', shade: '#557d3e' },
-      { id: 'red', label: 'אדום', hex: '#bc4749', shade: '#9a3a3c' },
-      { id: 'navy', label: 'כחול', hex: '#36506f', shade: '#283d55' },
-      { id: 'mustard', label: 'חרדל', hex: '#dfa43a', shade: '#bd8628' },
-      { id: 'charcoal', label: 'פחם', hex: '#3d3c39', shade: '#2a2927' },
+      { id: 'burgundy', label: 'בורדו', hex: 'a8304b' },
+      { id: 'green', label: 'ירוק', hex: '6a994e' },
+      { id: 'red', label: 'אדום', hex: 'c8494b' },
+      { id: 'navy', label: 'כחול', hex: '33506f' },
+      { id: 'mustard', label: 'חרדל', hex: 'e2a53b' },
+      { id: 'charcoal', label: 'פחם', hex: '3e3c3a' },
     ],
   },
   background: {
     label: 'רקע',
-    describe: 'background circle colour',
+    describe: 'background colour',
     options: [
       { id: 'none', label: 'שקוף', hex: null },
-      { id: 'cream', label: 'שמנת', hex: '#f2e8cf' },
-      { id: 'sage', label: 'מרווה', hex: '#dce8cf' },
-      { id: 'rose', label: 'ורוד', hex: '#f4dad6' },
-      { id: 'sky', label: 'תכלת', hex: '#d8e6ef' },
-      { id: 'butter', label: 'חמאה', hex: '#f8e4ae' },
+      { id: 'cream', label: 'שמנת', hex: 'f2e8cf' },
+      { id: 'sage', label: 'מרווה', hex: 'dbe7cc' },
+      { id: 'rose', label: 'ורוד', hex: 'f5d9d4' },
+      { id: 'sky', label: 'תכלת', hex: 'd5e4ef' },
+      { id: 'butter', label: 'חמאה', hex: 'f8e3a8' },
     ],
   },
 };
 
 /**
- * Parts, in the order the builder shows them. `crop` is the viewBox the builder uses
- * for that part's option thumbnails (zoomed on the part).
+ * Parts, in the order the builder shows them. `crop` is the viewBox the builder uses for
+ * that part's option thumbnails. Option ids are Avataaars' own where they come from it.
  */
 export const AVATAR_PARTS = {
-  face: {
-    label: 'פנים',
-    describe: 'face shape',
-    crop: '11 14 42 36',
-    options: [
-      { id: 'oval', label: 'אובלי', describe: 'oval face' },
-      { id: 'round', label: 'עגול', describe: 'round, wide face' },
-      { id: 'square', label: 'מרובע', describe: 'square jaw' },
-      { id: 'long', label: 'מוארך', describe: 'long, narrow face' },
-    ],
-  },
   hair: {
     label: 'תסרוקת',
     describe: 'hairstyle',
-    crop: '10 2 44 52',
+    crop: crop(20, -30, 224, 250),
     options: [
-      { id: 'short', label: 'קצר', describe: 'short hair' },
-      { id: 'side', label: 'שביל צד', describe: 'short hair with a side part' },
-      { id: 'curly', label: 'מתולתל', describe: 'short curly hair' },
-      { id: 'buzz', label: 'קצוץ', describe: 'buzz cut' },
-      { id: 'bob', label: 'קארה', describe: 'chin-length bob with a fringe' },
-      { id: 'long', label: 'ארוך', describe: 'long straight hair past the shoulders' },
+      { id: 'shortFlat', label: 'קצר חלק', describe: 'short, flat hair' },
+      { id: 'shortRound', label: 'קצר מעוגל', describe: 'short rounded hair' },
+      { id: 'shortWaved', label: 'קצר גלי', describe: 'short wavy hair' },
+      { id: 'shortCurly', label: 'קצר מתולתל', describe: 'short curly hair' },
+      { id: 'theCaesar', label: 'קיסר', describe: 'very short Caesar cut' },
+      { id: 'theCaesarAndSidePart', label: 'שביל צד', describe: 'short hair with a side part' },
+      { id: 'sides', label: 'צדדים', describe: 'balding on top, hair on the sides' },
+      { id: 'shavedSides', label: 'מגולח בצדדים', describe: 'long on top, shaved sides' },
+      { id: 'dreads01', label: 'ראסטות קצרות', describe: 'short dreadlocks' },
+      { id: 'frizzle', label: 'מקורזל', describe: 'short frizzy hair' },
+      { id: 'shaggy', label: 'פרוע', describe: 'shaggy medium hair' },
+      { id: 'shaggyMullet', label: 'מאלט', describe: 'shaggy mullet' },
+      { id: 'bob', label: 'קארה', describe: 'chin-length bob' },
       { id: 'bun', label: 'פקעת', describe: 'hair pulled up into a top bun' },
-      { id: 'ponytail', label: 'קוקו', describe: 'hair tied back in a ponytail' },
+      { id: 'curly', label: 'מתולתל', describe: 'medium curly hair' },
+      { id: 'curvy', label: 'גלי ארוך', describe: 'long wavy hair' },
+      { id: 'straight01', label: 'ארוך חלק', describe: 'long straight hair' },
+      {
+        id: 'straight02',
+        label: 'ארוך עם פוני',
+        describe: 'long straight hair with a side fringe',
+      },
+      {
+        id: 'straightAndStrand',
+        label: 'ארוך עם קווצה',
+        describe: 'long straight hair with a loose strand',
+      },
+      { id: 'longButNotTooLong', label: 'חצי ארוך', describe: 'shoulder-length hair' },
+      { id: 'miaWallace', label: 'פוני ישר', describe: 'straight hair with a blunt fringe' },
+      { id: 'bigHair', label: 'נפוח', describe: 'big voluminous long hair' },
+      { id: 'fro', label: 'אפרו', describe: 'afro' },
+      { id: 'froBand', label: 'אפרו עם סרט', describe: 'afro with a headband' },
+      { id: 'dreads', label: 'ראסטות', describe: 'long dreadlocks' },
+      { id: 'dreads02', label: 'ראסטות בינוניות', describe: 'medium dreadlocks' },
+      { id: 'frida', label: 'צמות ופרחים', describe: 'braids with flowers' },
       { id: 'bald', label: 'קרחת', describe: 'bald' },
     ],
   },
   eyes: {
     label: 'עיניים',
     describe: 'eyes',
-    crop: '20 20 24 20',
+    crop: crop(66, 70, 132, 70),
     options: [
-      { id: 'dots', label: 'נקודות', describe: 'simple dot eyes' },
-      { id: 'round', label: 'גדולות', describe: 'big round open eyes' },
+      { id: 'default', label: 'רגילות', describe: 'open eyes' },
       { id: 'happy', label: 'שמחות', describe: 'closed, smiling eyes' },
-      { id: 'lashes', label: 'ריסים', describe: 'dot eyes with eyelashes' },
-      { id: 'sleepy', label: 'רדומות', describe: 'half-closed, relaxed eyes' },
       { id: 'wink', label: 'קריצה', describe: 'winking' },
+      { id: 'squint', label: 'מצומצמות', describe: 'squinting' },
+      { id: 'surprised', label: 'מופתעות', describe: 'wide, surprised eyes' },
+      { id: 'side', label: 'מבט הצידה', describe: 'looking to the side' },
+      { id: 'closed', label: 'עצומות', describe: 'eyes closed' },
+      { id: 'hearts', label: 'לבבות', describe: 'heart eyes, in love with the food' },
     ],
   },
   brows: {
     label: 'גבות',
     describe: 'eyebrows',
-    crop: '20 18 24 20',
+    crop: crop(66, 66, 132, 64),
     options: [
-      { id: 'soft', label: 'רכות', describe: 'softly curved eyebrows' },
-      { id: 'straight', label: 'ישרות', describe: 'straight eyebrows' },
-      { id: 'arched', label: 'מקושתות', describe: 'high arched eyebrows' },
-      { id: 'thick', label: 'עבות', describe: 'thick eyebrows' },
-      { id: 'focused', label: 'מרוכזות', describe: 'eyebrows angled down, focused' },
+      { id: 'defaultNatural', label: 'טבעיות', describe: 'natural eyebrows' },
+      { id: 'raisedExcitedNatural', label: 'מורמות', describe: 'raised, excited eyebrows' },
+      { id: 'flatNatural', label: 'ישרות', describe: 'flat eyebrows' },
+      { id: 'upDownNatural', label: 'אחת מורמת', describe: 'one eyebrow raised' },
+      { id: 'angryNatural', label: 'מרוכזות', describe: 'eyebrows angled down, focused' },
+      { id: 'sadConcernedNatural', label: 'מודאגות', describe: 'concerned eyebrows' },
+      { id: 'frownNatural', label: 'מכווצות', describe: 'frowning eyebrows' },
+      { id: 'unibrowNatural', label: 'גבה אחת', describe: 'unibrow' },
     ],
   },
   mouth: {
     label: 'פה',
     describe: 'mouth',
-    crop: '20 26 24 20',
+    crop: crop(78, 112, 108, 64),
     options: [
-      { id: 'smile', label: 'חיוך', describe: 'closed smile' },
-      { id: 'grin', label: 'חיוך רחב', describe: 'open smile showing teeth' },
-      { id: 'laugh', label: 'צחוק', describe: 'open laughing mouth' },
-      { id: 'yum', label: 'טעים', describe: 'smile with the tongue out, tasting' },
-      { id: 'smirk', label: 'חצי חיוך', describe: 'lopsided smirk' },
-      { id: 'neutral', label: 'רציני', describe: 'straight, neutral mouth' },
+      { id: 'smile', label: 'חיוך רחב', describe: 'big open smile' },
+      { id: 'default', label: 'חיוך', describe: 'gentle smile' },
+      { id: 'twinkle', label: 'חיוך קטן', describe: 'small closed smile' },
+      { id: 'tongue', label: 'לשון', describe: 'tongue out, tasting' },
+      { id: 'eating', label: 'לועס', describe: 'chewing, full cheeks' },
+      { id: 'serious', label: 'רציני', describe: 'straight, serious mouth' },
+      { id: 'disbelief', label: 'וואו', describe: 'open mouth, amazed' },
     ],
   },
   facialHair: {
     label: 'זקן ושפם',
     describe: 'facial hair',
-    crop: '14 22 36 30',
+    crop: crop(50, 80, 164, 120),
     options: [
       { id: 'none', label: 'ללא', describe: 'clean shaven' },
-      { id: 'mustache', label: 'שפם מסולסל', describe: 'curled handlebar mustache' },
-      { id: 'chevron', label: 'שפם', describe: 'thick straight mustache' },
-      { id: 'beard', label: 'זקן מלא', describe: 'full beard' },
-      { id: 'goatee', label: 'זקנקן', describe: 'goatee' },
-      { id: 'stubble', label: 'זיפים', describe: 'light stubble' },
+      { id: 'beardLight', label: 'זיפים', describe: 'light stubble beard' },
+      { id: 'beardMedium', label: 'זקן', describe: 'medium beard' },
+      { id: 'beardMajestic', label: 'זקן מלא', describe: 'big full beard' },
+      { id: 'moustacheFancy', label: 'שפם מסולסל', describe: 'curled fancy mustache' },
+      { id: 'moustacheMagnum', label: 'שפם עבות', describe: 'thick mustache' },
     ],
   },
   glasses: {
     label: 'משקפיים',
     describe: 'glasses',
-    crop: '14 18 36 26',
+    crop: crop(56, 70, 152, 70),
     options: [
       { id: 'none', label: 'ללא', describe: 'no glasses' },
+      { id: 'prescription01', label: 'דקים', describe: 'thin glasses' },
+      { id: 'prescription02', label: 'עבים', describe: 'thick-rimmed glasses' },
       { id: 'round', label: 'עגולים', describe: 'round glasses' },
-      { id: 'square', label: 'מרובעים', describe: 'rectangular glasses' },
-    ],
-  },
-  extras: {
-    label: 'פרטים',
-    describe: 'cheek details',
-    crop: '14 18 36 30',
-    options: [
-      { id: 'none', label: 'ללא', describe: 'nothing' },
-      { id: 'blush', label: 'סומק', describe: 'rosy cheeks' },
-      { id: 'freckles', label: 'נמשים', describe: 'freckles' },
+      { id: 'wayfarers', label: 'משקפי שמש', describe: 'sunglasses' },
+      { id: 'kurt', label: 'משקפי שמש עגולים', describe: 'round white sunglasses' },
     ],
   },
   hat: {
     label: 'כובע',
     describe: 'headwear',
-    crop: '6 0 52 52',
+    crop: crop(20, -30, 224, 200),
     options: [
-      { id: 'toque', label: 'כובע שף', describe: 'tall pleated chef toque' },
+      { id: 'toque', label: 'כובע שף', describe: 'tall puffy chef toque' },
       { id: 'cap', label: 'כובע שף נמוך', describe: 'short pleated chef cap' },
       { id: 'bandana', label: 'בנדנה', describe: 'polka-dot bandana tied at the side' },
-      { id: 'beanie', label: 'כיפת מטבח', describe: 'snug kitchen skull cap' },
+      { id: 'beanie', label: 'כיפת מטבח', describe: 'snug white kitchen skull cap' },
+      { id: 'baseball', label: 'כובע מצחייה', describe: 'baseball cap' },
+      { id: 'hijab', label: 'חיג׳אב', describe: 'hijab' },
+      { id: 'turban', label: 'טורבן', describe: 'turban' },
       { id: 'none', label: 'בלי כובע', describe: 'no hat' },
     ],
   },
   outfit: {
     label: 'מדים',
     describe: 'kitchen outfit',
-    crop: '0 30 64 34',
+    crop: crop(8, 170, 248, 120),
     options: [
       {
         id: 'jacket',
@@ -216,18 +248,16 @@ export const AVATAR_PARTS = {
 export const DEFAULT_AVATAR_CONFIG = Object.freeze({
   v: AVATAR_CONFIG_VERSION,
   parts: Object.freeze({
-    face: 'oval',
-    hair: 'short',
-    eyes: 'dots',
-    brows: 'soft',
+    hair: 'shortFlat',
+    eyes: 'default',
+    brows: 'defaultNatural',
     mouth: 'smile',
     facialHair: 'none',
     glasses: 'none',
-    extras: 'blush',
     hat: 'toque',
     outfit: 'apron',
   }),
-  colors: Object.freeze({ skin: 'light', hair: 'brown', outfit: 'burgundy', background: 'cream' }),
+  colors: Object.freeze({ skin: 'fair', hair: 'brown', outfit: 'burgundy', background: 'cream' }),
 });
 
 const hasOption = (list, id) => list.some((o) => o.id === id);
@@ -253,16 +283,18 @@ export function normalizeAvatarConfig(raw) {
 }
 
 /**
- * A random config. Facial hair and glasses are rarer than "none", so random avatars
- * don't all look alike.
+ * A random config. Facial hair and glasses are rarer than "none", and hijab/turban are left
+ * to the user's own choice.
  * @param {() => number} [random=Math.random]
  */
 export function randomAvatarConfig(random = Math.random) {
   const pick = (list) => list[Math.floor(random() * list.length)].id;
   const config = { v: AVATAR_CONFIG_VERSION, parts: {}, colors: {} };
   for (const [key, part] of Object.entries(AVATAR_PARTS)) {
-    const rare = ['facialHair', 'glasses', 'extras'].includes(key);
-    config.parts[key] = rare && random() < 0.55 ? 'none' : pick(part.options);
+    let options = part.options;
+    if (key === 'hat') options = options.filter((o) => !['hijab', 'turban'].includes(o.id));
+    const rare = ['facialHair', 'glasses'].includes(key);
+    config.parts[key] = rare && random() < 0.6 ? 'none' : pick(options);
   }
   for (const [key, palette] of Object.entries(AVATAR_COLORS)) {
     config.colors[key] = pick(key === 'background' ? palette.options.slice(1) : palette.options);
@@ -293,368 +325,240 @@ export function describeAvatarSchema() {
 }
 
 // ---------------------------------------------------------------------------
-// Drawing
+// Kitchen layer (figure coordinates: head circle centred 132,92, radius 56)
 // ---------------------------------------------------------------------------
 
-const color = (key, id) => AVATAR_COLORS[key].options.find((o) => o.id === id);
+// Opaque rim for white props (white hats and clothes), so they show on white backgrounds.
+const WHITE_EDGE = '#DCD8CE';
 
-/**
- * Several shapes drawn as one outlined blob: each shape is stroked at double width,
- * then all are filled again on top, which hides the inner outlines.
- */
-function blob(shapes, fill, extra = '') {
-  const stroked = shapes.map((s) =>
-    s.replace('/>', ` fill="${fill}" stroke="${INK}" stroke-width="3"/>`),
-  );
-  const filled = shapes.map((s) => s.replace('/>', ` fill="${fill}"/>`));
-  return `<g ${extra}>${stroked.join('')}${filled.join('')}</g>`;
+// Avataaars' crew-neck shirt outline (clothing group, translated by 0,170).
+// Kitchen props on their own (figure coordinates), for tests and docs: proves they paint
+// nothing outside their own outline.
+export function renderKitchenPropSvg(kind, propId, outfitColor = 'burgundy') {
+  const accent = `#${color('outfit', outfitColor)}`;
+  const id = `kp${(renderCount = (renderCount + 1) % 1e6)}`;
+  const body = kind === 'hat' ? hatSvg(HATS[propId](accent), id) : outfit(propId, accent, id);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -24 264 304" fill="none">${body}</svg>`;
 }
 
-// Face geometry per shape: half-width, chin y, and the outline path.
-const FACES = {
-  oval: {
-    hw: 11,
-    chin: 44,
-    d: 'M32,13.5 C38.6,13.5 43,17.6 43,24 L43,33 C43,38.8 38,44 32,44 C26,44 21,38.8 21,33 L21,24 C21,17.6 25.4,13.5 32,13.5 Z',
-  },
-  round: {
-    hw: 12,
-    chin: 43.5,
-    d: 'M32,13.5 C39.2,13.5 44,18 44,25.5 L44,31.5 C44,38.6 38.6,43.5 32,43.5 C25.4,43.5 20,38.6 20,31.5 L20,25.5 C20,18 24.8,13.5 32,13.5 Z',
-  },
-  square: {
-    hw: 11.2,
-    chin: 44.2,
-    d: 'M32,13.5 C38.8,13.5 43.2,17.4 43.2,23.8 L43.2,36 C43.2,38.8 41.6,40.6 38.4,42.4 L35.2,43.8 Q32,44.6 28.8,43.8 L25.6,42.4 C22.4,40.6 20.8,38.8 20.8,36 L20.8,23.8 C20.8,17.4 25.2,13.5 32,13.5 Z',
-  },
-  long: {
-    hw: 10.2,
-    chin: 45.2,
-    d: 'M32,13 C38.2,13 42.2,17 42.2,23.5 L42.2,34 C42.2,40 37.6,45.2 32,45.2 C26.4,45.2 21.8,40 21.8,34 L21.8,23.5 C21.8,17 25.8,13 32,13 Z',
-  },
-};
-
-// Hair pieces: `back` goes behind the head (and over the shoulders), `front` over the
-// forehead. Built per face so the sides hug the face width.
-function hairLayers(style, face, c, underHat) {
-  const L = 32 - face.hw;
-  const R = 32 + face.hw;
-  const fill = c.hex;
-  const cap = (bottom) =>
-    `<path d="M${L - 0.6},${bottom} C${L - 1.4},18 ${L + 4},12.2 32,12.2 C${R - 4},12.2 ${R + 1.4},18 ${R + 0.6},${bottom} L${R - 0.6},${bottom} C${R - 1.4},23 ${R - 2.6},21 ${R - 4.6},20 C${R - 8},21.6 ${L + 8.5},21.8 ${L + 4.8},19.6 C${L + 2.6},21 ${L + 1.4},23.5 ${L + 0.6},${bottom} Z" fill="${fill}" ${LINE}/>`;
-
-  // Long styles: the fringe is filled up to the back piece's crown (so the crown has one
-  // outline) and only the hairline is stroked.
-  const crownTop = `M${L - 1.6},27 C${L - 2.6},16 ${L + 3.6},11.5 32,11.5 C${R - 3.6},11.5 ${R + 2.6},16 ${R + 1.6},27`;
-  const crownWith = (hairline) =>
-    `<path d="${crownTop} ${hairline} Z" fill="${fill}"/><path d="M${hairline.slice(1)}" fill="none" ${LINE}/>`;
-
-  switch (style) {
-    case 'bald':
-      return {
-        back: '',
-        front: `<path d="M27,16.2 Q29.5,15 32,15.2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" stroke-linecap="round"/>`,
-      };
-    case 'buzz':
-      return {
-        back: '',
-        front: `<path d="M${L},25.5 C${L - 0.4},17.4 ${L + 4.6},13 32,13 C${R - 4.6},13 ${R + 0.4},17.4 ${R},25.5 C${R - 1.6},21.4 ${R - 5},19.8 32,19.8 C${L + 5},19.8 ${L + 1.6},21.4 ${L},25.5 Z" fill="${fill}" fill-opacity=".85" ${THIN}/>`,
-      };
-    case 'short':
-      return { back: '', front: cap(27.5) };
-    case 'side':
-      return {
-        back: '',
-        front: `<path d="M${L - 0.6},28 C${L - 1.6},17 ${L + 4},12 32.5,12 C${R - 3},12 ${R + 1.6},17.5 ${R + 0.6},28 L${R - 0.6},28 C${R - 0.8},24 ${R - 1.8},21.8 ${R - 3},20.8 C${R - 8},22.6 ${L + 9},21.4 ${L + 6.2},18.4 C${L + 3.6},21.4 ${L + 1.6},23.6 ${L + 0.6},28 Z" fill="${fill}" ${LINE}/><path d="M34,12.8 Q31.5,16.2 ${L + 6.2},18.4" fill="none" stroke="${c.shade}" stroke-width="1.1" stroke-linecap="round"/>`,
-      };
-    case 'curly': {
-      const curls = [];
-      for (let i = 0; i <= 8; i++) {
-        if (underHat && i > 1 && i < 7) continue;
-        const a = Math.PI * (1 - i / 8);
-        const x = 32 + (face.hw + 0.6) * Math.cos(a);
-        const y = 22 - 9.2 * Math.sin(a);
-        curls.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.6"/>`);
-      }
-      curls.push(
-        `<circle cx="${(L - 0.2).toFixed(2)}" cy="26.2" r="2.6"/>`,
-        `<circle cx="${(R + 0.2).toFixed(2)}" cy="26.2" r="2.6"/>`,
-      );
-      return { back: '', front: blob(curls, fill) };
-    }
-    case 'bob':
-      return {
-        back: `<path d="M${L - 1.6},27 C${L - 2.6},16 ${L + 3.6},11.5 32,11.5 C${R - 3.6},11.5 ${R + 2.6},16 ${R + 1.6},27 L${R + 2.2},38.6 C${R + 2.2},40.2 ${R + 1},40.8 ${R - 0.4},40.6 L${L + 0.4},40.6 C${L - 1},40.8 ${L - 2.2},40.2 ${L - 2.2},38.6 Z" fill="${fill}" ${LINE}/>`,
-        front: crownWith(
-          `L${R - 0.2},26 C${R - 3},24.5 ${R - 6},22 ${R - 7.5},19.6 C${R - 10.5},22.6 ${L + 6},24.6 ${L + 0.2},26`,
-        ),
-      };
-    case 'long':
-      return {
-        back: `<path d="M${L - 1.6},27 C${L - 2.6},16 ${L + 3.6},11.5 32,11.5 C${R - 3.6},11.5 ${R + 2.6},16 ${R + 1.6},27 L${R + 3},48.5 C${R + 3},50.4 ${R + 1.6},51.2 ${R - 0.4},50.8 L${L + 0.4},50.8 C${L - 1.6},51.2 ${L - 3},50.4 ${L - 3},48.5 Z" fill="${fill}" ${LINE}/>`,
-        front: crownWith(
-          `L${R - 0.2},31 C${R - 1.4},24.6 ${R - 4},20 32,17.6 C${L + 4},20 ${L + 1.4},24.6 ${L + 0.2},31`,
-        ),
-      };
-    case 'bun':
-    case 'ponytail': {
-      const front = `<path d="M${L - 0.2},27 C${L - 1},17.6 ${L + 4},12.8 32,12.8 C${R - 4},12.8 ${R + 1},17.6 ${R + 0.2},27 C${R - 0.6},22 ${R - 3.6},18.8 32,18.6 C${L + 3.6},18.8 ${L + 0.6},22 ${L - 0.2},27 Z" fill="${fill}" ${LINE}/><path d="M28,14.2 Q30,17 32,18.4 M36,14.2 Q34,17 32,18.4" fill="none" stroke="${c.shade}" stroke-width=".9" stroke-linecap="round"/>`;
-      const back =
-        style === 'bun'
-          ? `<circle cx="32" cy="9.6" r="4.6" fill="${fill}" ${LINE}/><path d="M29.4,8.6 Q32,6.8 34.6,8.6" fill="none" stroke="${c.shade}" stroke-width=".9" stroke-linecap="round"/>`
-          : `<path d="M${R - 1},17 C${R + 6},17.6 ${R + 7.6},24 ${R + 6},33.5 C${R + 5.2},37.6 ${R + 3.6},40 ${R + 2.2},41 C${R + 3},35.4 ${R + 2.6},26.6 ${R - 1.4},21 Z" fill="${fill}" ${LINE}/>`;
-      return { back, front };
-    }
-    default:
-      return { back: '', front: '' };
-  }
-}
-
-function eyes(style) {
-  const dot = (x) => `<circle cx="${x}" cy="30" r="1.05" fill="${INK}"/>`;
-  const arc = (x) =>
-    `<path d="M${x - 1.6},30.6 Q${x},28.6 ${x + 1.6},30.6" fill="none" ${thin(1.3)}/>`;
-  switch (style) {
-    case 'round':
-      return [27.5, 36.5]
-        .map(
-          (x) =>
-            `<ellipse cx="${x}" cy="29.9" rx="1.9" ry="2.1" fill="#fff" stroke="${INK}" stroke-width=".9"/><circle cx="${x + 0.25}" cy="30.2" r="1.05" fill="${INK}"/>`,
-        )
-        .join('');
-    case 'happy':
-      return arc(27.5) + arc(36.5);
-    case 'lashes':
-      return (
-        dot(27.5) +
-        dot(36.5) +
-        `<path d="M26.2,29.2 L25.1,28.4 M37.8,29.2 L38.9,28.4" fill="none" stroke="${INK}" stroke-width=".9" stroke-linecap="round"/>`
-      );
-    case 'sleepy':
-      return [27.5, 36.5]
-        .map(
-          (x) =>
-            `<path d="M${x - 1.6},29.6 L${x + 1.6},29.6" ${THIN}/><path d="M${x - 1.2},29.8 Q${x},31.4 ${x + 1.2},29.8 Z" fill="${INK}"/>`,
-        )
-        .join('');
-    case 'wink':
-      return dot(27.5) + arc(36.5);
-    default:
-      return dot(27.5) + dot(36.5);
-  }
-}
-
-function brows(style, c) {
-  const mirror = (d) =>
-    `<path d="${d}" fill="none" stroke="${c}" stroke-width="${style === 'thick' ? 1.9 : 1.2}" stroke-linecap="round"/>`;
-  const pair = (l, r) => mirror(l) + mirror(r);
-  switch (style) {
-    case 'straight':
-      return pair('M25.4,26.6 L29.6,26.6', 'M34.4,26.6 L38.6,26.6');
-    case 'arched':
-      return pair('M25.3,27.2 Q26.8,24.8 29.6,26.2', 'M34.4,26.2 Q37.2,24.8 38.7,27.2');
-    case 'focused':
-      return pair('M25.4,25.8 L29.6,27', 'M34.4,27 L38.6,25.8');
-    default: // soft, thick
-      return pair('M25.4,27 Q27.5,25.6 29.6,26.6', 'M34.4,26.6 Q36.5,25.6 38.6,27');
-  }
-}
-
-function mouth(style) {
-  const tongue = '#e7787a';
-  const inside = '#7a2b2e';
-  switch (style) {
-    case 'grin':
-      return `<path d="M28.4,37.7 Q32,38.2 35.6,37.7 Q35.1,41.6 32,41.6 Q28.9,41.6 28.4,37.7 Z" fill="${inside}" ${THIN}/><path d="M28.9,38.2 Q32,38.6 35.1,38.2 L34.9,39.2 Q32,39.6 29.1,39.2 Z" fill="#fff"/>`;
-    case 'laugh':
-      return `<path d="M27.8,37.4 Q32,38 36.2,37.4 Q35.8,42.8 32,42.8 Q28.2,42.8 27.8,37.4 Z" fill="${inside}" ${THIN}/><path d="M29.4,41.4 Q32,39.4 34.6,41.4 Q33.4,42.6 32,42.6 Q30.6,42.6 29.4,41.4 Z" fill="${tongue}"/>`;
-    case 'yum':
-      return `<path d="M31,38.9 Q30.9,41.8 32.6,41.8 Q34.3,41.8 34.2,38.6 Z" fill="${tongue}" stroke="${INK}" stroke-width=".9" stroke-linejoin="round"/><path d="M28.6,37.6 Q32,40.4 35.4,37.6" fill="none" ${thin(1.25)}/>`;
-    case 'smirk':
-      return `<path d="M29.2,38.9 Q32.6,39.8 35.2,37.4" fill="none" ${thin(1.25)}/>`;
-    case 'neutral':
-      return `<path d="M29.6,38.8 L34.4,38.8" fill="none" ${thin(1.25)}/>`;
-    default:
-      return `<path d="M28.8,37.8 Q32,40.8 35.2,37.8" fill="none" ${thin(1.25)}/>`;
-  }
-}
-
-function facialHair(style, face, c) {
-  const L = 32 - face.hw;
-  const R = 32 + face.hw;
-  const beard = `M${L},30.5 C${L},39 ${L + 4.4},${face.chin + 2.6} 32,${face.chin + 2.6} C${R - 4.4},${face.chin + 2.6} ${R},39 ${R},30.5 L${R - 1.4},30.5 C${R - 1.8},34.6 ${R - 3.6},36 ${R - 6},36.6 C${R - 7.6},35.4 33.6,35.2 32,36 C30.4,35.2 ${L + 7.6},35.4 ${L + 6},36.6 C${L + 3.6},36 ${L + 1.8},34.6 ${L + 1.4},30.5 Z M28.2,39.2 a3.8,2.9 0 1 0 7.6,0 a3.8,2.9 0 1 0 -7.6,0 Z`;
-  switch (style) {
-    case 'mustache':
-      return `<path d="M32,35.6 C30.5,34.6 28.4,34.8 27.3,36.1 C26.7,36.9 25.6,36.8 25.6,35.9 C25,37.4 26.6,38.4 28.2,37.9 C29.6,37.4 30.9,36.8 32,36.4 C33.1,36.8 34.4,37.4 35.8,37.9 C37.4,38.4 39,37.4 38.4,35.9 C38.4,36.8 37.3,36.9 36.7,36.1 C35.6,34.8 33.5,34.6 32,35.6 Z" fill="${c.hex}" stroke="${INK}" stroke-width=".8" stroke-linejoin="round"/>`;
-    case 'chevron':
-      return `<path d="M27.4,36.6 Q32,33.6 36.6,36.6 Q36.9,37.8 35.7,37.6 Q32,36.2 28.3,37.6 Q27.1,37.8 27.4,36.6 Z" fill="${c.hex}" stroke="${INK}" stroke-width=".9" stroke-linejoin="round"/>`;
-    case 'beard':
-      return `<path d="${beard}" fill="${c.hex}" fill-rule="evenodd" ${LINE}/>`;
-    case 'goatee':
-      return `<path d="M29.4,41.6 Q32,40.9 34.6,41.6 Q34.6,45.4 32,46 Q29.4,45.4 29.4,41.6 Z" fill="${c.hex}" stroke="${INK}" stroke-width="1" stroke-linejoin="round"/><path d="M28.6,36.8 Q32,35.2 35.4,36.8" fill="none" stroke="${c.hex}" stroke-width="1.4" stroke-linecap="round"/>`;
-    case 'stubble':
-      return `<path d="${beard}" fill="${c.shade}" fill-opacity=".2" fill-rule="evenodd"/>`;
-    default:
-      return '';
-  }
-}
-
-function glasses(style, face) {
-  const L = 32 - face.hw;
-  const R = 32 + face.hw;
-  const lens = 'fill="#fff" fill-opacity=".3"';
-  const arms = `<path d="M${style === 'round' ? 24.5 : 24.3},29.4 L${L + 0.2},28.6 M${style === 'round' ? 39.5 : 39.7},29.4 L${R - 0.2},28.6" fill="none" ${THIN}/>`;
-  if (style === 'round') {
-    return `${arms}<circle cx="27.5" cy="30" r="3" ${lens} ${THIN}/><circle cx="36.5" cy="30" r="3" ${lens} ${THIN}/><path d="M30.5,29.6 Q32,28.7 33.5,29.6" fill="none" ${THIN}/>`;
-  }
-  if (style === 'square') {
-    return `${arms}<rect x="24.3" y="27.7" width="6.4" height="4.8" rx="1.2" ${lens} ${THIN}/><rect x="33.3" y="27.7" width="6.4" height="4.8" rx="1.2" ${lens} ${THIN}/><path d="M30.7,29.4 Q32,28.6 33.3,29.4" fill="none" ${THIN}/>`;
-  }
-  return '';
-}
-
-function extras(style) {
-  if (style === 'blush') {
-    return '<ellipse cx="25" cy="34.4" rx="1.9" ry="1.1" fill="#f08f8f" fill-opacity=".5"/><ellipse cx="39" cy="34.4" rx="1.9" ry="1.1" fill="#f08f8f" fill-opacity=".5"/>';
-  }
-  if (style === 'freckles') {
-    const dots = [
-      [24.2, 33.6],
-      [25.8, 34.4],
-      [25, 35.4],
-      [26.6, 33.2],
-      [39.8, 33.6],
-      [38.2, 34.4],
-      [39, 35.4],
-      [37.4, 33.2],
-    ];
-    return dots.map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".45" fill="#a5654a"/>`).join('');
-  }
-  return '';
-}
-
-function hat(style, outfit, id) {
-  const pleats = (y1, y2) =>
-    [26, 32, 38]
-      .map(
-        (x) =>
-          `<line x1="${x}" x2="${x}" y1="${y1}" y2="${y2}" stroke="#cdcccb" stroke-width="1.5" stroke-linecap="round"/>`,
-      )
-      .join('');
-  switch (style) {
-    case 'toque':
-      return (
-        blob(
-          [
-            '<circle cx="22.4" cy="12.6" r="5.6"/>',
-            '<circle cx="32" cy="8.4" r="7"/>',
-            '<circle cx="41.6" cy="12.6" r="5.6"/>',
-            '<rect x="21" y="13" width="22" height="11.8"/>',
-          ],
-          '#fff',
-        ) +
-        `<path d="M40.2,7.6 C44.6,8.6 47.6,12.6 45.6,16.6 C44.6,18.4 43,18.8 43,18.8 L39.4,18.8 C41.6,15.4 42,10.4 40.2,7.6 Z" fill="#eee"/>` +
-        `<line x1="21" x2="43" y1="17.4" y2="17.4" stroke="${INK}" stroke-width="1.2"/>` +
-        pleats(19.6, 22.6)
-      );
-    case 'cap':
-      return (
-        `<path d="M20.4,24.8 L20.4,15.6 C20.4,11.6 25,9.6 32,9.6 C39,9.6 43.6,11.6 43.6,15.6 L43.6,24.8 Z" fill="#fff" ${LINE}/>` +
-        `<path d="M38.6,10.2 C42,11 43.6,12.6 43.6,15.6 L43.6,24.1 L40.2,24.1 L40.2,13.4 Z" fill="#eee"/>` +
-        `<path d="M20.4,15.8 Q32,13 43.6,15.8" fill="none" stroke="${INK}" stroke-width="1.2"/>` +
-        pleats(18.4, 22.4)
-      );
-    case 'bandana':
-      return (
-        `<path d="M44,20.6 L49.6,17.6 Q50.6,21.2 48.6,22.6 L50.4,26.6 Q47.6,27.2 45.2,23.6 Z" fill="${outfit.hex}" ${LINE}/>` +
-        `<path d="M20.2,24.8 C19.8,16.6 25,12 32,12 C39,12 44.2,16.6 43.8,24.8 Z" fill="${outfit.hex}" ${LINE}/>` +
-        `<path d="M20.2,24.8 C25,23 39,23 43.8,24.8" fill="none" stroke="${outfit.shade}" stroke-width="1.2"/>` +
-        [
-          [26, 17],
-          [32, 15],
-          [38, 17],
-          [29, 20.6],
-          [35, 20.6],
-          [23.4, 21.4],
-          [40.6, 21.4],
-          [32, 19.4],
-        ]
-          .map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".95" fill="#fff" fill-opacity=".9"/>`)
-          .join('')
-      );
-    case 'beanie':
-      return (
-        `<clipPath id="${id}-beanie"><path d="M20.2,24.8 C19.8,15.4 25,11.2 32,11.2 C39,11.2 44.2,15.4 43.8,24.8 Z"/></clipPath>` +
-        `<path d="M20.2,24.8 C19.8,15.4 25,11.2 32,11.2 C39,11.2 44.2,15.4 43.8,24.8 Z" fill="#fff"/>` +
-        `<path d="M37,11.6 C41.6,12.8 44,15.6 44,20.6 L40,20.6 C40.2,17 39.2,13.6 37,11.6 Z" fill="#eee" clip-path="url(#${id}-beanie)"/>` +
-        `<path d="M20.2,24.8 C19.8,15.4 25,11.2 32,11.2 C39,11.2 44.2,15.4 43.8,24.8 Z" fill="none" ${LINE}/>` +
-        `<rect x="19.6" y="20.4" width="24.8" height="4.8" rx="2.2" fill="#fff" ${LINE}/>`
-      );
-    default:
-      return '';
-  }
-}
-
-// Shoulders: the bust ends in a shallow arc, as in the stock avatars.
-const BODY =
-  'M6.8,58.2 L7.1,56 C7.4,53.8 9.1,52.4 11.5,51.4 L24.6,46 Q32,50.4 39.4,46 L52.5,51.4 C54.9,52.4 56.6,53.8 56.9,56 L57.2,58.2 A62,62 0 0 1 6.8,58.2 Z';
+const SHIRT =
+  'M132.5 51.83c18.5 0 33.5-9.62 33.5-21.48 0-.36-.01-.7-.04-1.06A72 72 0 0 1 232 101.04V110H32v-8.95a72 72 0 0 1 67.05-71.83c-.03.37-.05.75-.05 1.13 0 11.86 15 21.48 33.5 21.48Z';
+const COLLAR =
+  'M99.05 29.22C99 41 115 51.83 132.5 51.83S166 41 165.96 29.29l6.6 1.1C172.6 47 154.6 60 132.5 60S92.4 47 92.6 30.1Z';
 
 function outfit(style, accent, id) {
-  const clip = `<clipPath id="${id}-body"><path d="${BODY}"/></clipPath>`;
-  const shade = '<path d="M0,53.6 Q32,58 64,53.6 L64,64 L0,64 Z" fill="#ececec"/>';
-  let inner = '';
-  let over = '';
+  const white = '#F7F6F2';
+  const sides =
+    '<rect x="32" y="20" width="30" height="90" fill="#000" fill-opacity=".05"/>' +
+    '<rect x="202" y="20" width="30" height="90" fill="#000" fill-opacity=".05"/>';
+  const bib = 'M96 110V70a6 6 0 0 1 6-6h61a6 6 0 0 1 6 6v40Z';
+  const straps = (c) =>
+    `<path d="M101 66 110 50M164 66 155 50" stroke="${c}" stroke-width="6" stroke-linecap="round"/>`;
+  const collar = `<path d="${COLLAR}" fill="#ECEAE4"/>`;
+  let inner;
   switch (style) {
     case 'jacket':
       inner =
-        `<rect x="0" y="40" width="64" height="24" fill="#fff"/>${shade}` +
-        `<path d="M26.6,46.6 L37.6,51 L37.6,64" fill="none" ${LINE}/>` +
+        `<path d="${SHIRT}" fill="${white}"/>${sides}` +
+        '<path d="M168 52 156 110" stroke="#000" stroke-opacity=".14" stroke-width="2.5"/>' +
         [
-          [28, 51.6],
-          [28, 56.6],
-          [41.6, 51.6],
-          [41.6, 56.6],
+          [116, 72],
+          [116, 92],
+          [176, 70],
+          [174, 90],
         ]
-          .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="${INK}"/>`)
-          .join('');
-      over = `<path d="M26.4,45.2 Q32,49.6 37.6,45.2 L35.2,50 Q32,51.4 28.8,50 Z" fill="${accent.hex}" ${LINE}/>`;
-      break;
-    case 'apron':
-      inner =
-        `<rect x="0" y="40" width="64" height="24" fill="#fff"/>${shade}` +
-        `<path d="M19,47.2 L24.6,45.2 Q32,50.6 39.4,45.2 L45,47.2 L45,64 L19,64 Z" fill="${accent.hex}" ${LINE}/>` +
-        [
-          [28, 52.4],
-          [28, 57.6],
-          [36, 52.4],
-          [36, 57.6],
-        ]
-          .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="#fff"/>`)
-          .join('');
+          .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.2" fill="#3C4F5C"/>`)
+          .join('') +
+        collar +
+        `<path d="M119 53q13.5 7 27 0l-6.5 17q-7 4-14 0Z" fill="${accent}"/>`;
       break;
     case 'tee':
       inner =
-        `<rect x="0" y="40" width="64" height="24" fill="${accent.hex}"/><path d="M0,53.6 Q32,58 64,53.6 L64,64 L0,64 Z" fill="${accent.shade}"/>` +
-        `<path d="M23,64 L23,52 Q32,53.6 41,52 L41,64 Z" fill="#fff" ${LINE}/>` +
-        `<path d="M23.6,52.2 L26.4,46.8 M40.4,52.2 L37.6,46.8" fill="none" ${LINE}/>` +
-        `<path d="M28,57 Q32,58 36,57" fill="none" stroke="#cdcccb" stroke-width="1.2" stroke-linecap="round"/>`;
+        `<path d="${SHIRT}" fill="${accent}"/>${sides}${straps('#fff')}` +
+        '<path d="M100 110V74a6 6 0 0 1 6-6h53a6 6 0 0 1 6 6v36Z" fill="#fff"/>' +
+        '<path d="M118 86h29v12a5 5 0 0 1-5 5h-19a5 5 0 0 1-5-5Z" fill="#000" fill-opacity=".07"/>' +
+        '<path d="M99.05 29.22C99 41 115 51.83 132.5 51.83S166 41 165.96 29.29" stroke="#000" stroke-opacity=".15" stroke-width="5" fill="none"/>';
       break;
     case 'stripes':
       inner =
-        `<rect x="0" y="40" width="64" height="24" fill="#fff"/>${shade}` +
-        `<clipPath id="${id}-bib"><path d="M21,47 L25.4,45.4 Q32,50.6 38.6,45.4 L43,47 L43,64 L21,64 Z"/></clipPath>` +
-        `<g clip-path="url(#${id}-bib)"><rect x="20" y="44" width="24" height="20" fill="#fff"/>` +
-        [22.6, 27.4, 32.2, 37, 41.8]
-          .map((x) => `<rect x="${x}" y="44" width="2.4" height="20" fill="${accent.hex}"/>`)
-          .join('') +
-        `</g><path d="M21,47 L25.4,45.4 Q32,50.6 38.6,45.4 L43,47 L43,64" fill="none" ${LINE}/><path d="M21,47 L21,64" fill="none" ${LINE}/>`;
+        `<path d="${SHIRT}" fill="${white}"/>${sides}${straps('#3C4F5C')}` +
+        `<clipPath id="${id}-bib"><path d="${bib}"/></clipPath><path d="${bib}" fill="#fff"/>` +
+        `<g clip-path="url(#${id}-bib)">${[98, 112, 126, 140, 154]
+          .map((x) => `<rect x="${x}" y="60" width="7" height="60" fill="${accent}"/>`)
+          .join('')}</g>${collar}`;
       break;
+    default: // apron
+      inner =
+        `<path d="${SHIRT}" fill="${white}"/>${sides}${straps(accent)}<path d="${bib}" fill="${accent}"/>` +
+        '<path d="M96 110V70a6 6 0 0 1 6-6h4v46Z" fill="#000" fill-opacity=".07"/>' +
+        '<path d="M116 84h33v14a5 5 0 0 1-5 5h-23a5 5 0 0 1-5-5Z" fill="#000" fill-opacity=".1"/>' +
+        collar;
   }
-  return {
-    body: `${clip}<g clip-path="url(#${id}-body)">${inner}</g><path d="${BODY}" fill="none" ${LINE}/>`,
-    over,
-  };
+  const rim =
+    style === 'tee'
+      ? ''
+      : `<path d="${SHIRT}" fill="${WHITE_EDGE}" stroke="${WHITE_EDGE}" stroke-width="4" stroke-linejoin="round"/>`;
+  return `<g transform="translate(0 170)">${rim}<clipPath id="${id}-shirt"><path d="${SHIRT}"/></clipPath><g clip-path="url(#${id}-shirt)">${inner}</g></g>`;
 }
+
+const pleats = (y, h) =>
+  [92, 112, 132, 152, 172]
+    .map(
+      (x) =>
+        `<rect x="${x - 1.5}" y="${y}" width="3" height="${h}" rx="1.5" fill="#000" fill-opacity=".08"/>`,
+    )
+    .join('');
+
+// Each hat: `shape` (its outline, filled with `fill`), `details` (shading, pleats, dots —
+// clipped to the outline, so nothing ever paints outside the hat), `extra` (separate pieces
+// drawn as they are, e.g. bandana tails), plus `crown` (top) and `bottom` (lower edge) used to
+// fit the hair. All for a hat on a bare head; HAT_FIT adjusts per hairstyle.
+const HATS = {
+  toque: () => ({
+    // where the puff meets the band: what has to cover big hair (the puff is narrower)
+    crown: 22,
+    bottom: 74,
+    fill: '#fff',
+    edge: WHITE_EDGE,
+    shape:
+      '<circle cx="98" cy="28" r="24"/><circle cx="132" cy="16" r="28"/><circle cx="166" cy="28" r="24"/>' +
+      '<rect x="78" y="26" width="108" height="24"/><rect x="76" y="44" width="112" height="30" rx="6"/>',
+    details:
+      '<path d="M160 6c20 2 32 18 30 34-1 6-4 10-4 10h-16c6-12 6-30-10-44Z" fill="#000" fill-opacity=".06"/>' +
+      '<rect x="76" y="44" width="112" height="30" rx="6" fill="#F2F1ED"/>' +
+      pleats(50, 18),
+  }),
+  cap: () => ({
+    crown: 20,
+    bottom: 74,
+    fill: '#fff',
+    edge: WHITE_EDGE,
+    shape: '<path d="M76 74V40c0-12 26-20 56-20s56 8 56 20v34Z"/>',
+    details:
+      '<path d="M76 44c16-8 36-11 56-11s40 3 56 11v-6c-16-8-36-11-56-11s-40 3-56 11Z" fill="#000" fill-opacity=".07"/>' +
+      '<path d="M170 20h20v56h-20Z" fill="#000" fill-opacity=".04"/>' +
+      pleats(50, 18),
+  }),
+  bandana: (a) => ({
+    crown: 24,
+    bottom: 74,
+    fill: a,
+    extra:
+      `<path d="M188 52l26-16c4 10 0 18-8 20Z" fill="${a}"/><path d="M188 58l22 14c-6 6-14 4-18-4Z" fill="${a}"/>` +
+      '<path d="M188 52l26-16c4 10 0 18-8 20ZM188 58l22 14c-6 6-14 4-18-4Z" fill="#000" fill-opacity=".12"/>',
+    shape:
+      '<path d="M74 76c-2-36 24-52 58-52s60 16 58 52c-18-8-38-11-58-11s-40 3-58 11Z"/><circle cx="190" cy="55" r="7"/>',
+    details: [
+      [100, 44],
+      [120, 36],
+      [144, 36],
+      [164, 44],
+      [110, 56],
+      [132, 50],
+      [154, 56],
+      [88, 62],
+      [176, 62],
+    ]
+      .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.2" fill="#fff" fill-opacity=".9"/>`)
+      .join(''),
+  }),
+  beanie: () => ({
+    crown: 24,
+    bottom: 76,
+    fill: '#fff',
+    edge: WHITE_EDGE,
+    shape:
+      '<path d="M74 70c0-30 26-46 58-46s58 16 58 46Z"/><rect x="70" y="58" width="124" height="18" rx="9"/>',
+    details:
+      '<path d="M160 28c18 8 30 22 30 42h-14c0-16-6-30-16-42Z" fill="#000" fill-opacity=".06"/>' +
+      '<rect x="70" y="58" width="124" height="18" rx="9" fill="#F2F1ED"/>',
+  }),
+  baseball: (a) => ({
+    crown: 21,
+    bottom: 78,
+    fill: a,
+    shape:
+      '<path d="M76 72c0-30 24-48 56-48s56 18 56 48Z"/><circle cx="132" cy="25" r="4"/>' +
+      '<path d="M70 74c20-8 104-8 124 0 2 8-18 12-62 12s-64-4-62-12Z"/>',
+    details:
+      '<path d="M132 24v48" stroke="#000" stroke-opacity=".12" stroke-width="2.5"/>' +
+      '<path d="M70 74c20-8 104-8 124 0 2 8-18 12-62 12s-64-4-62-12Z" fill="#000" fill-opacity=".18"/>',
+  }),
+};
+
+/** A hat's SVG (figure coordinates): outline, then details clipped to it. */
+function hatSvg(hat, id) {
+  // White hats get an opaque rim (outer half of a stroke under the fill), so they stay
+  // visible on white backgrounds without any translucent paint outside the hat.
+  const rim = hat.edge
+    ? `<g fill="${hat.edge}" stroke="${hat.edge}" stroke-width="4" stroke-linejoin="round">${hat.shape}</g>`
+    : '';
+  return (
+    (hat.extra || '') +
+    rim +
+    `<clipPath id="${id}-hat">${hat.shape}</clipPath>` +
+    `<g fill="${hat.fill}">${hat.shape}</g>` +
+    `<g clip-path="url(#${id}-hat)">${hat.details}</g>`
+  );
+}
+
+/**
+ * Per-hairstyle hat fit, checked against every hat:
+ *  - `crown` (long or big hair): the hairstyle's top edge in figure units, measured from the
+ *    rendered hair. The hair isn't cut; instead each hat is scaled around the head's centre
+ *    just enough for its crown to cover the hair's crown, then drawn over it — so the hair
+ *    meets the hat's real outline with no seam, and big hair gets a proportionally big hat.
+ *  - Other styles show hair only below the hat (the hat covers the cut), so short hair and
+ *    hair accessories never poke out next to it. `trim` hides that many more units under
+ *    the hat's edge (frida's flower leaves).
+ */
+export const HAT_FIT = {
+  bigHair: { crown: 12.7 },
+  curly: { crown: 10.4 },
+  curvy: { crown: 16.3 },
+  bob: { crown: 19.9 },
+  dreads: { crown: 13.9 },
+  dreads02: { crown: 0 },
+  fro: { crown: 0 },
+  froBand: { crown: 0 },
+  straight01: { crown: 15.1 },
+  straight02: { crown: 18.1 },
+  straightAndStrand: { crown: 18.1 },
+  longButNotTooLong: { crown: 18.1 },
+  miaWallace: { crown: 19.9 },
+  frida: { trim: 10 },
+};
+
+// Hats scale around the head's centre (figure units); `crown` margin over the hair.
+const HEAD_CENTRE_Y = 92;
+const CROWN_MARGIN = 4;
+
+/** Avataaars tops that are headwear, not hair. */
+const AVATAAARS_HEADWEAR = { hijab: 'hijab', turban: 'turban' };
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+
+/** Find a balanced `<g …>…</g>` that starts with `open` in `svg`. */
+function findGroup(svg, open) {
+  const start = svg.indexOf(open);
+  if (start < 0) throw new Error(`chef-avatar: Avataaars structure changed (${open} not found)`);
+  const re = /<g\b[^>]*>|<\/g>/g;
+  re.lastIndex = start;
+  let depth = 0;
+  let m;
+  while ((m = re.exec(svg))) {
+    depth += m[0] === '</g>' ? -1 : 1;
+    if (depth === 0) return { start, end: re.lastIndex };
+  }
+  throw new Error('chef-avatar: unbalanced Avataaars output');
+}
+
+const splice = (svg, { start, end }, replacement) =>
+  svg.slice(0, start) + replacement + svg.slice(end);
+
+const color = (key, id) => AVATAR_COLORS[key].options.find((o) => o.id === id).hex;
 
 let renderCount = 0;
 
@@ -662,53 +566,85 @@ let renderCount = 0;
  * Draw an avatar as an SVG string.
  * @param {*} rawConfig - a config (normalised here, so partial or old configs are fine)
  * @param {Object} [options]
- * @param {string} [options.viewBox='0 0 64 64'] - crop, e.g. a part's `crop`
+ * @param {string} [options.viewBox='0 0 280 280'] - crop, e.g. a part's `crop`
  * @param {number} [options.size] - width/height attributes; omitted = scales to its box
  * @param {string} [options.title] - accessible name; omitted = decorative (aria-hidden)
  * @returns {string}
  */
-export function renderAvatarSvg(rawConfig, { viewBox = '0 0 64 64', size, title } = {}) {
+export function renderAvatarSvg(rawConfig, { viewBox = '0 0 280 280', size, title } = {}) {
   const { parts, colors } = normalizeAvatarConfig(rawConfig);
   const id = `ca${(renderCount = (renderCount + 1) % 1e6)}`;
-  const skin = color('skin', colors.skin);
-  const hairColor = color('hair', colors.hair);
-  const accent = color('outfit', colors.outfit);
+  const accent = `#${color('outfit', colors.outfit)}`;
+  const headwear = AVATAAARS_HEADWEAR[parts.hat];
+  const hat = !headwear && HATS[parts.hat] ? HATS[parts.hat](accent) : null;
   const bg = color('background', colors.background);
-  const face = FACES[parts.face];
-  const L = 32 - face.hw;
-  const R = 32 + face.hw;
 
-  let hair = hairLayers(parts.hair, face, hairColor, parts.hat !== 'none');
-  const clothes = outfit(parts.outfit, accent, id);
-  if (parts.hat !== 'none' && parts.hair === 'bun') hair = { ...hair, back: '' }; // under the hat
+  let svg = createAvatar(avataaars, {
+    seed: 'chef',
+    randomizeIds: true,
+    style: ['default'],
+    clothing: ['shirtCrewNeck'],
+    top: [headwear || (parts.hair === 'bald' ? 'shortFlat' : parts.hair)],
+    topProbability: headwear || parts.hair !== 'bald' ? 100 : 0,
+    hatColor: [color('outfit', colors.outfit)],
+    hairColor: [color('hair', colors.hair)],
+    facialHairColor: [color('hair', colors.hair)],
+    skinColor: [color('skin', colors.skin)],
+    eyes: [parts.eyes],
+    eyebrows: [parts.brows],
+    mouth: [parts.mouth],
+    facialHair: [parts.facialHair === 'none' ? 'beardLight' : parts.facialHair],
+    facialHairProbability: parts.facialHair === 'none' ? 0 : 100,
+    accessories: [parts.glasses === 'none' ? 'round' : parts.glasses],
+    accessoriesProbability: parts.glasses === 'none' ? 0 : 100,
+    accessoriesColor: ['262e33'],
+    ...(bg ? { backgroundColor: [bg] } : {}),
+  }).toString();
 
-  const svg = [
-    bg.hex ? `<circle cx="32" cy="32" r="32" fill="${bg.hex}"/>` : '',
-    clothes.body,
-    hair.back,
-    // neck
-    `<path d="M27,37 L27,46.4 Q32,49.6 37,46.4 L37,37 Z" fill="${skin.shade}" ${LINE}/>`,
-    clothes.over,
-    // ears
-    `<ellipse cx="${L - 0.2}" cy="30" rx="2.4" ry="3.4" fill="${skin.hex}" ${LINE}/>`,
-    `<ellipse cx="${R + 0.2}" cy="30" rx="2.4" ry="3.4" fill="${skin.hex}" ${LINE}/>`,
-    // face with a soft shade on its right side
-    `<clipPath id="${id}-face"><path d="${face.d}"/></clipPath>`,
-    `<path d="${face.d}" fill="${skin.hex}"/>`,
-    `<path d="M35,10 C${R + 2},14 ${R + 2},40 34,48 L64,48 L64,10 Z" fill="${skin.shade}" fill-opacity=".45" clip-path="url(#${id}-face)"/>`,
-    `<path d="${face.d}" fill="none" ${LINE}/>`,
-    extras(parts.extras),
-    `<path d="M31.4,31.8 Q30.6,33.9 32,34.1 Q33,34.2 33.3,33.6" fill="none" stroke="${skin.shade}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>`,
-    mouth(parts.mouth),
-    eyes(parts.eyes),
-    facialHair(parts.facialHair, face, hairColor),
-    brows(parts.brows, hairColor.shade === '#b9b7b1' ? '#8c8a85' : hairColor.shade),
-    hair.front,
-    glasses(parts.glasses, face),
-    hat(parts.hat, accent, id),
-  ].join('');
+  // Our outfit in place of the crew-neck shirt.
+  svg = splice(
+    svg,
+    findGroup(svg, '<g transform="translate(0 170)">'),
+    outfit(parts.outfit, accent, id),
+  );
 
+  if (hat) {
+    const fit = HAT_FIT[parts.hair] || {};
+    let grow = 1;
+    if (fit.crown != null) {
+      // Scale the hat around the head's centre until its crown covers the hair's crown.
+      const need = HEAD_CENTRE_Y - (fit.crown - CROWN_MARGIN);
+      grow = Math.max(1, need / (HEAD_CENTRE_Y - hat.crown));
+    } else {
+      // Hair only below the hat's lower edge (the hat covers the cut).
+      const bottom = hat.bottom + (fit.trim || 0);
+      const top = findGroup(svg, '<g transform="translate(-1)">');
+      svg = splice(
+        svg,
+        top,
+        `<clipPath id="${id}-under-hat"><rect x="-40" y="${bottom - 6}" width="360" height="400"/></clipPath>` +
+          `<g clip-path="url(#${id}-under-hat)">${svg.slice(top.start, top.end)}</g>`,
+      );
+    }
+    // The hat goes last in the figure (over glasses and hair).
+    const figure = findGroup(svg, '<g transform="translate(8)">');
+    const at = figure.end - '</g>'.length;
+    svg = splice(
+      svg,
+      { start: at, end: at },
+      `<g transform="translate(${+(132 * (1 - grow)).toFixed(2)} ${+(HEAD_CENTRE_Y * (1 - grow)).toFixed(2)}) scale(${+grow.toFixed(3)})">${hatSvg(hat, id)}</g>`,
+    );
+  }
+
+  // Scale the figure so tall hats and the outfit both fit.
+  svg = svg.replace(
+    '<g transform="translate(8)">',
+    `<g transform="translate(${+SHIFT_X.toFixed(2)} ${+SHIFT_Y.toFixed(2)}) scale(${SCALE})">`,
+  );
+
+  // Our own root element: viewBox crop, size and accessible name.
+  const inner = svg.slice(svg.indexOf('>') + 1, svg.lastIndexOf('</svg>'));
   const sizeAttrs = size ? ` width="${size}" height="${size}"` : '';
   const a11y = title ? ` role="img" aria-label="${title}"` : ' aria-hidden="true"';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}"${sizeAttrs}${a11y}>${svg}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill="none"${sizeAttrs}${a11y}>${inner}</svg>`;
 }

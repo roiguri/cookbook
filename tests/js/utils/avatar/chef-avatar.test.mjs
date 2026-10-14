@@ -7,6 +7,8 @@ import {
   normalizeAvatarConfig,
   randomAvatarConfig,
   renderAvatarSvg,
+  renderKitchenPropSvg,
+  HAT_FIT,
 } from 'src/js/utils/avatar/chef-avatar.js';
 
 // The avatar is rasterised from a standalone SVG (avatar-png.js), which browsers parse
@@ -63,14 +65,14 @@ describe('normalizeAvatarConfig', () => {
     const config = normalizeAvatarConfig({
       v: 0,
       parts: { hair: 'curly', eyes: 'laser', tail: 'long' },
-      colors: { skin: 'deep', hair: '#ff00ff' },
+      colors: { skin: 'dark', hair: '#ff00ff' },
       extra: true,
     });
     expect(config.v).toBe(AVATAR_CONFIG_VERSION);
     expect(config.parts.hair).toBe('curly');
     expect(config.parts.eyes).toBe(DEFAULT_AVATAR_CONFIG.parts.eyes);
     expect(config.parts).not.toHaveProperty('tail');
-    expect(config.colors.skin).toBe('deep');
+    expect(config.colors.skin).toBe('dark');
     expect(config.colors.hair).toBe(DEFAULT_AVATAR_CONFIG.colors.hair);
     expect(config).not.toHaveProperty('extra');
   });
@@ -110,30 +112,24 @@ describe('renderAvatarSvg', () => {
         ...DEFAULT_AVATAR_CONFIG,
         colors: { ...DEFAULT_AVATAR_CONFIG.colors, [key]: option.id },
       };
-      const svg = renderAvatarSvg(config);
+      const svg = renderAvatarSvg(config).toLowerCase();
       expect(parseErrors(svg)).toBe(0);
-      if (option.hex && key !== 'outfit') expect(svg).toContain(option.hex); // default outfit 'apron' shows the accent; covered below
+      if (option.hex) expect(svg).toContain(`#${option.hex}`);
     },
   );
 
-  it('uses the outfit colour for the apron', () => {
-    const svg = renderAvatarSvg({
-      ...DEFAULT_AVATAR_CONFIG,
-      colors: { ...DEFAULT_AVATAR_CONFIG.colors, outfit: 'navy' },
-    });
-    expect(svg).toContain(AVATAR_COLORS.outfit.options.find((o) => o.id === 'navy').hex);
-  });
-
-  it('draws no background circle for the transparent background', () => {
+  it('has no background for the transparent background', () => {
     const svg = renderAvatarSvg({
       ...DEFAULT_AVATAR_CONFIG,
       colors: { ...DEFAULT_AVATAR_CONFIG.colors, background: 'none' },
-    });
-    expect(svg).not.toContain('r="32"');
+    }).toLowerCase();
+    for (const { hex } of AVATAR_COLORS.background.options.filter((o) => o.hex)) {
+      expect(svg).not.toContain(`#${hex}`);
+    }
   });
 
-  it('gives each render its own clip-path ids, so many avatars can share a page', () => {
-    const ids = (svg) => [...svg.matchAll(/<clipPath id="([^"]+)"/g)].map((m) => m[1]);
+  it('gives each render its own ids, so many avatars can share a page', () => {
+    const ids = (svg) => [...svg.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
     const a = ids(renderAvatarSvg(DEFAULT_AVATAR_CONFIG));
     const b = ids(renderAvatarSvg(DEFAULT_AVATAR_CONFIG));
     expect(a.length).toBeGreaterThan(0);
@@ -152,13 +148,57 @@ describe('renderAvatarSvg', () => {
     expect(renderAvatarSvg(DEFAULT_AVATAR_CONFIG)).toContain('aria-hidden="true"');
   });
 
-  it('hides a bun under a hat', () => {
-    const bun = (hat) =>
-      renderAvatarSvg({
-        ...DEFAULT_AVATAR_CONFIG,
-        parts: { ...DEFAULT_AVATAR_CONFIG.parts, hair: 'bun', hat },
-      });
-    expect(bun('none')).toContain('cy="9.6" r="4.6"');
-    expect(bun('toque')).not.toContain('cy="9.6" r="4.6"');
+  it('replaces the Avataaars shirt with the kitchen outfit', () => {
+    const svg = renderAvatarSvg(DEFAULT_AVATAR_CONFIG);
+    expect(svg).toMatch(/clip-path="url\(#ca\d+-shirt\)"/);
+  });
+
+  const withHat = (hair, hat) =>
+    renderAvatarSvg({
+      ...DEFAULT_AVATAR_CONFIG,
+      parts: { ...DEFAULT_AVATAR_CONFIG.parts, hair, hat },
+    });
+
+  it('short hair shows only below a hat, and is not cut without one', () => {
+    expect(withHat('shortFlat', 'toque')).toMatch(/-under-hat/);
+    expect(withHat('shortFlat', 'none')).not.toMatch(/-under-hat/);
+  });
+
+  // The hat is the last scaled group in the figure (the figure itself is scaled first).
+  const hatScale = (svg) => +[...svg.matchAll(/scale\(([\d.]+)\)">/g)].at(-1)[1];
+
+  it('big and long hair is not cut; the hat grows to cover its crown', () => {
+    for (const hair of Object.keys(HAT_FIT).filter((h) => HAT_FIT[h].crown != null)) {
+      const svg = withHat(hair, 'bandana');
+      expect(svg).not.toMatch(/-under-hat/);
+      expect(hatScale(svg)).toBeGreaterThanOrEqual(1);
+    }
+    expect(hatScale(withHat('fro', 'cap'))).toBeGreaterThan(hatScale(withHat('bob', 'cap')));
+    expect(hatScale(withHat('shortFlat', 'cap'))).toBe(1);
+  });
+
+  it('hijab and turban come from Avataaars and need no kitchen hat', () => {
+    for (const hat of ['hijab', 'turban']) {
+      const svg = withHat('curly', hat);
+      expect(svg).not.toMatch(/-hat"/);
+      expect(parseErrors(svg)).toBe(0);
+    }
+  });
+});
+
+describe('kitchen props', () => {
+  // A prop's shading and decoration are clipped to its own outline (pixel-checked by
+  // scripts/avatars/check-avatars.cjs); here: every detail group is clipped.
+  it.each([
+    ...AVATAR_PARTS.hat.options
+      .filter((o) => !['none', 'hijab', 'turban'].includes(o.id))
+      .map((o) => ['hat', o.id]),
+    ...AVATAR_PARTS.outfit.options.map((o) => ['outfit', o.id]),
+  ])('%s %s keeps its details inside its outline', (kind, id) => {
+    const svg = renderKitchenPropSvg(kind, id);
+    expect(parseErrors(svg)).toBe(0);
+    expect(svg).toMatch(
+      kind === 'hat' ? /clip-path="url\(#kp\d+-hat\)"/ : /clip-path="url\(#kp\d+-shirt\)"/,
+    );
   });
 });

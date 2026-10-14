@@ -31,15 +31,15 @@ import {
 
 // Which palette each part's tab shows under its options.
 const PALETTE_FOR = {
-  face: 'skin',
   hair: 'hair',
-  brows: 'hair',
   facialHair: 'hair',
   hat: 'outfit',
   outfit: 'outfit',
 };
 
+// Skin and background are colour-only tabs, at the start and end.
 const TABS = [
+  { key: 'skin', label: AVATAR_COLORS.skin.label, palette: 'skin' },
   ...Object.entries(AVATAR_PARTS).map(([key, part]) => ({
     key,
     label: part.label,
@@ -106,6 +106,7 @@ class AvatarBuilder extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display: block; }
+        :host([hidden]) { display: none; }
         * { box-sizing: border-box; }
 
         .top {
@@ -116,6 +117,7 @@ class AvatarBuilder extends HTMLElement {
           border-radius: 50%;
           background: var(--surface-2, #f2e8cf);
           box-shadow: var(--shadow-1, 0 1px 4px rgba(31,29,24,0.08));
+          overflow: hidden;
         }
         .preview svg { width: 100%; height: 100%; display: block; }
         .actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
@@ -360,7 +362,7 @@ class AvatarBuilder extends HTMLElement {
       $('swatches').innerHTML = palette.options
         .map((c) => {
           const on = config.colors[tab.palette] === c.id;
-          const style = c.hex ? ` style="background:${c.hex}"` : '';
+          const style = c.hex ? ` style="background:#${c.hex}"` : '';
           return `<button type="button" class="swatch${c.hex ? '' : ' none'}" role="radio" aria-checked="${on}" aria-label="${c.label}" title="${c.label}" data-palette="${tab.palette}" data-color="${c.id}"${style}></button>`;
         })
         .join('');

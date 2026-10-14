@@ -2,44 +2,99 @@
 
 Signed-in users pick their avatar in the profile modal's **אווטאר** tab:
 
-1. **Build one** in `<avatar-builder>`, choosing each part separately (face shape, hairstyle, eyes,
-   brows, mouth, facial hair, glasses, cheeks, hat, outfit) plus skin, hair, fabric and background
-   colours.
-2. **Pick a stock avatar** (static files under the `Avatars/` Storage prefix).
+1. **Build one** in `<avatar-builder>`, choosing each part separately: hairstyle, eyes, brows,
+   mouth, facial hair, glasses, headwear and kitchen outfit, plus skin, hair, fabric and
+   background colours.
+2. **Pick a stock avatar** (static files under the `Avatars/` Storage prefix; to be retired,
+   see "Retiring the stock avatars" below).
 3. **Use initials** (no image).
 
 Wherever an avatar is shown (header, profile head, family picker), it is a plain image URL from
 `users/{uid}.avatarUrl`. A built avatar is uploaded as a PNG, so none of those places know about
 the builder.
 
+## Artwork
+
+- **Faces and hair:** [Avataaars](https://avataaars.com/) by Pablo Stanley ("free for personal and
+  commercial use"), drawn through [DiceBear](https://www.dicebear.com/) (`@dicebear/core` +
+  `@dicebear/avataaars`, MIT code). **Both are pinned to an exact version.** The kitchen layer edits
+  DiceBear's output, so upgrade only together with `npm run check:avatars` and the unit tests.
+- **Kitchen layer (ours):** chef hats (toque, short chef cap, bandana, skull cap, baseball cap) and
+  outfits (chef jacket, bib apron, T-shirt with apron, striped butcher apron), drawn in the
+  same flat style. Hijab and turban come from Avataaars itself.
+- The catalogue keeps only natural skin tones and kitchen-friendly expressions (no yellow
+  skin, no dizzy or vomit faces).
+
 ## Pieces
 
-| Piece                                               | Role                                                                                            |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `src/js/utils/avatar/chef-avatar.js`                | Part catalogue (ids, Hebrew labels, English descriptions), config helpers, pure SVG renderer    |
-| `src/js/utils/avatar/avatar-png.js`                 | Rasterises a config to a 256×256 PNG (canvas)                                                   |
-| `src/lib/auth/avatar-builder/avatar-builder.js`     | The builder UI; fires `avatar-builder-save` and never saves by itself                           |
-| `src/lib/auth/components/user-profile.js`           | Hosts the builder; on save: PNG → `UserService.uploadAvatarImage` → `authService.updateProfile` |
-| `UserService.uploadAvatarImage / deleteAvatarImage` | `user-avatars/{uid}.png` in Storage                                                             |
+| Piece                                               | Role                                                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `src/js/utils/avatar/chef-avatar.js`                | Catalogue (ids, Hebrew labels, English descriptions), config helpers, renderer, kitchen layer |
+| `src/js/utils/avatar/avatar-png.js`                 | Rasterises a config to a 256×256 PNG (canvas), loaded only when saving                        |
+| `src/lib/auth/avatar-builder/avatar-builder.js`     | The builder UI; fires `avatar-builder-save` and never saves by itself                         |
+| `src/lib/auth/components/user-profile.js`           | Hosts the builder, with a shimmer skeleton while it loads; on save: PNG → upload → profile    |
+| `UserService.uploadAvatarImage / deleteAvatarImage` | `user-avatars/{uid}.png` in Storage                                                           |
+| `scripts/avatars/check-avatars.mjs`                 | `npm run check:avatars`: browser pixel checks plus a hat-fit review sheet                     |
+
+The artwork library is a separate ~53 KB (gzipped) chunk. It loads when the avatar tab opens,
+behind a skeleton in the same grey shimmer as the stock-avatar tiles. It is never in the app
+shell or the profile chunk.
 
 ## Data
 
 ```js
 users/{uid}.avatarConfig = {
   v: 1,
-  parts:  { face, hair, eyes, brows, mouth, facialHair, glasses, extras, hat, outfit },
+  parts:  { hair, eyes, brows, mouth, facialHair, glasses, hat, outfit },
   colors: { skin, hair, outfit, background },
 }
 users/{uid}.avatarUrl = '<download URL of user-avatars/{uid}.png>&v=<save time>'
 ```
 
-- Values are catalogue **ids**, never colours or markup. `normalizeAvatarConfig()` turns anything
-  (old versions, unknown ids, missing keys) into a valid config, so the catalogue can grow without
-  migrating stored configs.
+- Values are catalogue **ids**, never colours or markup. Part ids are Avataaars' own where the
+  part comes from it. `normalizeAvatarConfig()` turns anything (old versions, unknown ids,
+  missing keys) into a valid config, so the catalogue can change without migrating stored
+  configs.
 - `avatarConfig` stays when the user switches to a stock avatar or initials, so the builder can
   re-apply it later. The builder knows it is "in use" when `avatarUrl` points at `user-avatars/`.
 - The file name never changes; the `v` query parameter makes browsers fetch a new save.
 - Deleting the account deletes the PNG (best effort, `AuthService.deleteAccount`).
+
+## How the kitchen layer combines with Avataaars
+
+`renderAvatarSvg()` asks DiceBear for the chosen Avataaars parts with a plain crew-neck shirt,
+then:
+
+1. **Outfit:** replaces the shirt group with ours, clipped to the same body outline.
+2. **Hat:** draws the hat last in the figure, over hair and glasses. The hair is handled per
+   hairstyle (`HAT_FIT`), which was checked on every hairstyle × hat:
+   - **Short styles:** hair shows only below the hat's lower edge. The hat covers the cut, so
+     nothing pokes through or beside it (short spiky tops, frida's flowers via `trim`).
+   - **Long and big styles** (`crown` = the hairstyle's measured top edge): the hair isn't cut.
+     Each hat scales around the head's centre just enough for its crown to cover the hair's,
+     so the hair meets the hat's real outline with no seam, and an afro gets a proportionally
+     bigger hat. (Cutting the hair beside a hat leaves a straight edge and a background-coloured
+     gap next to the hat's rounded side; that's why big hair isn't cut.)
+3. **Scale:** shrinks the figure slightly so tall hats and the outfit both fit the frame.
+
+Re-measure a hairstyle's `crown` after an Avataaars upgrade: diff a render with and without the
+hair and take the topmost changed pixel. `check-avatars` writes the review sheet for that check.
+
+### Props never paint outside their outline
+
+A transparent background is a user option, so hats and outfits must be clean on any surface:
+
+- Each hat is `shape` (its outline) plus `details` (shading, pleats, dots) clipped to that
+  outline, plus `extra` separate pieces (bandana tails). Outfit details are clipped to the
+  body outline.
+- White props (toque, chef cap, skull cap, the white clothes) get an **opaque** light rim,
+  so they stay visible on white pages. It is opaque on purpose: a translucent edge would paint
+  over nothing.
+- `npm run check:avatars` rasterises every prop alone (all fabric colours) and every
+  hairstyle × headwear × outfit (950 renders). It fails on translucent pixels away from any
+  solid shape, or anything in the frame corners. Combinations are compared with the same
+  hairstyle bare-headed, so only what our layer adds can fail. (Avataaars' own `frida` earring
+  tip has one such pixel.)
 
 ## Security rules
 
@@ -49,42 +104,23 @@ users/{uid}.avatarUrl = '<download URL of user-avatars/{uid}.png>&v=<save time>'
   file names are user ids.
 - **Firestore** `users/{uid}`: on create and owner update, `avatarConfig` must be a map with only
   `v` (int), `parts` (map, ≤16 keys) and `colors` (map, ≤8 keys). Ids are checked by the app, not
-  the rules, so new parts don't need a rules deploy.
+  the rules, so catalogue changes don't need a rules deploy.
 
 Tests: `tests/rules/*` (`npm run test:rules`), `tests/js/utils/avatar/`, `tests/lib/auth/`.
 
-## Drawing style
-
-The parts follow the stock chef avatars: a 64×64 grid, `#343433` outlines at 1.5, flat fills with
-one shade tone, and a bust that ends in a shallow arc. Layers, bottom to top: background, outfit,
-back hair, neck (+ neckerchief), ears, face, cheeks, nose, mouth, eyes, facial hair, brows, front
-hair, glasses, hat.
-
-The renderer's output must stay **well-formed XML**: the PNG is decoded as a standalone
-`image/svg+xml`, which fails on mistakes that inline SVG forgives (such as a duplicate attribute).
-The unit tests parse every option as XML.
-
-### Adding an option
-
-1. Add `{ id, label, describe }` to the part in `AVATAR_PARTS` (or a colour to `AVATAR_COLORS`).
-2. Draw it in the part's function in `chef-avatar.js` (`hairLayers`, `eyes`, `hat`, …).
-3. Render a contact sheet and compare it with the other options at 36px (header) and 112px
-   (preview).
-
-Never rename or remove an id that may be stored. Keep it and map it in `normalizeAvatarConfig`.
-
 ## Future: match a photo
 
-The catalogue was built for this. `describeAvatarSchema()` returns every part and colour as ids
-with English descriptions. A future callable function (next to the Gemini extraction in
-`functions/`) can send a selfie plus that schema to a vision model and ask for one id per part,
-using structured output. It then runs `normalizeAvatarConfig` on the answer and returns a config.
-The builder opens with that config (`builder.config = suggested`) and the user adjusts it before
-saving. Nothing about the photo needs to be stored.
+`describeAvatarSchema()` returns every part and colour as ids with English descriptions. A future
+callable function (next to the Gemini extraction in `functions/`) can send a selfie plus that schema
+to a vision model and ask for one id per part, using structured output. It then runs
+`normalizeAvatarConfig` on the answer and returns a config. The builder opens with that config
+(`builder.config = suggested`) and the user adjusts it before saving. Nothing about the photo needs
+to be stored.
 
 ## Local testing
 
 `npm run dev:emulators` runs the app against local Auth/Firestore/Storage emulators with this
-checkout's rules (`.env.emulators`, a `demo-` project, so nothing reaches real Firebase). Sign up
-in the app to get a user. The stock grid is empty unless `Avatars/*.svg` is uploaded to the
-emulator with `contentType: image/svg+xml`.
+checkout's rules (`.env.emulators`, a `demo-` project, so nothing reaches real Firebase). It also
+listens on the network, so a phone on the same Wi-Fi or tailnet can open it. Sign up in the app to
+get a user. The stock grid is empty unless `Avatars/*.svg` is uploaded to the emulator with
+`contentType: image/svg+xml`.

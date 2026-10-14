@@ -5,7 +5,7 @@ import 'src/lib/auth/avatar-builder/avatar-builder.js';
 const SAVED = {
   ...DEFAULT_AVATAR_CONFIG,
   parts: { ...DEFAULT_AVATAR_CONFIG.parts, hair: 'curly', hat: 'bandana' },
-  colors: { ...DEFAULT_AVATAR_CONFIG.colors, skin: 'deep' },
+  colors: { ...DEFAULT_AVATAR_CONFIG.colors, skin: 'dark' },
 };
 
 function mount(config) {
@@ -30,9 +30,10 @@ describe('<avatar-builder>', () => {
     expect($('#save-btn').disabled).toBe(false);
   });
 
-  it('shows one tab per part plus the background tab', () => {
+  it('shows a skin tab, one tab per part, and the background tab', () => {
     const { $$ } = mount(null);
     expect($$('.tab').map((t) => t.dataset.tab)).toEqual([
+      'skin',
       ...Object.keys(AVATAR_PARTS),
       'background',
     ]);
@@ -63,7 +64,7 @@ describe('<avatar-builder>', () => {
     $('.tab[data-tab="glasses"]').click();
     $('.opt[data-option="round"]').click();
     expect(el.config.parts.glasses).toBe('round');
-    $('.tab[data-tab="face"]').click();
+    $('.tab[data-tab="skin"]').click();
     $('.swatch[data-color="tan"]').click();
     expect(el.config.colors.skin).toBe('tan');
     expect($('#preview').innerHTML).not.toBe(before);
@@ -84,7 +85,7 @@ describe('<avatar-builder>', () => {
     expect($('#status').textContent).toContain('זה האווטאר שלך כרגע');
 
     $('.tab[data-tab="mouth"]').click();
-    $('.opt[data-option="grin"]').click();
+    $('.opt[data-option="tongue"]').click();
     expect($('#save-btn').disabled).toBe(false);
     expect($('#status').textContent).toBe('');
 
@@ -142,7 +143,7 @@ describe('<avatar-builder>', () => {
 
   it('arrow keys move between tabs', () => {
     const { $ } = mount(SAVED);
-    $('.tab[data-tab="face"]').focus();
+    $('.tab[data-tab="skin"]').focus();
     $('#tabs').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     expect($('.tab[aria-selected="true"]').dataset.tab).toBe('hair');
     $('#tabs').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
