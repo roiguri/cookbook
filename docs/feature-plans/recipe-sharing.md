@@ -63,7 +63,7 @@ Each release ships something usable on its own and builds on the previous one.
 - **Images stay off Netlify:** photos are served from Firebase Storage, the fallback card as a static site file. No Netlify Image CDN.
 - **Two steps:**
   - **R2a:** the Edge Function, default tags, the fallback card, the tab title. The photo tag points at the existing `_1080x1080.webp`; a real WhatsApp test decides whether WebP is enough.
-  - **R2b:** our own `sharp` function replacing the Resize Images extension (#390, deadline 2027-03-31): the same WebP sizes plus a wide JPEG for previews, if R2a's test shows WebP isn't reliable.
+  - **R2b:** our own `sharp` function replacing the Resize Images extension (#390, deadline 2027-03-31). **Not needed for previews:** the R2a test (2026-10-14, draft deploy, WhatsApp) showed the WebP photo, the green card, and no name for a private recipe. R2b stays part of the extension work in #390.
 
 ### R3: Share with family in the app (#383)
 
@@ -88,9 +88,9 @@ R1 → R2 → R3 → R4. R1 and R2 give the most for the least work and set up w
 
 ## Status
 
-| Release | State                                  |
-| ------- | -------------------------------------- |
-| R1      | ✅ merged to `development` (#412)      |
-| R2      | 🔨 building R2a (`feat/link-previews`) |
-| R3      | ⏳ planned                             |
-| R4      | ⏳ planned                             |
+| Release | State                             |
+| ------- | --------------------------------- |
+| R1      | ✅ merged to `development` (#412) |
+| R2      | ✅ R2a tested in WhatsApp (#414)  |
+| R3      | ⏳ planned                        |
+| R4      | ⏳ planned                        |
