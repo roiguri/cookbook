@@ -36,7 +36,7 @@ export function sharedWithText(names) {
 
 /**
  * `<share-family-modal>` — the author shares a private recipe with family
- * (docs/feature-plans/recipe-sharing.md, R3; canvas "Sharing · R3 · Share with
+ * (docs/archive/feature-plans/recipe-sharing.md, R3; canvas "Sharing · R3 · Share with
  * family (author)").
  *
  * "עם גישה" (collapsed by default) lists who has access, each removable; "בני

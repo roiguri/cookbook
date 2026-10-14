@@ -455,7 +455,7 @@ describe('recipe submissions', () => {
   });
 });
 
-// Recipe sharing (R3, docs/feature-plans/recipe-sharing.md): the author of a private
+// Recipe sharing (R3, docs/archive/feature-plans/recipe-sharing.md): the author of a private
 // recipe shares it with approved family through recipes/{id}/shares/{recipientUid}.
 describe('recipe shares', () => {
   const FRIEND = 'friend-uid'; // approved, never shared with

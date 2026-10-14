@@ -160,7 +160,7 @@ service cloud.firestore {
       allow delete: if isManager() || (isAuthor() && !isPublished(resource.data));
 
       // -----------------------------------------------------------------------
-      // SHARES (recipe sharing, docs/feature-plans/recipe-sharing.md, R3)
+      // SHARES (recipe sharing, docs/archive/feature-plans/recipe-sharing.md, R3)
       // -----------------------------------------------------------------------
       // One record per recipient: the author of a private recipe gives approved
       // family (or managers) a live, read-only view. Records are created or

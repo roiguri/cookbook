@@ -1,5 +1,5 @@
 /**
- * The family list for sharing a private recipe (docs/feature-plans/recipe-sharing.md, R3).
+ * The family list for sharing a private recipe (docs/archive/feature-plans/recipe-sharing.md, R3).
  *
  * Only what the picker shows: uid, name and avatar of approved family and
  * managers. Emails, roles and everything else in `users/` stay private.

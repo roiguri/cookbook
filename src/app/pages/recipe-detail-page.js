@@ -374,7 +374,7 @@ export default {
   },
 
   /**
-   * Share (R1 in docs/feature-plans/recipe-sharing.md): open to every reader of a
+   * Share (R1 in docs/archive/feature-plans/recipe-sharing.md): open to every reader of a
    * recipe that was found, signed out included. A published recipe offers its
    * link or the whole recipe as text; others can't open a private recipe's link,
    * so it goes straight to the text.
