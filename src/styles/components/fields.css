@@ -148,7 +148,8 @@
   background-position: right 10px center;
 }
 
-.select-ctrl:hover {
+.select-ctrl:hover,
+.select-ctrl:active {
   border-color: var(--hairline-strong);
   background-color: var(--surface-1);
 }

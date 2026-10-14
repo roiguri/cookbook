@@ -67,10 +67,11 @@ class ForgotPassword extends HTMLElement {
           font-size: 14px; font-weight: 500;
           padding: 13px 20px; border-radius: var(--r-sm, 8px);
           border: 1px solid transparent; cursor: pointer; width: 100%;
-          transition: background var(--dur-1, 160ms);
+          transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
         }
+        .btn:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
         .btn-primary { background: var(--primary, #6a994e); color: #fff; }
-        .btn-primary:hover { background: var(--primary-dark, #386641); }
+        .btn-primary:hover, .btn-primary:active { background: var(--primary-dark, #386641); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .msg {
@@ -98,6 +99,7 @@ class ForgotPassword extends HTMLElement {
           border-bottom: 1px solid transparent; cursor: pointer;
         }
         .back:hover { border-color: var(--primary, #6a994e); }
+        .back:active { border-color: var(--primary, #6a994e); opacity: 0.7; }
 
         @media (max-width: 560px) {
           .body { padding-left: 22px; padding-right: 22px; }

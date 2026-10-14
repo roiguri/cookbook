@@ -183,11 +183,16 @@ class RotatePrompt extends HTMLElement {
           cursor: pointer;
           font-family: inherit;
           font-size: 0.9rem;
-          transition: background-color 120ms ease-out;
+          transition: background-color 120ms ease-out, transform 120ms ease-out;
         }
 
         .rotate-prompt__dismiss:hover {
           background-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .rotate-prompt__dismiss:active {
+          background-color: rgba(255, 255, 255, 0.2);
+          transform: scale(var(--press-scale, 0.97));
         }
       </style>
 

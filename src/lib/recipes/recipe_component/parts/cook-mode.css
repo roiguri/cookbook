@@ -87,9 +87,18 @@
   right: 3px;
   bottom: 2px;
   background-color: white;
-  transition: transform 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow var(--dur-1, 160ms) var(--ease, ease);
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Pressed state: a round halo on the thumb */
+.cook-mode-toggle__switch:active .cook-mode-toggle__slider::before {
+  box-shadow:
+    0 0 0 6px rgba(106, 153, 78, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Checked state - track */
@@ -103,8 +112,8 @@
   transform: translateX(-22px);
 }
 
-/* Focus state for accessibility */
-.cook-mode-toggle__switch input:focus + .cook-mode-toggle__slider {
+/* Focus state for accessibility (keyboard only — not on tap/click) */
+.cook-mode-toggle__switch input:focus-visible + .cook-mode-toggle__slider {
   outline: 2px solid var(--primary-bright, #a7c957);
   outline-offset: 2px;
 }

@@ -101,13 +101,20 @@ header nav ul li a {
   transition:
     background var(--dur-1) var(--ease),
     color var(--dur-1) var(--ease),
-    box-shadow var(--dur-1) var(--ease);
+    box-shadow var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
   text-decoration: none;
 }
 
 header nav ul li a:hover {
   color: var(--ink);
   background: rgba(255, 255, 255, 0.7);
+}
+
+header nav ul li a:active {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(var(--press-scale));
 }
 
 header nav ul li a.active {
@@ -172,11 +179,18 @@ header .search-button {
   align-items: center;
   justify-content: center;
   color: var(--ink-3);
-  transition: color var(--dur-1) var(--ease);
+  transition:
+    color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
 header .search-button:hover {
   color: var(--primary-dark);
+}
+
+header .search-button:active {
+  color: var(--primary-dark);
+  transform: scale(var(--press-scale-icon));
 }
 
 header .search-button .icon-search {
@@ -205,11 +219,17 @@ header .auth-button {
   font-family: var(--font-ui);
   font-weight: 600;
   font-size: 13px;
-  transition: box-shadow var(--dur-1) var(--ease);
+  transition:
+    box-shadow var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
 header .auth-button:hover {
   box-shadow: var(--shadow-2);
+}
+
+header .auth-button:active {
+  transform: scale(var(--press-scale-icon));
 }
 
 .auth-button svg {
@@ -227,11 +247,18 @@ header .nav-toggle {
   padding: 0.5rem;
   align-items: center;
   justify-content: center;
-  transition: background var(--dur-1) var(--ease);
+  transition:
+    background var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
-header .nav-toggle:hover {
+header .nav-toggle:hover,
+header .nav-toggle:active {
   background: var(--surface-2);
+}
+
+header .nav-toggle:active {
+  transform: scale(var(--press-scale-icon));
 }
 
 header .hamburger {
@@ -318,10 +345,12 @@ header .hamburger::after {
     transition:
       opacity var(--dur-2) var(--ease),
       visibility var(--dur-2) var(--ease),
-      background var(--dur-1) var(--ease);
+      background var(--dur-1) var(--ease),
+      transform var(--dur-1) var(--ease);
   }
 
-  header .nav-toggle:hover {
+  header .nav-toggle:hover,
+  header .nav-toggle:active {
     background: var(--primary);
   }
 
@@ -475,6 +504,14 @@ header .hamburger::after {
     justify-content: center;
     color: var(--text-strong);
     cursor: pointer;
+    transition:
+      background var(--dur-1) var(--ease),
+      transform var(--dur-1) var(--ease);
+  }
+
+  .mobile-nav-drawer .drawer-close:active {
+    background: var(--surface-1);
+    transform: scale(var(--press-scale-icon));
   }
 
   .mobile-nav-drawer .drawer-close::before {
@@ -574,7 +611,13 @@ header .hamburger::after {
     position: relative;
     transition:
       background var(--dur-1) var(--ease),
-      color var(--dur-1) var(--ease);
+      color var(--dur-1) var(--ease),
+      transform var(--dur-1) var(--ease);
+  }
+
+  .mobile-nav-drawer nav ul li a:active {
+    background: rgba(255, 255, 255, 0.85);
+    transform: scale(var(--press-scale));
   }
 
   .mobile-nav-drawer nav ul li a .ico {

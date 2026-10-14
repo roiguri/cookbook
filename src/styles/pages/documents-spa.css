@@ -81,9 +81,16 @@
   font-family: var(--font-ui-he);
   font-size: 14px;
   font-weight: 500;
-  transition: background var(--dur-1, 160ms);
+  transition:
+    background var(--dur-1, 160ms),
+    transform var(--dur-1, 160ms);
 }
 
-.spa-content .documents .pdf-error button:hover {
+.spa-content .documents .pdf-error button:hover,
+.spa-content .documents .pdf-error button:active {
   background: var(--primary-dark);
+}
+
+.spa-content .documents .pdf-error button:active {
+  transform: scale(var(--press-scale, 0.97));
 }

@@ -305,7 +305,12 @@ class AiImageEnhancer extends HTMLElement {
           color: var(--ink, #1f1d18);
           line-height: 1.4;
           box-sizing: border-box;
-          transition: border-color var(--dur-1, 160ms), box-shadow var(--dur-1, 160ms);
+          transition: border-color var(--dur-1, 160ms), box-shadow var(--dur-1, 160ms),
+                      background var(--dur-1, 160ms);
+        }
+
+        .recipe-item:active {
+          background: var(--surface-2, #f6eed6);
         }
 
         .recipe-item:hover {
@@ -389,10 +394,16 @@ class AiImageEnhancer extends HTMLElement {
           background: var(--surface-2, #f0ede6);
           cursor: pointer;
           overflow: hidden;
-          transition: border-color var(--dur-1, 160ms), box-shadow var(--dur-1, 160ms);
+          transition: border-color var(--dur-1, 160ms), box-shadow var(--dur-1, 160ms),
+                      transform var(--dur-1, 160ms);
         }
 
-        .image-tile:hover {
+        .image-tile:active {
+          transform: scale(var(--press-scale, 0.97));
+        }
+
+        .image-tile:hover,
+        .image-tile:active {
           border-color: var(--primary, #6a994e);
           box-shadow: 0 0 0 2px rgba(106, 153, 78, 0.2);
         }

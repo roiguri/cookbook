@@ -27,7 +27,8 @@
   transition:
     background var(--dur-1) var(--ease),
     color var(--dur-1) var(--ease),
-    border-color var(--dur-1) var(--ease);
+    border-color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
 .bdg::before {
@@ -60,6 +61,10 @@
 .bdg--clickable:hover:not(.bdg--active) {
   background: var(--card-bg);
   border-color: var(--hairline-strong);
+}
+
+.bdg--clickable:active {
+  transform: scale(var(--press-scale));
 }
 
 /* ---- Category color map ---- */

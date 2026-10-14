@@ -307,8 +307,13 @@ class RecipeComponent extends HTMLElement {
       gap: 4px;
     }
 
-    .Recipe_component__show-more:hover {
+    .Recipe_component__show-more:hover,
+    .Recipe_component__show-more:active {
       text-decoration: underline;
+    }
+
+    .Recipe_component__show-more:active {
+      opacity: 0.7;
     }
 
     /* Meta strip */
@@ -390,7 +395,8 @@ class RecipeComponent extends HTMLElement {
       transition: color var(--dur-1, 160ms);
     }
 
-    .Recipe_component__attribution-link:hover {
+    .Recipe_component__attribution-link:hover,
+    .Recipe_component__attribution-link:active {
       color: var(--primary, #6a994e);
     }
 
@@ -524,11 +530,16 @@ class RecipeComponent extends HTMLElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: background var(--dur-1, 160ms) var(--ease, ease);
+      transition: background var(--dur-1, 160ms) var(--ease, ease),
+                  transform var(--dur-1, 160ms) var(--ease, ease);
       line-height: 1;
     }
 
     .Recipe_component__yield-btn:hover { background: var(--surface-1, #fff); }
+    .Recipe_component__yield-btn:active:not(:disabled) {
+      background: var(--surface-1, #fff);
+      transform: scale(var(--press-scale-icon, 0.9));
+    }
     .Recipe_component__yield-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
     .Recipe_component__yield-num input {
@@ -612,7 +623,16 @@ class RecipeComponent extends HTMLElement {
       color: #fff;
       font-size: 11px;
       flex-shrink: 0;
-      transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms);
+      transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms),
+                  transform var(--dur-1, 160ms);
+    }
+
+    /* Ingredient rows are full-width and square, so pressing one presses its
+       checkbox instead of tinting the whole row. */
+    .Recipe_component__ingredients-list li:active .check,
+    .Recipe_component__section-ingredients li:active .check {
+      border-color: var(--primary, #6a994e);
+      transform: scale(var(--press-scale-icon, 0.9));
     }
 
     .Recipe_component__ingredients-list li.checked .check {
@@ -738,6 +758,9 @@ class RecipeComponent extends HTMLElement {
     }
 
     .Recipe_component__stage-title:hover { background: var(--surface-2, #f6eed6); }
+    .Recipe_component__stage-title:active {
+      background: color-mix(in oklab, var(--primary, #6a994e) 8%, var(--surface-2, #f6eed6));
+    }
 
     .Recipe_component__stage-title.active-step {
       background: color-mix(in oklab, var(--primary, #6a994e) 12%, var(--surface-0, #faf6ec));
@@ -784,6 +807,9 @@ class RecipeComponent extends HTMLElement {
     }
 
     .Recipe_component__instruction-list > li:hover { background: var(--surface-2, #f6eed6); }
+    .Recipe_component__instruction-list > li:active {
+      background: color-mix(in oklab, var(--primary, #6a994e) 8%, var(--surface-2, #f6eed6));
+    }
 
     .Recipe_component__instruction-list > li.active-step {
       background: color-mix(in oklab, var(--primary, #6a994e) 12%, var(--surface-0, #faf6ec));

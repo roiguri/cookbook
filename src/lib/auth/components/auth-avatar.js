@@ -54,7 +54,7 @@ class AuthAvatar extends HTMLElement {
         }
 
         .avatar:active {
-          transform: scale(0.93);
+          transform: scale(var(--press-scale-icon, 0.9));
           box-shadow: 0 0 0 2px rgba(106,153,78,0.4);
           transition-duration: 80ms;
         }

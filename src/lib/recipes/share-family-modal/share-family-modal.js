@@ -175,7 +175,7 @@ class ShareFamilyModal extends Modal {
         background: var(--surface-1, #fff);
       }
       .fp-list > li:last-child .fp-row, .fp-list > li.fp-row:last-child { border-bottom: 0; }
-      label.fp-row { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+      label.fp-row { cursor: pointer; }
       /* The list is rounded and clips its rows; the first and last rows round the
          same way, so a row's focus ring and selected fill follow the corners. */
       .fp-list > li:first-child,
@@ -189,6 +189,7 @@ class ShareFamilyModal extends Modal {
         border-bottom-right-radius: calc(var(--r-md, 12px) - 1px);
       }
       label.fp-row:hover { background: var(--surface-0, #faf6ec); }
+      label.fp-row:active { background: var(--surface-2, #f6eed6); }
       label.fp-row:focus-within { box-shadow: inset 0 0 0 2px var(--primary, #6a994e); }
       .fp-row.is-on { background: color-mix(in oklab, var(--primary) 7%, white); }
       .fp-row input { position: absolute; opacity: 0; width: 1px; height: 1px; }
@@ -271,8 +272,13 @@ class ShareFamilyModal extends Modal {
         cursor: pointer;
         min-height: 36px;
         flex-shrink: 0;
+        transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
       }
       .fp-remove:hover { background: color-mix(in oklab, var(--secondary) 6%, white); }
+      .fp-remove:active:not(:disabled) {
+        background: color-mix(in oklab, var(--secondary) 12%, white);
+        transform: scale(var(--press-scale, 0.97));
+      }
       .fp-remove:disabled { opacity: 0.5; cursor: wait; }
       .fp-access-toggle {
         display: flex;
@@ -289,8 +295,13 @@ class ShareFamilyModal extends Modal {
         font-family: var(--font-ui-he, sans-serif);
         text-align: right;
         color: inherit;
+        transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
       }
       .fp-access-toggle:hover { background: var(--surface-2, #f6eed6); }
+      .fp-access-toggle:active {
+        background: var(--surface-2, #f6eed6);
+        transform: scale(var(--press-scale-card, 0.985));
+      }
       .fp-stack { display: flex; flex-shrink: 0; }
       .fp-stack .fp-avatar {
         width: 28px;
@@ -382,8 +393,10 @@ class ShareFamilyModal extends Modal {
         padding: 0 12px;
         min-height: 36px;
         cursor: pointer;
+        transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
       }
-      .fp-send:hover { background: var(--primary-dark, #386641); }
+      .fp-send:hover, .fp-send:active { background: var(--primary-dark, #386641); }
+      .fp-send:active { transform: scale(var(--press-scale, 0.97)); }
       .fp-send svg { width: 15px; height: 15px; }
       .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0; padding-top: 4px; }
       .modal-button {
@@ -395,17 +408,20 @@ class ShareFamilyModal extends Modal {
         cursor: pointer;
         min-width: 100px;
         border: none;
-        transition: background var(--dur-1, 160ms) var(--ease, ease);
+        transition: background var(--dur-1, 160ms) var(--ease, ease),
+                    transform var(--dur-1, 160ms) var(--ease, ease);
       }
+      .modal-button:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
       .approve-button { background: var(--primary, #6a994e); color: #fff; }
-      .approve-button:hover:not(:disabled) { background: var(--primary-dark, #386641); }
+      .approve-button:hover:not(:disabled),
+      .approve-button:active:not(:disabled) { background: var(--primary-dark, #386641); }
       .approve-button:disabled { opacity: 0.5; cursor: not-allowed; }
       .reject-button {
         background: transparent;
         color: var(--ink-2, #3a3a3a);
         border: 1px solid var(--hairline-strong, rgba(31, 29, 24, 0.2));
       }
-      .reject-button:hover { background: var(--surface-2, #f2e8cf); }
+      .reject-button:hover, .reject-button:active { background: var(--surface-2, #f2e8cf); }
       @media (max-width: 768px) {
         .modal-content { max-height: 92vh; }
         .family-picker { padding: 24px 18px 18px; }

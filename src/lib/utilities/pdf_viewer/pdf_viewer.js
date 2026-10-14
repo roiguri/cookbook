@@ -537,10 +537,16 @@ class PDFViewer extends HTMLElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms);
+        transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms),
+                    transform var(--dur-1, 160ms);
       }
 
-      .pdf_viewer__sidebar-collapse:hover {
+      .pdf_viewer__sidebar-collapse:active {
+        transform: scale(var(--press-scale-icon, 0.9));
+      }
+
+      .pdf_viewer__sidebar-collapse:hover,
+      .pdf_viewer__sidebar-collapse:active {
         background: var(--surface-1, #fff);
         border-color: var(--primary, #6a994e);
         color: var(--primary, #6a994e);
@@ -645,6 +651,10 @@ class PDFViewer extends HTMLElement {
         background: var(--surface-1, #fff);
       }
 
+      .toc__summary:active {
+        background: var(--surface-2, #f6eed6);
+      }
+
       .toc__cat--active > .toc__summary {
         background: rgba(106, 153, 78, 0.10);
       }
@@ -679,13 +689,19 @@ class PDFViewer extends HTMLElement {
         color: var(--ink, #1f1d18);
       }
 
+      .toc__recipe:active {
+        background: var(--surface-2, #f6eed6);
+        color: var(--ink, #1f1d18);
+      }
+
       .toc__recipe--active {
         background: var(--primary, #6a994e);
         color: #fff;
         font-weight: 500;
       }
 
-      .toc__recipe--active:hover {
+      .toc__recipe--active:hover,
+      .toc__recipe--active:active {
         background: var(--primary-dark, #4a7c31);
         color: #fff;
       }
@@ -735,10 +751,16 @@ class PDFViewer extends HTMLElement {
         font-family: var(--font-ui-he, inherit);
         font-size: 14px;
         font-weight: 500;
-        transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms);
+        transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms),
+                    transform var(--dur-1, 160ms);
       }
 
-      .pdf_viewer__toc-toggle:hover {
+      .pdf_viewer__toc-toggle:active {
+        transform: scale(var(--press-scale, 0.97));
+      }
+
+      .pdf_viewer__toc-toggle:hover,
+      .pdf_viewer__toc-toggle:active {
         background: var(--surface-0, #fafaf8);
         border-color: var(--primary, #6a994e);
       }
@@ -838,7 +860,11 @@ class PDFViewer extends HTMLElement {
         box-shadow: var(--shadow-2, 0 4px 16px rgba(31,29,24,0.10));
       }
 
-      .pdf_viewer__pdf-navigation button:active { transform: translateY(0); }
+      .pdf_viewer__pdf-navigation button:active {
+        background: var(--primary-dark, #4a7c31);
+        transform: scale(var(--press-scale, 0.97));
+        box-shadow: var(--shadow-1, 0 1px 4px rgba(31,29,24,0.08));
+      }
 
       .pdf_viewer__pdf-navigation button:disabled {
         background: var(--hairline-strong, rgba(31,29,24,0.15));
@@ -868,7 +894,7 @@ class PDFViewer extends HTMLElement {
         border: none;
         cursor: pointer;
         z-index: calc(var(--z-fullscreen) + 1);
-        transition: background var(--dur-1, 160ms);
+        transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
       }
 
       .pdf_viewer.full-page .fp-control {
@@ -877,7 +903,9 @@ class PDFViewer extends HTMLElement {
         align-items: center;
       }
 
-      .fp-control:hover { background: rgba(0, 0, 0, 0.7); }
+      .fp-control:hover, .fp-control:active { background: rgba(0, 0, 0, 0.7); }
+      .fp-close:active { transform: scale(var(--press-scale-icon, 0.9)); }
+      .fp-nav:active { transform: translateY(-50%) scale(var(--press-scale-icon, 0.9)); }
 
       .fp-close {
         top: 20px;
@@ -917,11 +945,17 @@ class PDFViewer extends HTMLElement {
         cursor: pointer;
         z-index: 5;
         font-size: 14px;
-        transition: background var(--dur-1, 160ms), opacity var(--dur-1, 160ms);
+        transition: background var(--dur-1, 160ms), opacity var(--dur-1, 160ms),
+                    transform var(--dur-1, 160ms);
         opacity: 0.6;
       }
 
       .fp-open:hover { background: rgba(0, 0, 0, 0.6); opacity: 1; }
+      .fp-open:active {
+        background: rgba(0, 0, 0, 0.6);
+        opacity: 1;
+        transform: scale(var(--press-scale-icon, 0.9));
+      }
       .pdf_viewer.full-page .fp-open { display: none; }
 
       /* Show toolbar on desktop only when the sidebar is collapsed so the

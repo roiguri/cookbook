@@ -315,9 +315,15 @@ class RecipeFilterComponent extends HTMLElement {
         border: none;
         background: transparent;
         padding: 0;
+        transition: background var(--dur-1, 160ms) ease, transform var(--dur-1, 160ms) ease;
       }
 
-      .tag-remove:hover {
+      .tag-remove:active {
+        transform: scale(var(--press-scale-icon, 0.9));
+      }
+
+      .tag-remove:hover,
+      .tag-remove:active {
         background: var(--hairline, rgba(31, 29, 24, 0.12));
         color: var(--ink-1, #1a1a1a);
       }
@@ -340,7 +346,12 @@ class RecipeFilterComponent extends HTMLElement {
         cursor: pointer;
         font-weight: 500;
         font-family: var(--font-ui, system-ui, sans-serif);
-        transition: opacity var(--dur-1, 160ms) ease, background var(--dur-1, 160ms) ease;
+        transition: opacity var(--dur-1, 160ms) ease, background var(--dur-1, 160ms) ease,
+                    transform var(--dur-1, 160ms) ease;
+      }
+
+      button:active:not(:disabled) {
+        transform: scale(var(--press-scale, 0.97));
       }
 
       .apply-btn {
@@ -350,7 +361,8 @@ class RecipeFilterComponent extends HTMLElement {
         font-size: 13.5px;
       }
 
-      .apply-btn:hover:not(:disabled) {
+      .apply-btn:hover:not(:disabled),
+      .apply-btn:active:not(:disabled) {
         background: var(--primary-dark, #386641);
       }
 
@@ -369,7 +381,8 @@ class RecipeFilterComponent extends HTMLElement {
         border: none;
       }
 
-      .clear-btn:hover {
+      .clear-btn:hover,
+      .clear-btn:active {
         color: var(--ink-1, #1a1a1a);
       }
 

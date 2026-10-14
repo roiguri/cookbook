@@ -99,6 +99,11 @@
   outline: none;
 }
 
+.spa-content .games-page-card:active {
+  transform: scale(var(--press-scale-card, 0.985));
+  border-color: var(--primary, #6a994e);
+}
+
 .spa-content .games-page-card:focus-visible {
   box-shadow: var(--shadow-2, 0 4px 12px rgba(31, 29, 24, 0.1)), var(--ring);
 }
@@ -143,10 +148,16 @@
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
     border-color var(--dur-1, 160ms) var(--ease, ease),
-    color var(--dur-1, 160ms) var(--ease, ease);
+    color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
+}
+
+.spa-content .games-page-back:active {
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .spa-content .games-page-back:hover,
+.spa-content .games-page-back:active,
 .spa-content .games-page-back:focus-visible {
   background: var(--surface-2, #f2e8cf);
   border-color: var(--primary, #6a994e);

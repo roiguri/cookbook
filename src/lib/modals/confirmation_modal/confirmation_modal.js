@@ -132,9 +132,13 @@ class ConfirmationModal extends Modal {
         border-radius: var(--r-sm, 8px);
         cursor: pointer;
         transition: background var(--dur-1, 160ms) var(--ease, ease),
-                    border-color var(--dur-1, 160ms) var(--ease, ease);
+                    border-color var(--dur-1, 160ms) var(--ease, ease),
+                    transform var(--dur-1, 160ms) var(--ease, ease);
         min-width: 100px;
         border: none;
+      }
+      .modal-button:active:not(:disabled) {
+        transform: scale(var(--press-scale, 0.97));
       }
       .approve-button {
         background: var(--primary, #6a994e);
@@ -144,7 +148,8 @@ class ConfirmationModal extends Modal {
         opacity: 0.5;
         cursor: not-allowed;
       }
-      .approve-button:hover:not(:disabled) {
+      .approve-button:hover:not(:disabled),
+      .approve-button:active:not(:disabled) {
         background: var(--primary-dark, #386641);
       }
       .reject-button {
@@ -152,7 +157,8 @@ class ConfirmationModal extends Modal {
         color: var(--ink-2, #3a3a3a);
         border: 1px solid var(--hairline-strong, rgba(31, 29, 24, 0.2));
       }
-      .reject-button:hover {
+      .reject-button:hover,
+      .reject-button:active {
         background: var(--surface-2, #f2e8cf);
       }
     `;

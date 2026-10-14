@@ -98,13 +98,20 @@ class FilterSearchBar extends HTMLElement {
           display: none;
           align-items: center;
           justify-content: center;
-          transition: color var(--dur-1, 160ms) ease;
+          transition: color var(--dur-1, 160ms) ease, background var(--dur-1, 160ms) ease,
+                      transform var(--dur-1, 160ms) ease;
           font-weight: bold;
           line-height: 1;
         }
 
         .clear-button:hover {
           color: var(--ink-1, #1a1a1a);
+        }
+
+        .clear-button:active {
+          color: var(--ink-1, #1a1a1a);
+          background: var(--hairline, rgba(31,29,24,0.1));
+          transform: translateY(-50%) scale(var(--press-scale-icon, 0.9));
         }
 
         .clear-button.visible {

@@ -63,11 +63,12 @@ class EditSuggestionReview extends HTMLElement {
 
 
         .review-toolbar { flex-shrink:0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:16px; padding:12px 14px; background:var(--surface-0,#fafaf8); border:1px solid var(--hairline,rgba(31,29,24,0.08)); border-radius:var(--r-lg,16px); }
-        .btn { font-family:var(--font-ui-he,sans-serif); font-size:13.5px; font-weight:500; padding:10px 22px; border-radius:var(--r-sm,8px); cursor:pointer; border:1px solid transparent; }
+        .btn { font-family:var(--font-ui-he,sans-serif); font-size:13.5px; font-weight:500; padding:10px 22px; border-radius:var(--r-sm,8px); cursor:pointer; border:1px solid transparent; transition:background var(--dur-1,160ms), transform var(--dur-1,160ms); }
+        .btn:active { transform:scale(var(--press-scale,0.97)); }
         .btn-reject { background:transparent; color:var(--secondary-dark,#bc4749); border-color:var(--secondary-dark,#bc4749); }
-        .btn-reject:hover { background:rgba(188,71,73,0.08); }
+        .btn-reject:hover, .btn-reject:active { background:rgba(188,71,73,0.08); }
         .btn-approve { background:var(--primary,#6a994e); color:#fff; }
-        .btn-approve:hover { background:var(--primary-dark,#386641); }
+        .btn-approve:hover, .btn-approve:active { background:var(--primary-dark,#386641); }
       </style>
 
       <loading-spinner overlay border-radius="10px" size="60px" color="var(--primary, #6a994e)">

@@ -31,4 +31,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.search-button:active {
+  transform: scale(var(--press-scale-icon));
 }

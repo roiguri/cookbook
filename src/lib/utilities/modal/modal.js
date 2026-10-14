@@ -201,14 +201,19 @@ export class Modal extends HTMLElement {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: background var(--dur-1, 160ms) var(--ease, ease);
+        transition: background var(--dur-1, 160ms) var(--ease, ease),
+                    transform var(--dur-1, 160ms) var(--ease, ease);
         z-index: 1;
         line-height: 1;
         padding: 0;
         flex-shrink: 0;
       }
-      .close-button:hover {
+      .close-button:hover,
+      .close-button:active {
         background: var(--surface-2, #f2e8cf);
+      }
+      .close-button:active {
+        transform: scale(var(--press-scale-icon, 0.9));
       }
       .modal-slot {
         flex: 1;

@@ -29,7 +29,8 @@ export const styles = `
     cursor: pointer;
     border-radius: var(--r-pill, 999px);
     transition: background var(--dur-1, 160ms) var(--ease, ease),
-                border-color var(--dur-1, 160ms) var(--ease, ease);
+                border-color var(--dur-1, 160ms) var(--ease, ease),
+                transform var(--dur-1, 160ms) var(--ease, ease);
     font-family: var(--font-ui, system-ui, sans-serif);
     font-size: 13px;
     font-weight: 500;
@@ -39,6 +40,11 @@ export const styles = `
   .pagination-button:hover:not(:disabled) {
     background: var(--surface-2, #f2e8cf);
     border-color: var(--hairline-strong, rgba(31, 29, 24, 0.2));
+  }
+
+  .pagination-button:active:not(:disabled) {
+    background: var(--surface-2, #f2e8cf);
+    transform: scale(var(--press-scale, 0.97));
   }
 
   .pagination-button:disabled {

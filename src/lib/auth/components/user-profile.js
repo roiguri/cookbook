@@ -127,6 +127,7 @@ class UserProfile extends HTMLElement {
           padding: 0;
         }
         .avatar-pick:hover { transform: translateY(-2px); border-color: var(--primary-bright, #a7c957); }
+        .avatar-pick:active { transform: scale(var(--press-scale, 0.97)); border-color: var(--primary-bright, #a7c957); }
         .avatar-pick.on { border-color: var(--primary-dark, #386641); box-shadow: 0 0 0 3px rgba(106,153,78,0.12); }
         .avatar-pick.on::after {
           content: "✓"; position: absolute; top: 2px; right: 4px;
@@ -170,21 +171,22 @@ class UserProfile extends HTMLElement {
           font-size: 13.5px; font-weight: 500;
           padding: 10px 18px; border-radius: var(--r-sm, 8px);
           border: 1px solid transparent; cursor: pointer;
-          transition: background var(--dur-1, 160ms), color var(--dur-1, 160ms), border-color var(--dur-1, 160ms);
+          transition: background var(--dur-1, 160ms), color var(--dur-1, 160ms), border-color var(--dur-1, 160ms), transform var(--dur-1, 160ms);
         }
+        .btn:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
         .btn-primary { background: var(--primary, #6a994e); color: #fff; }
-        .btn-primary:hover { background: var(--primary-dark, #386641); }
+        .btn-primary:hover, .btn-primary:active { background: var(--primary-dark, #386641); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-ghost {
           background: var(--surface-1, #fff); color: var(--ink, #1f1d18);
           border-color: var(--hairline-strong, rgba(31,29,24,0.2));
         }
-        .btn-ghost:hover { background: var(--surface-2, #f2e8cf); }
+        .btn-ghost:hover, .btn-ghost:active { background: var(--surface-2, #f2e8cf); }
         .btn-quiet {
           background: transparent; color: var(--ink-3, #7c7562);
           border-color: transparent;
         }
-        .btn-quiet:hover {
+        .btn-quiet:hover, .btn-quiet:active {
           color: var(--secondary-dark, #9a3a3c);
           background: color-mix(in oklab, var(--secondary, #bc4749) 8%, transparent);
         }
@@ -192,7 +194,7 @@ class UserProfile extends HTMLElement {
           background: transparent; color: var(--secondary-dark, #9a3a3c);
           border-color: color-mix(in oklab, var(--secondary, #bc4749) 30%, transparent);
         }
-        .btn-danger-ghost:hover {
+        .btn-danger-ghost:hover, .btn-danger-ghost:active {
           background: color-mix(in oklab, var(--secondary, #bc4749) 8%, transparent);
         }
 

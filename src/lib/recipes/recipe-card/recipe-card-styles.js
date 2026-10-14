@@ -31,6 +31,14 @@ export const recipeCardStyles = `
     box-shadow: var(--shadow-2, 0 2px 4px rgba(31,29,24,0.05), 0 10px 30px -8px rgba(31,29,24,0.1));
 }
 
+/* The stretched .recipe-link covers the card, so pressing it presses the card.
+   Scoped with :has() so the heart / add-to-meal buttons don't press it too. */
+.recipe-card:has(.recipe-link:active) {
+    transform: scale(var(--press-scale-card, 0.985));
+    box-shadow: var(--shadow-1, 0 1px 2px rgba(31,29,24,0.04), 0 2px 6px rgba(31,29,24,0.04));
+    transition-duration: var(--dur-1, 160ms);
+}
+
 /* ---- Photo ---- */
 .photo {
     position: relative;
@@ -308,7 +316,7 @@ export const recipeCardStyles = `
 }
 
 .favorite-btn:active {
-    transform: scale(0.9);
+    transform: scale(var(--press-scale-icon, 0.9));
     box-shadow: var(--shadow-1, 0 1px 2px rgba(31,29,24,0.04), 0 2px 6px rgba(31,29,24,0.04));
 }
 
@@ -365,7 +373,7 @@ export const recipeCardStyles = `
 }
 
 .add-to-meal-btn:active {
-    transform: scale(0.9);
+    transform: scale(var(--press-scale-icon, 0.9));
     box-shadow: var(--shadow-1, 0 1px 2px rgba(31,29,24,0.04), 0 2px 6px rgba(31,29,24,0.04));
 }
 

@@ -48,7 +48,8 @@
   flex-shrink: 0;
   transition:
     color var(--dur-1, 160ms),
-    border-color var(--dur-1, 160ms);
+    border-color var(--dur-1, 160ms),
+    transform var(--dur-1, 160ms);
   font-family: var(--font-ui-he);
   color: var(--ink-3);
 }
@@ -56,6 +57,11 @@
 .spa-content .my-meal-page .recipe-tab:hover {
   background: transparent;
   color: var(--primary);
+}
+
+.spa-content .my-meal-page .recipe-tab:active {
+  color: var(--primary-dark);
+  transform: scale(var(--press-scale));
 }
 
 .spa-content .my-meal-page .recipe-tab.active {
@@ -135,11 +141,18 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background var(--dur-1, 160ms);
+  transition:
+    background var(--dur-1, 160ms),
+    transform var(--dur-1, 160ms);
 }
 
-.spa-content .my-meal-page .btn-ingredients:hover {
+.spa-content .my-meal-page .btn-ingredients:hover,
+.spa-content .my-meal-page .btn-ingredients:active {
   background: var(--primary-dark);
+}
+
+.spa-content .my-meal-page .btn-ingredients:active {
+  transform: scale(var(--press-scale));
 }
 
 /* ---- Drawer ---- */
@@ -204,13 +217,21 @@
   justify-content: center;
   transition:
     background var(--dur-1, 160ms),
-    color var(--dur-1, 160ms);
+    color var(--dur-1, 160ms),
+    transform var(--dur-1, 160ms);
 }
 
 .spa-content .my-meal-page .action-btn:hover,
 .spa-content .my-meal-page .close-btn:hover {
   background: var(--hairline);
   color: var(--ink);
+}
+
+.spa-content .my-meal-page .action-btn:active,
+.spa-content .my-meal-page .close-btn:active {
+  background: var(--hairline-strong);
+  color: var(--ink);
+  transform: scale(var(--press-scale-icon));
 }
 
 .spa-content .my-meal-page .action-btn svg {
@@ -257,7 +278,13 @@
   transition:
     background var(--dur-1, 160ms),
     color var(--dur-1, 160ms),
-    box-shadow var(--dur-1, 160ms);
+    box-shadow var(--dur-1, 160ms),
+    transform var(--dur-1, 160ms);
+}
+
+.spa-content .my-meal-page .toggle-btn:active {
+  color: var(--ink-2);
+  transform: scale(var(--press-scale));
 }
 
 .spa-content .my-meal-page .toggle-btn.active {
@@ -282,11 +309,18 @@
   cursor: pointer;
   padding: 0;
   border-bottom: 1px solid transparent;
-  transition: border-color var(--dur-1, 160ms);
+  transition:
+    border-color var(--dur-1, 160ms),
+    opacity var(--dur-1, 160ms);
 }
 
 .spa-content .my-meal-page .text-btn:hover {
   border-bottom-color: var(--primary);
+}
+
+.spa-content .my-meal-page .text-btn:active {
+  border-bottom-color: var(--primary);
+  opacity: 0.7;
 }
 
 .spa-content .my-meal-page .separator {
@@ -350,7 +384,14 @@
   flex-shrink: 0;
   transition:
     background var(--dur-1, 160ms),
-    border-color var(--dur-1, 160ms);
+    border-color var(--dur-1, 160ms),
+    transform var(--dur-1, 160ms);
+}
+
+.spa-content .my-meal-page .recipe-checkbox-label:active .check-box,
+.spa-content .my-meal-page .ingredient-label:active .check-box {
+  border-color: var(--primary);
+  transform: scale(var(--press-scale-icon));
 }
 
 .spa-content .my-meal-page .recipe-checkbox-label .ingredient-checkbox:checked + .check-box {
@@ -441,7 +482,8 @@
   flex-shrink: 0;
   transition:
     background var(--dur-1, 160ms),
-    border-color var(--dur-1, 160ms);
+    border-color var(--dur-1, 160ms),
+    transform var(--dur-1, 160ms);
 }
 
 .spa-content .my-meal-page .ingredient-label .ingredient-checkbox:checked + .check-box {
@@ -538,6 +580,11 @@
   transform: translateY(-2px);
 }
 
+.spa-content .my-meal-page .empty-cta:active {
+  box-shadow: 0 2px 8px rgba(106, 153, 78, 0.3);
+  transform: scale(var(--press-scale));
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -587,6 +634,14 @@
   opacity: 1;
 }
 
+.spa-content .my-meal-page .remove-recipe-btn:active,
+.spa-content .my-meal-page .recipe-tab.active .remove-recipe-btn:active {
+  background: rgba(188, 71, 73, 0.18);
+  color: var(--secondary-dark);
+  opacity: 1;
+  transform: scale(var(--press-scale-icon));
+}
+
 .spa-content .my-meal-page .clear-all-btn {
   color: var(--secondary) !important;
   border-bottom-color: transparent !important;
@@ -610,6 +665,14 @@
   color: var(--secondary-dark) !important;
   transform: translateY(-2px) scale(1.1);
   box-shadow: var(--shadow-1);
+}
+
+.spa-content .my-meal-page .clear-all-btn:active {
+  opacity: 1;
+  background: rgba(188, 71, 73, 0.18) !important;
+  color: var(--secondary-dark) !important;
+  transform: scale(var(--press-scale-icon));
+  box-shadow: none;
 }
 
 /* ---- Mobile ---- */

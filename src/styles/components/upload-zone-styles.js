@@ -12,7 +12,8 @@ export const uploadZoneStyles = `
     font-size: 14px;
   }
 
-  .upload-zone:hover {
+  .upload-zone:hover,
+  .upload-zone:active {
     border-color: var(--primary, #6a994e);
     background: var(--surface-2, #f0ede6);
   }

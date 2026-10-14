@@ -27,6 +27,10 @@
   transform: rotateY(180deg);
 }
 
+.memory-card:not(.flipped):active {
+  transform: scale(var(--press-scale, 0.97));
+}
+
 .memory-card-front,
 .memory-card-back {
   width: 100%;

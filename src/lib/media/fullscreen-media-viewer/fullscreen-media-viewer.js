@@ -279,6 +279,11 @@ class FullscreenMediaViewer extends HTMLElement {
           transform: scale(1.1);
         }
 
+        .viewer-close:active {
+          background: rgba(0, 0, 0, 0.85);
+          transform: scale(var(--press-scale-icon, 0.9));
+        }
+
         .viewer-counter {
           position: absolute;
           top: 20px;
@@ -357,7 +362,8 @@ class FullscreenMediaViewer extends HTMLElement {
         }
 
         .viewer-nav:active:not(:disabled) {
-          transform: translateY(-50%) scale(0.95);
+          background: rgba(0, 0, 0, 0.85);
+          transform: translateY(-50%) scale(var(--press-scale-icon, 0.9));
         }
 
         .viewer-nav:disabled {

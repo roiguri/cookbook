@@ -138,7 +138,12 @@ class EditPreviewRecipe extends HTMLElement {
         cursor: pointer;
         transition:
           background var(--dur-1, 160ms),
-          border-color var(--dur-1, 160ms);
+          border-color var(--dur-1, 160ms),
+          transform var(--dur-1, 160ms);
+      }
+
+      .toolbar-btn:active {
+        transform: scale(var(--press-scale, 0.97));
       }
 
       .toolbar-btn--toggle {
@@ -150,7 +155,8 @@ class EditPreviewRecipe extends HTMLElement {
         padding: 10px 18px;
       }
 
-      .toolbar-btn--toggle:hover {
+      .toolbar-btn--toggle:hover,
+      .toolbar-btn--toggle:active {
         background: var(--surface-2, #f0ede6);
         border-color: var(--primary, #6a994e);
         color: var(--primary-dark, #386641);
@@ -162,7 +168,8 @@ class EditPreviewRecipe extends HTMLElement {
         border: 1px solid var(--hairline-strong, rgba(31,29,24,0.2));
       }
 
-      .toolbar-btn--clear:hover {
+      .toolbar-btn--clear:hover,
+      .toolbar-btn--clear:active {
         background: var(--surface-2, #f0ede6);
       }
 
@@ -172,7 +179,8 @@ class EditPreviewRecipe extends HTMLElement {
         border: none;
       }
 
-      .toolbar-btn--save:hover {
+      .toolbar-btn--save:hover,
+      .toolbar-btn--save:active {
         background: var(--primary-dark, #386641);
       }
 

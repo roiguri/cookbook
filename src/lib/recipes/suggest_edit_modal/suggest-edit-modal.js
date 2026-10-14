@@ -126,20 +126,26 @@ class SuggestEditModal extends HTMLElement {
           cursor: pointer;
           border: 1px solid transparent;
           white-space: nowrap;
+          transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
+        }
+        .btn:active {
+          transform: scale(var(--press-scale, 0.97));
         }
         .btn-clear {
           background: transparent;
           color: var(--ink-2, #3a3a3a);
           border-color: var(--hairline-strong, rgba(31, 29, 24, 0.2));
         }
-        .btn-clear:hover {
+        .btn-clear:hover,
+        .btn-clear:active {
           background: var(--surface-2, #f0ede6);
         }
         .btn-submit {
           background: var(--primary, #6a994e);
           color: #fff;
         }
-        .btn-submit:hover {
+        .btn-submit:hover,
+        .btn-submit:active {
           background: var(--primary-dark, #386641);
         }
 

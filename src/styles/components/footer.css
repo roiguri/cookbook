@@ -21,6 +21,7 @@ footer p {
   text-decoration: none;
 }
 
-#icon-attribute:hover {
+#icon-attribute:hover,
+#icon-attribute:active {
   color: var(--primary-dark);
 }

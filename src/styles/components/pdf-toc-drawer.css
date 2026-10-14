@@ -60,10 +60,16 @@
     justify-content: center;
     transition:
       background var(--dur-1, 160ms),
-      border-color var(--dur-1, 160ms);
+      border-color var(--dur-1, 160ms),
+      transform var(--dur-1, 160ms);
   }
 
-  .pdf-toc-drawer__close:hover {
+  .pdf-toc-drawer__close:active {
+    transform: scale(var(--press-scale-icon, 0.9));
+  }
+
+  .pdf-toc-drawer__close:hover,
+  .pdf-toc-drawer__close:active {
     background: var(--surface-0, #fafaf8);
     border-color: var(--primary, #6a994e);
     color: var(--primary, #6a994e);
@@ -169,7 +175,8 @@
     border: 1px solid var(--hairline, rgba(31, 29, 24, 0.08));
   }
 
-  .pdf-toc-drawer .toc__summary:hover {
+  .pdf-toc-drawer .toc__summary:hover,
+  .pdf-toc-drawer .toc__summary:active {
     background: var(--surface-2, #f5f4f0);
   }
 
@@ -204,7 +211,8 @@
       color var(--dur-1, 160ms);
   }
 
-  .pdf-toc-drawer .toc__recipe:hover {
+  .pdf-toc-drawer .toc__recipe:hover,
+  .pdf-toc-drawer .toc__recipe:active {
     background: var(--surface-2, #f5f4f0);
     color: var(--ink, #1f1d18);
   }

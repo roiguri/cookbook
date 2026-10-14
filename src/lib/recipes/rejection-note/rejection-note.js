@@ -5,7 +5,8 @@ const STYLES = `
   .reject-note p { color: var(--ink-2); }
   .reject-note .modal-buttons { justify-content: flex-start; }
   .reject-note .approve-button { background: var(--secondary); }
-  .reject-note .approve-button:hover:not(:disabled) { background: var(--secondary-dark); }
+  .reject-note .approve-button:hover:not(:disabled),
+  .reject-note .approve-button:active:not(:disabled) { background: var(--secondary-dark); }
   .rj__field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 20px; text-align: right; }
   .rj__field label {
     font-family: var(--font-ui-he); font-size: 13px; font-weight: 600; color: var(--ink-2);
