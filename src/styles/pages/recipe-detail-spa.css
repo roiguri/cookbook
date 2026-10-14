@@ -16,11 +16,21 @@
 }
 
 /* ---- Recipe Action Menu ---- */
-.spa-content .recipe-detail .recipe-menu {
+/* ⋮ in the corner, share beside it; share takes the corner when ⋮ is hidden (signed out). */
+.spa-content .recipe-detail .recipe-actions {
   position: absolute;
   top: 14px;
   left: 14px;
   z-index: var(--z-sticky);
+  display: flex;
+  /* The page is RTL: reversed, the first child (⋮) sits at the left corner. */
+  flex-direction: row-reverse;
+  gap: 8px;
+}
+
+.spa-content .recipe-detail .recipe-menu,
+.spa-content .recipe-detail .recipe-share {
+  position: relative;
 }
 
 .spa-content .recipe-detail .recipe-menu-button {
@@ -105,6 +115,11 @@
   flex: 1;
 }
 
+/* ---- Share menu (the same dropdown and items as ⋮) ---- */
+.spa-content .recipe-detail .recipe-menu-dropdown.share-menu {
+  width: 240px;
+}
+
 /* ---- Owner menu (the author of a private recipe) ---- */
 .spa-content .recipe-detail .recipe-menu-dropdown.own-menu {
   width: 320px;
@@ -162,7 +177,8 @@
   color: var(--secondary-dark);
 }
 
-.spa-content .recipe-detail .own-menu .menu-item {
+.spa-content .recipe-detail .own-menu .menu-item,
+.spa-content .recipe-detail .share-menu .menu-item {
   font-family: var(--font-ui-he);
   font-size: 14px;
   color: var(--ink);
@@ -196,7 +212,8 @@
     width: min(320px, calc(100vw - 32px));
   }
 
-  .spa-content .recipe-detail .own-menu .menu-item {
+  .spa-content .recipe-detail .own-menu .menu-item,
+  .spa-content .recipe-detail .share-menu .menu-item {
     min-height: 48px;
   }
 }

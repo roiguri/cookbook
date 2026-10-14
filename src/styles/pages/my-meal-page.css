@@ -213,6 +213,11 @@
   color: var(--ink);
 }
 
+.spa-content .my-meal-page .action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .spa-content .my-meal-page .action-btn.hidden {
   display: none;
 }

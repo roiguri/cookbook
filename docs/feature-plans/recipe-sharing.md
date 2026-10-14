@@ -35,7 +35,7 @@ Each release ships something usable on its own and builds on the previous one.
 ### R1: Send a recipe (link + text)
 
 - A share button on the recipe page.
-- **Published:** the native share sheet with the link and a short text; on desktop, copy the link or open WhatsApp.
+- **Published:** the native share sheet with the link and a short text; without a share sheet, copy the link.
 - **Private:** the full recipe as formatted text (a link wouldn't open for anyone else).
 - One text formatter, also used by My meal's ingredient list.
 - **Impact:** anyone can send any recipe to the family WhatsApp from day one. The base every later release builds on.
@@ -46,6 +46,7 @@ Each release ships something usable on its own and builds on the previous one.
 - **Tap:** a published recipe opens a two-item menu, "שליחת קישור" (send link) and "שליחת המתכון כטקסט" (send the recipe as text, for people who won't open links). A private recipe skips the menu and sends the text.
 - **Text:** the full recipe: title, servings, ingredients by section, numbered steps by stage, source, and the link at the end when published. Amounts use the servings currently shown on the page. Headings use WhatsApp markup (`*bold*`, `_italic_`); other apps show the asterisks.
 - **No share sheet** (e.g. Firefox, Linux desktop): the same menu items copy to the clipboard and confirm with a "הועתק" (copied) toast.
+- **Look:** the share button reuses the ⋮ button's style and My meal's share icon (three connected dots, added to `icons.js` for both). The menu reuses the ⋮ dropdown and its items: two labels, no hint lines. Mock: "Sharing · R1" row on the Cookbook screens canvas (`Share-menu`, `Share-menu-phone`, `Share-copied`).
 
 ### R2: Links that look good
 
@@ -76,9 +77,9 @@ R1 → R2 → R3 → R4. R1 and R2 give the most for the least work and set up w
 
 ## Status (branch `feat/recipe-sharing`)
 
-| Release | State        |
-| ------- | ------------ |
-| R1      | 🎨 designing |
-| R2      | ⏳ planned   |
-| R3      | ⏳ planned   |
-| R4      | ⏳ planned   |
+| Release | State       |
+| ------- | ----------- |
+| R1      | 🔨 building |
+| R2      | ⏳ planned  |
+| R3      | ⏳ planned  |
+| R4      | ⏳ planned  |
