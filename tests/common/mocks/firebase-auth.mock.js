@@ -14,6 +14,7 @@ import { jest } from '@jest/globals';
 
 jest.unstable_mockModule('firebase/auth', () => ({
   browserLocalPersistence: 'local',
+  connectAuthEmulator: jest.fn(),
   browserSessionPersistence: 'session',
   browserPopupRedirectResolver: 'mockResolver',
   EmailAuthProvider: { credential: jest.fn() },

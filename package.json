@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite --config vite.config.js",
+    "dev:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-cookbook \"vite --config vite.config.js --mode emulators\"",
     "build": "vite build",
     "serve": "vite preview",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
