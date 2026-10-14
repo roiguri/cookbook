@@ -100,6 +100,12 @@ Each release ships something usable on its own and builds on the previous one.
   - Only the lists scroll; title and buttons stay. Buttons at the left edge: "ביטול" on the right, "שיתוף עם N" to its left.
 - **After sharing:** the modal stays open with a one-line note and a small "שליחת קישור" button (R1's share). The note names one or two people, then "‹name› ועוד N"; it never wraps (ellipsis). The new people move into "עם גישה".
 
+**Recipient's design (2026-10-14, canvas row "Sharing · R3 · Shared with me (recipient)"):**
+
+- **Library:** chips "הכל · המתכונים שלי · שמרתי · שותפו איתי · לנסות" — "שותפו איתי" right after "שמרתי", shown only when something is shared; its lede: "מתכונים פרטיים שבני המשפחה שיתפו איתכם. תמיד תראו את הגרסה העדכנית שלהם." Shared recipes are also in "הכל".
+- **Card badge:** "מ־‹first name›" with a people icon, styled like the status badges (dark green text), in the same photo corner (no-photo cards: the same corner of the placeholder), so card height never changes. It replaces the author's own status ("פרטי", "לנסות") for the recipient. **Long names truncate** (ellipsis), never wrap.
+- **Recipe page:** a soft green pill under the title: "שותף איתך ע״י ‹full name›" (passive, no gendered verb); truncates too. No owner status badge. Share goes straight to text (the link opens only for people with access).
+
 **Steps:** R3a (this), R3b notifications, R3c claim link (if wanted).
 
 ### R4: PDF / print
