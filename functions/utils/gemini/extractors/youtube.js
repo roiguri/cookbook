@@ -1,4 +1,4 @@
-const { createClient } = require('../client');
+const { createClient, requireRecipeText } = require('../client');
 const { RECIPE_SCHEMA, DATA_FORMATTING_RULES, validateRecipeData } = require('../recipe-schema');
 
 /**
@@ -96,12 +96,7 @@ async function extractRecipeFromVideo(url) {
       },
     });
 
-    const responseText = response.text;
-    if (!responseText) {
-      throw new Error('Could not extract valid recipe data - empty response from video');
-    }
-
-    const data = JSON.parse(responseText);
+    const data = JSON.parse(requireRecipeText(response, 'video'));
 
     if (!validateRecipeData(data)) {
       throw new Error(
