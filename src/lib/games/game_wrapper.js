@@ -4,6 +4,7 @@ import { PizzatronGame } from './pizzatron.js';
 import { KnifeSkillsGame } from './knife_skills.js';
 import { ChefSaysGame } from './chef_says.js';
 import { PancakeFlipGame } from './pancake_flip.js';
+import { GardenHarvestGame } from './garden_harvest.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
@@ -95,6 +96,19 @@ const REGISTRY = [
     // Phones play it upright (pans stay in a row). The game implements
     // pause()/resume(), so it freezes while the prompt is up.
     preferredOrientation: 'portrait',
+  },
+  {
+    key: 'garden',
+    name: 'קציר בגינה',
+    icon: '🥕',
+    description: 'קטפו ירקות, היזהרו מתולעים',
+    GameClass: GardenHarvestGame,
+    defaultConfig: { toHarvest: 20, maxStrikes: 5 },
+    successMessage: 'כל הכבוד! סל מלא ירקות',
+    loadingText: 'משקים את הגינה... חכה רגע!',
+    // /games only — never a filler game during async waits.
+    excludeFromRandom: true,
+    // No preferredOrientation: the square bed fits portrait and landscape.
   },
 ];
 
