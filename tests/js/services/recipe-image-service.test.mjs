@@ -158,16 +158,34 @@ describe('RecipeImageService', () => {
       expect(storageMocks.uploadFile).toHaveBeenCalledTimes(1);
     });
 
-    it('deletes stale 400 and 1080 WebP variants after overwrite (best-effort)', async () => {
+    it('deletes stale 400 and 1080 WebP variants before the upload (best-effort)', async () => {
       storageMocks.getMetadata.mockResolvedValue({});
+      const order = [];
+      storageMocks.deleteFile.mockImplementation(async (path) => order.push(`delete ${path}`));
+      storageMocks.uploadFile.mockImplementation(async (_blob, path) =>
+        order.push(`upload ${path}`),
+      );
 
       await RecipeImageService.replaceFiles('recipe-9', image, newBlob);
 
-      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
-        'img/recipes/full/desserts/recipe-9/img-1_400x400.webp',
-      );
-      expect(storageMocks.deleteFile).toHaveBeenCalledWith(
-        'img/recipes/full/desserts/recipe-9/img-1_1080x1080.webp',
+      // The upload triggers the resize extension; deleting afterwards could remove
+      // the extension's fresh variants.
+      expect(order).toEqual([
+        'delete img/recipes/full/desserts/recipe-9/img-1_400x400.webp',
+        'delete img/recipes/full/desserts/recipe-9/img-1_1080x1080.webp',
+        'upload img/recipes/full/desserts/recipe-9/img-1.jpg',
+      ]);
+    });
+
+    it('still uploads when deleting the old variants fails', async () => {
+      storageMocks.getMetadata.mockResolvedValue({});
+      storageMocks.deleteFile.mockRejectedValue(new Error('not found'));
+
+      await RecipeImageService.replaceFiles('recipe-9', image, newBlob);
+
+      expect(storageMocks.uploadFile).toHaveBeenCalledWith(
+        newBlob,
+        'img/recipes/full/desserts/recipe-9/img-1.jpg',
       );
     });
 
