@@ -100,12 +100,13 @@ service firebase.storage {
     }
 
     // A private recipe's photos are also readable by approved family it was shared
-    // with (recipe sharing, R3): a share record for the caller on that recipe, whose
-    // author owns this folder.
+    // with (recipe sharing, R3): a share record for the caller on that recipe, made
+    // by the author who owns this folder (the record's authorId is checked against
+    // the recipe when it's created). Two Firestore lookups: production caps how
+    // many a Storage rule may make per request (the emulator doesn't).
     match /users/{uid}/recipes/{recipeId}/{allPaths=**} {
       allow read: if isAuthenticated()
-                  && firestore.exists(/databases/(default)/documents/recipes/$(recipeId)/shares/$(request.auth.uid))
-                  && firestore.get(/databases/(default)/documents/recipes/$(recipeId)).data.get('authorId', null) == uid
+                  && firestore.get(/databases/(default)/documents/recipes/$(recipeId)/shares/$(request.auth.uid)).data.authorId == uid
                   && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['approved', 'manager'];
     }
 
