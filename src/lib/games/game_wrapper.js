@@ -2,6 +2,7 @@ import { CookingMemoryGame } from './memory_game.js';
 import { BurgerStackerGame } from './burger_stacker.js';
 import { PizzatronGame } from './pizzatron.js';
 import { KnifeSkillsGame } from './knife_skills.js';
+import { ChefSaysGame } from './chef_says.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
@@ -65,6 +66,19 @@ const REGISTRY = [
     excludeFromRandom: true,
     // Fruits arc up from the bottom — recommend portrait on phones.
     preferredOrientation: 'portrait',
+  },
+  {
+    key: 'chef-says',
+    name: 'השף אומר',
+    icon: '👨‍🍳',
+    description: 'זכרו את סדר המרכיבים',
+    GameClass: ChefSaysGame,
+    defaultConfig: { roundsToWin: 7 },
+    successMessage: 'כל הכבוד! זיכרון של שף',
+    loadingText: 'השף מתכונן... חכה רגע!',
+    // /games only — never a filler game during async waits.
+    excludeFromRandom: true,
+    // No preferredOrientation: the square board fits portrait and landscape.
   },
 ];
 

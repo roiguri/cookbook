@@ -4,6 +4,8 @@ import '../../lib/games/game_wrapper.css';
 import '../../lib/games/memory_game.css';
 import '../../lib/games/burger_stacker.css';
 import '../../lib/games/knife_skills.css';
+import '../../lib/games/game_start_overlay.css';
+import '../../lib/games/chef_says.css';
 import '../../lib/utilities/modal/modal.js';
 
 // Phone-sized viewport — matches the modal's fullscreen-mobile activation.
