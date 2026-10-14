@@ -11,6 +11,7 @@ const {
   PARAMETER_TAXONOMY,
 } = require('./utils/gemini-service');
 const { withAuthAndRole } = require('./utils/guards');
+const { FAMILY_ROLES, familyMembers } = require('./utils/family');
 const { sendNotificationToRole } = require('./notifications');
 
 // Initialize Firebase Admin
@@ -227,6 +228,22 @@ exports.promoteSuggestionFiles = onCall(
       mapping[source] = target;
     }
     return { mapping };
+  }),
+);
+
+/**
+ * The family list for sharing a private recipe: name and avatar of approved
+ * family and managers, for approved family and managers only. Runs server-side
+ * because `users/` is readable only by its owner and managers.
+ */
+exports.listFamilyMembers = onCall(
+  withAuthAndRole(FAMILY_ROLES, async (request, { uid }) => {
+    const snap = await db.collection('users').where('role', 'in', FAMILY_ROLES).get();
+    const members = familyMembers(
+      snap.docs.map((d) => ({ id: d.id, data: d.data() })),
+      uid,
+    );
+    return { members };
   }),
 );
 

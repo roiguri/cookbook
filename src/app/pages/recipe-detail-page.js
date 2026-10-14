@@ -346,7 +346,7 @@ export default {
       );
       if (!confirmed) return;
       try {
-        await RecipeSubmissionService.deleteRecipe(id);
+        await RecipeSubmissionService.deleteRecipe(id, { authorId: recipe?.authorId });
         showToast('המתכון נמחק', 'success');
         const tab = recipe?.stage === STAGE.TO_TRY ? '?view=to-try' : '';
         window.spa?.router?.navigate(`/my-recipes${tab}`);

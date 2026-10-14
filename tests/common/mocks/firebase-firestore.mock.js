@@ -54,4 +54,5 @@ jest.unstable_mockModule('firebase/firestore', () => ({
   orderBy: jest.fn(),
   limit: jest.fn(),
   collection: jest.fn(),
+  collectionGroup: jest.fn(),
 }));
