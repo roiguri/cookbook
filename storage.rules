@@ -99,6 +99,16 @@ service firebase.storage {
       allow delete: if isAuthenticated() && (request.auth.uid == uid || isManager());
     }
 
+    // A private recipe's photos are also readable by approved family it was shared
+    // with (recipe sharing, R3): a share record for the caller on that recipe, whose
+    // author owns this folder.
+    match /users/{uid}/recipes/{recipeId}/{allPaths=**} {
+      allow read: if isAuthenticated()
+                  && firestore.exists(/databases/(default)/documents/recipes/$(recipeId)/shares/$(request.auth.uid))
+                  && firestore.get(/databases/(default)/documents/recipes/$(recipeId)).data.get('authorId', null) == uid
+                  && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['approved', 'manager'];
+    }
+
     // ========================================
     // LEGACY RECIPE IMAGES (before release 2b; removed in the cleanup release)
     // ========================================

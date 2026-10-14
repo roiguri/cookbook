@@ -92,9 +92,19 @@ service cloud.firestore {
             && data.get('stage', 'tested') in ['to-try', 'tested'];
       }
 
+      // Shared with the caller (recipe sharing): a share record for them exists,
+      // and they are still approved family or a manager. Rules functions read the
+      // record whatever its own read rule says.
+      function isSharedWithMe(recipeId) {
+        return isAuthenticated()
+            && exists(/databases/$(database)/documents/recipes/$(recipeId)/shares/$(request.auth.uid))
+            && isApproved();
+      }
+
       // READ:
       // - Published recipes are public.
-      // - A private recipe is visible only to its author and managers.
+      // - A private recipe is visible only to its author, managers, and approved
+      //   family it was shared with (read one by one, never listed).
       // - List queries must filter on `visibility == 'published'` unless run by a
       //   manager; Firestore rejects a query that could return a recipe the caller
       //   can't read.
@@ -103,7 +113,8 @@ service cloud.firestore {
       allow read: if resource == null
                   || isPublished(resource.data)
                   || isAuthor()
-                  || isManager();
+                  || isManager()
+                  || isSharedWithMe(recipeId);
 
       // Created together with its pending submission, in the same batch.
       function submittedTogether(recipeId) {
@@ -147,6 +158,58 @@ service cloud.firestore {
       // - An author can delete their own private recipe (My recipes). Published
       //   recipes belong to the family book and stay manager-only.
       allow delete: if isManager() || (isAuthor() && !isPublished(resource.data));
+
+      // -----------------------------------------------------------------------
+      // SHARES (recipe sharing, docs/feature-plans/recipe-sharing.md, R3)
+      // -----------------------------------------------------------------------
+      // One record per recipient: the author of a private recipe gives approved
+      // family (or managers) a live, read-only view. Records are created or
+      // deleted, never edited.
+      match /shares/{recipientUid} {
+        function recipeData() {
+          return get(/databases/$(database)/documents/recipes/$(recipeId)).data;
+        }
+        function canReceive(uid) {
+          return get(/databases/$(database)/documents/users/$(uid)).data.role
+                   in ['approved', 'manager'];
+        }
+
+        // READ: the recipient (their own record, also when it doesn't exist), the
+        // author (who has access — list queries filter on authorId), managers.
+        allow read: if isAuthenticated()
+                    && (recipientUid == request.auth.uid
+                        || resource.data.authorId == request.auth.uid
+                        || isManager());
+
+        // CREATE: only the recipe's author (approved family or a manager), only on a
+        // private recipe, for someone else who is approved family or a manager.
+        allow create: if isApproved()
+                      && recipientUid != request.auth.uid
+                      && request.resource.data.keys().hasOnly(['recipientUid', 'authorId', 'authorName', 'sharedAt'])
+                      && request.resource.data.keys().hasAll(['recipientUid', 'authorId', 'authorName', 'sharedAt'])
+                      && request.resource.data.recipientUid == recipientUid
+                      && request.resource.data.authorId == request.auth.uid
+                      && request.resource.data.authorName is string
+                      && request.resource.data.authorName.size() > 0
+                      && request.resource.data.authorName.size() <= 100
+                      && request.resource.data.sharedAt == request.time
+                      && recipeData().get('authorId', null) == request.auth.uid
+                      && recipeData().get('visibility', null) == 'private'
+                      && canReceive(recipientUid);
+
+        allow update: if false;
+
+        // DELETE: the author (removing someone), the recipient (leaving), managers.
+        allow delete: if isAuthenticated()
+                      && (resource.data.authorId == request.auth.uid
+                          || recipientUid == request.auth.uid
+                          || isManager());
+      }
+    }
+
+    // "Shared with me": a collection-group query on shares filtered to the caller.
+    match /{path=**}/shares/{recipientUid} {
+      allow read: if isAuthenticated() && resource.data.recipientUid == request.auth.uid;
     }
 
     // =========================================================================

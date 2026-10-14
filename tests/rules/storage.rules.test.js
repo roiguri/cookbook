@@ -211,6 +211,62 @@ describe('private user area (users/{uid}/…)', () => {
   });
 });
 
+// Recipe sharing (R3): a private recipe's photos follow its share records.
+describe('photos of a shared private recipe', () => {
+  const SHARED_WITH = 'shared-with-uid';
+  const PLAIN = 'plain-uid';
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore();
+      await setDoc(doc(admin, 'users', SHARED_WITH), { role: 'approved' });
+      await setDoc(doc(admin, 'users', PLAIN), { role: 'user' });
+      await setDoc(doc(admin, 'recipes', 'r9'), {
+        authorId: AUTHOR,
+        visibility: 'private',
+        stage: 'tested',
+      });
+      for (const uid of [SHARED_WITH, PLAIN]) {
+        await setDoc(doc(admin, 'recipes', 'r9', 'shares', uid), {
+          recipientUid: uid,
+          authorId: AUTHOR,
+          authorName: 'Author Name',
+          sharedAt: new Date(),
+        });
+      }
+    });
+  });
+
+  test('are readable by someone it is shared with', async () => {
+    await assertSucceeds(getBytes(ref(storage(SHARED_WITH), PRIVATE)));
+  });
+
+  test('stay closed to others, to visitors and to a recipient who is no longer approved', async () => {
+    await assertFails(getBytes(ref(storage(OTHER), PRIVATE)));
+    await assertFails(getBytes(ref(storage(null), PRIVATE)));
+    await assertFails(getBytes(ref(storage(PLAIN), PRIVATE)));
+  });
+
+  test('only for that recipe, in its author’s folder', async () => {
+    const elsewhere = `users/${OTHER}/recipes/r9/images/primary.jpg`;
+    await testEnv.withSecurityRulesDisabled((ctx) =>
+      uploadBytes(ref(ctx.storage(), elsewhere), bytes, meta(OTHER)),
+    );
+    await assertFails(getBytes(ref(storage(SHARED_WITH), elsewhere)));
+  });
+
+  test('a recipient cannot write or delete them', async () => {
+    await assertFails(
+      uploadBytes(
+        ref(storage(SHARED_WITH), `users/${AUTHOR}/recipes/r9/images/3.jpg`),
+        bytes,
+        meta(SHARED_WITH),
+      ),
+    );
+    await assertFails(deleteObject(ref(storage(SHARED_WITH), PRIVATE)));
+  });
+});
+
 describe('legacy trees (before 2b)', () => {
   test('stay public to read', async () => {
     await assertSucceeds(getBytes(ref(storage(null), LEGACY_IMAGE)));
