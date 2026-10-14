@@ -5,6 +5,9 @@ const challah = {
   servings: 4,
   prepTime: 30,
   waitTime: 120,
+  difficulty: 'בינונית',
+  description: 'קלועה בארבע רצועות.',
+  comments: ['אפשר להקפיא את הבצק.', ' '],
   attribution: 'סבתא רותי',
   ingredientSections: [
     {
@@ -42,7 +45,8 @@ describe('recipeShareText', () => {
     expect(recipeShareText(challah, { url: 'https://example.test/recipe/abc' })).toBe(
       [
         '*חלה של שישי*',
-        '4 מנות · זמן הכנה: 30 דקות · זמן המתנה: שעתיים',
+        'קלועה בארבע רצועות.',
+        '4 מנות · זמן הכנה: 30 דקות · זמן המתנה: שעתיים · רמת קושי: בינונית',
         '',
         '*מצרכים*',
         '• 1 ק"ג קמח',
@@ -59,6 +63,9 @@ describe('recipeShareText', () => {
         '_אפייה_',
         '1. אופים 30 דקות.',
         '',
+        '*הערות*',
+        '• אפשר להקפיא את הבצק.',
+        '',
         'מקור: סבתא רותי',
         'https://example.test/recipe/abc',
       ].join('\n'),
@@ -72,7 +79,7 @@ describe('recipeShareText', () => {
     expect(text).toContain('• 4 כפות שמרים יבשים');
   });
 
-  it('handles a flat recipe without times, source or link', () => {
+  it('handles a flat recipe without description, times, notes, source or link', () => {
     const text = recipeShareText({
       name: 'סלט',
       ingredients: [{ amount: 2, unit: '', item: 'עגבניות' }],

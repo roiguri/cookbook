@@ -22,8 +22,9 @@ export function ingredientLine(ingredient) {
 }
 
 /**
- * The whole recipe as one message: title, servings and times, ingredients by
- * section, numbered steps by stage, source, and the link when there is one.
+ * The whole recipe as one message: title, description, servings, times and
+ * difficulty, ingredients by section, numbered steps by stage, notes, source,
+ * and the link when there is one.
  * @param {Object} recipe - Recipe data as stored (`ingredientSections` or
  *   `ingredients`; `stages` or `instructions`).
  * @param {Object} [options]
@@ -40,8 +41,11 @@ export function recipeShareText(recipe, { servings, url } = {}) {
     shownServings ? `${shownServings} מנות` : '',
     recipe.prepTime ? `זמן הכנה: ${formatCookingTime(recipe.prepTime)}` : '',
     recipe.waitTime ? `זמן המתנה: ${formatCookingTime(recipe.waitTime)}` : '',
+    recipe.difficulty?.trim() ? `רמת קושי: ${recipe.difficulty.trim()}` : '',
   ].filter(Boolean);
-  blocks.push([`*${recipe.name}*`, ...(meta.length ? [meta.join(' · ')] : [])].join('\n'));
+  blocks.push(
+    [`*${recipe.name}*`, recipe.description?.trim(), meta.join(' · ')].filter(Boolean).join('\n'),
+  );
 
   const sections = recipe.ingredientSections?.length
     ? recipe.ingredientSections
@@ -74,6 +78,11 @@ export function recipeShareText(recipe, { servings, url } = {}) {
     (stage.instructions || []).forEach((step, i) => stepLines.push(`${i + 1}. ${step}`));
   });
   blocks.push(stepLines.join('\n'));
+
+  const notes = (recipe.comments || [])
+    .map((note) => (note ?? '').toString().trim())
+    .filter(Boolean);
+  if (notes.length) blocks.push(['*הערות*', ...notes.map((note) => `• ${note}`)].join('\n'));
 
   const footer = [
     recipe.attribution?.trim() ? `מקור: ${recipe.attribution.trim()}` : '',

@@ -44,7 +44,7 @@ Each release ships something usable on its own and builds on the previous one.
 
 - **Placement:** a share icon in the recipe page's top corner, beside the ⋮ menu. Shown to everyone, signed out included (⋮ stays signed-in only).
 - **Tap:** a published recipe opens a two-item menu, "שליחת קישור" (send link) and "שליחת המתכון כטקסט" (send the recipe as text, for people who won't open links). A private recipe skips the menu and sends the text.
-- **Text:** the full recipe: title, servings, ingredients by section, numbered steps by stage, source, and the link at the end when published. Amounts use the servings currently shown on the page. Headings use WhatsApp markup (`*bold*`, `_italic_`); other apps show the asterisks.
+- **Text:** the full recipe: title, description, servings, times and difficulty, ingredients by section, numbered steps by stage, notes (הערות), source, and the link at the end when published. Category, photos and media, tags and internal fields stay out. Amounts use the servings currently shown on the page. Headings use WhatsApp markup (`*bold*`, `_italic_`); other apps show the asterisks.
 - **No share sheet** (e.g. Firefox, Linux desktop): the same menu items copy to the clipboard and confirm with a "הועתק" (copied) toast.
 - **Look:** the share button reuses the ⋮ button's style and My meal's share icon (three connected dots, added to `icons.js` for both). The menu reuses the ⋮ dropdown and its items: two labels, no hint lines. Mock: "Sharing · R1" row on the Cookbook screens canvas (`Share-menu`, `Share-menu-phone`, `Share-copied`).
 
