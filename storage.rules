@@ -123,8 +123,25 @@ service firebase.storage {
     // ========================================
     // USER AVATARS
     // ========================================
+    // Stock avatars (static fixtures, uploaded from the console).
     match /Avatars/{allPaths=**} {
       allow read: if true;
+    }
+
+    // Avatars drawn in the avatar builder: one PNG per user, user-avatars/{uid}.png.
+    // Only its owner writes it (a small PNG, tagged as theirs). Other people see it
+    // through the download URL saved on users/{uid}.avatarUrl, so reads stay with the
+    // owner and managers, and nobody can list the folder (it would list user ids).
+    match /user-avatars/{fileName} {
+      function isOwnAvatar() {
+        return isAuthenticated() && fileName == request.auth.uid + '.png';
+      }
+      allow get: if isOwnAvatar() || isManager();
+      allow create, update: if isOwnAvatar()
+                            && request.resource.contentType == 'image/png'
+                            && request.resource.size < 200 * 1024
+                            && isTaggedAsCaller(request.resource);
+      allow delete: if isOwnAvatar() || isManager();
     }
 
     // ========================================

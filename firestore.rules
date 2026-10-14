@@ -31,6 +31,18 @@ service cloud.firestore {
     // USERS COLLECTION
     // =========================================================================
     match /users/{userId} {
+      // The avatar builder's choices (src/js/utils/avatar/chef-avatar.js): a version
+      // and two small maps of part / colour ids. Ids themselves are checked by the app.
+      function isValidAvatarConfig(data) {
+        let config = data.get('avatarConfig', null);
+        return config == null
+            || (config is map
+                && config.keys().hasOnly(['v', 'parts', 'colors'])
+                && config.get('v', 0) is int
+                && config.get('parts', {}) is map && config.get('parts', {}).size() <= 16
+                && config.get('colors', {}) is map && config.get('colors', {}).size() <= 8);
+      }
+
       // READ: 
       // - Users can read their own profile (for favorites, settings)
       // - Managers can read all profiles (for dashboard)
@@ -41,13 +53,15 @@ service cloud.firestore {
       // - Users can create their own profile on signup
       // - Must set role to 'user' (default) - prevent self-promotion
       allow create: if isOwner(userId)
-                    && request.resource.data.role == 'user';
+                    && request.resource.data.role == 'user'
+                    && isValidAvatarConfig(request.resource.data);
       
       // UPDATE:
       // - Users can update their own profile (avatar, favorites, name, fcmTokens)
       // - CRITICAL: Users CANNOT change their role
       // - Managers can update anything (including roles)
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role)
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role
+                        && isValidAvatarConfig(request.resource.data))
                     || isManager();
                     
       // DELETE:

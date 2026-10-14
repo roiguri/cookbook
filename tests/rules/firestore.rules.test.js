@@ -625,3 +625,51 @@ describe('recipe shares', () => {
     });
   });
 });
+
+describe('user profile: avatar config', () => {
+  const config = {
+    v: 1,
+    parts: { face: 'round', hair: 'curly', hat: 'bandana' },
+    colors: { skin: 'deep', background: 'sage' },
+  };
+  const own = () => doc(db(USER), 'users', USER);
+
+  test('a user can save their built avatar with its config', async () => {
+    await assertSucceeds(
+      updateDoc(own(), { avatarConfig: config, avatarUrl: 'https://cdn/user-avatars%2Fu.png' }),
+    );
+  });
+
+  test('profile updates without an avatar config still work', async () => {
+    await assertSucceeds(updateDoc(own(), { bio: 'שף ביתי' }));
+  });
+
+  test('a config with unknown keys is rejected', async () => {
+    await assertFails(updateDoc(own(), { avatarConfig: { ...config, script: 'x' } }));
+  });
+
+  test('a config that is not a map, or has a non-integer version, is rejected', async () => {
+    await assertFails(updateDoc(own(), { avatarConfig: 'curly' }));
+    await assertFails(updateDoc(own(), { avatarConfig: { ...config, v: '1' } }));
+    await assertFails(updateDoc(own(), { avatarConfig: { ...config, parts: ['curly'] } }));
+  });
+
+  test('oversized part or colour maps are rejected', async () => {
+    const many = Object.fromEntries(Array.from({ length: 17 }, (_, i) => [`p${i}`, 'x']));
+    await assertFails(updateDoc(own(), { avatarConfig: { ...config, parts: many } }));
+    const colors = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`c${i}`, 'x']));
+    await assertFails(updateDoc(own(), { avatarConfig: { ...config, colors } }));
+  });
+
+  test('the avatar config cannot be used to sneak in a role change', async () => {
+    await assertFails(updateDoc(own(), { avatarConfig: config, role: 'manager' }));
+  });
+
+  test('a new profile may not carry an invalid config', async () => {
+    const fresh = 'fresh-uid';
+    await assertFails(
+      setDoc(doc(db(fresh), 'users', fresh), { role: 'user', avatarConfig: { bad: true } }),
+    );
+    await assertSucceeds(setDoc(doc(db(fresh), 'users', fresh), { role: 'user' }));
+  });
+});

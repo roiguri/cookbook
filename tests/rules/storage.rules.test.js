@@ -12,7 +12,7 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, deleteObject, getBytes } from 'firebase/storage';
+import { ref, uploadBytes, deleteObject, getBytes, listAll } from 'firebase/storage';
 
 const STORAGE_RULES = process.env.STORAGE_RULES || 'storage.rules';
 const FIRESTORE_RULES = process.env.FIRESTORE_RULES || 'firestore.rules';
@@ -294,5 +294,78 @@ describe('legacy trees (before 2b)', () => {
   test('managers can still clean them up', async () => {
     await assertSucceeds(deleteObject(ref(storage(MANAGER), LEGACY_IMAGE)));
     await assertSucceeds(deleteObject(ref(storage(MANAGER), LEGACY_MEDIA)));
+  });
+});
+
+describe('built avatars (user-avatars/{uid}.png)', () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  const pngMeta = (uid) => ({ contentType: 'image/png', customMetadata: { uploadedBy: uid } });
+  const avatar = (uid) => `user-avatars/${uid}.png`;
+  const upload = (as, path, bytes = png, metadata = pngMeta(as)) =>
+    uploadBytes(ref(storage(as), path), bytes, metadata);
+
+  test('a user can upload and replace their own avatar PNG', async () => {
+    await assertSucceeds(upload(AUTHOR, avatar(AUTHOR)));
+    await assertSucceeds(upload(AUTHOR, avatar(AUTHOR)));
+  });
+
+  test("nobody can write another user's avatar, managers included", async () => {
+    await assertFails(upload(OTHER, avatar(AUTHOR)));
+    await assertFails(upload(MANAGER, avatar(AUTHOR)));
+  });
+
+  test('signed-out visitors cannot upload', async () => {
+    await assertFails(uploadBytes(ref(storage(null), avatar(AUTHOR)), png, pngMeta(AUTHOR)));
+  });
+
+  test('only a PNG named after the uid is accepted', async () => {
+    await assertFails(
+      upload(AUTHOR, `user-avatars/${AUTHOR}.svg`, png, {
+        ...pngMeta(AUTHOR),
+        contentType: 'image/svg+xml',
+      }),
+    );
+    await assertFails(
+      upload(AUTHOR, avatar(AUTHOR), png, { ...pngMeta(AUTHOR), contentType: 'image/svg+xml' }),
+    );
+    await assertFails(upload(AUTHOR, `user-avatars/${AUTHOR}-2.png`));
+    await assertFails(upload(AUTHOR, `user-avatars/x/${AUTHOR}.png`));
+  });
+
+  test('the upload must be tagged with the uploader', async () => {
+    await assertFails(upload(AUTHOR, avatar(AUTHOR), png, { contentType: 'image/png' }));
+    await assertFails(upload(AUTHOR, avatar(AUTHOR), png, pngMeta(OTHER)));
+  });
+
+  test('files of 200 KB or more are rejected', async () => {
+    await assertFails(upload(AUTHOR, avatar(AUTHOR), new Uint8Array(200 * 1024)));
+    await assertSucceeds(upload(AUTHOR, avatar(AUTHOR), new Uint8Array(150 * 1024)));
+  });
+
+  test('the owner and managers can read it; others only through the saved download URL', async () => {
+    await testEnv.withSecurityRulesDisabled((ctx) =>
+      uploadBytes(ref(ctx.storage(), avatar(AUTHOR)), png, pngMeta(AUTHOR)),
+    );
+    await assertSucceeds(getBytes(ref(storage(AUTHOR), avatar(AUTHOR))));
+    await assertSucceeds(getBytes(ref(storage(MANAGER), avatar(AUTHOR))));
+    await assertFails(getBytes(ref(storage(OTHER), avatar(AUTHOR))));
+    await assertFails(getBytes(ref(storage(null), avatar(AUTHOR))));
+  });
+
+  test('nobody can list the folder (it would list user ids)', async () => {
+    await assertFails(listAll(ref(storage(AUTHOR), 'user-avatars')));
+    await assertFails(listAll(ref(storage(null), 'user-avatars')));
+  });
+
+  test('the owner and managers can delete it; others cannot', async () => {
+    const seed = () =>
+      testEnv.withSecurityRulesDisabled((ctx) =>
+        uploadBytes(ref(ctx.storage(), avatar(AUTHOR)), png, pngMeta(AUTHOR)),
+      );
+    await seed();
+    await assertFails(deleteObject(ref(storage(OTHER), avatar(AUTHOR))));
+    await assertSucceeds(deleteObject(ref(storage(AUTHOR), avatar(AUTHOR))));
+    await seed();
+    await assertSucceeds(deleteObject(ref(storage(MANAGER), avatar(AUTHOR))));
   });
 });
