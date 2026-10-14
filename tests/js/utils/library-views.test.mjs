@@ -28,6 +28,26 @@ describe('buildLibraryViews', () => {
     expect(views[LIBRARY_VIEW.SAVED][1].ownView).toBe(true);
   });
 
+  describe('shared with me', () => {
+    const shared = [
+      { id: 'sh1', creationTime: at(5), sharedBy: { name: 'דנה כהן' } },
+      { id: 's1', creationTime: at(2), sharedBy: { name: 'אבי לוי' } }, // also saved
+    ];
+    const withShared = buildLibraryViews(mine, saved, shared);
+
+    it('"shared" lists them as given', () => {
+      expect(ids(withShared[LIBRARY_VIEW.SHARED])).toEqual(['sh1', 's1']);
+    });
+
+    it('"all" holds them too, once each', () => {
+      expect(ids(withShared[LIBRARY_VIEW.ALL])).toEqual(['sh1', 'm1', 's1', 'm2']);
+    });
+
+    it('a saved recipe that is shared keeps who shared it', () => {
+      expect(withShared[LIBRARY_VIEW.SAVED][0].sharedBy).toEqual({ name: 'אבי לוי' });
+    });
+  });
+
   it('works with nothing (a plain user with no favourites)', () => {
     const empty = buildLibraryViews([], []);
     expect(Object.values(empty).every((list) => list.length === 0)).toBe(true);

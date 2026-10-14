@@ -162,7 +162,8 @@
       </div>
 
       <!-- Share: open to everyone once the recipe shows (setupShareHandlers). A published
-         recipe offers link or text; a private one goes straight to text. -->
+         recipe offers link or text; the author's private recipe offers family or text;
+         anyone else's private recipe goes straight to text. -->
       <div class="recipe-share" hidden>
         <button
           class="recipe-menu-button"
@@ -174,6 +175,10 @@
           aria-expanded="false"
         ></button>
         <div class="recipe-menu-dropdown share-menu" role="menu" aria-label="שיתוף המתכון">
+          <button class="menu-item" id="share-family-btn" type="button" role="menuitem" hidden>
+            <span class="menu-item__icon" id="share-family-icon"></span>
+            <span>שיתוף עם בני משפחה</span>
+          </button>
           <button class="menu-item" id="share-link-btn" type="button" role="menuitem">
             <svg
               width="20"

@@ -645,12 +645,16 @@ class RecipeCard extends HTMLElement {
     // Status badge (to try / private / …): one status source and one badge for
     // every list. A list can hide statuses that are obvious in its context
     // (e.g. "private" in My library) via the `hide-statuses` attribute.
-    const status = getRecipeStatus(this._recipeData);
+    // A recipe family shared with the reader shows who shared it instead: the
+    // author's status ("private", "to try") is theirs, not the reader's.
+    const sharedBy = !this._recipeData?.ownView && this._recipeData?.sharedBy;
+    const status = sharedBy ? 'shared' : getRecipeStatus(this._recipeData);
     const hiddenStatuses = (this.getAttribute('hide-statuses') || '').split(/\s+/);
     const photo = clone.querySelector('.photo');
     if (status && !hiddenStatuses.includes(status) && photo) {
       const badge = document.createElement('status-badge');
       badge.setAttribute('status', status);
+      if (sharedBy) badge.setAttribute('name', (sharedBy.name || '').trim().split(/\s+/)[0]);
       photo.appendChild(badge);
     }
 
