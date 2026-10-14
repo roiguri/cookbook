@@ -4,7 +4,7 @@
  * function (index.js) writes these into the HTML before it's returned.
  *
  * Pure helpers (no Netlify or Deno APIs), so Jest tests them directly.
- * Plan: docs/feature-plans/recipe-sharing.md (R2).
+ * Plan: docs/archive/feature-plans/recipe-sharing.md (R2).
  */
 import {
   CATEGORY_MAP,

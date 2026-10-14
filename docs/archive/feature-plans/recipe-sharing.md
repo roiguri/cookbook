@@ -1,5 +1,7 @@
 # Feature Plan: Recipe sharing
 
+> **Archived 2026-10-14.** R1 (send a recipe), R2a (link previews) and R3a (share a private recipe with family) are built and merged; the production rollout is recorded under "Rollout" at the end. Open follow-ups are GitHub issues: **#383** (R3b notifications, R3c claim link), **#417** (R4 print / PDF), **#382** (share target).
+
 ## Context
 
 Today a recipe can't be shared from the recipe page (`recipe-detail-page.html` has a `TODO - add print/share button`). The only share in the app is My meal's ingredient list (`navigator.share`, text).
@@ -133,4 +135,8 @@ R1 → R2 → R3 → R4. R1 and R2 give the most for the least work and set up w
 | R1      | ✅ merged to `development` (#412)                                                  |
 | R2      | ✅ R2a merged to `development` (#414)                                              |
 | R3      | ✅ R3a merged to `development`; rules, index and function on the test project only |
-| R4      | ⏳ planned                                                                         |
+| R4      | Moved to #417                                                                      |
+
+## Rollout
+
+To be recorded as each step runs (staging, production Firebase, production Netlify).

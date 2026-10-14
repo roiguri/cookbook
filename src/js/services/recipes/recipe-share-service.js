@@ -18,7 +18,7 @@ const time = (t) => t?.toMillis?.() ?? (t ? new Date(t).getTime() : 0);
  * (`{ recipientUid, authorId, authorName, sharedAt }`), created or deleted,
  * never edited. Security rules let a recipient read the recipe and its photos
  * while their record exists and they stay approved. Plan:
- * docs/feature-plans/recipe-sharing.md (R3).
+ * docs/archive/feature-plans/recipe-sharing.md (R3).
  *
  * Public API:
  *   - listFamily()                                  // picker: [{ uid, name, avatarUrl }]
