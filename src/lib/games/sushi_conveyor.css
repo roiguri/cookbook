@@ -1,0 +1,328 @@
+/* Sushi Conveyor — order-matching conveyor game. Companion to
+   sushi_conveyor.js. A horizontal belt wants width, so the game prefers
+   landscape on phones. Plate x (--x) is a fraction of the belt width, and
+   plates size from the belt's height, so any resize just rescales. */
+
+.sushi-game {
+  --belt-h: clamp(84px, 22vh, 130px);
+  --plate: calc(var(--belt-h) * 0.72);
+
+  position: relative;
+  width: 100%;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-0) 100%);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-ui-he, var(--font-ui));
+}
+
+/* ---- HUD ---- */
+
+.sushi-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.sushi-strikes {
+  display: flex;
+  gap: 6px;
+}
+
+.sushi-strike-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: rgba(31, 29, 24, 0.12);
+  border: 1px solid var(--hairline-strong);
+}
+
+.sushi-strike-pip--filled {
+  background: var(--secondary);
+  border-color: var(--secondary-dark);
+}
+
+.sushi-counter {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sushi-counter-sep {
+  margin: 0 2px;
+  color: var(--ink-3);
+}
+
+/* ---- Customer + order ---- */
+
+.sushi-counter-area {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 4vw, 32px);
+  padding: 14px;
+}
+
+.sushi-customer {
+  font-size: clamp(2.6rem, 10vmin, 4rem);
+  line-height: 1;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+
+.sushi-customer[data-mood='waiting']::before {
+  content: '🙂';
+}
+.sushi-customer[data-mood='happy']::before {
+  content: '😋';
+}
+.sushi-customer[data-mood='angry']::before {
+  content: '😠';
+}
+
+.sushi-customer[data-mood='angry'] {
+  animation: sushi-shake 380ms var(--ease);
+}
+
+.sushi-order {
+  background: var(--surface-1);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  padding: 10px 14px 12px;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sushi-order-title {
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+
+.sushi-order-slots {
+  display: flex;
+  gap: 10px;
+  min-height: 2.6rem;
+}
+
+.sushi-slot {
+  position: relative;
+  font-size: 2rem;
+  line-height: 1.2;
+  padding: 2px 6px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+
+.sushi-slot--done {
+  opacity: 0.35;
+}
+
+.sushi-slot--done::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+
+.sushi-patience {
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--hairline);
+  overflow: hidden;
+}
+
+.sushi-patience span {
+  display: block;
+  height: 100%;
+  width: calc(var(--patience, 1) * 100%);
+  background: var(--primary);
+  border-radius: inherit;
+}
+
+.sushi-patience[data-low='true'] span {
+  background: var(--secondary);
+}
+
+/* ---- Belt ---- */
+
+.sushi-belt {
+  position: relative;
+  height: var(--belt-h);
+  flex: 0 0 auto;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.08) 0 2px, transparent 2px 36px),
+    linear-gradient(180deg, #5b544b, #3f3a34);
+  border-top: 6px solid #2f2b26;
+  border-bottom: 6px solid #2f2b26;
+}
+
+.sushi-plate {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--x, 1) * 100% - var(--plate) / 2);
+  width: var(--plate);
+  height: var(--plate);
+  transform: translateY(-50%);
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #fff 0 55%,
+    #e9e2d3 56% 64%,
+    var(--secondary) 65% 70%,
+    #fff 71%
+  );
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  will-change: left;
+}
+
+.sushi-plate:focus-visible {
+  outline: none;
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.35),
+    var(--ring);
+}
+
+.sushi-plate-dish {
+  font-size: calc(var(--plate) * 0.5);
+  line-height: 1;
+}
+
+.sushi-plate--taken {
+  animation: sushi-taken 300ms var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+.sushi-plate--wrong {
+  animation: sushi-wrong 300ms var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+@keyframes sushi-taken {
+  to {
+    transform: translateY(-180%) scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes sushi-wrong {
+  30% {
+    transform: translateY(-50%) rotate(-12deg);
+  }
+  to {
+    transform: translateY(-50%) rotate(12deg) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes sushi-shake {
+  25% {
+    transform: translateX(-5px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+.sushi-game--paused .sushi-plate,
+.sushi-game--paused .sushi-customer {
+  animation-play-state: paused;
+}
+
+/* ---- Toast ---- */
+
+.sushi-toast {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translate(-50%, -6px);
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  color: var(--button-color);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.sushi-toast--good {
+  background: var(--primary);
+}
+
+.sushi-toast--bad {
+  background: var(--secondary);
+}
+
+.sushi-toast--show {
+  animation: sushi-toast 1000ms var(--ease-out);
+}
+
+@keyframes sushi-toast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  15%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---- Landscape phone ---- */
+
+@media (max-height: 500px) {
+  .sushi-game {
+    --belt-h: clamp(80px, 30vh, 120px);
+    min-height: 0;
+  }
+
+  .sushi-hud {
+    padding: 6px 14px;
+  }
+
+  .sushi-counter-area {
+    padding: 8px 14px;
+  }
+
+  .sushi-slot {
+    font-size: 1.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sushi-customer[data-mood='angry'] {
+    animation: none;
+  }
+}

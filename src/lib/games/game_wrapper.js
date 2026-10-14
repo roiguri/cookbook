@@ -7,6 +7,7 @@ import { PancakeFlipGame } from './pancake_flip.js';
 import { MarketSortGame } from './market_sort.js';
 import { PerfectPourGame } from './perfect_pour.js';
 import { GardenHarvestGame } from './garden_harvest.js';
+import { SushiConveyorGame } from './sushi_conveyor.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
@@ -140,6 +141,21 @@ const REGISTRY = [
     // /games only — never a filler game during async waits.
     excludeFromRandom: true,
     // No preferredOrientation: the square bed fits portrait and landscape.
+  },
+  {
+    key: 'sushi',
+    name: 'מסוע הסושי',
+    icon: '🍣',
+    description: 'הגישו ללקוח בדיוק מה שהזמין',
+    GameClass: SushiConveyorGame,
+    defaultConfig: { ordersToWin: 5, maxStrikes: 3 },
+    successMessage: 'כל הכבוד! כל הלקוחות שבעים',
+    loadingText: 'מגלגלים סושי... חכה רגע!',
+    // /games only — never a filler game during async waits.
+    excludeFromRandom: true,
+    // Horizontal belt — recommend landscape on phones. Pauses behind the
+    // rotate prompt via pause()/resume().
+    preferredOrientation: 'landscape',
   },
 ];
 

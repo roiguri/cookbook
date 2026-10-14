@@ -10,6 +10,7 @@ import '../../lib/games/pancake_flip.css';
 import '../../lib/games/market_sort.css';
 import '../../lib/games/perfect_pour.css';
 import '../../lib/games/garden_harvest.css';
+import '../../lib/games/sushi_conveyor.css';
 import '../../lib/utilities/modal/modal.js';
 
 // Phone-sized viewport — matches the modal's fullscreen-mobile activation.
