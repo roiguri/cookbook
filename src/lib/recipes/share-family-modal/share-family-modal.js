@@ -175,7 +175,19 @@ class ShareFamilyModal extends Modal {
         background: var(--surface-1, #fff);
       }
       .fp-list > li:last-child .fp-row, .fp-list > li.fp-row:last-child { border-bottom: 0; }
-      label.fp-row { cursor: pointer; }
+      label.fp-row { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+      /* The list is rounded and clips its rows; the first and last rows round the
+         same way, so a row's focus ring and selected fill follow the corners. */
+      .fp-list > li:first-child,
+      .fp-list > li:first-child > .fp-row {
+        border-top-left-radius: calc(var(--r-md, 12px) - 1px);
+        border-top-right-radius: calc(var(--r-md, 12px) - 1px);
+      }
+      .fp-list > li:last-child,
+      .fp-list > li:last-child > .fp-row {
+        border-bottom-left-radius: calc(var(--r-md, 12px) - 1px);
+        border-bottom-right-radius: calc(var(--r-md, 12px) - 1px);
+      }
       label.fp-row:hover { background: var(--surface-0, #faf6ec); }
       label.fp-row:focus-within { box-shadow: inset 0 0 0 2px var(--primary, #6a994e); }
       .fp-row.is-on { background: color-mix(in oklab, var(--primary) 7%, white); }
