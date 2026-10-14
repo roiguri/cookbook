@@ -270,12 +270,14 @@ export const recipeCardStyles = `
     height: 12px;
 }
 
-/* Recipe status (to try / private / …) — top corner opposite the action buttons */
+/* Recipe status (to try / private / …) — top corner opposite the action buttons.
+   Room is left for the heart, so a long "shared by" name truncates instead. */
 .photo status-badge {
     position: absolute;
     top: 10px;
     left: 10px;
     z-index: 3;
+    max-width: calc(100% - 64px);
 }
 
 .favorite-btn {

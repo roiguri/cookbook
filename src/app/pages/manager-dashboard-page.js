@@ -491,17 +491,17 @@ export default {
     modal.addEventListener(
       'confirm-approved',
       () => {
-        this.deleteRecipe(recipe.id);
+        this.deleteRecipe(recipe.id, recipe.authorId);
       },
       { once: true },
     );
   },
 
-  async deleteRecipe(recipeId) {
+  async deleteRecipe(recipeId, authorId) {
     try {
       this.toggleLoading(true);
-      // Removes its family-book submission too, so the queue never points at it.
-      await RecipeSubmissionService.deleteRecipe(recipeId);
+      // Removes its family-book submission and share records too, so nothing points at it.
+      await RecipeSubmissionService.deleteRecipe(recipeId, { authorId });
       this.showSuccess('המתכון נמחק בהצלחה', 'המתכון נמחק');
       this.refreshManager.refreshRecipes();
     } catch (error) {

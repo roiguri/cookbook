@@ -1,5 +1,6 @@
 import authService from '../../js/services/auth/auth-service.js';
 import { RecipeService } from '../../js/services/recipes/recipe-service.js';
+import { RecipeShareService } from '../../js/services/recipes/recipe-share-service.js';
 import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
 import favoritesService from '../../js/services/users/favorites-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
@@ -28,6 +29,12 @@ const VIEWS = {
     emptyText: 'לחצו על הלב בכרטיס של מתכון כדי לשמור אותו כאן.',
     toBook: true,
   },
+  [LIBRARY_VIEW.SHARED]: {
+    lede: 'מתכונים פרטיים שבני המשפחה שיתפו איתכם. תמיד תראו את הגרסה העדכנית שלהם.',
+    emptyTitle: 'עוד לא שיתפו איתכם מתכונים',
+    emptyText: 'כשמישהו מהמשפחה ישתף איתכם מתכון פרטי, הוא יופיע כאן.',
+    toBook: true,
+  },
   [LIBRARY_VIEW.TO_TRY]: {
     lede: 'מתכונים ששמרתם ועוד לא ניסיתם. אחרי שתנסו, סמנו אותם כנבדקים.',
     emptyTitle: 'אין כאן מתכונים לנסות',
@@ -43,12 +50,14 @@ function viewFromParams(params) {
 
 /**
  * הספרייה שלי — everything that's the reader's: the recipes they wrote and the
- * recipes they saved (the heart), with scope chips: all · mine · saved · to try.
+ * recipes they saved (the heart), and private recipes family shared with them,
+ * with scope chips: all · mine · saved · shared with me · to try.
  *
  * The list itself is the Categories list (RecipeListController + the same
  * filter, grid and cards); this page supplies the data source, the chips and
- * the empty state. Approved family and managers see all chips; plain users
- * (no recipes of their own) see what they saved.
+ * the empty state. Approved family and managers see all chips ("shared with
+ * me" only when something is shared); plain users (no recipes of their own, and
+ * nothing can be shared with them) see what they saved.
  */
 export default {
   async render() {
@@ -105,9 +114,12 @@ export default {
     await this.list.start();
   },
 
+  // The overlay stays until the first load: the counts, the "shared with me"
+  // chip and the cards appear together, with no "no recipes" flash before them.
   async waitForReady(container) {
     const filter = container.querySelector('#unified-filter');
     if (filter?.waitForReady) await filter.waitForReady();
+    await this.list?.firstLoad;
   },
 
   async unmount() {
@@ -172,11 +184,12 @@ export default {
    */
   async loadRecipes({ category }) {
     const uid = authService.getCurrentUser()?.uid;
-    const [mine, saved] = await Promise.all([
+    const [mine, saved, shared] = await Promise.all([
       this.hasOwnRecipes ? RecipeSubmissionService.listMineWithStatus(uid) : [],
       this.loadSaved(),
+      this.hasOwnRecipes ? this.loadShared(uid) : [],
     ]);
-    const views = buildLibraryViews(mine, saved);
+    const views = buildLibraryViews(mine, saved, shared);
 
     this.counts = Object.fromEntries(Object.entries(views).map(([v, list]) => [v, list.length]));
     this.renderCounts();
@@ -184,6 +197,16 @@ export default {
     const inView = views[this.view];
     this.viewTotal = inView.length;
     return category && category !== 'all' ? inView.filter((r) => r.category === category) : inView;
+  },
+
+  /** Recipes family shared with me; the rest of the library still loads if this fails. */
+  async loadShared(uid) {
+    try {
+      return await RecipeShareService.listSharedWithMe(uid);
+    } catch (error) {
+      console.error('Error loading recipes shared with me:', error);
+      return [];
+    }
   },
 
   /** Saved recipes, one by one — a removed or now-private recipe is skipped. */
@@ -220,6 +243,11 @@ export default {
       const el = this.container?.querySelector(`[data-count="${view}"]`);
       if (el) el.textContent = String(count);
     });
+    // "Shared with me" appears once something is shared (or when it's the open view).
+    const sharedChip = this.container?.querySelector('#mr-chip-shared');
+    if (sharedChip) {
+      sharedChip.hidden = !this.counts[LIBRARY_VIEW.SHARED] && this.view !== LIBRARY_VIEW.SHARED;
+    }
     this.updateChipFades?.(); // counts change the chips' width
   },
 

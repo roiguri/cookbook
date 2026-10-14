@@ -70,6 +70,32 @@ describe('FirestoreService', () => {
     });
   });
 
+  describe('queryCollectionGroup', () => {
+    it('returns documents with their parent document id', async () => {
+      getDocs.mockResolvedValue({
+        docs: [
+          { id: 'u1', ref: { parent: { parent: { id: 'recipe-a' } } }, data: () => ({ x: 1 }) },
+          { id: 'u1', ref: { parent: { parent: null } }, data: () => ({ x: 2 }) },
+        ],
+      });
+      const result = await FirestoreService.queryCollectionGroup('shares', {
+        where: [['recipientUid', '==', 'u1']],
+      });
+      expect(result).toEqual([
+        { id: 'u1', parentId: 'recipe-a', x: 1 },
+        { id: 'u1', parentId: null, x: 2 },
+      ]);
+    });
+    it('throws on error', async () => {
+      getDocs.mockRejectedValue(new Error('fail'));
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      await expect(FirestoreService.queryCollectionGroup('shares', {})).rejects.toThrow(
+        'Failed to query collection group',
+      );
+      errorSpy.mockRestore();
+    });
+  });
+
   describe('addDocument', () => {
     it('returns new document id', async () => {
       addDoc.mockResolvedValue({ id: 'newid' });

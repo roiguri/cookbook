@@ -3,6 +3,7 @@ import { icons } from '../../js/icons.js';
 import authService from '../../js/services/auth/auth-service.js';
 import { ActiveMealService } from '../../js/services/meals/active-meal-service.js';
 import { RecipeService, STAGE, VISIBILITY } from '../../js/services/recipes/recipe-service.js';
+import { RecipeShareService } from '../../js/services/recipes/recipe-share-service.js';
 import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
 import { getRecipeStatus, RECIPE_STATUS } from '../../js/utils/recipes/recipe-status.js';
 import { recipeShareText } from '../../js/utils/recipes/recipe-text.js';
@@ -32,16 +33,22 @@ export default {
     this._notFound = false;
     this._menu = null;
     this._share = null;
+    this._sharedByFor = null;
+    this._sharedByPromise = null;
+    this._prefetchedFor = null;
     this._servings = null;
     this.currentSubmission = undefined;
     this._submissionFor = null;
 
     try {
       await this.initializeRecipeComponent(container, recipeId);
-      await this.importComponents();
+      // The buttons are set up right away, with the recipe; the modals some menu
+      // actions open load alongside, and those actions wait for them.
+      this._componentsReady = this.importComponents();
       this.setupShareHandlers(container);
       this.setupMenuHandlers(container, recipeId);
       this.setupSuggestionListener(container);
+      await this._componentsReady;
     } catch (error) {
       console.error('Failed to load recipe detail page:', error);
       this.showError(container, 'Failed to load recipe details');
@@ -151,6 +158,8 @@ export default {
       cancelSubmissionBtn,
     };
     this._menuAuthUnsubscribe = authService.addAuthObserver(({ user: current }) => {
+      // Sign-in is known now (either way): share appears together with ⋮.
+      if (this._share) this._share.authKnown = true;
       // Signing out of a private recipe leaves the page at once (as My recipes
       // does); published recipes stay open to signed-out visitors.
       if (!current && this.currentRecipe?.visibility === VISIBILITY.PRIVATE) {
@@ -184,8 +193,9 @@ export default {
 
     // Handle "Suggest Edit" click
     if (suggestEditBtn) {
-      suggestEditBtn.addEventListener('click', () => {
+      suggestEditBtn.addEventListener('click', async () => {
         menuDropdown.classList.remove('open');
+        await this._componentsReady;
         const modal = container.querySelector('suggest-edit-modal');
         if (modal) {
           modal.openForRecipe(currentId());
@@ -199,6 +209,7 @@ export default {
     if (addToMealBtn) {
       addToMealBtn.addEventListener('click', async () => {
         menuDropdown.classList.remove('open');
+        await this._componentsReady;
         const currentUser = authService.getCurrentUser();
         if (!currentUser) return;
 
@@ -288,6 +299,7 @@ export default {
     // Owner: send a private recipe to the family book
     submitBtn?.addEventListener('click', async () => {
       menuDropdown.classList.remove('open');
+      await this._componentsReady;
       const recipe = this.currentRecipe;
       const untested = recipe?.stage === STAGE.TO_TRY;
       const confirmed = await this.getConfirmModal().confirm(
@@ -315,6 +327,7 @@ export default {
     // Owner: cancel a pending submission
     cancelSubmissionBtn?.addEventListener('click', async () => {
       menuDropdown.classList.remove('open');
+      await this._componentsReady;
       const confirmed = await this.getConfirmModal().confirm(
         'המתכון יוסר מתור האישור ויישאר פרטי בספרייה שלכם.',
         'לבטל את השליחה?',
@@ -336,6 +349,7 @@ export default {
     // Owner: delete a private recipe (with its photos, media and pending submission)
     deleteBtn?.addEventListener('click', async () => {
       menuDropdown.classList.remove('open');
+      await this._componentsReady;
       const recipe = this.currentRecipe;
       const id = currentId();
       const confirmed = await this.getConfirmModal().confirm(
@@ -346,7 +360,7 @@ export default {
       );
       if (!confirmed) return;
       try {
-        await RecipeSubmissionService.deleteRecipe(id);
+        await RecipeSubmissionService.deleteRecipe(id, { authorId: recipe?.authorId });
         showToast('המתכון נמחק', 'success');
         const tab = recipe?.stage === STAGE.TO_TRY ? '?view=to-try' : '';
         window.spa?.router?.navigate(`/my-recipes${tab}`);
@@ -372,7 +386,18 @@ export default {
     if (!wrap || !button || !dropdown) return;
 
     button.innerHTML = icons.share;
-    this._share = { wrap, button, dropdown };
+    const familyBtn = container.querySelector('#share-family-btn');
+    const linkBtn = container.querySelector('#share-link-btn');
+    const familyIcon = container.querySelector('#share-family-icon');
+    if (familyIcon) familyIcon.outerHTML = icons.users;
+    this._share = { container, wrap, button, dropdown, familyBtn, linkBtn, authKnown: false };
+    // Appear when sign-in is known — the moment ⋮ is shown or not — so the two
+    // buttons arrive together.
+    authService.waitForAuth().finally(() => {
+      if (!this._share) return;
+      this._share.authKnown = true;
+      this.refreshShare();
+    });
 
     // The text uses the servings the reader chose on the page.
     container.addEventListener('servings-changed', (event) => {
@@ -386,15 +411,23 @@ export default {
       const menu = this._menu;
       menu?.menuDropdown.classList.remove('open');
       menu?.container.querySelector('.recipe-menu-button')?.setAttribute('aria-expanded', 'false');
-      if (recipe.visibility !== VISIBILITY.PUBLISHED) {
+      const mode = this.shareMode();
+      if (mode === 'text') {
         this.shareRecipe('text');
         return;
       }
+      if (familyBtn) familyBtn.hidden = mode !== 'family';
+      if (mode === 'family') this.prefetchFamily();
+      if (linkBtn) linkBtn.hidden = mode !== 'published';
       const open = !dropdown.classList.contains('open');
       dropdown.classList.toggle('open', open);
       button.setAttribute('aria-expanded', String(open));
     });
 
+    familyBtn?.addEventListener('click', () => {
+      this.closeShareMenu();
+      this.openFamilyPicker();
+    });
     container.querySelector('#share-link-btn')?.addEventListener('click', () => {
       this.closeShareMenu();
       this.shareRecipe('link');
@@ -419,16 +452,101 @@ export default {
     this._share.button.setAttribute('aria-expanded', 'false');
   },
 
-  /** Shown once the recipe is found; a menu only for a published recipe. */
+  /**
+   * What the share button offers for the current recipe and reader:
+   * 'published' (link or text), 'family' (the author's private recipe: share
+   * with family or text), or 'text' (anyone else's private recipe — its link
+   * opens only for people with access).
+   */
+  shareMode() {
+    const recipe = this.currentRecipe;
+    if (!recipe) return 'text';
+    if (recipe.visibility === VISIBILITY.PUBLISHED) return 'published';
+    const user = authService.getCurrentUser();
+    const isAuthor = !!user && recipe.authorId === user.uid && authService.isApproved();
+    return isAuthor ? 'family' : 'text';
+  },
+
+  /**
+   * Shown with the page once sign-in is known, at the same moment as ⋮ (hidden
+   * for a missing recipe; a tap before the recipe arrives does nothing); a menu
+   * unless it goes straight to text.
+   */
   refreshShare() {
     const els = this._share;
     if (!els) return;
     const recipe = this._notFound ? null : this.currentRecipe;
-    els.wrap.hidden = !recipe;
+    // ⋮ shows as soon as there's a user; signed-out pages learn it from the auth observer.
+    els.wrap.hidden = this._notFound || !(els.authKnown || authService.getCurrentUser());
     if (!recipe) this.closeShareMenu();
-    if (recipe?.visibility === VISIBILITY.PUBLISHED)
-      els.button.setAttribute('aria-haspopup', 'menu');
+    const mode = recipe ? this.shareMode() : 'text';
+    if (mode !== 'text') els.button.setAttribute('aria-haspopup', 'menu');
     else els.button.removeAttribute('aria-haspopup');
+    // The author's private recipe: load who to share with now, so the picker opens filled.
+    if (mode === 'family' && this._prefetchedFor !== recipe.id) {
+      this._prefetchedFor = recipe.id;
+      this.prefetchFamily();
+    }
+    this.refreshSharedBy();
+  },
+
+  /**
+   * A private recipe someone shared with the reader: "שותף איתך ע״י ‹name›"
+   * under the title, and no author status (it's the author's, not theirs).
+   * Looked up once per recipe and reader.
+   */
+  refreshSharedBy() {
+    const recipe = this._notFound ? null : this.currentRecipe;
+    const user = authService.getCurrentUser();
+    const candidate =
+      recipe && user && recipe.visibility !== VISIBILITY.PUBLISHED && recipe.authorId !== user.uid;
+    const key = candidate ? `${recipe.id}:${user.uid}` : null;
+    if (key === this._sharedByFor) return;
+    this._sharedByFor = key;
+    const component = () => this._share?.container.querySelector('recipe-component');
+    component()?.setSharedBy(null);
+    if (!candidate) return;
+    this._sharedByPromise = RecipeShareService.getMine(recipe.id, user.uid).then((share) => {
+      if (this._sharedByFor !== key || !share) return;
+      component()?.setSharedBy(share.authorName);
+      component()?.setStatus(null);
+    });
+  },
+
+  /** The picker modal, created on first use. */
+  async getFamilyModal() {
+    await import('../../lib/recipes/share-family-modal/share-family-modal.js');
+    let modal = document.getElementById('share-family-modal');
+    if (!modal) {
+      modal = document.createElement('share-family-modal');
+      modal.id = 'share-family-modal';
+      document.body.appendChild(modal);
+    }
+    return modal;
+  },
+
+  /** Start loading who to share with as the menu opens, so the picker opens filled. */
+  async prefetchFamily() {
+    const recipe = this.currentRecipe;
+    const user = authService.getCurrentUser();
+    if (!recipe || !user) return;
+    (await this.getFamilyModal()).prefetch({ recipeId: recipe.id, authorId: user.uid });
+  },
+
+  /** The author shares their private recipe with family (the picker modal). */
+  async openFamilyPicker() {
+    const recipe = this.currentRecipe;
+    const user = authService.getCurrentUser();
+    if (!recipe || !user) return;
+    const modal = await this.getFamilyModal();
+    const profile = await authService.getUserData().catch(() => null);
+    modal.openFor({
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      authorId: user.uid,
+      authorName: profile?.fullName || user.displayName || '',
+      url: new URL(`${import.meta.env.BASE_URL}recipe/${recipe.id}`, window.location.origin).href,
+    });
   },
 
   /**
@@ -691,16 +809,23 @@ export default {
     this._shareCleanup?.();
     this._shareCleanup = null;
     this._share = null;
+    this._sharedByFor = null;
+    document.getElementById('share-family-modal')?.close();
     if (this._reloadOnSignIn) {
       document.removeEventListener('auth-state-changed', this._reloadOnSignIn);
       this._reloadOnSignIn = null;
     }
   },
 
+  // The overlay stays until the recipe and, for a recipe shared with the reader,
+  // the "shared with you" line are in place (no jump, no author status flash).
   async waitForReady(container) {
     if (this._readyPromise) {
       await this._readyPromise;
     }
+    await authService.waitForAuth(3000).catch(() => null);
+    this.refreshShare();
+    await this._sharedByPromise;
   },
 
   async handleRouteChange(params) {

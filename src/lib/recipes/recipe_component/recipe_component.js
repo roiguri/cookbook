@@ -102,6 +102,7 @@ class RecipeComponent extends HTMLElement {
             <status-badge id="Recipe_component__status" hidden></status-badge>
           </div>
           <h1 id="Recipe_component__name" class="Recipe_component__title"></h1>
+          <p id="Recipe_component__shared-by" class="Recipe_component__shared-by" hidden></p>
           <p id="Recipe_component__description" class="Recipe_component__description"></p>
           <button id="Recipe_component__show-more" class="Recipe_component__show-more">הצג עוד</button>
           <div id="Recipe_component__meta-strip" class="Recipe_component__meta-strip">
@@ -232,6 +233,31 @@ class RecipeComponent extends HTMLElement {
       width: 24px;
       height: 1px;
       background: var(--primary-dark, #386641);
+    }
+
+    /* "Shared with you by …" (recipe sharing): a pill under the title; a long name truncates. */
+    .Recipe_component__shared-by {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      box-sizing: border-box;
+      margin: 0 0 14px;
+      padding: 6px 14px 6px 12px;
+      border-radius: var(--r-pill, 999px);
+      background: color-mix(in oklab, var(--primary) 8%, white);
+      color: var(--primary-dark, #386641);
+      font-family: var(--font-ui-he, sans-serif);
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+    .Recipe_component__shared-by[hidden] { display: none; }
+    .Recipe_component__shared-by svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .Recipe_component__shared-by span {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     .Recipe_component__title {
@@ -936,6 +962,26 @@ class RecipeComponent extends HTMLElement {
    * recipe alone — for pages that know more (e.g. the author's submission).
    * @param {string|null} status - One of RECIPE_STATUS, or null for no badge.
    */
+  /**
+   * Show who shared this recipe with the reader ("שותף איתך ע״י ‹name›"), or
+   * nothing. Set by the recipe page for recipes shared with the reader.
+   * @param {string|null} name
+   */
+  setSharedBy(name) {
+    const line = this.shadowRoot?.getElementById('Recipe_component__shared-by');
+    if (!line) return;
+    const text = (name || '').trim();
+    line.hidden = !text;
+    line.innerHTML = '';
+    line.removeAttribute('title');
+    if (!text) return;
+    const label = document.createElement('span');
+    label.textContent = `שותף איתך ע״י ${text}`;
+    line.title = label.textContent;
+    line.insertAdjacentHTML('afterbegin', icons.users);
+    line.append(label);
+  }
+
   setStatus(status) {
     const statusBadge = this.shadowRoot?.getElementById('Recipe_component__status');
     if (!statusBadge) return;

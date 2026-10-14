@@ -21,6 +21,10 @@ const recipeServiceMocks = {
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
   FirestoreService: firestoreMocks,
 }));
+const shareMocks = { removeAll: jest.fn() };
+jest.unstable_mockModule('src/js/services/recipes/recipe-share-service.js', () => ({
+  RecipeShareService: shareMocks,
+}));
 jest.unstable_mockModule('src/js/services/recipes/recipe-service.js', () => ({
   RecipeService: recipeServiceMocks,
   VISIBILITY: { PRIVATE: 'private', PUBLISHED: 'published' },
@@ -170,6 +174,11 @@ describe('RecipeSubmissionService', () => {
       await RecipeSubmissionService.deleteRecipe('r1');
       expect(recipeServiceMocks.delete).toHaveBeenCalledWith('r1');
       expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('recipe_submissions', 'r1');
+    });
+
+    it('removes its share records when the author is given', async () => {
+      await RecipeSubmissionService.deleteRecipe('r1', { authorId: 'a1' });
+      expect(shareMocks.removeAll).toHaveBeenCalledWith('r1', 'a1');
     });
 
     it('keeps the submission if the recipe delete fails', async () => {

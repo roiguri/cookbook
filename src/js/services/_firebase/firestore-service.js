@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   collection,
+  collectionGroup,
   query,
   where,
   orderBy,
@@ -27,6 +28,8 @@ import { captureError } from '../logger.js';
  * Public Methods:
  *   - getDocument(collectionName, id): Fetch a document by ID from a collection.
  *   - queryDocuments(collectionName, queryParams): Query documents with filters, ordering, and limit.
+ *   - queryCollectionGroup(groupId, queryParams): Query every subcollection with that id, with each
+ *     document's parent document id (e.g. recipes/{parentId}/shares/{id}).
  *   - addDocument(collectionName, data): Add a new document to a collection.
  *   - updateDocument(collectionName, id, data): Update an existing document in a collection.
  *   - deleteDocument(collectionName, id): Delete a document from a collection.
@@ -100,6 +103,39 @@ export class FirestoreService {
         queryParams,
       });
       throw new Error('Failed to query documents');
+    }
+  }
+
+  /**
+   * Query every subcollection named `groupId` (e.g. all `shares` under any
+   * recipe). Same filters as queryDocuments; each result also carries
+   * `parentId`, the id of the document the subcollection belongs to.
+   * @param {string} groupId - The subcollection name
+   * @param {Object} queryParams - { where: [[field, op, value], ...], limit: number }
+   * @returns {Promise<Array>} Array of { id, parentId, ...data }
+   */
+  static async queryCollectionGroup(groupId, queryParams = {}) {
+    try {
+      const db = getFirestoreInstance();
+      const filters = (queryParams.where || []).map(([field, op, value]) =>
+        where(field, op, value),
+      );
+      if (queryParams.limit) filters.push(limit(queryParams.limit));
+      const snapshot = await getDocs(query(collectionGroup(db, groupId), ...filters));
+      return snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        parentId: docSnap.ref?.parent?.parent?.id ?? null,
+        ...docSnap.data(),
+      }));
+    } catch (error) {
+      console.error('Error querying collection group:', error);
+      captureError(error, {
+        service: 'firestore',
+        op: 'queryCollectionGroup',
+        collection: groupId,
+        queryParams,
+      });
+      throw new Error('Failed to query collection group');
     }
   }
 

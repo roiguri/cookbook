@@ -20,6 +20,7 @@ import {
   updateDoc,
   deleteDoc,
   collection,
+  collectionGroup,
   query,
   where,
   getDocs,
@@ -451,5 +452,176 @@ describe('recipe submissions', () => {
     const ref = doc(db(AUTHOR), 'recipe_submissions', 'pending');
     await assertFails(deleteDoc(ref));
     await assertFails(updateDoc(ref, { status: 'pending', resubmittedAt: serverTimestamp() }));
+  });
+});
+
+// Recipe sharing (R3, docs/feature-plans/recipe-sharing.md): the author of a private
+// recipe shares it with approved family through recipes/{id}/shares/{recipientUid}.
+describe('recipe shares', () => {
+  const FRIEND = 'friend-uid'; // approved, never shared with
+  const share = (recipientUid, extra = {}) => ({
+    recipientUid,
+    authorId: AUTHOR,
+    authorName: 'Author Name',
+    sharedAt: serverTimestamp(),
+    ...extra,
+  });
+  const shareRef = (uid, recipientUid, recipeId = 'pending') =>
+    doc(db(uid), 'recipes', recipeId, 'shares', recipientUid);
+  const seedShare = (recipientUid, recipeId = 'pending') =>
+    testEnv.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'recipes', recipeId, 'shares', recipientUid), {
+        recipientUid,
+        authorId: AUTHOR,
+        authorName: 'Author Name',
+        sharedAt: new Date(),
+      }),
+    );
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore();
+      await setDoc(doc(admin, 'users', FRIEND), { role: 'approved' });
+      await setDoc(doc(admin, 'recipes', 'proposal'), {
+        name: 'Proposal',
+        ...shape(USER, 'private'),
+      });
+    });
+  });
+
+  describe('sharing', () => {
+    test('the author can share their private recipe with approved family and managers', async () => {
+      await assertSucceeds(setDoc(shareRef(AUTHOR, OTHER), share(OTHER)));
+      await assertSucceeds(setDoc(shareRef(AUTHOR, MANAGER), share(MANAGER)));
+    });
+
+    test('the recipient can then read the recipe; before that they cannot', async () => {
+      await assertFails(getDoc(doc(db(OTHER), 'recipes', 'pending')));
+      await setDoc(shareRef(AUTHOR, OTHER), share(OTHER));
+      await assertSucceeds(getDoc(doc(db(OTHER), 'recipes', 'pending')));
+      await assertFails(getDoc(doc(db(FRIEND), 'recipes', 'pending')));
+    });
+
+    test('a plain user cannot receive, and nobody can share with themselves', async () => {
+      await assertFails(setDoc(shareRef(AUTHOR, USER), share(USER)));
+      await assertFails(setDoc(shareRef(AUTHOR, AUTHOR), share(AUTHOR)));
+    });
+
+    test('only the author shares, and only a private recipe', async () => {
+      await assertFails(setDoc(shareRef(OTHER, FRIEND), share(FRIEND, { authorId: OTHER })));
+      await assertFails(setDoc(shareRef(MANAGER, FRIEND), share(FRIEND, { authorId: MANAGER })));
+      await assertFails(setDoc(shareRef(AUTHOR, OTHER, 'published'), share(OTHER)));
+      await assertFails(setDoc(shareRef(null, OTHER), share(OTHER)));
+    });
+
+    test('a plain user cannot share their own proposal', async () => {
+      await assertFails(
+        setDoc(shareRef(USER, OTHER, 'proposal'), share(OTHER, { authorId: USER })),
+      );
+    });
+
+    test('the record must match its id, carry the server time and only the four fields', async () => {
+      await assertFails(setDoc(shareRef(AUTHOR, OTHER), share(FRIEND)));
+      await assertFails(setDoc(shareRef(AUTHOR, OTHER), share(OTHER, { sharedAt: new Date(0) })));
+      await assertFails(setDoc(shareRef(AUTHOR, OTHER), share(OTHER, { canEdit: true })));
+      await assertFails(setDoc(shareRef(AUTHOR, OTHER), share(OTHER, { authorName: '' })));
+      const { authorName, ...noName } = share(OTHER);
+      expect(authorName).toBeTruthy();
+      await assertFails(setDoc(shareRef(AUTHOR, OTHER), noName));
+    });
+
+    test('a share record is never edited', async () => {
+      await seedShare(OTHER);
+      await assertFails(updateDoc(shareRef(AUTHOR, OTHER), { authorName: 'Someone else' }));
+      await assertFails(updateDoc(shareRef(MANAGER, OTHER), { authorName: 'Someone else' }));
+    });
+  });
+
+  describe('what a recipient can do', () => {
+    beforeEach(() => seedShare(OTHER));
+
+    test('read the recipe, but not edit or delete it', async () => {
+      await assertSucceeds(getDoc(doc(db(OTHER), 'recipes', 'pending')));
+      await assertFails(updateDoc(doc(db(OTHER), 'recipes', 'pending'), { name: 'Mine now' }));
+      await assertFails(deleteDoc(doc(db(OTHER), 'recipes', 'pending')));
+    });
+
+    test('loses access once approval is taken away', async () => {
+      await testEnv.withSecurityRulesDisabled((ctx) =>
+        updateDoc(doc(ctx.firestore(), 'users', OTHER), { role: 'user' }),
+      );
+      await assertFails(getDoc(doc(db(OTHER), 'recipes', 'pending')));
+    });
+
+    test('loses access when the share is removed', async () => {
+      await assertSucceeds(deleteDoc(shareRef(AUTHOR, OTHER)));
+      await assertFails(getDoc(doc(db(OTHER), 'recipes', 'pending')));
+    });
+
+    test('can remove the share from their own list', async () => {
+      await assertSucceeds(deleteDoc(shareRef(OTHER, OTHER)));
+    });
+
+    test('cannot list the recipe among private recipes (shares are read one by one)', async () => {
+      const q = query(collection(db(OTHER), 'recipes'), where('authorId', '==', AUTHOR));
+      await assertFails(getDocs(q));
+    });
+  });
+
+  describe('reading share records', () => {
+    beforeEach(async () => {
+      await seedShare(OTHER);
+      await seedShare(MANAGER);
+    });
+
+    test('the recipient lists everything shared with them across recipes', async () => {
+      const q = (uid) =>
+        query(collectionGroup(db(uid), 'shares'), where('recipientUid', '==', uid));
+      const snap = await assertSucceeds(getDocs(q(OTHER)));
+      expect(snap.docs.map((d) => d.ref.parent.parent.id)).toEqual(['pending']);
+      await assertSucceeds(getDocs(q(FRIEND)));
+    });
+
+    test('nobody lists what was shared with someone else', async () => {
+      const q = query(collectionGroup(db(FRIEND), 'shares'), where('recipientUid', '==', OTHER));
+      await assertFails(getDocs(q));
+      await assertFails(getDocs(collectionGroup(db(FRIEND), 'shares')));
+    });
+
+    test('the author lists who has access to their recipe', async () => {
+      const q = query(
+        collection(db(AUTHOR), 'recipes', 'pending', 'shares'),
+        where('authorId', '==', AUTHOR),
+      );
+      const snap = await assertSucceeds(getDocs(q));
+      expect(snap.size).toBe(2);
+    });
+
+    test('a recipient reads their own record, missing or not, but no one else’s', async () => {
+      await assertSucceeds(getDoc(shareRef(OTHER, OTHER)));
+      await assertSucceeds(getDoc(shareRef(FRIEND, FRIEND)));
+      await assertFails(getDoc(shareRef(FRIEND, OTHER)));
+      await assertFails(getDoc(shareRef(OTHER, MANAGER)));
+    });
+
+    test('managers can read share records', async () => {
+      await assertSucceeds(getDoc(shareRef(MANAGER, OTHER)));
+      await assertSucceeds(getDocs(collection(db(MANAGER), 'recipes', 'pending', 'shares')));
+    });
+
+    test('only the author, the recipient or a manager removes a share', async () => {
+      await assertFails(deleteDoc(shareRef(FRIEND, OTHER)));
+      await assertFails(deleteDoc(shareRef(null, OTHER)));
+      await assertSucceeds(deleteDoc(shareRef(MANAGER, OTHER)));
+    });
+
+    test('the author deletes the recipe and its shares in one batch', async () => {
+      const authorDb = db(AUTHOR);
+      const batch = writeBatch(authorDb);
+      batch.delete(doc(authorDb, 'recipes', 'pending', 'shares', OTHER));
+      batch.delete(doc(authorDb, 'recipes', 'pending', 'shares', MANAGER));
+      batch.delete(doc(authorDb, 'recipes', 'pending'));
+      await assertSucceeds(batch.commit());
+    });
   });
 });

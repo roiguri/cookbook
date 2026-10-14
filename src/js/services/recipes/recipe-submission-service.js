@@ -3,6 +3,7 @@
 import { Timestamp, serverTimestamp } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeService, VISIBILITY } from './recipe-service.js';
+import { RecipeShareService } from './recipe-share-service.js';
 
 const COLLECTION = 'recipe_submissions';
 
@@ -42,7 +43,7 @@ export const SUBMISSION_STATUS = Object.freeze({
  *   - approve(recipeId, { reviewedBy })   // manager
  *   - reject(recipeId, { note, reviewedBy }) // manager: keep the recipe, with a note
  *   - discard(recipeId)                   // manager: delete a plain user's rejected proposal
- *   - deleteRecipe(recipeId)              // delete a recipe and its submission (author / manager)
+ *   - deleteRecipe(recipeId, { authorId }) // delete a recipe, its submission and its shares
  *   - reject(recipeId, { reviewedBy })    // manager: deletes the proposal, as before
  */
 export class RecipeSubmissionService {
@@ -192,17 +193,22 @@ export class RecipeSubmissionService {
   }
 
   /**
-   * Delete a recipe (with its photos and media) and its submission, if any —
-   * the one way to delete a recipe, so no submission is left pointing at it.
-   * The submission goes second (best-effort), so a failed recipe delete never
-   * leaves the recipe without its record.
+   * Delete a recipe (with its photos and media), its submission and its share
+   * records, if any — the one way to delete a recipe, so nothing is left
+   * pointing at it. The submission and shares go second (best-effort), so a
+   * failed recipe delete never leaves the recipe without its records.
    * @param {string} recipeId
+   * @param {Object} [options]
+   * @param {string} [options.authorId] - The recipe's author, to find its share
+   *   records (recipe sharing); without it, shares are left (and skipped by
+   *   recipients' lists).
    * @returns {Promise<void>}
    */
-  static async deleteRecipe(recipeId) {
+  static async deleteRecipe(recipeId, { authorId } = {}) {
     if (!recipeId) throw new Error('RecipeSubmissionService.deleteRecipe: recipeId is required');
     await RecipeService.delete(recipeId);
     await RecipeSubmissionService.withdraw(recipeId);
+    if (authorId) await RecipeShareService.removeAll(recipeId, authorId);
   }
 
   /**
