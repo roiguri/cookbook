@@ -68,9 +68,30 @@ Each release ships something usable on its own and builds on the previous one.
 ### R3: Share with family in the app (#383)
 
 - The author of a private recipe shares it with chosen family members; it appears for them under "שותפו איתי" in their library.
-- Needs a family list (`users` isn't readable by others), a share record, rule changes for Firestore and Storage, the shared-with-me view, and revoking. Security-sensitive: rules tests first; the rules plan is approved before it's applied.
-- Notifications can be an R3b follow-up: the share flow can end with "send them the link" (R1), so the recipient still hears about it.
 - **Impact:** private recipes become shareable without publishing them.
+
+**Decisions (2026-10-14):**
+
+- **Who:** the author of a private recipe (approved family, managers) shares it; only **approved family and managers** can receive. Plain sign-ups never appear and can't receive. Any private recipe (to try, tested, pending, rejected) can be shared; a published one doesn't offer it (R1's link covers it).
+- **Picking:** from a family list (name and avatar). A claim link ("whoever opens it gets access") was considered and **deferred**: it reaches no one the list doesn't, and adds a token flow; revisit if picking names turns out tedious.
+- **Recipient gets a live, read-only view:** always the author's latest version; they can heart it, add it to My meal and send it as text (R1). The author keeps editing as before.
+- **Where it shows:** a "שותפו איתי" chip in הספרייה שלי (only when something is shared), shared recipes also under "הכל"; a "מ׳ ‹name›" badge in the card's existing photo badge slot (card height must not change — compact cards without a photo need a placement that adds no line); a "‹name› שיתפ/ה איתך" line on the recipe page.
+- **Lifecycle:** removing someone deletes their access (the recipe leaves their "שותפו איתי", and "שמרתי" like any recipe they can't read); publishing leaves shares as they are; deleting the recipe deletes its shares (a manager's delete may leave orphans, which the list skips).
+- **Notifications:** deferred (R3b). The share flow ends with "send them the link" (R1).
+
+**Data model and rules (approved 2026-10-14):**
+
+- `recipes/{recipeId}/shares/{recipientUid}`: `{ recipientUid, authorId, authorName, sharedAt }`. One record per recipient; never edited, only created or deleted.
+- The family list comes from a callable function `listFamilyMembers` (callers: approved family and managers), returning name and avatar of approved family and managers only. No user directory collection; `users/` stays private.
+- Rules:
+  - **Recipe read** adds: a share record for the caller exists and the caller is still approved family or a manager.
+  - **Share create:** only the recipe's author, on a private recipe; record id = recipient uid ≠ author; the recipient's role is approved or manager; `sharedAt` = server time; only the four fields.
+  - **Share delete:** the author, the recipient, or a manager. **No updates.**
+  - **Share read:** the author, the recipient (collection-group query on `recipientUid` for "שותפו איתי"), managers.
+  - **Storage:** a private recipe's photos (`users/{author}/recipes/{id}/…`) are also readable by anyone with a share record for that recipe.
+- Rules tests on the emulator cover every allowed and refused case, list queries and Storage, before any deploy.
+
+**Steps:** R3a (this), R3b notifications, R3c claim link (if wanted).
 
 ### R4: PDF / print
 
