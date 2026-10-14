@@ -108,6 +108,10 @@ Each release ships something usable on its own and builds on the previous one.
 
 **Steps:** R3a (this), R3b notifications, R3c claim link (if wanted).
 
+**R3a result (2026-10-14):** built and tested end to end on the test project (rules, index and `listFamilyMembers` deployed there): sharing, the picker, the recipient's library chip, card badge, recipe-page line and photos, removing access, and recipe delete removing its shares. Fixed during testing: the Storage rule's Firestore lookups (see `docs/lessons/security.md`), steady mobile loading (overlays wait for sharing data; the picker opens filled), and the share button appearing with ⋮.
+
+**Production rollout (R3a):** before `main` reaches the sharing UI, deploy `firestore:rules,storage,firestore:indexes,functions:listFamilyMembers` with `--project production`. The `shares.recipientUid` collection-group index builds for a few minutes; until it's ready, "שותפו איתי" fails quietly (the library loads without shared recipes). Check it with `gcloud firestore indexes fields describe recipientUid --collection-group=shares --project=‹production project›` before release. Then smoke-test one share as approved family, including the photo.
+
 ### R4: PDF / print
 
 - A print layout for the recipe, which also covers "save as PDF" from the browser.
@@ -124,9 +128,9 @@ R1 → R2 → R3 → R4. R1 and R2 give the most for the least work and set up w
 
 ## Status
 
-| Release | State                             |
-| ------- | --------------------------------- |
-| R1      | ✅ merged to `development` (#412) |
-| R2      | ✅ R2a tested in WhatsApp (#414)  |
-| R3      | ⏳ planned                        |
-| R4      | ⏳ planned                        |
+| Release | State                                                                              |
+| ------- | ---------------------------------------------------------------------------------- |
+| R1      | ✅ merged to `development` (#412)                                                  |
+| R2      | ✅ R2a merged to `development` (#414)                                              |
+| R3      | ✅ R3a merged to `development`; rules, index and function on the test project only |
+| R4      | ⏳ planned                                                                         |
