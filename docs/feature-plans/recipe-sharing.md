@@ -40,6 +40,13 @@ Each release ships something usable on its own and builds on the previous one.
 - One text formatter, also used by My meal's ingredient list.
 - **Impact:** anyone can send any recipe to the family WhatsApp from day one. The base every later release builds on.
 
+**Decisions (2026-10-14):**
+
+- **Placement:** a share icon in the recipe page's top corner, beside the ⋮ menu. Shown to everyone, signed out included (⋮ stays signed-in only).
+- **Tap:** a published recipe opens a two-item menu, "שליחת קישור" (send link) and "שליחת המתכון כטקסט" (send the recipe as text, for people who won't open links). A private recipe skips the menu and sends the text.
+- **Text:** the full recipe: title, servings, ingredients by section, numbered steps by stage, source, and the link at the end when published. Amounts use the servings currently shown on the page. Headings use WhatsApp markup (`*bold*`, `_italic_`); other apps show the asterisks.
+- **No share sheet** (e.g. Firefox, Linux desktop): the same menu items copy to the clipboard and confirm with a "הועתק" (copied) toast.
+
 ### R2: Links that look good
 
 - WhatsApp and other apps show the recipe's photo, title and description instead of the generic app title.
