@@ -1,0 +1,389 @@
+/* Pancake Flip — timing mini-game. Companion to pancake_flip.js.
+   Three pans in a row (a stovetop). Phones prefer portrait; the pans size
+   from the container width (cqi), so the row fits an upright phone.
+   Each pan exposes data-zone (empty | raw | golden | burnt), data-side and a
+   --progress custom property (0 → 1) that drive the visuals below. */
+
+.pancake-game {
+  /* Local palette for the batter → golden → burnt ramp. */
+  --batter: #f4e4b8;
+  --golden: #dc9b34;
+  --brown: #8a5527;
+  --char: #3a2a1d;
+  --pan-metal: #34302b;
+
+  /* Pans size from the game's own width (cqi), not the viewport, so they
+     fit both the desktop card and the fullscreen phone modal. */
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-0) 100%);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-ui-he, var(--font-ui));
+}
+
+/* ---- HUD ---- */
+
+.pancake-hud {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.pancake-strikes {
+  display: flex;
+  gap: 6px;
+}
+
+.pancake-strike-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: rgba(31, 29, 24, 0.12);
+  border: 1px solid var(--hairline-strong);
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+
+.pancake-strike-pip--filled {
+  background: var(--secondary);
+  border-color: var(--secondary-dark);
+  animation: pancake-pop var(--dur-2) var(--ease-out);
+}
+
+.pancake-counter {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pancake-counter-sep {
+  margin: 0 2px;
+  color: var(--ink-3);
+}
+
+/* ---- Stove ---- */
+
+.pancake-stove {
+  --pan: clamp(70px, min(24cqi, 40vh), 170px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(12px, 4cqi, 32px);
+  padding: 8px 12px;
+}
+
+.pancake-stove--paused .pancake-cake {
+  animation-play-state: paused;
+}
+
+.pancake-pan {
+  position: relative;
+  width: var(--pan);
+  height: var(--pan);
+  /* Room for the handle under the pan. */
+  margin-bottom: calc(var(--pan) * 0.32);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #4a453e 0%, var(--pan-metal) 70%);
+  box-shadow:
+    inset 0 0 0 calc(var(--pan) * 0.045) #24211d,
+    var(--shadow-2);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+
+.pancake-pan:active {
+  transform: scale(var(--press-scale, 0.97));
+}
+
+.pancake-pan:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 calc(var(--pan) * 0.045) #24211d,
+    var(--shadow-2),
+    var(--ring);
+}
+
+.pancake-handle {
+  position: absolute;
+  top: 96%;
+  left: 50%;
+  width: calc(var(--pan) * 0.14);
+  height: calc(var(--pan) * 0.34);
+  transform: translateX(-50%);
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  background: linear-gradient(90deg, #24211d, #4a453e, #24211d);
+  pointer-events: none;
+}
+
+/* Progress ring: a track with the golden window marked (60% → 100%), and the
+   current progress drawn on top. */
+.pancake-ring {
+  position: absolute;
+  inset: calc(var(--pan) * -0.07);
+  border-radius: 50%;
+  background:
+    conic-gradient(rgba(31, 29, 24, 0.55) calc(var(--progress, 0) * 360deg), transparent 0),
+    conic-gradient(
+      var(--hairline-strong) 0 216deg,
+      color-mix(in srgb, var(--primary) 70%, transparent) 216deg 360deg
+    );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+
+.pancake-pan:not([data-zone='empty']):not([data-zone='burnt']) .pancake-ring {
+  opacity: 1;
+}
+
+/* ---- Pancake ---- */
+
+.pancake-cake {
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity var(--dur-1) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
+  box-shadow:
+    inset 0 -4px 8px rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.pancake-pan:not([data-zone='empty']) .pancake-cake {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Raw: batter → golden over the first 60% of a side. */
+.pancake-pan[data-zone='raw'] .pancake-cake {
+  background: color-mix(in srgb, var(--golden) calc(var(--progress) / 0.6 * 85%), var(--batter));
+}
+
+/* Golden: browns gradually but stays readable until it burns. */
+.pancake-pan[data-zone='golden'] .pancake-cake {
+  background: color-mix(
+    in srgb,
+    var(--brown) calc((var(--progress) - 0.6) / 0.4 * 55%),
+    var(--golden)
+  );
+}
+
+/* Second side: show the cooked face with a few darker spots. */
+.pancake-pan[data-side='2']:not([data-zone='burnt']) .pancake-cake {
+  background-image:
+    radial-gradient(circle at 30% 35%, rgba(138, 85, 39, 0.35) 0 6%, transparent 7%),
+    radial-gradient(circle at 62% 58%, rgba(138, 85, 39, 0.3) 0 5%, transparent 6%),
+    radial-gradient(circle at 45% 70%, rgba(138, 85, 39, 0.25) 0 4%, transparent 5%);
+}
+
+.pancake-pan[data-zone='burnt'] .pancake-cake {
+  background: var(--char);
+}
+
+.pancake-pan[data-zone='burnt']::after {
+  content: '💨';
+  position: absolute;
+  top: -18%;
+  left: 50%;
+  font-size: calc(var(--pan) * 0.3);
+  animation: pancake-smoke 800ms var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+/* "Tap now" cue while golden. */
+.pancake-pan[data-zone='golden'] {
+  animation: pancake-ready 900ms var(--ease) infinite;
+}
+
+.pancake-cake--pour {
+  animation: pancake-pour 280ms var(--ease-out);
+}
+
+.pancake-cake--flip {
+  animation: pancake-flip 360ms var(--ease-out);
+}
+
+.pancake-cake--serve {
+  animation: pancake-serve 300ms var(--ease-out);
+}
+
+@keyframes pancake-pour {
+  from {
+    transform: scale(0.2);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes pancake-flip {
+  0% {
+    transform: translateY(0) rotateX(0);
+  }
+  50% {
+    transform: translateY(-45%) rotateX(180deg) scale(1.08);
+  }
+  100% {
+    transform: translateY(0) rotateX(360deg);
+  }
+}
+
+@keyframes pancake-serve {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-60%) scale(0.7);
+  }
+}
+
+@keyframes pancake-ready {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 calc(var(--pan) * 0.045) #24211d,
+      0 0 0 0 color-mix(in srgb, var(--primary) 60%, transparent);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 calc(var(--pan) * 0.045) #24211d,
+      0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+}
+
+@keyframes pancake-smoke {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(1.3);
+  }
+}
+
+@keyframes pancake-pop {
+  40% {
+    transform: scale(1.4);
+  }
+}
+
+/* ---- Legend ---- */
+
+.pancake-legend {
+  display: flex;
+  gap: 14px;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+.pancake-legend-item::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-inline-end: 5px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.pancake-legend-item--raw::before {
+  background: var(--batter);
+  border: 1px solid var(--hairline-strong);
+}
+
+.pancake-legend-item--golden::before {
+  background: var(--golden);
+}
+
+.pancake-legend-item--burnt::before {
+  background: var(--char);
+}
+
+/* ---- Toast ---- */
+
+.pancake-toast {
+  position: absolute;
+  transform: translate(-50%, -40%);
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  font-size: var(--step-0);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+  white-space: nowrap;
+  transition:
+    opacity var(--dur-1) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
+}
+
+.pancake-toast--show {
+  opacity: 1;
+  transform: translate(-50%, -110%);
+}
+
+.pancake-toast--good {
+  background: var(--primary);
+  color: var(--button-color);
+}
+
+.pancake-toast--bad {
+  background: var(--secondary);
+  color: var(--button-color);
+}
+
+/* ---- Landscape phone: tighten vertical space ---- */
+
+@media (max-height: 500px) {
+  .pancake-game {
+    min-height: 0;
+    gap: 6px;
+    padding-bottom: 8px;
+  }
+
+  .pancake-hud {
+    padding: 6px 14px;
+  }
+
+  .pancake-stove {
+    --pan: clamp(70px, min(24cqi, 34vh), 150px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pancake-pan[data-zone='golden'],
+  .pancake-cake--pour,
+  .pancake-cake--flip,
+  .pancake-cake--serve {
+    animation: none;
+  }
+}

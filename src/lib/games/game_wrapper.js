@@ -3,6 +3,7 @@ import { BurgerStackerGame } from './burger_stacker.js';
 import { PizzatronGame } from './pizzatron.js';
 import { KnifeSkillsGame } from './knife_skills.js';
 import { ChefSaysGame } from './chef_says.js';
+import { PancakeFlipGame } from './pancake_flip.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
@@ -80,6 +81,21 @@ const REGISTRY = [
     excludeFromRandom: true,
     // No preferredOrientation: the square board fits portrait and landscape.
   },
+  {
+    key: 'pancake',
+    name: 'מחבת הפנקייקים',
+    icon: '🥞',
+    description: 'הפכו והגישו בדיוק בזמן',
+    GameClass: PancakeFlipGame,
+    defaultConfig: { toServe: 10, maxStrikes: 3 },
+    successMessage: 'כל הכבוד! ערימת פנקייקים מושלמת',
+    loadingText: 'מחממים את המחבת... חכה רגע!',
+    // /games only — never a filler game during async waits.
+    excludeFromRandom: true,
+    // Phones play it upright (pans stay in a row). The game implements
+    // pause()/resume(), so it freezes while the prompt is up.
+    preferredOrientation: 'portrait',
+  },
 ];
 
 export class GameWrapper {
@@ -141,6 +157,46 @@ export class GameWrapper {
     if (this._asyncReadyShown) this._applyAsyncReady();
 
     this.game.start();
+    this._bindRotatePause();
+  }
+
+  // Games that implement pause()/resume() freeze while the rotate prompt
+  // covers them (e.g. a landscape game on a portrait phone), so nothing burns
+  // or falls behind the overlay. The wrapper timer freezes with them. Games
+  // without the hooks behave as before.
+  _bindRotatePause() {
+    const prompt = this.container.querySelector('rotate-prompt');
+    if (!prompt || typeof this.game.pause !== 'function') return;
+    this._onRotatePromptChange = (e) => this._setRotatePaused(e.detail.active);
+    prompt.addEventListener('rotate-prompt-change', this._onRotatePromptChange);
+    this._rotatePromptEl = prompt;
+    if (prompt.hasAttribute('active')) this._setRotatePaused(true);
+  }
+
+  _setRotatePaused(paused) {
+    if (!this.game) return;
+    if (paused) {
+      this.game.pause();
+      this.pauseTimer();
+    } else {
+      this.game.resume();
+      this.resumeTimer();
+    }
+  }
+
+  pauseTimer() {
+    if (!this.timerInterval) return;
+    this.stopTimer();
+    this._pausedAt = Date.now();
+  }
+
+  resumeTimer() {
+    if (!this._pausedAt) return;
+    this.startTime += Date.now() - this._pausedAt;
+    this._pausedAt = null;
+    this.timerInterval = setInterval(() => {
+      this.updateTimerDisplay(Date.now() - this.startTime);
+    }, 1000);
   }
 
   renderWrapper() {
@@ -327,6 +383,11 @@ export class GameWrapper {
 
   destroy() {
     this.stopTimer();
+    this._pausedAt = null;
+    if (this._rotatePromptEl) {
+      this._rotatePromptEl.removeEventListener('rotate-prompt-change', this._onRotatePromptChange);
+      this._rotatePromptEl = null;
+    }
     if (this._mqlPortrait) {
       if (this._mqlPortrait.removeEventListener) {
         this._mqlPortrait.removeEventListener('change', this._onOrientationChange);

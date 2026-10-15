@@ -19,6 +19,9 @@
  *
  * Events:
  *  - rotate-prompt-dismissed: fired once when the user clicks dismiss.
+ *  - rotate-prompt-change: fired whenever the prompt starts or stops covering
+ *      its parent (rotation, dismiss, reset). detail: { active: boolean }.
+ *      Not fired for the initial state — read the `active` attribute for that.
  *
  * Programmatic API:
  *  - el.reset() — clear the dismissed flag so the prompt can show again.
@@ -40,6 +43,7 @@ class RotatePrompt extends HTMLElement {
     this._render();
     this._bindMedia();
     this._evaluate();
+    this._initialized = true;
   }
 
   disconnectedCallback() {
@@ -105,8 +109,18 @@ class RotatePrompt extends HTMLElement {
     const root = this.shadowRoot.querySelector('.rotate-prompt');
     if (!root) return;
     const shouldShow = !!(this._mql && this._mql.matches) && !this._dismissed;
+    const wasActive = this.hasAttribute('active');
     root.hidden = !shouldShow;
     this.toggleAttribute('active', shouldShow);
+    if (wasActive !== shouldShow && this._initialized) {
+      this.dispatchEvent(
+        new CustomEvent('rotate-prompt-change', {
+          bubbles: true,
+          composed: true,
+          detail: { active: shouldShow },
+        }),
+      );
+    }
   }
 
   _render() {
