@@ -1,0 +1,332 @@
+/* Garden Harvest — whack-a-mole in a vegetable bed. Companion to
+   garden_harvest.js. Phones prefer portrait. The 3×3 bed is a square sized
+   to the shorter side (same approach as Chef Says); after "continue anyway"
+   on a landscape phone the HUD moves beside it. Each hole exposes data-state
+   (empty | up | hit | missed | bitten | gone) and data-kind (veg | worm). */
+
+.garden-game {
+  --soil: #7a5536;
+  --soil-dark: #4f3522;
+
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 14px;
+  box-sizing: border-box;
+  background: linear-gradient(
+    180deg,
+    var(--surface-2) 0%,
+    color-mix(in srgb, var(--primary) 18%, var(--surface-0)) 100%
+  );
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-ui-he, var(--font-ui));
+}
+
+/* ---- HUD ---- */
+
+.garden-hud {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.garden-strikes {
+  display: flex;
+  gap: 5px;
+}
+
+.garden-strike-pip {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: rgba(31, 29, 24, 0.12);
+  border: 1px solid var(--hairline-strong);
+}
+
+.garden-strike-pip--filled {
+  background: var(--secondary);
+  border-color: var(--secondary-dark);
+}
+
+.garden-status {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  font-size: var(--step-0);
+  color: var(--secondary-dark);
+  opacity: 0;
+}
+
+.garden-status--flash {
+  animation: garden-status 1100ms var(--ease-out);
+}
+
+@keyframes garden-status {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.garden-counter {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.garden-counter-sep {
+  margin: 0 2px;
+  color: var(--ink-3);
+}
+
+/* ---- Bed ---- */
+
+.garden-bed {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: clamp(8px, 2.5vmin, 16px);
+  width: min(calc(100% - 28px), 440px, calc(100vh - 300px));
+  min-width: 240px;
+  aspect-ratio: 1 / 1;
+}
+
+.garden-hole {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  /* Clip only below and at the sides, so a plucked item can rise above the
+     hole while a sunk one stays hidden under it. */
+  clip-path: inset(-60% -10% 0 -10%);
+  /* The item sizes from the hole, not the viewport, so it reads the same in
+     the desktop card, the portrait modal and the landscape layout. */
+  container-type: size;
+  border-radius: 50% 50% var(--r-lg) var(--r-lg) / 40% 40% var(--r-lg) var(--r-lg);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.garden-hole:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* Soil mound across the lower part of the hole; the item rises from behind it. */
+.garden-soil {
+  position: absolute;
+  /* A rounded mound, not a flat strip: ~1.6:1 rather than full width. */
+  inset: auto 8% 0 8%;
+  height: 52%;
+  border-radius: 50% 50% 40% 40% / 62% 62% 38% 38%;
+  background: radial-gradient(ellipse at 50% 20%, var(--soil) 0%, var(--soil-dark) 90%);
+  box-shadow: inset 0 6px 8px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+}
+
+.garden-hole::before {
+  /* the dark opening */
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 40%;
+  height: 20%;
+  border-radius: 50%;
+  background: #2b1d12;
+  z-index: 0;
+}
+
+.garden-item {
+  position: absolute;
+  left: 50%;
+  bottom: 42%;
+  font-size: 50cqh;
+  line-height: 1;
+  /* Resting state: below the soil and invisible, with no transition, so a
+     hole that resets never shows the item travelling back down. */
+  transform: translate(-50%, 110%);
+  opacity: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Pop: springy rise with a little overshoot. */
+.garden-hole[data-state='up'] .garden-item {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  transition:
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 80ms linear;
+}
+
+/* Soil heaves as something comes up. */
+.garden-hole[data-state='up'] .garden-soil {
+  animation: garden-heave 260ms var(--ease-out);
+}
+
+/* Harvest: plucked up out of the hole with a twist, then gone. */
+.garden-hole[data-state='hit'] .garden-item {
+  animation: garden-pluck 420ms var(--ease-out) forwards;
+}
+
+/* Missed vegetable: sinks back slowly. */
+.garden-hole[data-state='missed'] .garden-item,
+.garden-hole[data-state='gone'] .garden-item {
+  animation: garden-sink 320ms ease-in forwards;
+}
+
+/* Tapped worm: wriggles, then ducks back in. */
+.garden-hole[data-state='bitten'] .garden-item {
+  animation: garden-wriggle 420ms var(--ease) forwards;
+}
+
+@keyframes garden-pluck {
+  0% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  45% {
+    transform: translate(-50%, -45%) scale(1.2) rotate(-14deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -70%) scale(0.7) rotate(10deg);
+    opacity: 0;
+  }
+}
+
+@keyframes garden-sink {
+  from {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, 110%);
+    opacity: 1;
+  }
+}
+
+@keyframes garden-wriggle {
+  0% {
+    transform: translate(-50%, 0) rotate(0);
+    opacity: 1;
+  }
+  15% {
+    transform: translate(-50%, 0) rotate(-16deg);
+  }
+  30% {
+    transform: translate(-50%, 0) rotate(14deg);
+  }
+  45% {
+    transform: translate(-50%, 0) rotate(-8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 110%) rotate(0);
+    opacity: 1;
+  }
+}
+
+@keyframes garden-heave {
+  40% {
+    transform: scale(1.06, 0.92);
+  }
+}
+
+.garden-hole[data-state='hit']::after,
+.garden-hole[data-state='bitten']::after,
+.garden-hole[data-state='missed']::after {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 700;
+  font-size: var(--step-1);
+  z-index: 3;
+  pointer-events: none;
+  animation: garden-float 450ms var(--ease-out) forwards;
+}
+
+.garden-hole[data-state='hit']::after {
+  content: '+1';
+  color: var(--primary-dark);
+  text-shadow: 0 1px 0 #fff;
+}
+
+.garden-hole[data-state='bitten']::after {
+  content: '✕';
+  color: var(--secondary);
+}
+
+.garden-hole[data-state='missed']::after {
+  content: '…';
+  color: var(--ink-3);
+}
+
+@keyframes garden-float {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -14px);
+  }
+}
+
+/* ---- Landscape phone: HUD beside the bed ---- */
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .garden-game {
+    min-height: 0;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 16px;
+  }
+
+  .garden-hud {
+    align-self: center;
+    flex-direction: column;
+    gap: 8px;
+    border: 0;
+    border-radius: var(--r-lg);
+    min-width: 120px;
+  }
+
+  .garden-bed {
+    width: calc(100vh - 130px);
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garden-hole .garden-item,
+  .garden-hole .garden-soil {
+    transition: none !important;
+    animation-duration: 1ms !important;
+  }
+}
