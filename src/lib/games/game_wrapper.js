@@ -73,7 +73,7 @@ const REGISTRY = [
     icon: '👨‍🍳',
     description: 'זכרו את סדר המרכיבים',
     GameClass: ChefSaysGame,
-    defaultConfig: { roundsToWin: 7 },
+    defaultConfig: { roundsToWin: 10 },
     successMessage: 'כל הכבוד! זיכרון של שף',
     loadingText: 'השף מתכונן... חכה רגע!',
     // /games only — never a filler game during async waits.

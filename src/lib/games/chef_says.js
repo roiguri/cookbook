@@ -14,7 +14,7 @@ const INGREDIENTS = [
 ];
 
 const TUNING = {
-  win: { roundsToWin: 7 },
+  win: { roundsToWin: 10 },
   playback: {
     // Each ingredient lights for onMs, then waits gapMs. onMs shrinks a bit
     // every round so later sequences feel quicker.
@@ -228,10 +228,10 @@ export class ChefSaysGame {
       <style>${START_OVERLAY_STYLES}\n${styles}</style>
       <div class="chef-game" dir="rtl">
         <div class="chef-hud">
+          <span class="chef-status" aria-live="polite"></span>
           <span class="chef-round" dir="ltr" aria-label="סיבוב">
             <span id="chef-round">0</span><span class="chef-round-sep">/</span><span>${this.config.roundsToWin}</span>
           </span>
-          <span class="chef-status" aria-live="polite"></span>
         </div>
         <div class="chef-board" data-phase="idle">${pads}</div>
       </div>
