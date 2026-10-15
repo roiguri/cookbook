@@ -25,6 +25,7 @@ class AuthAvatar extends HTMLElement {
   }
 
   render() {
+    this._shownKey = 'signed-out'; // what the markup below shows
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -69,7 +70,13 @@ class AuthAvatar extends HTMLElement {
         }
 
         /* A built avatar fills its square: no zoom, and no gradient bleeding at the edge. */
-        .avatar.built { background: var(--surface-1, #fff); }
+        /* The search bar's edge: its translucent hairline over the same cream (--surface-2), so
+           the ring matches exactly; the picture covers the inside. Stock pictures and the green
+           circle stay as they were (no border). */
+        .avatar.built {
+          background: var(--surface-2, #f6eed6);
+          border: 1px solid var(--hairline, rgba(31,29,24,0.1));
+        }
         .avatar.built img { transform: none; }
 
         .initial {
@@ -88,6 +95,22 @@ class AuthAvatar extends HTMLElement {
         .avatar.signed-out svg {
           width: 24px;
           height: 24px;
+        }
+
+        /* Changing avatar (sign in/out, new picture): the current content stays until the new
+           one is ready (pending: a soft pulsing ring), then the new one fades in. */
+        .avatar.pending { animation: pending 1.1s var(--ease, ease) infinite; }
+        @keyframes pending {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(106,153,78,0.45); }
+          50% { box-shadow: 0 0 0 4px rgba(106,153,78,0.18); }
+        }
+        .avatar.fade-in > * { animation: fade-in var(--dur-2, 280ms) var(--ease-out, ease-out); }
+        @keyframes fade-in {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .avatar.pending, .avatar.fade-in > * { animation: none; }
         }
 
         .avatar.loading {
@@ -147,23 +170,50 @@ class AuthAvatar extends HTMLElement {
 
   updateAvatar(user) {
     const avatar = this.shadowRoot.getElementById('auth-trigger');
+    // Use centralized avatar URL from auth service
+    const avatarUrl = user ? authService.getCurrentAvatarUrl() : null;
+    // What should show, as a key: skip updates that wouldn't change it (no needless fades).
+    const key = !user ? 'signed-out' : avatarUrl ? `img:${avatarUrl}` : `initial:${user.email[0]}`;
+    if (key === this._shownKey && !this._pendingKey) return;
+    if (key === this._pendingKey) return; // already loading this picture
+    const update = (this._avatarUpdate = (this._avatarUpdate || 0) + 1);
+    this._pendingKey = null;
 
-    if (user) {
-      avatar.classList.remove('signed-out');
+    // Swap to the new content. 'built' (white background) is set here too, never ahead of the
+    // swap and never left over: it would hide the white signed-out icon or initial.
+    const show = (content, { signedOut = false, built = false, shownKey = key } = {}) => {
+      if (update !== this._avatarUpdate) return; // a newer update has taken over
+      this._pendingKey = null;
+      this._shownKey = shownKey;
+      avatar.classList.remove('pending');
+      avatar.classList.toggle('signed-out', signedOut);
+      avatar.classList.toggle('built', built);
+      if (typeof content === 'string') avatar.innerHTML = content;
+      else avatar.replaceChildren(content);
+      avatar.classList.remove('fade-in');
+      void avatar.offsetWidth; // restart the fade
+      avatar.classList.add('fade-in');
+    };
+    const initial = () => `<div class="initial">${user.email[0].toUpperCase()}</div>`;
 
-      // Use centralized avatar URL from auth service
-      const avatarUrl = authService.getCurrentAvatarUrl();
+    if (!user) return show(icons.user, { signedOut: true });
+    if (!avatarUrl) return show(initial());
 
-      avatar.classList.toggle('built', isBuiltAvatarUrl(avatarUrl));
-      if (avatarUrl) {
-        avatar.innerHTML = `<img src="${avatarUrl}" alt="User Avatar">`;
-      } else {
-        avatar.innerHTML = `<div class="initial">${user.email[0].toUpperCase()}</div>`;
-      }
-    } else {
-      avatar.classList.add('signed-out');
-      avatar.innerHTML = icons.user;
-    }
+    // Keep what's showing until the new picture has loaded: no empty circle in between.
+    const img = new Image();
+    img.alt = 'User Avatar';
+    img.src = avatarUrl;
+    const ready = () => show(img, { built: isBuiltAvatarUrl(avatarUrl) });
+    if (img.complete && img.naturalWidth) return ready();
+    this._pendingKey = key;
+    avatar.classList.add('pending');
+    const loaded = img.decode
+      ? img.decode()
+      : new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+    loaded.then(ready, () => show(initial(), { shownKey: `initial:${user.email[0]}` }));
   }
 
   async handleClick() {
