@@ -110,6 +110,23 @@ A transparent background is a user option, so hats and outfits must be clean on 
 
 Tests: `tests/rules/*` (`npm run test:rules`), `tests/js/utils/avatar/`, `tests/lib/auth/`.
 
+## Retiring the stock avatars
+
+The six stock chefs (`Avatars/*.svg`) are being replaced by built avatars. A stock avatar is
+stored as a download URL containing `Avatars%2F<file>.svg`, so each user's choice is known.
+
+1. **Stop offering them:** remove the stock grid from the avatar tab (keep "use initials").
+2. **Convert existing users** with `scripts/migrations/005-stock-avatars-to-built.mjs`. Each
+   stock file maps to an approved look-alike built chef (`LOOKALIKES` in the script). For every
+   user on a stock avatar, the script renders that config with `renderAvatarSvg`, converts it to
+   a 256px PNG with `@resvg/resvg-js`, uploads `user-avatars/{uid}.png` (tagged with the user as
+   uploader) and sets `avatarUrl` + `avatarConfig`, the same as a save from the builder. The dry
+   run prints how many users have each stock avatar. It's safe to re-run, and other avatars are
+   never touched. Rehearse with `--project emulator`, then run on `staging`, then `production`.
+3. **Clean up** once a dry run on production shows no user on a stock avatar: remove
+   `UserService.listAvatarOptions`, the grid code and its tests, and the `match /Avatars` Storage
+   rule, then delete the six files.
+
 ## Future: match a photo
 
 `describeAvatarSchema()` returns every part and colour as ids with English descriptions. A future

@@ -448,6 +448,13 @@ class UserProfile extends HTMLElement {
       builder.addEventListener('avatar-builder-save', (e) =>
         this._saveBuiltAvatar(builder, e.detail.config),
       );
+    }
+    // Read the avatar fresh on every visit: the profile may have been created before this
+    // user signed in, or for another user who has since signed out.
+    this.selectedAvatarUrl = authService.getCurrentAvatarUrl();
+    const uid = authService.getCurrentUser()?.uid;
+    if (builder._uid !== uid) {
+      builder._uid = uid;
       builder.config = authService._userData?.avatarConfig || null;
     }
     builder.active = isBuiltAvatar(this.selectedAvatarUrl) && !!authService._userData?.avatarConfig;
