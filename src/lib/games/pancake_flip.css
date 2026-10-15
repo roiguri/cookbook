@@ -112,7 +112,7 @@
 }
 
 .pancake-pan:active {
-  transform: scale(0.97);
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .pancake-pan:focus-visible {
