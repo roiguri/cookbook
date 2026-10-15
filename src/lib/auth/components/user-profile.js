@@ -2,8 +2,7 @@ import './auth-content.js';
 import '../../modals/confirmation_modal/confirmation_modal.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import { UserService } from '../../../js/services/users/user-service.js';
-
-let avatarCache = null;
+import { isBuiltAvatarUrl } from '../../../js/utils/avatar/avatar-url.js';
 
 // Firebase auth codes the profile's password / Google-link actions can raise.
 // Newer projects report a wrong current password as invalid-credential.
@@ -47,18 +46,18 @@ class UserProfile extends HTMLElement {
   render() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; }
+        /* The footer stays at the bottom: of the screen when the tab is shorter, of the
+           content when it's taller (the whole modal scrolls then). */
+        :host { display: flex; flex-direction: column; }
 
         /* ---- Panels ---- */
+        .profile-body[data-panel="avatar"] { padding-top: 18px; padding-bottom: 14px; }
+        @media (max-height: 720px) {
+          .profile-body[data-panel="avatar"] { padding-top: 10px; padding-bottom: 8px; }
+        }
         .profile-body {
           padding: 28px 40px 32px;
-          max-height: 60vh;
-          overflow-y: auto;
-          -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
         }
-        .profile-body { scrollbar-width: none; }
-        .profile-body::-webkit-scrollbar { display: none; }
 
         .section-title {
           font-family: var(--font-mono, monospace);
@@ -111,41 +110,27 @@ class UserProfile extends HTMLElement {
           font-size: 10.5px; color: var(--ink-3, #7c7562);
         }
 
-        /* ---- Avatar grid ---- */
-        .avatar-grid {
-          display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: 10px;
-        }
-        .avatar-pick {
-          aspect-ratio: 1/1; border-radius: var(--r-md, 12px);
-          border: 2px solid var(--hairline, rgba(31,29,24,0.08));
-          background: var(--surface-2, #f2e8cf);
-          cursor: pointer; position: relative; overflow: hidden;
-          display: inline-flex; align-items: center; justify-content: center;
-          transition: border-color var(--dur-1, 160ms), transform var(--dur-1, 160ms);
-          padding: 0;
-        }
-        .avatar-pick:hover { transform: translateY(-2px); border-color: var(--primary-bright, #a7c957); }
-        .avatar-pick:active { transform: scale(var(--press-scale, 0.97)); border-color: var(--primary-bright, #a7c957); }
-        .avatar-pick.on { border-color: var(--primary-dark, #386641); box-shadow: 0 0 0 3px rgba(106,153,78,0.12); }
-        .avatar-pick.on::after {
-          content: "✓"; position: absolute; top: 2px; right: 4px;
-          color: var(--primary-dark, #386641); font-weight: 600; font-size: 13px;
-        }
-        .avatar-pick img { width: 100%; height: 100%; object-fit: cover; }
-
-        /* Skeleton loading */
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        .avatar-pick.loading {
+        /* Builder skeleton (the app's grey shimmer) */
+        .builder-skeleton[hidden] { display: none; }
+        .sk {
+          display: block;
           background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
           background-size: 200% 100%;
           animation: shimmer 1.5s infinite;
-          cursor: wait;
-          border-color: var(--hairline, rgba(31,29,24,0.08));
+        }
+        .sk-top { display: flex; align-items: center; gap: 18px; }
+        .sk-preview { width: 112px; height: 112px; border-radius: 50%; flex-shrink: 0; }
+        .sk-actions { display: flex; flex-direction: column; gap: 8px; }
+        .sk-btn { width: 132px; height: 38px; border-radius: var(--r-sm, 8px); }
+        .sk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 14px; }
+        .sk-chip { width: 64px; height: 30px; border-radius: var(--r-pill, 999px); }
+        .sk-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+        .sk-tile { aspect-ratio: 1 / 1; border-radius: var(--r-md, 12px); }
+        @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
         }
 
         /* ---- Pref rows ---- */
@@ -200,6 +185,7 @@ class UserProfile extends HTMLElement {
 
         /* ---- Footer ---- */
         .profile-foot {
+          margin-top: auto;
           padding: 14px 40px;
           background: var(--surface-2, #f2e8cf);
           border-radius: var(--r-lg, 16px) var(--r-lg, 16px) var(--r-xl, 20px) var(--r-xl, 20px);
@@ -236,7 +222,6 @@ class UserProfile extends HTMLElement {
         @media (max-width: 560px) {
           .profile-body { padding-left: 22px; padding-right: 22px; }
           .profile-foot { padding: 14px 22px; }
-          .avatar-grid { grid-template-columns: repeat(4, 1fr); }
           .grid2 { grid-template-columns: 1fr; }
           .pref { grid-template-columns: 1fr; gap: 10px; }
           .pref button { justify-self: start; }
@@ -271,12 +256,16 @@ class UserProfile extends HTMLElement {
       <!-- Avatar panel -->
       <div class="profile-body" data-panel="avatar" hidden>
         <section class="section">
-          <h4 class="section-title">בחר אווטאר</h4>
-          <div class="avatar-grid" id="avatar-grid"></div>
-          <span class="feedback" id="avatar-feedback" style="margin-top:12px;display:none;"></span>
-          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn btn-quiet" type="button" id="use-initials-btn">השתמש בראשי תיבות</button>
+          <div class="builder-skeleton" id="builder-skeleton" aria-busy="true" aria-label="טוען את עורך האווטאר">
+            <div class="sk-top">
+              <span class="sk sk-preview"></span>
+              <span class="sk-actions"><span class="sk sk-btn"></span><span class="sk sk-btn"></span></span>
+            </div>
+            <div class="sk-chips">${'<span class="sk sk-chip"></span>'.repeat(8)}</div>
+            <div class="sk-tiles">${'<span class="sk sk-tile"></span>'.repeat(10)}</div>
           </div>
+          <avatar-builder id="avatar-builder" hidden></avatar-builder>
+          <span class="feedback" id="avatar-feedback" style="margin-top:12px;"></span>
         </section>
       </div>
 
@@ -313,21 +302,23 @@ class UserProfile extends HTMLElement {
 
       <!-- Confirmation modal for delete account -->
       <confirmation-modal id="delete-confirm"></confirmation-modal>
+      <!-- Leaving with unsaved avatar changes -->
+      <confirmation-modal id="leave-confirm"></confirmation-modal>
     `;
   }
 
   setupEventListeners() {
-    this.shadowRoot.getElementById('my-meal-btn').addEventListener('click', () => {
-      this.closest('auth-controller')?.closeModal();
+    this.shadowRoot.getElementById('my-meal-btn').addEventListener('click', async () => {
+      // Leaving the profile like the ✕ does (asks about unsaved avatar changes); navigate only
+      // once it's closed and its back-button history entry is gone.
+      const closed = await this.closest('auth-controller')?.closeModal({ byUser: true });
+      if (closed === false) return;
       if (window.spa?.router) window.spa.router.navigate('/my-meal');
       else window.location.hash = '/my-meal';
     });
     this.shadowRoot
       .getElementById('signout-btn')
       .addEventListener('click', () => this._handleSignout());
-    this.shadowRoot
-      .getElementById('use-initials-btn')
-      .addEventListener('click', () => this._useInitials());
     this.shadowRoot
       .getElementById('delete-account-btn')
       .addEventListener('click', () => this._confirmDeleteAccount());
@@ -347,7 +338,9 @@ class UserProfile extends HTMLElement {
     });
 
     if (panelName === 'details') this._populateDetails();
-    if (panelName === 'avatar') this._loadAvatars();
+    if (panelName === 'avatar') {
+      this._loadBuilder();
+    }
     if (panelName === 'security') this._populateSecurity();
   }
 
@@ -387,79 +380,96 @@ class UserProfile extends HTMLElement {
     }
   }
 
+  // ---- Leaving the profile ----
+
+  /**
+   * Called before the profile closes (back button, ✕, Escape, backdrop, "my meal"). If the
+   * avatar builder has unsaved changes, asks first.
+   * @returns {Promise<boolean>} true to close (unsaved changes are dropped), false to stay
+   */
+  confirmClose() {
+    const builder = this.shadowRoot.getElementById('avatar-builder');
+    if (!builder?.hasUnsavedChanges) return Promise.resolve(true);
+    if (this._pendingClose) return this._pendingClose; // already asking (e.g. Escape twice)
+    const dialog = this.shadowRoot.getElementById('leave-confirm');
+    this._pendingClose = new Promise((resolve) => {
+      const listening = new AbortController();
+      const answer = (close) => {
+        if (listening.signal.aborted) return;
+        listening.abort();
+        if (close) builder.discardChanges();
+        this._pendingClose = null;
+        resolve(close);
+      };
+      const { signal } = listening;
+      dialog.addEventListener('confirm-approved', () => answer(true), { signal });
+      dialog.addEventListener('confirm-rejected', () => answer(false), { signal });
+      // Dismissed (✕/Escape/backdrop) = keep editing. The dialog closes before it reports a
+      // choice, so let a choice arrive first.
+      dialog.addEventListener('modal-closed', () => setTimeout(() => answer(false)), { signal });
+      dialog.confirm(
+        'השינויים באווטאר לא נשמרו ויאבדו.',
+        'לסגור בלי לשמור?',
+        'סגור בלי לשמור',
+        'המשך לערוך',
+      );
+    });
+    return this._pendingClose;
+  }
+
   // ---- Avatar panel ----
 
-  async _loadAvatars() {
-    const grid = this.shadowRoot.getElementById('avatar-grid');
-
+  // The builder starts from the user's saved choices (users/{uid}.avatarConfig).
+  async _loadBuilder() {
+    const builder = this.shadowRoot.getElementById('avatar-builder');
+    const skeleton = this.shadowRoot.getElementById('builder-skeleton');
     try {
-      grid.innerHTML = '';
-      for (let i = 0; i < 6; i++) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'avatar-pick loading';
-        grid.appendChild(btn);
-      }
-
-      if (!avatarCache) {
-        avatarCache = await UserService.listAvatarOptions();
-      }
-
-      const results = await Promise.all(
-        avatarCache.map(
-          (url) =>
-            new Promise((resolve) => {
-              const img = new Image();
-              img.src = url;
-              img.onload = () => resolve({ ok: true, url, img });
-              img.onerror = () => resolve({ ok: false, url });
-            }),
-        ),
+      // The builder brings the avatar artwork library; the skeleton covers the download.
+      await import('../avatar-builder/avatar-builder.js');
+    } catch (error) {
+      console.error('Error loading avatar builder:', error);
+      this._showFeedback(
+        'avatar-feedback',
+        'err',
+        'טעינת עורך האווטאר נכשלה. בדוק את החיבור ונסה שנית.',
       );
-
-      grid.innerHTML = '';
-      results.forEach((r) => {
-        if (!r.ok) return;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'avatar-pick';
-        btn.dataset.url = r.url;
-        r.img.alt = 'Avatar option';
-        btn.appendChild(r.img);
-        if (this.selectedAvatarUrl === r.url) btn.classList.add('on');
-        btn.addEventListener('click', () => this._selectAvatar(btn, r.url));
-        grid.appendChild(btn);
-      });
-    } catch (error) {
-      console.error('Error loading avatars:', error);
-      this._showFeedback('avatar-feedback', 'err', 'טעינת האווטארים נכשלה. נסה שנית.');
+      return;
     }
+    skeleton.hidden = true;
+    builder.hidden = false;
+    if (!builder._profileBound) {
+      builder._profileBound = true;
+      builder.addEventListener('avatar-builder-save', (e) =>
+        this._saveBuiltAvatar(builder, e.detail.config),
+      );
+    }
+    // Read the avatar fresh on every visit: the profile may have been created before this
+    // user signed in, or for another user who has since signed out.
+    this.selectedAvatarUrl = authService.getCurrentAvatarUrl();
+    const uid = authService.getCurrentUser()?.uid;
+    if (builder._uid !== uid) {
+      builder._uid = uid;
+      builder.config = authService._userData?.avatarConfig || null;
+    }
+    builder.active =
+      isBuiltAvatarUrl(this.selectedAvatarUrl) && !!authService._userData?.avatarConfig;
   }
 
-  async _selectAvatar(btn, url) {
-    this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
-    btn.classList.add('on');
-    this.selectedAvatarUrl = url;
+  async _saveBuiltAvatar(builder, config) {
+    const user = authService.getCurrentUser();
+    if (!user) return;
     try {
-      await authService.updateProfile({ avatarUrl: url });
-      this._flashFeedback('avatar-feedback', 'ok', '✓ נשמר');
+      const { avatarPngBlob } = await import('../../../js/utils/avatar/avatar-png.js');
+      const blob = await avatarPngBlob(config);
+      const url = await UserService.uploadAvatarImage(user.uid, blob);
+      await authService.updateProfile({ avatarUrl: url, avatarConfig: config });
+      this.selectedAvatarUrl = url;
+      builder.markSaved(config);
+      this._flashFeedback('avatar-feedback', 'ok', '✓ האווטאר נשמר');
     } catch (error) {
-      this._showFeedback('avatar-feedback', 'err', error.message || 'השמירה נכשלה. נסה שנית.');
-    }
-  }
-
-  async _useInitials() {
-    const btn = this.shadowRoot.getElementById('use-initials-btn');
-    btn.disabled = true;
-    try {
-      await authService.updateProfile({ avatarUrl: null });
-      this.selectedAvatarUrl = null;
-      this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
-      this._showFeedback('avatar-feedback', 'ok', 'ראשי תיבות מוצגים כעת כאווטאר שלך.');
-    } catch (error) {
-      this._showFeedback('avatar-feedback', 'err', error.message || 'הפעולה נכשלה. נסה שנית.');
-    } finally {
-      btn.disabled = false;
+      console.error('Error saving built avatar:', error);
+      builder.setBusy(false);
+      this._showFeedback('avatar-feedback', 'err', 'שמירת האווטאר נכשלה. נסה שנית.');
     }
   }
 

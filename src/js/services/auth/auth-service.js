@@ -357,9 +357,12 @@ class AuthService {
       if (!user) throw new Error('No user is signed in');
       // Update auth profile if displayName or photoURL provided
       if (profileData.displayName || profileData.photoURL) {
+        // Send photoURL only when there is one: users without a photo (email sign-ups) have
+        // null, which the Auth API rejects ("photoUrl must be string").
+        const photoURL = profileData.photoURL || user.photoURL;
         await updateProfile(user, {
           displayName: profileData.displayName || user.displayName,
-          photoURL: profileData.photoURL || user.photoURL,
+          ...(photoURL ? { photoURL } : {}),
         });
       }
       // Update user document in Firestore
@@ -407,6 +410,10 @@ class AuthService {
     try {
       const user = this.getCurrentUser();
       if (!user) throw new Error('No user is signed in');
+      // A drawn avatar (avatar builder) lives in Storage; a config means one was uploaded.
+      if (this._userData?.avatarConfig) {
+        await UserService.deleteAvatarImage(user.uid).catch(() => {}); // silent: best-effort cleanup, reported by StorageService
+      }
       // Delete user document from Firestore
       await UserService.delete(user.uid);
       // Delete user from Firebase Auth

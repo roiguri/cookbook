@@ -6,6 +6,7 @@ import { StorageService } from '../_firebase/storage-service.js';
 
 const USERS_COLLECTION = 'users';
 const AVATAR_OPTIONS_PATH = 'Avatars';
+const customAvatarPath = (uid) => `user-avatars/${uid}.png`;
 
 /**
  * UserService — The Single Owner of `users/{uid}`
@@ -28,6 +29,8 @@ const AVATAR_OPTIONS_PATH = 'Avatars';
  *   - addToArrayField(uid, field, value)
  *   - removeFromArrayField(uid, field, value)
  *   - listAvatarOptions()
+ *   - uploadAvatarImage(uid, pngBlob)
+ *   - deleteAvatarImage(uid)
  *
  * The array helpers wrap Firestore's `arrayUnion` / `arrayRemove`
  * sentinels so domain services never need to import
@@ -147,6 +150,32 @@ export class UserService {
   static async listAvatarOptions() {
     const list = await StorageService.listFiles(AVATAR_OPTIONS_PATH);
     return Promise.all(list.items.map((ref) => StorageService.getFileUrl(ref.fullPath)));
+  }
+
+  /**
+   * Upload the PNG drawn by the avatar builder to `user-avatars/{uid}.png`,
+   * replacing the previous one. The returned URL carries a version parameter:
+   * the file name never changes, so without it browsers would keep showing the
+   * old picture. The caller saves it as `avatarUrl` (with `avatarConfig`).
+   *
+   * @param {string} uid
+   * @param {Blob} pngBlob - image/png, under 200 KB (storage.rules)
+   * @returns {Promise<string>} download URL
+   */
+  static async uploadAvatarImage(uid, pngBlob) {
+    if (!uid) throw new Error('UserService.uploadAvatarImage: uid is required');
+    const url = await StorageService.uploadFile(pngBlob, customAvatarPath(uid));
+    return `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  }
+
+  /**
+   * Delete the builder's PNG (`user-avatars/{uid}.png`), e.g. with the account.
+   * @param {string} uid
+   * @returns {Promise<void>}
+   */
+  static async deleteAvatarImage(uid) {
+    if (!uid) throw new Error('UserService.deleteAvatarImage: uid is required');
+    await StorageService.deleteFile(customAvatarPath(uid));
   }
 }
 

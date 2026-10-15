@@ -17,6 +17,8 @@ const firestoreMocks = {
 const storageMocks = {
   listFiles: jest.fn(),
   getFileUrl: jest.fn(),
+  uploadFile: jest.fn(),
+  deleteFile: jest.fn(),
 };
 
 jest.unstable_mockModule('src/js/services/_firebase/firestore-service.js', () => ({
@@ -182,6 +184,49 @@ describe('UserService', () => {
     it('propagates errors from StorageService.listFiles', async () => {
       storageMocks.listFiles.mockRejectedValue(new Error('list-boom'));
       await expect(UserService.listAvatarOptions()).rejects.toThrow('list-boom');
+    });
+  });
+  describe('uploadAvatarImage', () => {
+    const png = new Blob(['png'], { type: 'image/png' });
+
+    it('uploads to user-avatars/{uid}.png and returns a versioned URL', async () => {
+      storageMocks.uploadFile.mockResolvedValue(
+        'https://cdn/o/user-avatars%2Fu1.png?alt=media&token=t',
+      );
+      const url = await UserService.uploadAvatarImage('u1', png);
+      expect(storageMocks.uploadFile).toHaveBeenCalledWith(png, 'user-avatars/u1.png');
+      expect(url).toMatch(/^https:\/\/cdn\/o\/user-avatars%2Fu1\.png\?alt=media&token=t&v=\d+$/);
+    });
+
+    it('starts the query string when the URL has none', async () => {
+      storageMocks.uploadFile.mockResolvedValue('https://cdn/a.png');
+      expect(await UserService.uploadAvatarImage('u1', png)).toMatch(
+        /^https:\/\/cdn\/a\.png\?v=\d+$/,
+      );
+    });
+
+    it('throws when uid is missing', async () => {
+      await expect(UserService.uploadAvatarImage('', png)).rejects.toThrow('uid is required');
+      expect(storageMocks.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('propagates upload errors', async () => {
+      storageMocks.uploadFile.mockRejectedValue(new Error('Failed to upload file'));
+      await expect(UserService.uploadAvatarImage('u1', png)).rejects.toThrow(
+        'Failed to upload file',
+      );
+    });
+  });
+
+  describe('deleteAvatarImage', () => {
+    it('deletes user-avatars/{uid}.png', async () => {
+      storageMocks.deleteFile.mockResolvedValue();
+      await UserService.deleteAvatarImage('u1');
+      expect(storageMocks.deleteFile).toHaveBeenCalledWith('user-avatars/u1.png');
+    });
+
+    it('throws when uid is missing', async () => {
+      await expect(UserService.deleteAvatarImage()).rejects.toThrow('uid is required');
     });
   });
 });

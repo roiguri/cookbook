@@ -23,6 +23,7 @@ export let firebaseService = {};
 
 jest.unstable_mockModule('firebase/firestore', () => ({
   serverTimestamp: jest.fn(() => 'server-timestamp'),
+  connectFirestoreEmulator: jest.fn(),
   Timestamp: { now: jest.fn(() => 'mock-timestamp-now') },
   doc: jest.fn(() => mockDocRef),
   getDoc: jest.fn().mockImplementation(() => {

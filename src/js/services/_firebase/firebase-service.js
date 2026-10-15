@@ -2,9 +2,9 @@
 
 // Import Firebase SDK modules (v9+ modular)
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { initializeAuth, browserLocalPersistence, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 let firebaseApp = null;
 let firebaseAuth = null;
@@ -26,6 +26,14 @@ export function initFirebase(config) {
     firebaseAuth = initializeAuth(firebaseApp, { persistence: browserLocalPersistence });
     firebaseFirestore = getFirestore(firebaseApp);
     firebaseStorage = getStorage(firebaseApp);
+    // `npm run dev:emulators` — local Auth/Firestore/Storage emulators (ports in firebase.json),
+    // on the machine that served the page, so a phone on the same network works too.
+    if (import.meta.env?.VITE_USE_EMULATORS === 'true') {
+      const host = globalThis.location?.hostname || '127.0.0.1';
+      connectAuthEmulator(firebaseAuth, `http://${host}:9099`, { disableWarnings: true });
+      connectFirestoreEmulator(firebaseFirestore, host, 8080);
+      connectStorageEmulator(firebaseStorage, host, 9199);
+    }
   }
   return {
     app: firebaseApp,

@@ -36,12 +36,78 @@ class AuthController extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.isAuthenticated = false;
     this.currentUser = null;
+    this._onPopState = this._onPopState.bind(this);
   }
 
   connectedCallback() {
     this.render();
     this.setupAuthStateObserver();
     authService.initialize();
+    const modal = this.shadowRoot.querySelector('custom-modal');
+    // Closing by the user (back, ✕, Escape, backdrop) asks first if the profile has
+    // unsaved avatar changes.
+    modal.setCloseGuard(() => this._confirmClose());
+    modal.addEventListener('modal-closed', () => this._onModalClosed());
+    window.addEventListener('popstate', this._onPopState);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('popstate', this._onPopState);
+  }
+
+  _confirmClose() {
+    const profile = this.querySelector('user-profile');
+    if (!profile?.classList.contains('active') || !profile.confirmClose) return true;
+    return profile.confirmClose();
+  }
+
+  // ---- Back button --------------------------------------------------------------------
+  // While the modal is open, a same-URL history entry sits on top of the page's own, so the
+  // phone's back button (or the browser's) pops that entry instead of leaving the page. The
+  // router ignores pops that keep the same route, so the page behind doesn't change.
+
+  _addBackEntry() {
+    if (history.state?.authModal) return;
+    history.pushState({ ...(history.state || {}), authModal: true }, '');
+  }
+
+  async _onPopState() {
+    const modal = this.shadowRoot.querySelector('custom-modal');
+    if (this._removingBackEntry) {
+      // Our own history.back() after a close that didn't come from the back button.
+      this._removingBackEntry = false;
+      this._backEntryRemoved?.();
+      return;
+    }
+    if (!modal?.isOpen || history.state?.authModal) return;
+    if (this._closingFromBack) {
+      // Back pressed again while the "unsaved changes" question is open: keep it armed.
+      this._addBackEntry();
+      return;
+    }
+    // The back button: close like the ✕ (runs the unsaved-changes guard).
+    this._closingFromBack = true;
+    try {
+      await modal.close({ byUser: true });
+    } finally {
+      this._closingFromBack = false;
+    }
+    if (modal.isOpen) this._addBackEntry(); // the user chose to keep editing
+  }
+
+  _onModalClosed() {
+    // Closed some other way (✕, Escape, backdrop, sign-in…): take our entry off the top so the
+    // next back press leaves the page as usual. If something has navigated since, our entry
+    // isn't on top any more and is left alone.
+    if (this._closingFromBack || !history.state?.authModal) {
+      this._backEntrySettled = Promise.resolve();
+      return;
+    }
+    this._backEntrySettled = new Promise((resolve) => {
+      this._backEntryRemoved = resolve;
+    });
+    this._removingBackEntry = true;
+    history.back();
   }
 
   render() {
@@ -271,6 +337,7 @@ class AuthController extends HTMLElement {
       }
       const modal = this.shadowRoot.querySelector('custom-modal');
       modal.open();
+      this._addBackEntry();
     } catch (error) {
       console.error('Error opening auth modal:', error);
       // Fallback or user notification could go here
@@ -307,9 +374,20 @@ class AuthController extends HTMLElement {
     return this._authComponentsPromise;
   }
 
-  closeModal() {
+  /**
+   * Close the modal. `byUser: true` treats it like the user's own close (the unsaved-changes
+   * guard runs). Resolves once the modal is closed and its back-button history entry is gone,
+   * so callers can navigate right after: true if it closed, false if the user stayed.
+   * @param {{byUser?: boolean}} [options]
+   * @returns {Promise<boolean>}
+   */
+  async closeModal(options = {}) {
     const modal = this.shadowRoot.querySelector('custom-modal');
-    modal.close();
+    if (!modal.isOpen) return true;
+    await modal.close({ byUser: Boolean(options.byUser) });
+    if (modal.isOpen) return false;
+    await this._backEntrySettled;
+    return true;
   }
 }
 

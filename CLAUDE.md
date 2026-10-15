@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev          # Vite dev server (http://localhost:5173)
+npm run dev:emulators # Dev server against local Auth/Firestore/Storage emulators (this checkout's rules)
 netlify dev          # Dev server with Netlify features (redirects, functions) — more accurate to prod
 npm run build        # Production build
 npm run serve        # Preview production build
@@ -170,6 +171,7 @@ Deeper references — consult these before making non-trivial changes:
 - `docs/architecture/services.md` — Firebase service wrappers, caching/dedup patterns, role enforcement.
 - `docs/architecture/observability.md` — Sentry error tracking: init flow, release/environment wiring, privacy, aggregation, quota, source-map safety.
 - `docs/architecture/design-system.md` — canonical token reference (colours, type, z-index, icons).
+- `docs/architecture/avatars.md` — chef avatar builder: part catalogue, data, rules, adding parts, future photo matching.
 - `docs/lessons/performance.md`, `docs/lessons/accessibility.md`, `docs/lessons/security.md` — patterns and pitfalls discovered while building.
 - `docs/firebase-image-optimization.md` — image pipeline configuration.
 - `docs/code-review-2026-05.md` — open code-review findings (P0–P4) not yet resolved.

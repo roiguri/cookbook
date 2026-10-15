@@ -73,3 +73,4 @@ test-results/
 
 # Link-preview edge function settings, written by the Vite build
 netlify/edge-functions/link-preview/site.generated.js
+avatar-check/

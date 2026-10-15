@@ -16,6 +16,7 @@ import { jest } from '@jest/globals';
  */
 jest.unstable_mockModule('firebase/storage', () => ({
   getStorage: jest.fn(() => 'mockStorage'),
+  connectStorageEmulator: jest.fn(),
   ref: jest.fn((storage, path) => ({ storage, path })),
   uploadBytes: jest.fn(),
   getDownloadURL: jest.fn(),
