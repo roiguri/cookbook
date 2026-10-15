@@ -69,11 +69,14 @@ class AuthAvatar extends HTMLElement {
           transform: scale(1.12) translateY(4%);
         }
 
-        /* A picture gets the header search bar's edge; the green circle stays borderless. */
-        .avatar.photo { border: 1px solid var(--hairline, rgba(31,29,24,0.1)); }
-
         /* A built avatar fills its square: no zoom, and no gradient bleeding at the edge. */
-        .avatar.built { background: var(--surface-1, #fff); }
+        /* The search bar's edge: its translucent hairline over the same cream (--surface-2), so
+           the ring matches exactly; the picture covers the inside. Stock pictures and the green
+           circle stay as they were (no border). */
+        .avatar.built {
+          background: var(--surface-2, #f6eed6);
+          border: 1px solid var(--hairline, rgba(31,29,24,0.1));
+        }
         .avatar.built img { transform: none; }
 
         .initial {
@@ -185,7 +188,6 @@ class AuthAvatar extends HTMLElement {
       avatar.classList.remove('pending');
       avatar.classList.toggle('signed-out', signedOut);
       avatar.classList.toggle('built', built);
-      avatar.classList.toggle('photo', typeof content !== 'string');
       if (typeof content === 'string') avatar.innerHTML = content;
       else avatar.replaceChildren(content);
       avatar.classList.remove('fade-in');
