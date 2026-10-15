@@ -182,12 +182,23 @@
     padding: 10px 16px;
   }
 
+  /* Fixed-size HUD: the status text changes every phase, and an auto-width
+     column would push the board sideways each time. */
   .chef-hud {
-    width: auto;
+    flex: 0 0 150px;
+    width: 150px;
     flex-direction: column;
     align-items: center;
-    max-width: 160px;
     text-align: center;
+  }
+
+  .chef-status {
+    /* Two lines reserved exactly, so one- and two-line texts take the same box. */
+    line-height: 1.4;
+    height: 2.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .chef-board {
