@@ -130,7 +130,10 @@ stored as a download URL containing `Avatars%2F<file>.svg`, so each user's choic
    user on a stock avatar, the script renders that config with `renderAvatarSvg`, converts it to
    a 256px PNG with `@resvg/resvg-js`, uploads `user-avatars/{uid}.png` (tagged with the user as
    uploader) and sets `avatarUrl` + `avatarConfig`, the same as a save from the builder. The dry
-   run prints how many users have each stock avatar. It's safe to re-run, and other avatars are
+   run prints how many users have each stock avatar. It's safe while users are active (each user is
+   re-read before converting; the PNG is created only if the user has no avatar file; the profile
+   update is a transaction that applies only if they're still on the same stock avatar), safe to
+   re-run, and other avatars are
    never touched. Rehearse with `--project emulator`, then run on `staging`, then `production`.
 3. **Keep the files.** The six files, their `match /Avatars` Storage rule and
    `UserService.listAvatarOptions` stay; nothing is deleted from Storage (decided 2026-10-15).

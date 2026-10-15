@@ -12,11 +12,17 @@
 // left alone. Safe to re-run: converted users are no longer on a stock avatar.
 // The dry run reports how many users have each stock avatar and changes nothing.
 //
+// Safe while users are active: each user is re-read right before converting; the
+// PNG is only created if the user has no avatar file yet (never overwrites one they
+// saved); and the profile update is a transaction that applies only if the user is
+// still on the same stock avatar (otherwise the file this run created is removed).
+//
 // Usage (repo root; gcloud application-default credentials):
 //   npm i --no-save firebase-admin@12          # once, like the other migrations
 //   node scripts/migrations/005-stock-avatars-to-built.mjs --project staging            # dry run
 //   node scripts/migrations/005-stock-avatars-to-built.mjs --project staging --apply
 //   node scripts/migrations/005-stock-avatars-to-built.mjs --project production --apply
+// `--pace <ms>` pauses between users (optional throttle).
 // `--project` takes a .firebaserc alias; there is no default. `--project emulator`
 // runs against `npm run dev:emulators` (demo-cookbook) for a local rehearsal.
 // =============================================================================
@@ -80,9 +86,10 @@ const valueOf = (flag) => {
 };
 const alias = valueOf('--project');
 const APPLY = args.includes('--apply');
-if (!alias) {
+const PACE_MS = Number(valueOf('--pace') || 0);
+if (!alias || !Number.isFinite(PACE_MS) || PACE_MS < 0) {
   console.error(
-    'Usage: 005-stock-avatars-to-built.mjs --project <staging|production|emulator> [--apply]',
+    'Usage: 005-stock-avatars-to-built.mjs --project <staging|production|emulator> [--apply] [--pace <ms>]',
   );
   process.exit(2);
 }
@@ -150,32 +157,74 @@ async function main() {
   if (!APPLY || onStock.length === 0) return;
 
   const bucket = await findBucket();
-  let converted = 0;
+  const outcome = { converted: 0, skipped: 0 };
   for (const { uid, file } of onStock) {
-    const lookalike = LOOKALIKES[file];
-    if (!lookalike) continue;
-    const config = normalizeAvatarConfig({ v: 1, ...lookalike });
-    const png = new Resvg(renderAvatarSvg(config), { fitTo: { mode: 'width', value: 256 } })
-      .render()
-      .asPng();
-    const path = `user-avatars/${uid}.png`;
-    const token = randomUUID();
-    await bucket.file(path).save(png, {
+    if (!LOOKALIKES[file]) continue;
+    if (PACE_MS) await new Promise((resolve) => setTimeout(resolve, PACE_MS));
+    const result = await convertUser(bucket, uid, file);
+    outcome[result === 'converted' ? 'converted' : 'skipped']++;
+    console.log(`    ${uid}: ${file} → ${result}`);
+  }
+  console.log(`==> converted ${outcome.converted} | skipped ${outcome.skipped}`);
+}
+
+/**
+ * Convert one user, safely against them changing their avatar meanwhile.
+ * @returns {Promise<string>} 'converted' or why it was skipped
+ */
+async function convertUser(bucket, uid, file) {
+  const ref = db.collection('users').doc(uid);
+
+  // 1. Re-read: the list above may be stale by now.
+  const fresh = await ref.get();
+  const stockUrl = fresh.data()?.avatarUrl;
+  if (stockFile(stockUrl) !== file) return 'skipped (avatar changed since the list was read)';
+
+  // 2. Create the PNG only if the user has no avatar file yet — never overwrite one they saved.
+  const config = normalizeAvatarConfig({ v: 1, ...LOOKALIKES[file] });
+  const png = new Resvg(renderAvatarSvg(config), { fitTo: { mode: 'width', value: 256 } })
+    .render()
+    .asPng();
+  const path = `user-avatars/${uid}.png`;
+  const token = randomUUID();
+  const created = bucket.file(path);
+  // Checked explicitly (the Storage emulator ignores preconditions), and again atomically by
+  // the create-only precondition on real Cloud Storage.
+  const [exists] = await created.exists();
+  if (exists) return 'skipped (already has an avatar file)';
+  try {
+    await created.save(png, {
       contentType: 'image/png',
       metadata: { metadata: { uploadedBy: uid, firebaseStorageDownloadTokens: token } },
+      preconditionOpts: { ifGenerationMatch: 0 },
     });
-    await db
-      .collection('users')
-      .doc(uid)
-      .update({
-        avatarUrl: downloadUrl(bucket, path, token),
-        avatarConfig: config,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    converted++;
-    console.log(`    ${uid}: ${file} → ${path}`);
+  } catch (error) {
+    if (error.code === 412) return 'skipped (already has an avatar file)';
+    throw error;
   }
-  console.log(`==> converted ${converted} user(s)`);
+
+  // 3. Point the profile at it only if they're still on the same stock avatar.
+  const applied = await db.runTransaction(async (tx) => {
+    const current = await tx.get(ref);
+    if (current.data()?.avatarUrl !== stockUrl) return false;
+    tx.update(ref, {
+      avatarUrl: downloadUrl(bucket, path, token),
+      avatarConfig: config,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+  if (!applied) {
+    // The user changed their avatar during this conversion. Remove the file created above only
+    // if it's still that exact version: if they saved their own PNG since, it isn't, and stays.
+    const ours = created.metadata.generation;
+    const [now] = await created.getMetadata().catch(() => [null]);
+    if (now && String(now.generation) === String(ours)) {
+      await created.delete({ ifGenerationMatch: ours }).catch(() => {});
+    }
+    return 'skipped (avatar changed during conversion)';
+  }
+  return 'converted';
 }
 
 main().catch((error) => {
