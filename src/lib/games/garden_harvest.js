@@ -6,8 +6,9 @@ import { START_OVERLAY_STYLES, showStartOverlay } from './game_start_overlay.js'
 // worm is a strike; a vegetable that sinks unpicked is just a lost chance.
 // Harvest `toHarvest` to win; `maxStrikes` worm taps lose.
 //
-// All timing runs in one rAF loop on elapsed time, so a hidden tab freezes
-// the bed instead of letting everything sink at once.
+// All timing runs in one rAF loop on elapsed time, so pause() (rotate
+// prompt) or a hidden tab freezes the bed instead of letting everything
+// sink at once.
 
 const VEGGIES = [
   { emoji: '🥕', he: 'גזר' },
@@ -68,6 +69,7 @@ export class GardenHarvestGame {
       strikes: 0,
       nextPopIn: TUNING.pop.firstPopSec,
       isRunning: false,
+      isPaused: false,
     };
 
     this.bedEl = null;
@@ -123,15 +125,38 @@ export class GardenHarvestGame {
       this.firstInteractionFired = true;
       this.config.onInteraction();
     }
+    if (!this.state.isPaused) this.startLoop();
+  }
+
+  // --- Pause (GameWrapper calls these while the rotate prompt is up) ---
+
+  pause() {
+    this.state.isPaused = true;
+    this.stopLoop();
+  }
+
+  resume() {
+    this.state.isPaused = false;
+    if (this.state.isRunning) this.startLoop();
+  }
+
+  startLoop() {
+    if (this.rafId) return;
     this.lastTs = null;
     this.rafId = requestAnimationFrame(this._loop);
+  }
+
+  stopLoop() {
+    if (this.rafId) cancelAnimationFrame(this.rafId);
+    this.rafId = null;
+    this.lastTs = null;
   }
 
   // --- Loop ---
 
   loop(ts) {
     this.rafId = null;
-    if (!this.state.isRunning) return;
+    if (!this.state.isRunning || this.state.isPaused) return;
     const dt =
       this.lastTs === null ? 0 : Math.min(TUNING.pop.maxFrameSec, (ts - this.lastTs) / 1000);
     this.lastTs = ts;
@@ -201,7 +226,7 @@ export class GardenHarvestGame {
 
   onBedClick(e) {
     const holeEl = e.target.closest('.garden-hole');
-    if (!holeEl || !this.state.isRunning) return;
+    if (!holeEl || !this.state.isRunning || this.state.isPaused) return;
     const hole = this.state.holes.find((h) => h.el === holeEl);
     if (!hole || hole.state !== 'up') return;
 

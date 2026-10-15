@@ -133,6 +133,22 @@ describe('GardenHarvestGame', () => {
     lose.game.destroy();
   });
 
+  test('pause freezes the bed and ignores taps; resume continues', () => {
+    const { host, game } = setup({ toHarvest: 10 });
+    advance(FIRST_POP_MS);
+    const [hole] = upHoles(host);
+    game.pause();
+    advance(10000); // would have sunk and popped many times
+    expect(hole.dataset.state).toBe('up');
+    expect(upHoles(host)).toHaveLength(1);
+    hole.click();
+    expect(harvested(host)).toBe('0');
+    game.resume();
+    hole.click();
+    expect(harvested(host)).toBe('1');
+    game.destroy();
+  });
+
   test('destroy stops the loop and pending callbacks', () => {
     const { host, game, onComplete } = setup({ toHarvest: 1 });
     advance(FIRST_POP_MS);

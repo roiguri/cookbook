@@ -108,7 +108,9 @@ const REGISTRY = [
     loadingText: 'משקים את הגינה... חכה רגע!',
     // /games only — never a filler game during async waits.
     excludeFromRandom: true,
-    // No preferredOrientation: the square bed fits portrait and landscape.
+    // Phones play it upright. The game implements pause()/resume(), so it
+    // freezes while the rotate prompt is up.
+    preferredOrientation: 'portrait',
   },
 ];
 

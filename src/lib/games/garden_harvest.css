@@ -1,7 +1,7 @@
 /* Garden Harvest — whack-a-mole in a vegetable bed. Companion to
-   garden_harvest.js. No preferred orientation: the 3×3 bed is a square
-   sized to the shorter side (same approach as Chef Says), and the HUD moves
-   beside it on landscape phones. Each hole exposes data-state
+   garden_harvest.js. Phones prefer portrait. The 3×3 bed is a square sized
+   to the shorter side (same approach as Chef Says); after "continue anyway"
+   on a landscape phone the HUD moves beside it. Each hole exposes data-state
    (empty | up | hit | missed | bitten | gone) and data-kind (veg | worm). */
 
 .garden-game {
