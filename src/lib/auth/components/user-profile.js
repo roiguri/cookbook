@@ -2,9 +2,7 @@ import './auth-content.js';
 import '../../modals/confirmation_modal/confirmation_modal.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import { UserService } from '../../../js/services/users/user-service.js';
-
-// A built avatar's download URL points at user-avatars/{uid}.png (path URL-encoded).
-const isBuiltAvatar = (url) => typeof url === 'string' && url.includes('user-avatars%2F');
+import { isBuiltAvatarUrl } from '../../../js/utils/avatar/avatar-url.js';
 
 // Firebase auth codes the profile's password / Google-link actions can raise.
 // Newer projects report a wrong current password as invalid-credential.
@@ -51,6 +49,10 @@ class UserProfile extends HTMLElement {
         :host { display: block; }
 
         /* ---- Panels ---- */
+        .profile-body[data-panel="avatar"] { padding-top: 18px; padding-bottom: 14px; }
+        @media (max-height: 720px) {
+          .profile-body[data-panel="avatar"] { padding-top: 10px; padding-bottom: 8px; }
+        }
         .profile-body {
           padding: 28px 40px 32px;
           max-height: 60vh;
@@ -257,7 +259,6 @@ class UserProfile extends HTMLElement {
       <!-- Avatar panel -->
       <div class="profile-body" data-panel="avatar" hidden>
         <section class="section">
-          <h4 class="section-title">עצב אווטאר משלך</h4>
           <div class="builder-skeleton" id="builder-skeleton" aria-busy="true" aria-label="טוען את עורך האווטאר">
             <div class="sk-top">
               <span class="sk sk-preview"></span>
@@ -411,7 +412,8 @@ class UserProfile extends HTMLElement {
       builder._uid = uid;
       builder.config = authService._userData?.avatarConfig || null;
     }
-    builder.active = isBuiltAvatar(this.selectedAvatarUrl) && !!authService._userData?.avatarConfig;
+    builder.active =
+      isBuiltAvatarUrl(this.selectedAvatarUrl) && !!authService._userData?.avatarConfig;
   }
 
   async _saveBuiltAvatar(builder, config) {

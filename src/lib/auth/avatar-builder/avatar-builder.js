@@ -120,14 +120,14 @@ class AvatarBuilder extends HTMLElement {
           overflow: hidden;
         }
         .preview svg { width: 100%; height: 100%; display: block; }
-        .actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
-        .actions-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        .actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+        .actions-row { display: flex; flex-wrap: wrap; gap: 6px; }
 
         .btn {
           display: inline-flex; align-items: center; justify-content: center; gap: 7px;
           font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
-          font-size: 13.5px; font-weight: 500;
-          padding: 9px 16px; border-radius: var(--r-sm, 8px);
+          font-size: 13px; font-weight: 500;
+          padding: 8px 13px; border-radius: var(--r-sm, 8px);
           border: 1px solid transparent; cursor: pointer;
           transition: background var(--dur-1, 160ms) var(--ease, ease), border-color var(--dur-1, 160ms) var(--ease, ease);
         }
@@ -153,7 +153,7 @@ class AvatarBuilder extends HTMLElement {
         /* Tabs: one row that scrolls sideways (all parts reachable without wrapping). */
         .tabs {
           display: flex; flex-wrap: nowrap; gap: 6px;
-          margin: 18px 0 12px; padding: 2px 1px 4px;
+          margin: 12px 0 8px; padding: 2px 1px 4px;
           overflow-x: auto; scrollbar-width: none;
         }
         .tabs::-webkit-scrollbar { display: none; }
@@ -177,7 +177,7 @@ class AvatarBuilder extends HTMLElement {
         #panel {
           --tile: 64px;
           display: flex; flex-direction: column;
-          height: calc(2 * var(--tile) + 8px + 12px + 66px);
+          height: calc(2 * var(--tile) + 8px + 8px + 58px);
         }
         #panel.colors-only .options { display: none; }
         #panel.colors-only .palette { margin-top: 0; }
@@ -211,10 +211,10 @@ class AvatarBuilder extends HTMLElement {
           content: "✓"; position: absolute; top: 2px; inset-inline-end: 5px;
           color: var(--primary-dark, #386641); font-weight: 600; font-size: 12px;
         }
-        .palette { margin-top: 12px; min-height: 66px; flex-shrink: 0; }
+        .palette { margin-top: 8px; min-height: 58px; flex-shrink: 0; }
         .palette-label {
           font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
-          font-size: 12.5px; color: var(--ink-3, #7c7562); margin: 0 0 8px;
+          font-size: 12.5px; line-height: 18px; color: var(--ink-3, #7c7562); margin: 0 0 4px;
         }
         .swatches { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding: 2px; scrollbar-width: none; }
         .swatch {
@@ -234,8 +234,20 @@ class AvatarBuilder extends HTMLElement {
 
         @media (max-width: 560px) {
           .top { gap: 14px; }
-          .preview { width: 96px; height: 96px; }
-          #panel { --tile: 58px; }
+          .preview { width: 92px; height: 92px; }
+          #panel { --tile: 54px; }
+          .btn { padding: 7px 11px; }
+        }
+        /* Short phones (e.g. 375×667): tighter, so the whole builder fits without scrolling. */
+        @media (max-height: 720px) {
+          .top { gap: 12px; }
+          .preview { width: 80px; height: 80px; }
+          .btn { padding: 6px 10px; font-size: 12.5px; }
+          .actions { gap: 4px; }
+          .actions-row { gap: 4px; }
+          .tabs { margin: 8px 0 6px; }
+          .tab { padding: 5px 11px; }
+          #panel { --tile: 48px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .opt, .swatch, .btn, .tab { transition: none; }
@@ -246,11 +258,11 @@ class AvatarBuilder extends HTMLElement {
       <div class="top">
         <div class="preview" id="preview"></div>
         <div class="actions">
+          <button type="button" class="btn btn-primary" id="save-btn">שמירת האווטאר</button>
           <div class="actions-row">
-            <button type="button" class="btn btn-primary" id="save-btn">שמירת האווטאר</button>
             <button type="button" class="btn btn-ghost" id="random-btn">${icons.diceFive}הפתע אותי</button>
+            <button type="button" class="btn btn-ghost" id="undo-btn">${icons.undoAlt}ביטול השינויים</button>
           </div>
-          <button type="button" class="btn btn-ghost" id="undo-btn">${icons.undoAlt}ביטול השינויים</button>
           <p class="status" id="status" aria-live="polite"></p>
         </div>
       </div>

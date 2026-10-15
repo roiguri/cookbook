@@ -9,6 +9,7 @@
 
 import { icons } from '../../../js/icons.js';
 import authService from '../../../js/services/auth/auth-service.js';
+import { isBuiltAvatarUrl } from '../../../js/utils/avatar/avatar-url.js';
 import './auth-content.js';
 
 class AuthAvatar extends HTMLElement {
@@ -66,6 +67,10 @@ class AuthAvatar extends HTMLElement {
           display: block;
           transform: scale(1.12) translateY(4%);
         }
+
+        /* A built avatar fills its square: no zoom, and no gradient bleeding at the edge. */
+        .avatar.built { background: var(--surface-1, #fff); }
+        .avatar.built img { transform: none; }
 
         .initial {
           font-family: var(--font-ui, sans-serif);
@@ -149,6 +154,7 @@ class AuthAvatar extends HTMLElement {
       // Use centralized avatar URL from auth service
       const avatarUrl = authService.getCurrentAvatarUrl();
 
+      avatar.classList.toggle('built', isBuiltAvatarUrl(avatarUrl));
       if (avatarUrl) {
         avatar.innerHTML = `<img src="${avatarUrl}" alt="User Avatar">`;
       } else {

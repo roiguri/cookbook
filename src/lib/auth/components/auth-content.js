@@ -1,3 +1,4 @@
+import { isBuiltAvatarUrl } from '../../../js/utils/avatar/avatar-url.js';
 import authService from '../../../js/services/auth/auth-service.js';
 
 class AuthContent extends HTMLElement {
@@ -102,6 +103,9 @@ class AuthContent extends HTMLElement {
           display: block;
           transform: scale(1.12) translateY(4%);
         }
+        /* A built avatar fills its square: no zoom, and no gradient bleeding at the edge. */
+        .avatar-xl.built { background: var(--surface-1, #fff); border-color: var(--surface-1, #fff); }
+        .avatar-xl.built img { transform: none; }
         .avatar-xl .initial {
           font-family: var(--font-ui, system-ui, sans-serif);
           font-weight: 600;
@@ -362,6 +366,7 @@ class AuthContent extends HTMLElement {
         avatarEl.prepend(imgEl);
       }
       imgEl.src = avatarUrl;
+      avatarEl.classList.toggle('built', isBuiltAvatarUrl(avatarUrl));
       if (initialEl) initialEl.style.display = 'none';
     } else {
       imgEl?.remove();
