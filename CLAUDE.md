@@ -103,6 +103,15 @@ Tokens are in `src/styles/tokens.css` (v2, modern). Key variables to use in all 
 
 Never use raw hex colors or hardcoded px values for things covered by tokens. The app has Hebrew RTL content — use `dir="rtl"` on Hebrew containers.
 
+**Pressed states:** the browser tap highlight is off app-wide, so every new clickable needs its own `:active` state:
+
+- Buttons, chips, tabs, pills: `transform: scale(var(--press-scale))`.
+- Small round icon buttons: `scale(var(--press-scale-icon))`.
+- Cards and large tiles: `scale(var(--press-scale-card))`.
+- Full-width rows: a background tint only.
+
+Inside Shadow DOM use the fallback form `var(--press-scale, 0.97)`. Full table and edge cases: `docs/architecture/design-system.md` → "Pressed (`:active`) states".
+
 ### Icons
 
 Icons are inline SVGs managed via a central registry at `src/js/icons.js`. Font Awesome is **not** loaded — do not add a CDN link for it.
