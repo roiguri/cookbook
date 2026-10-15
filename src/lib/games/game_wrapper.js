@@ -87,14 +87,14 @@ const REGISTRY = [
     icon: '🥞',
     description: 'הפכו והגישו בדיוק בזמן',
     GameClass: PancakeFlipGame,
-    defaultConfig: { toServe: 8, maxStrikes: 3 },
+    defaultConfig: { toServe: 10, maxStrikes: 3 },
     successMessage: 'כל הכבוד! ערימת פנקייקים מושלמת',
     loadingText: 'מחממים את המחבת... חכה רגע!',
     // /games only — never a filler game during async waits.
     excludeFromRandom: true,
-    // Three pans side by side — recommend landscape on phones. The game
+    // Phones play it upright: the pans stack in a column. The game
     // implements pause()/resume(), so it freezes while the prompt is up.
-    preferredOrientation: 'landscape',
+    preferredOrientation: 'portrait',
   },
 ];
 

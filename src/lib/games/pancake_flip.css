@@ -1,5 +1,7 @@
 /* Pancake Flip — timing mini-game. Companion to pancake_flip.js.
-   Three pans in a row (a stovetop), so the game prefers landscape on phones.
+   Three pans in a row on wide containers (desktop); on a phone held upright
+   they stack in a column with the handles to the side. Phones prefer
+   portrait.
    Each pan exposes data-zone (empty | raw | golden | burnt), data-side and a
    --progress custom property (0 → 1) that drive the visuals below. */
 
@@ -358,6 +360,32 @@
 .pancake-toast--bad {
   background: var(--secondary);
   color: var(--button-color);
+}
+
+/* ---- Narrow container (portrait phone): pans in a column ---- */
+
+@container (max-width: 520px) {
+  .pancake-stove {
+    /* Three pans + gaps must fit the modal height under the HUD. */
+    --pan: clamp(90px, min(40cqi, calc((100vh - 280px) / 3.4)), 170px);
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .pancake-pan {
+    margin-bottom: 0;
+    margin-right: calc(var(--pan) * 0.3);
+  }
+
+  .pancake-handle {
+    top: 50%;
+    left: 96%;
+    width: calc(var(--pan) * 0.34);
+    height: calc(var(--pan) * 0.14);
+    transform: translateY(-50%);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    background: linear-gradient(180deg, #24211d, #4a453e, #24211d);
+  }
 }
 
 /* ---- Landscape phone: tighten vertical space ---- */

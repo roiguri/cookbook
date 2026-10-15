@@ -11,7 +11,7 @@ import { START_OVERLAY_STYLES, showStartOverlay } from './game_start_overlay.js'
 // including the timers that pour new batter.
 
 const TUNING = {
-  win: { toServe: 8 },
+  win: { toServe: 10 },
   miss: { maxStrikes: 3 },
   pans: 3,
   cook: {
