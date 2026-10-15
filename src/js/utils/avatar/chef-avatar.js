@@ -67,6 +67,8 @@ export const AVATAR_COLORS = {
       { id: 'lightBrown', label: 'חום בהיר', hex: 'b58143' },
       { id: 'blonde', label: 'בלונד', hex: 'd6b370' },
       { id: 'grey', label: 'אפור', hex: 'e8e1e1' },
+      { id: 'platinum', label: 'פלטינה', hex: 'ecdcbf' },
+      { id: 'pink', label: 'ורוד', hex: 'f59797' },
     ],
   },
   outfit: {
@@ -156,6 +158,9 @@ export const AVATAR_PARTS = {
       { id: 'side', label: 'מבט הצידה', describe: 'looking to the side' },
       { id: 'closed', label: 'עצומות', describe: 'eyes closed' },
       { id: 'hearts', label: 'לבבות', describe: 'heart eyes, in love with the food' },
+      { id: 'winkWacky', label: 'קריצה מטורפת', describe: 'wacky wink', random: false },
+      { id: 'eyeRoll', label: 'מגלגלות עיניים', describe: 'rolling eyes', random: false },
+      { id: 'xDizzy', label: 'מסוחררות', describe: 'dizzy X eyes', random: false },
     ],
   },
   brows: {
@@ -171,6 +176,9 @@ export const AVATAR_PARTS = {
       { id: 'sadConcernedNatural', label: 'מודאגות', describe: 'concerned eyebrows' },
       { id: 'frownNatural', label: 'מכווצות', describe: 'frowning eyebrows' },
       { id: 'unibrowNatural', label: 'גבה אחת', describe: 'unibrow' },
+      { id: 'default', label: 'דקות', describe: 'thin cartoon eyebrows' },
+      { id: 'raisedExcited', label: 'דקות מורמות', describe: 'thin raised, excited eyebrows' },
+      { id: 'upDown', label: 'דקות, אחת מורמת', describe: 'thin eyebrows, one raised' },
     ],
   },
   mouth: {
@@ -185,6 +193,7 @@ export const AVATAR_PARTS = {
       { id: 'eating', label: 'לועס', describe: 'chewing, full cheeks' },
       { id: 'serious', label: 'רציני', describe: 'straight, serious mouth' },
       { id: 'disbelief', label: 'וואו', describe: 'open mouth, amazed' },
+      { id: 'grimace', label: 'עווית', describe: 'grimace with clenched teeth', random: false },
     ],
   },
   facialHair: {
@@ -209,8 +218,10 @@ export const AVATAR_PARTS = {
       { id: 'prescription01', label: 'דקים', describe: 'thin glasses' },
       { id: 'prescription02', label: 'עבים', describe: 'thick-rimmed glasses' },
       { id: 'round', label: 'עגולים', describe: 'round glasses' },
-      { id: 'wayfarers', label: 'משקפי שמש', describe: 'sunglasses' },
+      { id: 'wayfarers', label: 'משקפי שמש', describe: 'dark sunglasses' },
+      { id: 'sunglasses', label: 'משקפי שמש רחבים', describe: 'wide dark sunglasses' },
       { id: 'kurt', label: 'משקפי שמש עגולים', describe: 'round white sunglasses' },
+      { id: 'eyepatch', label: 'רטייה', describe: 'eye patch', random: false },
     ],
   },
   hat: {
@@ -297,7 +308,8 @@ export function randomAvatarConfig(random = Math.random) {
   const pick = (list) => list[Math.floor(random() * list.length)].id;
   const config = { v: AVATAR_CONFIG_VERSION, parts: {}, colors: {} };
   for (const [key, part] of Object.entries(AVATAR_PARTS)) {
-    const options = part.options;
+    // Playful options (dizzy eyes, eye patch…) are for choosing, not for "surprise me".
+    const options = part.options.filter((o) => o.random !== false);
     const rare = ['facialHair', 'glasses'].includes(key);
     config.parts[key] = rare && random() < 0.6 ? 'none' : pick(options);
   }
