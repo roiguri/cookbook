@@ -5,6 +5,7 @@ import { KnifeSkillsGame } from './knife_skills.js';
 import { ChefSaysGame } from './chef_says.js';
 import { PancakeFlipGame } from './pancake_flip.js';
 import { GardenHarvestGame } from './garden_harvest.js';
+import { LayerCakeGame } from './layer_cake.js';
 import '../utilities/rotate-prompt/rotate-prompt.js';
 import wrapperCss from './game_wrapper.css?inline';
 import memoryCss from './memory_game.css?inline';
@@ -110,6 +111,21 @@ const REGISTRY = [
     excludeFromRandom: true,
     // Phones play it upright. The game implements pause()/resume(), so it
     // freezes while the rotate prompt is up.
+    preferredOrientation: 'portrait',
+  },
+  {
+    key: 'cake',
+    name: 'עוגת שכבות',
+    icon: '🎂',
+    description: 'בנו עוגה גבוהה, שכבה אחר שכבה',
+    GameClass: LayerCakeGame,
+    defaultConfig: { toStack: 20 },
+    successMessage: 'כל הכבוד! עוגה מושלמת',
+    loadingText: 'אופים שכבות... חכה רגע!',
+    // /games only — never a filler game during async waits.
+    excludeFromRandom: true,
+    // A tall cake — recommend portrait on phones. Pauses behind the rotate
+    // prompt via pause()/resume().
     preferredOrientation: 'portrait',
   },
 ];
