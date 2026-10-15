@@ -103,7 +103,7 @@ const REGISTRY = [
     icon: '🥕',
     description: 'קטפו ירקות, היזהרו מתולעים',
     GameClass: GardenHarvestGame,
-    defaultConfig: { toHarvest: 20, maxStrikes: 5 },
+    defaultConfig: { toHarvest: 20, maxStrikes: 3 },
     successMessage: 'כל הכבוד! סל מלא ירקות',
     loadingText: 'משקים את הגינה... חכה רגע!',
     // /games only — never a filler game during async waits.

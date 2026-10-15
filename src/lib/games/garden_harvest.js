@@ -21,7 +21,7 @@ const WORM = { emoji: '🐛', he: 'תולעת' };
 
 const TUNING = {
   win: { toHarvest: 20 },
-  miss: { maxStrikes: 5 },
+  miss: { maxStrikes: 3 },
   holes: 9,
   pop: {
     // Seconds an item stays up; shrinks as the player harvests more.
