@@ -15,13 +15,13 @@ import { START_OVERLAY_STYLES, showStartOverlay } from './game_start_overlay.js'
 const FLAVORS = ['sponge', 'pistachio', 'chocolate', 'strawberry'];
 
 const TUNING = {
-  win: { toStack: 12 },
+  win: { toStack: 20 },
   base: { width: 0.6 },
   slide: {
     // Field widths per second; speeds up with every layer.
-    baseSpeed: 0.42,
+    baseSpeed: 0.55,
     speedPerLayer: 0.045,
-    maxSpeed: 1.05,
+    maxSpeed: 1.35,
     // How far past each edge a layer may slide, as a fraction of its width.
     overhang: 0.75,
     // Distance the layer travels past the cake's edge at each end.
@@ -94,8 +94,7 @@ export class LayerCakeGame {
       this.removeStartOverlay = showStartOverlay(this.gameEl, {
         emoji: '🎂',
         title: 'עוגת שכבות',
-        instructions:
-          'שכבה זזה מעל העוגה — הקישו כדי להניח אותה. מה שבולט מעבר לשכבה שמתחת נחתך. פספסתם לגמרי? העוגה נגמרה. בנו 12 שכבות!',
+        instructions: `שכבה זזה מעל העוגה — הקישו כדי להניח אותה. מה שבולט מעבר לשכבה שמתחת נחתך. פספסתם לגמרי? העוגה נגמרה. בנו ${this.config.toStack} שכבות!`,
         onStart: () => {
           this.removeStartOverlay = null;
           this.beginPlay();

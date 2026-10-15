@@ -119,7 +119,7 @@ const REGISTRY = [
     icon: '🎂',
     description: 'בנו עוגה גבוהה, שכבה אחר שכבה',
     GameClass: LayerCakeGame,
-    defaultConfig: { toStack: 12 },
+    defaultConfig: { toStack: 20 },
     successMessage: 'כל הכבוד! עוגה מושלמת',
     loadingText: 'אופים שכבות... חכה רגע!',
     // /games only — never a filler game during async waits.
