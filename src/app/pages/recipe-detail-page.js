@@ -9,6 +9,7 @@ import { getRecipeStatus, RECIPE_STATUS } from '../../js/utils/recipes/recipe-st
 import { recipeShareText } from '../../js/utils/recipes/recipe-text.js';
 import { shareOrCopy } from '../../js/utils/share.js';
 import { showToast } from '../../lib/notifications/toast-notification/toast-notification.js';
+import { createDropdownMenu } from '../../lib/utilities/dropdown-menu/dropdown-menu.js';
 import '../../styles/pages/recipe-detail-spa.css';
 
 export default {
@@ -170,31 +171,17 @@ export default {
       this.refreshMenu();
     });
 
-    // Toggle dropdown on button click
-    menuButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.closeShareMenu();
-      menuDropdown.classList.toggle('open');
-      menuButton.setAttribute('aria-expanded', String(menuDropdown.classList.contains('open')));
+    // Open/close (button, outside tap, Escape, one menu at a time) — shared with share.
+    this._menu.dropdown = createDropdownMenu({
+      button: menuButton,
+      dropdown: menuDropdown,
+      root: menu,
     });
-
-    // Close dropdown when clicking outside
-    const closeDropdown = (e) => {
-      if (!menuButton.contains(e.target) && !menuDropdown.contains(e.target)) {
-        menuDropdown.classList.remove('open');
-      }
-    };
-    document.addEventListener('click', closeDropdown);
-
-    // Store cleanup function for unmount
-    this._menuCleanup = () => {
-      document.removeEventListener('click', closeDropdown);
-    };
 
     // Handle "Suggest Edit" click
     if (suggestEditBtn) {
       suggestEditBtn.addEventListener('click', async () => {
-        menuDropdown.classList.remove('open');
+        this.closeMenu();
         await this._componentsReady;
         const modal = container.querySelector('suggest-edit-modal');
         if (modal) {
@@ -208,7 +195,7 @@ export default {
     // Handle "Add to Meal" click
     if (addToMealBtn) {
       addToMealBtn.addEventListener('click', async () => {
-        menuDropdown.classList.remove('open');
+        this.closeMenu();
         await this._componentsReady;
         const currentUser = authService.getCurrentUser();
         if (!currentUser) return;
@@ -239,7 +226,7 @@ export default {
 
     // Owner: mark a "to try" recipe as tested
     markTestedBtn?.addEventListener('click', async () => {
-      menuDropdown.classList.remove('open');
+      this.closeMenu();
       try {
         await RecipeService.markTested(currentId());
         showToast('סומן כנבדק — המתכון עבר לספרייה שלכם', 'success');
@@ -252,7 +239,7 @@ export default {
 
     // Owner: move a tested recipe back to "to try" (private or published alike)
     markToTryBtn?.addEventListener('click', async () => {
-      menuDropdown.classList.remove('open');
+      this.closeMenu();
       try {
         await RecipeService.markToTry(currentId());
         showToast('הוחזר ל״לנסות״', 'success');
@@ -266,7 +253,7 @@ export default {
     // Owner: edit — the same editor (with preview) the manager dashboard uses,
     // without publishing on save. `onSaved` runs after a successful save.
     const openEditor = async (onSaved) => {
-      menuDropdown.classList.remove('open');
+      this.closeMenu();
       await import('../../lib/recipes/recipe_preview_modal/edit_preview_recipe.js');
       container.querySelector('edit-preview-recipe')?.remove();
       const editor = document.createElement('edit-preview-recipe');
@@ -298,7 +285,7 @@ export default {
 
     // Owner: send a private recipe to the family book
     submitBtn?.addEventListener('click', async () => {
-      menuDropdown.classList.remove('open');
+      this.closeMenu();
       await this._componentsReady;
       const recipe = this.currentRecipe;
       const untested = recipe?.stage === STAGE.TO_TRY;
@@ -326,7 +313,7 @@ export default {
 
     // Owner: cancel a pending submission
     cancelSubmissionBtn?.addEventListener('click', async () => {
-      menuDropdown.classList.remove('open');
+      this.closeMenu();
       await this._componentsReady;
       const confirmed = await this.getConfirmModal().confirm(
         'המתכון יוסר מתור האישור ויישאר פרטי בספרייה שלכם.',
@@ -348,7 +335,7 @@ export default {
 
     // Owner: delete a private recipe (with its photos, media and pending submission)
     deleteBtn?.addEventListener('click', async () => {
-      menuDropdown.classList.remove('open');
+      this.closeMenu();
       await this._componentsReady;
       const recipe = this.currentRecipe;
       const id = currentId();
@@ -404,24 +391,25 @@ export default {
       this._servings = event.detail?.servings || null;
     });
 
-    button.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const recipe = this.currentRecipe;
-      if (!recipe) return;
-      const menu = this._menu;
-      menu?.menuDropdown.classList.remove('open');
-      menu?.container.querySelector('.recipe-menu-button')?.setAttribute('aria-expanded', 'false');
-      const mode = this.shareMode();
-      if (mode === 'text') {
-        this.shareRecipe('text');
-        return;
-      }
-      if (familyBtn) familyBtn.hidden = mode !== 'family';
-      if (mode === 'family') this.prefetchFamily();
-      if (linkBtn) linkBtn.hidden = mode !== 'published';
-      const open = !dropdown.classList.contains('open');
-      dropdown.classList.toggle('open', open);
-      button.setAttribute('aria-expanded', String(open));
+    // Same open/close behaviour as ⋮. Before opening, pick the items for this
+    // recipe — or, for text-only recipes, share straight away instead.
+    this._share.dropdown = createDropdownMenu({
+      button,
+      dropdown,
+      root: wrap,
+      beforeOpen: () => {
+        if (!this.currentRecipe) return false;
+        this.closeMenu();
+        const mode = this.shareMode();
+        if (mode === 'text') {
+          this.shareRecipe('text');
+          return false;
+        }
+        if (familyBtn) familyBtn.hidden = mode !== 'family';
+        if (mode === 'family') this.prefetchFamily();
+        if (linkBtn) linkBtn.hidden = mode !== 'published';
+        return true;
+      },
     });
 
     familyBtn?.addEventListener('click', () => {
@@ -437,19 +425,15 @@ export default {
       this.shareRecipe('text');
     });
 
-    const closeOnOutsideClick = (event) => {
-      if (!wrap.contains(event.target)) this.closeShareMenu();
-    };
-    document.addEventListener('click', closeOnOutsideClick);
-    this._shareCleanup = () => document.removeEventListener('click', closeOnOutsideClick);
-
     this.refreshShare();
   },
 
+  closeMenu() {
+    this._menu?.dropdown?.close();
+  },
+
   closeShareMenu() {
-    if (!this._share) return;
-    this._share.dropdown.classList.remove('open');
-    this._share.button.setAttribute('aria-expanded', 'false');
+    this._share?.dropdown?.close();
   },
 
   /**
@@ -604,7 +588,7 @@ export default {
 
     // Every menu action needs a signed-in user, so signed-out visitors get no menu.
     els.menu.style.display = user && !this._notFound ? '' : 'none';
-    if (!user || this._notFound) els.menuDropdown.classList.remove('open');
+    if (!user || this._notFound) this.closeMenu();
     if (els.addToMealBtn) els.addToMealBtn.style.display = 'flex';
 
     const isPrivate = recipe?.visibility === VISIBILITY.PRIVATE;
@@ -797,17 +781,13 @@ export default {
 
   async unmount() {
     // Clean up menu event listeners
-    if (this._menuCleanup) {
-      this._menuCleanup();
-      this._menuCleanup = null;
-    }
+    this._menu?.dropdown?.destroy();
     if (this._menuAuthUnsubscribe) {
       this._menuAuthUnsubscribe();
       this._menuAuthUnsubscribe = null;
     }
     this._menu = null;
-    this._shareCleanup?.();
-    this._shareCleanup = null;
+    this._share?.dropdown?.destroy();
     this._share = null;
     this._sharedByFor = null;
     document.getElementById('share-family-modal')?.close();
