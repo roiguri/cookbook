@@ -46,7 +46,9 @@ class UserProfile extends HTMLElement {
   render() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; }
+        /* The footer stays at the bottom: of the screen when the tab is shorter, of the
+           content when it's taller (the whole modal scrolls then). */
+        :host { display: flex; flex-direction: column; }
 
         /* ---- Panels ---- */
         .profile-body[data-panel="avatar"] { padding-top: 18px; padding-bottom: 14px; }
@@ -55,13 +57,7 @@ class UserProfile extends HTMLElement {
         }
         .profile-body {
           padding: 28px 40px 32px;
-          max-height: 60vh;
-          overflow-y: auto;
-          -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
         }
-        .profile-body { scrollbar-width: none; }
-        .profile-body::-webkit-scrollbar { display: none; }
 
         .section-title {
           font-family: var(--font-mono, monospace);
@@ -189,6 +185,7 @@ class UserProfile extends HTMLElement {
 
         /* ---- Footer ---- */
         .profile-foot {
+          margin-top: auto;
           padding: 14px 40px;
           background: var(--surface-2, #f2e8cf);
           border-radius: var(--r-lg, 16px) var(--r-lg, 16px) var(--r-xl, 20px) var(--r-xl, 20px);

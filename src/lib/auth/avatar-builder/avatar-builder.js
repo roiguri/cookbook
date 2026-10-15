@@ -87,6 +87,8 @@ class AvatarBuilder extends HTMLElement {
       this._render();
       this._bind();
     }
+    this._onResize ??= () => this._updateAllFades();
+    window.addEventListener('resize', this._onResize);
     this._update();
   }
 
@@ -180,8 +182,9 @@ class AvatarBuilder extends HTMLElement {
            tabs (skin, background): just the colours, right under the tab bar. */
         #panel {
           --tile: 64px;
+          --bar: 10px; /* room for the options' scrollbar under the tiles (mouse) */
           display: flex; flex-direction: column;
-          height: calc(2 * var(--tile) + 8px + 8px + 58px);
+          height: calc(2 * var(--tile) + 8px + 6px + var(--bar) + 8px + 58px);
         }
         #panel.colors-only .options { display: none; }
         #panel.colors-only .palette { margin-top: 0; }
@@ -191,11 +194,24 @@ class AvatarBuilder extends HTMLElement {
           grid-template-rows: repeat(2, var(--tile));
           grid-auto-columns: var(--tile);
           gap: 8px;
-          height: calc(2 * var(--tile) + 8px);
-          padding: 3px 3px 6px;
+          height: calc(2 * var(--tile) + 8px + 6px + var(--bar));
+          padding: 3px 3px calc(3px + var(--bar));
           overflow-x: auto; overflow-y: hidden;
           overscroll-behavior-x: contain;
           scrollbar-width: thin;
+        }
+        /* Touch screens swipe: no scrollbar over the tiles; the edge fade shows there's more. */
+        @media (hover: none) {
+          #panel { --bar: 0px; }
+          .options { scrollbar-width: none; }
+          .options::-webkit-scrollbar { display: none; }
+        }
+        /* Scrolling rows fade on the side that has more (set from _updateFades). */
+        .fade-left { -webkit-mask-image: linear-gradient(to right, transparent, #000 32px); mask-image: linear-gradient(to right, transparent, #000 32px); }
+        .fade-right { -webkit-mask-image: linear-gradient(to left, transparent, #000 32px); mask-image: linear-gradient(to left, transparent, #000 32px); }
+        .fade-left.fade-right {
+          -webkit-mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+          mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
         }
         .opt {
           width: var(--tile); height: var(--tile); padding: 0;
@@ -290,8 +306,34 @@ class AvatarBuilder extends HTMLElement {
     `;
   }
 
+  disconnectedCallback() {
+    window.removeEventListener('resize', this._onResize);
+  }
+
+  /** Fade a scrolling row on the side(s) that have more to scroll to. */
+  _updateFades(el) {
+    const max = el.scrollWidth - el.clientWidth;
+    const pos = Math.abs(el.scrollLeft); // RTL scrolls to negative positions
+    const moreStart = max > 1 && pos > 1;
+    const moreEnd = max > 1 && pos < max - 1;
+    const rtl = getComputedStyle(el).direction === 'rtl';
+    el.classList.toggle('fade-left', rtl ? moreEnd : moreStart);
+    el.classList.toggle('fade-right', rtl ? moreStart : moreEnd);
+  }
+
+  _updateAllFades() {
+    for (const id of ['tabs', 'options', 'swatches']) {
+      const el = this.shadowRoot.getElementById(id);
+      if (el) this._updateFades(el);
+    }
+  }
+
   _bind() {
     const $ = (id) => this.shadowRoot.getElementById(id);
+    for (const id of ['tabs', 'options', 'swatches']) {
+      $(id).addEventListener('scroll', () => this._updateFades($(id)), { passive: true });
+    }
+
     $('tabs').addEventListener('click', (e) => {
       const tab = e.target.closest('[data-tab]');
       if (!tab) return;
@@ -409,6 +451,7 @@ class AvatarBuilder extends HTMLElement {
     }
 
     this._updateActions();
+    requestAnimationFrame(() => this._updateAllFades());
   }
 
   _updateActions() {
