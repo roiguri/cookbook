@@ -20,7 +20,7 @@ the builder.
   `@dicebear/avataaars`, MIT code). **Both are pinned to an exact version.** The kitchen layer edits
   DiceBear's output, so upgrade only together with `npm run check:avatars` and the unit tests.
 - **Kitchen layer (ours):** chef hats (puffy toque, tall pleated toque, short chef cap, paper
-  cook's cap, bandana, skull cap, beret, baseball cap worn forwards or backwards, headband) and
+  cook's cap, bandana, skull cap, baseball cap worn forwards or backwards, headband) and
   outfits (chef jacket, bib apron, T-shirt with apron, striped butcher apron), drawn in the
   same flat style. A headband (`band: true`) sits on the hair: nothing is hidden under it and
   it never grows.

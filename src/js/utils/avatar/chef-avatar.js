@@ -229,7 +229,6 @@ export const AVATAR_PARTS = {
         label: 'כובע נייר',
         describe: 'folded paper line-cook cap with a coloured stripe',
       },
-      { id: 'beret', label: 'ברט', describe: 'soft beret tilted to one side' },
       { id: 'backwards', label: 'כובע הפוך', describe: 'baseball cap worn backwards' },
       { id: 'headband', label: 'סרט ראש', describe: 'fabric headband tied at the side' },
       { id: 'none', label: 'בלי כובע', describe: 'no hat' },
@@ -528,17 +527,6 @@ const HATS = {
       '<path d="M132 42V62" stroke="#000" stroke-opacity=".08" stroke-width="3" stroke-linecap="round"/>' +
       '<path d="M164 30 185 36 190 74H170Z" fill="#000" fill-opacity=".05"/>' +
       `<path d="M74 74 75.6 64Q132 54 188.4 64L190 74Q132 64 74 74Z" fill="${a}"/>`,
-  }),
-  beret: (a) => ({
-    crown: 24,
-    bottom: 68,
-    fill: a,
-    extra: `<rect x="128" y="14" width="8" height="13" rx="3" fill="${a}"/><rect x="128" y="14" width="8" height="13" rx="3" fill="#000" fill-opacity=".15"/>`,
-    shape:
-      '<path d="M68 64C62 40 92 24 134 24c44 0 76 14 76 32 0 8-10 12-24 12H90c-12 0-20-1-22-4Z"/>',
-    details:
-      '<path d="M66 60Q132 72 212 56L212 72H66Z" fill="#000" fill-opacity=".16"/>' +
-      '<path d="M176 30C196 36 210 46 210 56L188 60C188 48 184 38 176 30Z" fill="#000" fill-opacity=".07"/>',
   }),
   backwards: (a) => ({
     crown: 21,
