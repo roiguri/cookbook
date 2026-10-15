@@ -176,23 +176,13 @@ describe('renderAvatarSvg', () => {
     expect(hatScale(withHat('fro', 'cap'))).toBeGreaterThan(hatScale(withHat('bob', 'cap')));
     expect(hatScale(withHat('shortFlat', 'cap'))).toBe(1);
   });
-
-  it('hijab and turban come from Avataaars and need no kitchen hat', () => {
-    for (const hat of ['hijab', 'turban']) {
-      const svg = withHat('curly', hat);
-      expect(svg).not.toMatch(/-hat"/);
-      expect(parseErrors(svg)).toBe(0);
-    }
-  });
 });
 
 describe('kitchen props', () => {
   // A prop's shading and decoration are clipped to its own outline (pixel-checked by
   // scripts/avatars/check-avatars.cjs); here: every detail group is clipped.
   it.each([
-    ...AVATAR_PARTS.hat.options
-      .filter((o) => !['none', 'hijab', 'turban'].includes(o.id))
-      .map((o) => ['hat', o.id]),
+    ...AVATAR_PARTS.hat.options.filter((o) => o.id !== 'none').map((o) => ['hat', o.id]),
     ...AVATAR_PARTS.outfit.options.map((o) => ['outfit', o.id]),
   ])('%s %s keeps its details inside its outline', (kind, id) => {
     const svg = renderKitchenPropSvg(kind, id);

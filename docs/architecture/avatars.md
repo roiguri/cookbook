@@ -19,9 +19,11 @@ the builder.
   commercial use"), drawn through [DiceBear](https://www.dicebear.com/) (`@dicebear/core` +
   `@dicebear/avataaars`, MIT code). **Both are pinned to an exact version.** The kitchen layer edits
   DiceBear's output, so upgrade only together with `npm run check:avatars` and the unit tests.
-- **Kitchen layer (ours):** chef hats (toque, short chef cap, bandana, skull cap, baseball cap) and
+- **Kitchen layer (ours):** chef hats (puffy toque, tall pleated toque, short chef cap, paper
+  cook's cap, bandana, skull cap, beret, baseball cap worn forwards or backwards, headband) and
   outfits (chef jacket, bib apron, T-shirt with apron, striped butcher apron), drawn in the
-  same flat style. Hijab and turban come from Avataaars itself.
+  same flat style. A headband (`band: true`) sits on the hair: nothing is hidden under it and
+  it never grows.
 - The catalogue keeps only natural skin tones and kitchen-friendly expressions (no yellow
   skin, no dizzy or vomit faces).
 

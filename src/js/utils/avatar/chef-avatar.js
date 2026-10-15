@@ -223,8 +223,15 @@ export const AVATAR_PARTS = {
       { id: 'bandana', label: 'בנדנה', describe: 'polka-dot bandana tied at the side' },
       { id: 'beanie', label: 'כיפת מטבח', describe: 'snug white kitchen skull cap' },
       { id: 'baseball', label: 'כובע מצחייה', describe: 'baseball cap' },
-      { id: 'hijab', label: 'חיג׳אב', describe: 'hijab' },
-      { id: 'turban', label: 'טורבן', describe: 'turban' },
+      { id: 'tallToque', label: 'כובע שף גבוה', describe: 'classic tall pleated chef toque' },
+      {
+        id: 'paperCap',
+        label: 'כובע נייר',
+        describe: 'folded paper line-cook cap with a coloured stripe',
+      },
+      { id: 'beret', label: 'ברט', describe: 'soft beret tilted to one side' },
+      { id: 'backwards', label: 'כובע הפוך', describe: 'baseball cap worn backwards' },
+      { id: 'headband', label: 'סרט ראש', describe: 'fabric headband tied at the side' },
       { id: 'none', label: 'בלי כובע', describe: 'no hat' },
     ],
   },
@@ -283,16 +290,15 @@ export function normalizeAvatarConfig(raw) {
 }
 
 /**
- * A random config. Facial hair and glasses are rarer than "none", and hijab/turban are left
- * to the user's own choice.
+ * A random config. Facial hair and glasses are rarer than "none", so random avatars don't
+ * all look alike.
  * @param {() => number} [random=Math.random]
  */
 export function randomAvatarConfig(random = Math.random) {
   const pick = (list) => list[Math.floor(random() * list.length)].id;
   const config = { v: AVATAR_CONFIG_VERSION, parts: {}, colors: {} };
   for (const [key, part] of Object.entries(AVATAR_PARTS)) {
-    let options = part.options;
-    if (key === 'hat') options = options.filter((o) => !['hijab', 'turban'].includes(o.id));
+    const options = part.options;
     const rare = ['facialHair', 'glasses'].includes(key);
     config.parts[key] = rare && random() < 0.6 ? 'none' : pick(options);
   }
@@ -484,6 +490,80 @@ const HATS = {
       '<path d="M132 24v48" stroke="#000" stroke-opacity=".12" stroke-width="2.5"/>' +
       '<path d="M70 74c20-8 104-8 124 0 2 8-18 12-62 12s-64-4-62-12Z" fill="#000" fill-opacity=".18"/>',
   }),
+  tallToque: () => ({
+    // its tall body already covers the crown; growing more would leave the frame
+    crown: 4,
+    bottom: 74,
+    fill: '#fff',
+    edge: WHITE_EDGE,
+    shape:
+      '<path d="M80 50 72 0Q132-12 192 0L184 50Z"/><ellipse cx="132" cy="-2" rx="62" ry="12"/>' +
+      '<rect x="76" y="44" width="112" height="30" rx="6"/>',
+    details:
+      [
+        [86, 82],
+        [104, 102],
+        [122, 121],
+        [142, 143],
+        [160, 162],
+        [178, 182],
+      ]
+        .map(
+          ([top, foot]) =>
+            `<path d="M${top} 4 ${foot} 44" stroke="#000" stroke-opacity=".07" stroke-width="3" stroke-linecap="round"/>`,
+        )
+        .join('') +
+      '<path d="M170-12Q194-8 194 0L184 50H168Z" fill="#000" fill-opacity=".06"/>' +
+      '<rect x="76" y="44" width="112" height="30" rx="6" fill="#F2F1ED"/>',
+  }),
+  paperCap: (a) => ({
+    crown: 30,
+    bottom: 74,
+    fill: '#fff',
+    edge: WHITE_EDGE,
+    shape: '<path d="M74 74 79 36Q132 26 185 36L190 74Q132 64 74 74Z"/>',
+    details:
+      // the folded-over top edge, a centre crease and the coloured stripe
+      '<path d="M79 36Q132 26 185 36L184 48Q132 38 80 48Z" fill="#000" fill-opacity=".08"/>' +
+      '<path d="M132 42V62" stroke="#000" stroke-opacity=".08" stroke-width="3" stroke-linecap="round"/>' +
+      '<path d="M164 30 185 36 190 74H170Z" fill="#000" fill-opacity=".05"/>' +
+      `<path d="M74 74 75.6 64Q132 54 188.4 64L190 74Q132 64 74 74Z" fill="${a}"/>`,
+  }),
+  beret: (a) => ({
+    crown: 24,
+    bottom: 68,
+    fill: a,
+    extra: `<rect x="128" y="14" width="8" height="13" rx="3" fill="${a}"/><rect x="128" y="14" width="8" height="13" rx="3" fill="#000" fill-opacity=".15"/>`,
+    shape:
+      '<path d="M68 64C62 40 92 24 134 24c44 0 76 14 76 32 0 8-10 12-24 12H90c-12 0-20-1-22-4Z"/>',
+    details:
+      '<path d="M66 60Q132 72 212 56L212 72H66Z" fill="#000" fill-opacity=".16"/>' +
+      '<path d="M176 30C196 36 210 46 210 56L188 60C188 48 184 38 176 30Z" fill="#000" fill-opacity=".07"/>',
+  }),
+  backwards: (a) => ({
+    crown: 21,
+    bottom: 74,
+    fill: a,
+    shape: '<path d="M76 74c0-32 24-50 56-50s56 18 56 50Z"/><circle cx="132" cy="25" r="4"/>',
+    details:
+      '<path d="M132 24v30" stroke="#000" stroke-opacity=".12" stroke-width="2.5"/>' +
+      '<path d="M110 76Q110 52 132 52T154 76Z" fill="#000" fill-opacity=".28"/>' +
+      '<rect x="112" y="62" width="40" height="5" rx="2.5" fill="#000" fill-opacity=".22"/>' +
+      '<path d="M76 70Q132 62 188 70V76H76Z" fill="#000" fill-opacity=".12"/>',
+  }),
+  headband: (a) => ({
+    // Sits on the hair: no hair is hidden under it and it never grows.
+    band: true,
+    crown: 52,
+    bottom: 70,
+    fill: a,
+    extra:
+      `<path d="M180 56l20-10c3 8 0 14-6 15Z" fill="${a}"/><path d="M180 61l17 11c-5 5-11 3-14-3Z" fill="${a}"/>` +
+      '<path d="M180 56l20-10c3 8 0 14-6 15ZM180 61l17 11c-5 5-11 3-14-3Z" fill="#000" fill-opacity=".12"/>',
+    shape:
+      '<path d="M82 70 86 52Q132 40 178 52L182 70Q132 58 82 70Z"/><circle cx="181" cy="59" r="5.5"/>',
+    details: '<path d="M84 64Q132 52 180 64L182 70Q132 58 82 70Z" fill="#000" fill-opacity=".12"/>',
+  }),
 };
 
 /** A hat's SVG (figure coordinates): outline, then details clipped to it. */
@@ -533,9 +613,6 @@ export const HAT_FIT = {
 const HEAD_CENTRE_Y = 92;
 const CROWN_MARGIN = 4;
 
-/** Avataaars tops that are headwear, not hair. */
-const AVATAAARS_HEADWEAR = { hijab: 'hijab', turban: 'turban' };
-
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -575,8 +652,7 @@ export function renderAvatarSvg(rawConfig, { viewBox = '0 0 280 280', size, titl
   const { parts, colors } = normalizeAvatarConfig(rawConfig);
   const id = `ca${(renderCount = (renderCount + 1) % 1e6)}`;
   const accent = `#${color('outfit', colors.outfit)}`;
-  const headwear = AVATAAARS_HEADWEAR[parts.hat];
-  const hat = !headwear && HATS[parts.hat] ? HATS[parts.hat](accent) : null;
+  const hat = HATS[parts.hat] ? HATS[parts.hat](accent) : null;
   const bg = color('background', colors.background);
 
   let svg = createAvatar(avataaars, {
@@ -584,8 +660,8 @@ export function renderAvatarSvg(rawConfig, { viewBox = '0 0 280 280', size, titl
     randomizeIds: true,
     style: ['default'],
     clothing: ['shirtCrewNeck'],
-    top: [headwear || (parts.hair === 'bald' ? 'shortFlat' : parts.hair)],
-    topProbability: headwear || parts.hair !== 'bald' ? 100 : 0,
+    top: [parts.hair === 'bald' ? 'shortFlat' : parts.hair],
+    topProbability: parts.hair === 'bald' ? 0 : 100,
     hatColor: [color('outfit', colors.outfit)],
     hairColor: [color('hair', colors.hair)],
     facialHairColor: [color('hair', colors.hair)],
@@ -611,7 +687,9 @@ export function renderAvatarSvg(rawConfig, { viewBox = '0 0 280 280', size, titl
   if (hat) {
     const fit = HAT_FIT[parts.hair] || {};
     let grow = 1;
-    if (fit.crown != null) {
+    if (hat.band) {
+      // A headband sits on the hair: nothing to hide, nothing to cover.
+    } else if (fit.crown != null) {
       // Scale the hat around the head's centre until its crown covers the hair's crown.
       const need = HEAD_CENTRE_Y - (fit.crown - CROWN_MARGIN);
       grow = Math.max(1, need / (HEAD_CENTRE_Y - hat.crown));

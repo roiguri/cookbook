@@ -33,9 +33,7 @@ const config = (parts, colors = {}) => ({
   colors: { ...DEFAULT_AVATAR_CONFIG.colors, background: 'none', outfit: 'mustard', ...colors },
 });
 
-const kitchenHats = AVATAR_PARTS.hat.options.filter(
-  (o) => !['none', 'hijab', 'turban'].includes(o.id),
-);
+const kitchenHats = AVATAR_PARTS.hat.options.filter((o) => o.id !== 'none');
 const items = [];
 for (const hat of kitchenHats)
   for (const c of AVATAR_COLORS.outfit.options)
