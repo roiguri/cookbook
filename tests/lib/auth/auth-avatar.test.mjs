@@ -73,6 +73,19 @@ describe('<auth-avatar>', () => {
     expect(trigger().textContent).toContain('Z');
   });
 
+  it('only pictures get the search-bar border; the green circle stays borderless', async () => {
+    const { el, trigger } = mount();
+    avatarUrl = BUILT;
+    el.updateAvatar({ email: 'a@b.c' });
+    await settle();
+    expect(trigger().classList.contains('photo')).toBe(true);
+    el.updateAvatar(null);
+    expect(trigger().classList.contains('photo')).toBe(false);
+    avatarUrl = null;
+    el.updateAvatar({ email: 'a@b.c' });
+    expect(trigger().classList.contains('photo')).toBe(false);
+  });
+
   it('keeps the current icon (pending) until the new picture loads: no empty circle', async () => {
     const { el, trigger } = mount();
     avatarUrl = BUILT;

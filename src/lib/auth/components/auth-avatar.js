@@ -46,8 +46,6 @@ class AuthAvatar extends HTMLElement {
           background: linear-gradient(135deg, var(--primary-bright), var(--primary-dark));
           color: #ffffff;
           box-sizing: border-box;
-          /* Same edge as the header search bar beside it. */
-          border: 1px solid var(--hairline, rgba(31,29,24,0.1));
           transition: box-shadow var(--dur-1, 160ms) var(--ease, ease),
                       transform var(--dur-1, 160ms) var(--ease, ease);
         }
@@ -70,6 +68,9 @@ class AuthAvatar extends HTMLElement {
           display: block;
           transform: scale(1.12) translateY(4%);
         }
+
+        /* A picture gets the header search bar's edge; the green circle stays borderless. */
+        .avatar.photo { border: 1px solid var(--hairline, rgba(31,29,24,0.1)); }
 
         /* A built avatar fills its square: no zoom, and no gradient bleeding at the edge. */
         .avatar.built { background: var(--surface-1, #fff); }
@@ -184,6 +185,7 @@ class AuthAvatar extends HTMLElement {
       avatar.classList.remove('pending');
       avatar.classList.toggle('signed-out', signedOut);
       avatar.classList.toggle('built', built);
+      avatar.classList.toggle('photo', typeof content !== 'string');
       if (typeof content === 'string') avatar.innerHTML = content;
       else avatar.replaceChildren(content);
       avatar.classList.remove('fade-in');
