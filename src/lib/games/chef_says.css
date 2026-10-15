@@ -91,6 +91,17 @@
     box-shadow var(--dur-1) var(--ease-out);
 }
 
+/* Large tiles: card-sized press (see design-system.md, Pressed states). */
+.chef-pad:active {
+  transform: scale(var(--press-scale-card, 0.985));
+}
+
+.chef-board[data-phase='showing'] .chef-pad:active,
+.chef-board[data-phase='between'] .chef-pad:active,
+.chef-board[data-phase='over'] .chef-pad:active {
+  transform: none;
+}
+
 .chef-pad:focus-visible {
   outline: none;
   box-shadow: var(--shadow-1), var(--ring);

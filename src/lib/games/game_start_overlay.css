@@ -74,6 +74,12 @@
   box-shadow: var(--shadow-2), var(--ring);
 }
 
+.game-start-btn:active {
+  background: var(--primary-dark);
+  transform: scale(var(--press-scale, 0.97));
+  box-shadow: var(--shadow-1);
+}
+
 /* Landscape phone: the card has to fit in ~360px of height. */
 @media (max-height: 500px) {
   .game-start-card {
