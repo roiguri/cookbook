@@ -3,8 +3,6 @@ import '../../modals/confirmation_modal/confirmation_modal.js';
 import authService from '../../../js/services/auth/auth-service.js';
 import { UserService } from '../../../js/services/users/user-service.js';
 
-let avatarCache = null;
-
 // A built avatar's download URL points at user-avatars/{uid}.png (path URL-encoded).
 const isBuiltAvatar = (url) => typeof url === 'string' && url.includes('user-avatars%2F');
 
@@ -114,31 +112,7 @@ class UserProfile extends HTMLElement {
           font-size: 10.5px; color: var(--ink-3, #7c7562);
         }
 
-        /* ---- Avatar grid ---- */
-        .avatar-grid {
-          display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: 10px;
-        }
-        .avatar-pick {
-          aspect-ratio: 1/1; border-radius: var(--r-md, 12px);
-          border: 2px solid var(--hairline, rgba(31,29,24,0.08));
-          background: var(--surface-2, #f2e8cf);
-          cursor: pointer; position: relative; overflow: hidden;
-          display: inline-flex; align-items: center; justify-content: center;
-          transition: border-color var(--dur-1, 160ms), transform var(--dur-1, 160ms);
-          padding: 0;
-        }
-        .avatar-pick:hover { transform: translateY(-2px); border-color: var(--primary-bright, #a7c957); }
-        .avatar-pick:active { transform: scale(var(--press-scale, 0.97)); border-color: var(--primary-bright, #a7c957); }
-        .avatar-pick.on { border-color: var(--primary-dark, #386641); box-shadow: 0 0 0 3px rgba(106,153,78,0.12); }
-        .avatar-pick.on::after {
-          content: "✓"; position: absolute; top: 2px; right: 4px;
-          color: var(--primary-dark, #386641); font-weight: 600; font-size: 13px;
-        }
-        .avatar-pick img { width: 100%; height: 100%; object-fit: cover; }
-
-        /* Builder skeleton (same shimmer as the stock-avatar tiles) */
+        /* Builder skeleton (the app's grey shimmer) */
         .builder-skeleton[hidden] { display: none; }
         .sk {
           display: block;
@@ -156,17 +130,9 @@ class UserProfile extends HTMLElement {
         .sk-tile { aspect-ratio: 1 / 1; border-radius: var(--r-md, 12px); }
         @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
 
-        /* Skeleton loading */
         @keyframes shimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
-        }
-        .avatar-pick.loading {
-          background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          cursor: wait;
-          border-color: var(--hairline, rgba(31,29,24,0.08));
         }
 
         /* ---- Pref rows ---- */
@@ -257,7 +223,6 @@ class UserProfile extends HTMLElement {
         @media (max-width: 560px) {
           .profile-body { padding-left: 22px; padding-right: 22px; }
           .profile-foot { padding: 14px 22px; }
-          .avatar-grid { grid-template-columns: repeat(4, 1fr); }
           .grid2 { grid-template-columns: 1fr; }
           .pref { grid-template-columns: 1fr; gap: 10px; }
           .pref button { justify-self: start; }
@@ -302,10 +267,6 @@ class UserProfile extends HTMLElement {
             <div class="sk-tiles">${'<span class="sk sk-tile"></span>'.repeat(10)}</div>
           </div>
           <avatar-builder id="avatar-builder" hidden></avatar-builder>
-        </section>
-        <section class="section">
-          <h4 class="section-title">או בחר אווטאר מוכן</h4>
-          <div class="avatar-grid" id="avatar-grid"></div>
           <span class="feedback" id="avatar-feedback" style="margin-top:12px;"></span>
           <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn btn-quiet" type="button" id="use-initials-btn">השתמש בראשי תיבות</button>
@@ -382,7 +343,6 @@ class UserProfile extends HTMLElement {
     if (panelName === 'details') this._populateDetails();
     if (panelName === 'avatar') {
       this._loadBuilder();
-      this._loadAvatars();
     }
     if (panelName === 'security') this._populateSecurity();
   }
@@ -469,73 +429,12 @@ class UserProfile extends HTMLElement {
       const url = await UserService.uploadAvatarImage(user.uid, blob);
       await authService.updateProfile({ avatarUrl: url, avatarConfig: config });
       this.selectedAvatarUrl = url;
-      this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
       builder.markSaved(config);
       this._flashFeedback('avatar-feedback', 'ok', '✓ האווטאר נשמר');
     } catch (error) {
       console.error('Error saving built avatar:', error);
       builder.setBusy(false);
       this._showFeedback('avatar-feedback', 'err', 'שמירת האווטאר נכשלה. נסה שנית.');
-    }
-  }
-
-  async _loadAvatars() {
-    const grid = this.shadowRoot.getElementById('avatar-grid');
-
-    try {
-      grid.innerHTML = '';
-      for (let i = 0; i < 6; i++) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'avatar-pick loading';
-        grid.appendChild(btn);
-      }
-
-      if (!avatarCache) {
-        avatarCache = await UserService.listAvatarOptions();
-      }
-
-      const results = await Promise.all(
-        avatarCache.map(
-          (url) =>
-            new Promise((resolve) => {
-              const img = new Image();
-              img.src = url;
-              img.onload = () => resolve({ ok: true, url, img });
-              img.onerror = () => resolve({ ok: false, url });
-            }),
-        ),
-      );
-
-      grid.innerHTML = '';
-      results.forEach((r) => {
-        if (!r.ok) return;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'avatar-pick';
-        btn.dataset.url = r.url;
-        r.img.alt = 'Avatar option';
-        btn.appendChild(r.img);
-        if (this.selectedAvatarUrl === r.url) btn.classList.add('on');
-        btn.addEventListener('click', () => this._selectAvatar(btn, r.url));
-        grid.appendChild(btn);
-      });
-    } catch (error) {
-      console.error('Error loading avatars:', error);
-      this._showFeedback('avatar-feedback', 'err', 'טעינת האווטארים נכשלה. נסה שנית.');
-    }
-  }
-
-  async _selectAvatar(btn, url) {
-    this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
-    btn.classList.add('on');
-    this.selectedAvatarUrl = url;
-    this._deactivateBuilder();
-    try {
-      await authService.updateProfile({ avatarUrl: url });
-      this._flashFeedback('avatar-feedback', 'ok', '✓ נשמר');
-    } catch (error) {
-      this._showFeedback('avatar-feedback', 'err', error.message || 'השמירה נכשלה. נסה שנית.');
     }
   }
 
@@ -550,7 +449,6 @@ class UserProfile extends HTMLElement {
     try {
       await authService.updateProfile({ avatarUrl: null });
       this.selectedAvatarUrl = null;
-      this.shadowRoot.querySelectorAll('.avatar-pick').forEach((b) => b.classList.remove('on'));
       this._deactivateBuilder();
       this._showFeedback('avatar-feedback', 'ok', 'ראשי תיבות מוצגים כעת כאווטאר שלך.');
     } catch (error) {

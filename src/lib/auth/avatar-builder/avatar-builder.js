@@ -171,10 +171,17 @@ class AvatarBuilder extends HTMLElement {
           background: var(--primary-dark, #386641); border-color: var(--primary-dark, #386641); color: #fff;
         }
 
-        /* Options: two rows that scroll sideways together. The area keeps its height on
-           every tab (empty on colour-only tabs), so the colour row below never moves. */
-        .options {
+        /* The panel has one fixed height on every tab, so nothing below it moves. Part tabs:
+           options (two rows that scroll sideways together), then their colours. Colour-only
+           tabs (skin, background): just the colours, right under the tab bar. */
+        #panel {
           --tile: 64px;
+          display: flex; flex-direction: column;
+          height: calc(2 * var(--tile) + 8px + 12px + 66px);
+        }
+        #panel.colors-only .options { display: none; }
+        #panel.colors-only .palette { margin-top: 0; }
+        .options {
           display: grid;
           grid-auto-flow: column;
           grid-template-rows: repeat(2, var(--tile));
@@ -204,8 +211,7 @@ class AvatarBuilder extends HTMLElement {
           content: "✓"; position: absolute; top: 2px; inset-inline-end: 5px;
           color: var(--primary-dark, #386641); font-weight: 600; font-size: 12px;
         }
-        /* Colours: a fixed row under the options, reserved even on tabs without colours. */
-        .palette { margin-top: 12px; min-height: 66px; }
+        .palette { margin-top: 12px; min-height: 66px; flex-shrink: 0; }
         .palette-label {
           font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
           font-size: 12.5px; color: var(--ink-3, #7c7562); margin: 0 0 8px;
@@ -229,7 +235,7 @@ class AvatarBuilder extends HTMLElement {
         @media (max-width: 560px) {
           .top { gap: 14px; }
           .preview { width: 96px; height: 96px; }
-          .options { --tile: 58px; }
+          #panel { --tile: 58px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .opt, .swatch, .btn, .tab { transition: none; }
@@ -333,6 +339,7 @@ class AvatarBuilder extends HTMLElement {
       el.tabIndex = on ? 0 : -1;
     });
     $('panel').setAttribute('aria-labelledby', `tab-${tab.key}`);
+    $('panel').classList.toggle('colors-only', !tab.part);
 
     // Under a hat most hairstyles hide, so hair thumbnails are drawn without one.
     const hatHidesHair = tab.part === 'hair' && config.parts.hat !== 'none';

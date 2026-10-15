@@ -5,9 +5,7 @@ Signed-in users pick their avatar in the profile modal's **אווטאר** tab:
 1. **Build one** in `<avatar-builder>`, choosing each part separately: hairstyle, eyes, brows,
    mouth, facial hair, glasses, headwear and kitchen outfit, plus skin, hair, fabric and
    background colours.
-2. **Pick a stock avatar** (static files under the `Avatars/` Storage prefix; to be retired,
-   see "Retiring the stock avatars" below).
-3. **Use initials** (no image).
+2. **Use initials** (no image).
 
 Wherever an avatar is shown (header, profile head, family picker), it is a plain image URL from
 `users/{uid}.avatarUrl`. A built avatar is uploaded as a PNG, so none of those places know about
@@ -39,7 +37,7 @@ the builder.
 | `scripts/avatars/check-avatars.mjs`                 | `npm run check:avatars`: browser pixel checks plus a hat-fit review sheet                     |
 
 The artwork library is a separate ~53 KB (gzipped) chunk. It loads when the avatar tab opens,
-behind a skeleton in the same grey shimmer as the stock-avatar tiles. It is never in the app
+behind a skeleton in the app's grey shimmer. It is never in the app
 shell or the profile chunk.
 
 ## Data
@@ -57,7 +55,7 @@ users/{uid}.avatarUrl = '<download URL of user-avatars/{uid}.png>&v=<save time>'
   part comes from it. `normalizeAvatarConfig()` turns anything (old versions, unknown ids,
   missing keys) into a valid config, so the catalogue can change without migrating stored
   configs.
-- `avatarConfig` stays when the user switches to a stock avatar or initials, so the builder can
+- `avatarConfig` stays when the user switches to initials, so the builder can
   re-apply it later. The builder knows it is "in use" when `avatarUrl` points at `user-avatars/`.
 - The file name never changes; the `v` query parameter makes browsers fetch a new save.
 - Deleting the account deletes the PNG (best effort, `AuthService.deleteAccount`).
@@ -115,7 +113,8 @@ Tests: `tests/rules/*` (`npm run test:rules`), `tests/js/utils/avatar/`, `tests/
 The six stock chefs (`Avatars/*.svg`) are being replaced by built avatars. A stock avatar is
 stored as a download URL containing `Avatars%2F<file>.svg`, so each user's choice is known.
 
-1. **Stop offering them:** remove the stock grid from the avatar tab (keep "use initials").
+1. **Stop offering them:** done. The avatar tab no longer shows the stock grid. Users who picked
+   one keep it until they're converted or build their own.
 2. **Convert existing users** with `scripts/migrations/005-stock-avatars-to-built.mjs`. Each
    stock file maps to an approved look-alike built chef (`LOOKALIKES` in the script). For every
    user on a stock avatar, the script renders that config with `renderAvatarSvg`, converts it to
@@ -123,9 +122,8 @@ stored as a download URL containing `Avatars%2F<file>.svg`, so each user's choic
    uploader) and sets `avatarUrl` + `avatarConfig`, the same as a save from the builder. The dry
    run prints how many users have each stock avatar. It's safe to re-run, and other avatars are
    never touched. Rehearse with `--project emulator`, then run on `staging`, then `production`.
-3. **Clean up** once a dry run on production shows no user on a stock avatar: remove
-   `UserService.listAvatarOptions`, the grid code and its tests, and the `match /Avatars` Storage
-   rule, then delete the six files.
+3. **Keep the files.** The six files, their `match /Avatars` Storage rule and
+   `UserService.listAvatarOptions` stay; nothing is deleted from Storage (decided 2026-10-15).
 
 ## Future: match a photo
 
@@ -141,5 +139,4 @@ to be stored.
 `npm run dev:emulators` runs the app against local Auth/Firestore/Storage emulators with this
 checkout's rules (`.env.emulators`, a `demo-` project, so nothing reaches real Firebase). It also
 listens on the network, so a phone on the same Wi-Fi or tailnet can open it. Sign up in the app to
-get a user. The stock grid is empty unless `Avatars/*.svg` is uploaded to the emulator with
-`contentType: image/svg+xml`.
+get a user.
