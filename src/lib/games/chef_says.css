@@ -1,0 +1,236 @@
+/* Chef Says — Simon-style ingredient memory game. Companion to chef_says.js.
+   No preferred orientation: the board is a square that sizes itself to the
+   shorter side, and on landscape phones the HUD moves beside it. */
+
+.chef-game {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-0) 100%);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-ui-he, var(--font-ui));
+}
+
+/* ---- HUD ---- */
+
+.chef-hud {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chef-round {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.chef-round-sep {
+  margin: 0 2px;
+  color: var(--ink-3);
+}
+
+.chef-status {
+  font-size: var(--step-1);
+  font-weight: 600;
+  color: var(--ink-2);
+  min-height: 1.4em;
+}
+
+/* ---- Board ---- */
+
+.chef-board {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 12px;
+  /* Square that fits both axes: never wider than the game, never taller
+     than the viewport leaves room for. */
+  width: min(100%, 420px, calc(100vh - 300px));
+  min-width: 220px;
+  aspect-ratio: 1 / 1;
+}
+
+.chef-board[data-phase='showing'] .chef-pad,
+.chef-board[data-phase='between'] .chef-pad,
+.chef-board[data-phase='over'] .chef-pad {
+  cursor: default;
+}
+
+.chef-pad {
+  --pad-tint: var(--primary);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 2px solid color-mix(in srgb, var(--pad-tint) 45%, transparent);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--pad-tint) 14%, var(--surface-1));
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--dur-1) var(--ease-out),
+    background-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-1) var(--ease-out);
+}
+
+/* Large tiles: card-sized press (see design-system.md, Pressed states). */
+.chef-pad:active {
+  transform: scale(var(--press-scale-card, 0.985));
+}
+
+.chef-board[data-phase='showing'] .chef-pad:active,
+.chef-board[data-phase='between'] .chef-pad:active,
+.chef-board[data-phase='over'] .chef-pad:active {
+  transform: none;
+}
+
+.chef-pad:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-1), var(--ring);
+}
+
+.chef-pad--tomato {
+  --pad-tint: var(--secondary);
+}
+.chef-pad--cheese {
+  /* Same produce yellow/orange as the knife-skills juice splashes. */
+  --pad-tint: #e6c34a;
+}
+.chef-pad--carrot {
+  --pad-tint: #e69138;
+}
+.chef-pad--broccoli {
+  --pad-tint: var(--primary);
+}
+
+.chef-pad-emoji {
+  font-size: clamp(2.2rem, 9vmin, 3.6rem);
+  line-height: 1;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+
+.chef-pad-label {
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.chef-pad--lit {
+  background: color-mix(in srgb, var(--pad-tint) 55%, var(--surface-1));
+  border-color: var(--pad-tint);
+  transform: scale(1.05);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--pad-tint) 30%, transparent),
+    var(--shadow-2);
+}
+
+.chef-pad--lit .chef-pad-emoji {
+  transform: scale(1.15);
+}
+
+.chef-pad--wrong {
+  animation: chef-pad-shake 420ms var(--ease);
+  border-color: var(--secondary-dark);
+}
+
+.chef-pad--hint {
+  animation: chef-pad-pulse 700ms var(--ease) infinite;
+  border-color: var(--pad-tint);
+}
+
+@keyframes chef-pad-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes chef-pad-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pad-tint) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--pad-tint) 25%, transparent);
+  }
+}
+
+/* ---- Landscape phone: HUD beside the board ---- */
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .chef-game {
+    min-height: 0;
+    flex-direction: row;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px 16px;
+  }
+
+  /* Fixed-size HUD: the status text changes every phase, and an auto-width
+     column would push the board sideways each time. */
+  .chef-hud {
+    flex: 0 0 150px;
+    width: 150px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .chef-status {
+    /* Two lines reserved exactly, so one- and two-line texts take the same box. */
+    line-height: 1.4;
+    height: 2.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chef-board {
+    width: calc(100vh - 130px);
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .chef-pad-label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chef-pad,
+  .chef-pad-emoji {
+    transition: none;
+  }
+
+  .chef-pad--wrong,
+  .chef-pad--hint {
+    animation: none;
+  }
+}
