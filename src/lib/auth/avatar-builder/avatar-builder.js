@@ -143,9 +143,11 @@ class AvatarBuilder extends HTMLElement {
         }
         .btn-ghost:hover:not(:disabled) { background: var(--surface-2, #f2e8cf); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        /* Its line is always reserved, so the layout doesn't jump when it appears. */
         .status {
           font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
-          font-size: 12.5px; color: var(--ink-3, #7c7562); margin: 0;
+          font-size: 12.5px; line-height: 18px; min-height: 18px;
+          color: var(--ink-3, #7c7562); margin: 0;
         }
 
         /* Tabs: one row that scrolls sideways (all parts reachable without wrapping). */
