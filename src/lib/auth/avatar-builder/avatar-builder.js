@@ -129,19 +129,21 @@ class AvatarBuilder extends HTMLElement {
           font-size: 13px; font-weight: 500;
           padding: 8px 13px; border-radius: var(--r-sm, 8px);
           border: 1px solid transparent; cursor: pointer;
-          transition: background var(--dur-1, 160ms) var(--ease, ease), border-color var(--dur-1, 160ms) var(--ease, ease);
+          transition: background var(--dur-1, 160ms) var(--ease, ease), border-color var(--dur-1, 160ms) var(--ease, ease), transform var(--dur-1, 160ms) var(--ease, ease);
         }
         .btn svg { width: 14px; height: 14px; fill: currentColor; }
         .btn:focus-visible, .tab:focus-visible, .opt:focus-visible, .swatch:focus-visible {
           outline: none; box-shadow: var(--ring, 0 0 0 3px rgba(106,153,78,0.35));
         }
         .btn-primary { background: var(--primary, #6a994e); color: #fff; }
-        .btn-primary:hover:not(:disabled) { background: var(--primary-dark, #386641); }
+        /* Pressed states follow docs/architecture/design-system.md (press tokens). */
+        .btn:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
+        .btn-primary:hover:not(:disabled), .btn-primary:active:not(:disabled) { background: var(--primary-dark, #386641); }
         .btn-ghost {
           background: var(--surface-1, #fff); color: var(--ink, #1f1d18);
           border-color: var(--hairline-strong, rgba(31,29,24,0.2));
         }
-        .btn-ghost:hover:not(:disabled) { background: var(--surface-2, #f2e8cf); }
+        .btn-ghost:hover:not(:disabled), .btn-ghost:active:not(:disabled) { background: var(--surface-2, #f2e8cf); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         /* Its line is always reserved, so the layout doesn't jump when it appears. */
         .status {
@@ -164,9 +166,11 @@ class AvatarBuilder extends HTMLElement {
           border: 1px solid var(--hairline-strong, rgba(31,29,24,0.2));
           background: var(--surface-1, #fff); color: var(--ink-2, #4a4538);
           cursor: pointer; flex-shrink: 0; white-space: nowrap;
-          transition: background var(--dur-1, 160ms) var(--ease, ease), color var(--dur-1, 160ms) var(--ease, ease);
+          transition: background var(--dur-1, 160ms) var(--ease, ease), color var(--dur-1, 160ms) var(--ease, ease), transform var(--dur-1, 160ms) var(--ease, ease);
         }
         .tab:hover { background: var(--surface-2, #f2e8cf); }
+        .tab:active { transform: scale(var(--press-scale, 0.97)); }
+        .tab:not([aria-selected="true"]):active { background: var(--surface-2, #f2e8cf); }
         .tab[aria-selected="true"] {
           background: var(--primary-dark, #386641); border-color: var(--primary-dark, #386641); color: #fff;
         }
@@ -203,6 +207,7 @@ class AvatarBuilder extends HTMLElement {
         }
         .opt svg { width: 100%; height: 100%; display: block; }
         .opt:hover { transform: translateY(-2px); border-color: var(--primary-bright, #a7c957); }
+        .opt:active { transform: scale(var(--press-scale, 0.97)); border-color: var(--primary-bright, #a7c957); }
         .opt[aria-checked="true"] {
           border-color: var(--primary-dark, #386641);
           box-shadow: 0 0 0 3px rgba(106,153,78,0.12);
@@ -225,6 +230,7 @@ class AvatarBuilder extends HTMLElement {
           transition: transform var(--dur-1, 160ms) var(--ease, ease);
         }
         .swatch:hover { transform: scale(1.08); }
+        .swatch:active { transform: scale(var(--press-scale-icon, 0.9)); }
         .swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--primary-dark, #386641); }
         .swatch.none {
           background:
