@@ -51,10 +51,9 @@ describe('<avatar-builder>', () => {
     expect($$('.swatch').every((s) => s.dataset.palette === 'hair')).toBe(true);
   });
 
-  it('explains that the hat hides the hair, and drops the hat from hair thumbnails', () => {
+  it('draws hair thumbnails without the hat, so every hairstyle is visible', () => {
     const { $, $$ } = mount(SAVED);
     $('.tab[data-tab="hair"]').click();
-    expect($('#hint').hidden).toBe(false);
     expect($$('.opt')[0].innerHTML).not.toContain('fill-opacity=".9"'); // bandana dots
   });
 
@@ -70,11 +69,16 @@ describe('<avatar-builder>', () => {
     expect($('#preview').innerHTML).not.toBe(before);
   });
 
-  it('background tab shows only the background palette', () => {
+  it('colour-only tabs show only their colours, in the same place as on other tabs', () => {
     const { $, $$ } = mount(SAVED);
     $('.tab[data-tab="background"]').click();
-    expect($('#options').hidden).toBe(true);
+    expect($$('.opt')).toHaveLength(0);
     expect($$('.swatch').map((s) => s.dataset.color)).toContain('none');
+    // The options area and the colour row stay in the layout on every tab.
+    expect($('#options')).not.toBeNull();
+    $('.tab[data-tab="eyes"]').click();
+    expect($$('.swatch')).toHaveLength(0);
+    expect($('#palette')).not.toBeNull();
   });
 
   it('while the built avatar is in use, Save and Undo wait for a change', () => {

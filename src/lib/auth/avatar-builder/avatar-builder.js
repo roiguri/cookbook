@@ -148,17 +148,20 @@ class AvatarBuilder extends HTMLElement {
           font-size: 12.5px; color: var(--ink-3, #7c7562); margin: 0;
         }
 
+        /* Tabs: one row that scrolls sideways (all parts reachable without wrapping). */
         .tabs {
-          display: flex; flex-wrap: wrap; gap: 6px;
-          margin: 20px 0 14px;
+          display: flex; flex-wrap: nowrap; gap: 6px;
+          margin: 18px 0 12px; padding: 2px 1px 4px;
+          overflow-x: auto; scrollbar-width: none;
         }
+        .tabs::-webkit-scrollbar { display: none; }
         .tab {
           font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
           font-size: 13px; font-weight: 500;
           padding: 6px 12px; border-radius: var(--r-pill, 999px);
           border: 1px solid var(--hairline-strong, rgba(31,29,24,0.2));
           background: var(--surface-1, #fff); color: var(--ink-2, #4a4538);
-          cursor: pointer;
+          cursor: pointer; flex-shrink: 0; white-space: nowrap;
           transition: background var(--dur-1, 160ms) var(--ease, ease), color var(--dur-1, 160ms) var(--ease, ease);
         }
         .tab:hover { background: var(--surface-2, #f2e8cf); }
@@ -166,13 +169,23 @@ class AvatarBuilder extends HTMLElement {
           background: var(--primary-dark, #386641); border-color: var(--primary-dark, #386641); color: #fff;
         }
 
+        /* Options: two rows that scroll sideways together. The area keeps its height on
+           every tab (empty on colour-only tabs), so the colour row below never moves. */
         .options {
+          --tile: 64px;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+          grid-auto-flow: column;
+          grid-template-rows: repeat(2, var(--tile));
+          grid-auto-columns: var(--tile);
           gap: 8px;
+          height: calc(2 * var(--tile) + 8px);
+          padding: 3px 3px 6px;
+          overflow-x: auto; overflow-y: hidden;
+          overscroll-behavior-x: contain;
+          scrollbar-width: thin;
         }
         .opt {
-          aspect-ratio: 1 / 1; padding: 0;
+          width: var(--tile); height: var(--tile); padding: 0;
           border-radius: var(--r-md, 12px);
           border: 2px solid var(--hairline, rgba(31,29,24,0.08));
           background: var(--surface-2, #f2e8cf);
@@ -189,20 +202,15 @@ class AvatarBuilder extends HTMLElement {
           content: "✓"; position: absolute; top: 2px; inset-inline-end: 5px;
           color: var(--primary-dark, #386641); font-weight: 600; font-size: 12px;
         }
-        .hint {
-          font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
-          font-size: 12.5px; color: var(--ink-3, #7c7562); margin: 0 0 10px;
-        }
-
-        .palette { margin-top: 16px; }
-        .palette[hidden] { display: none; }
+        /* Colours: a fixed row under the options, reserved even on tabs without colours. */
+        .palette { margin-top: 12px; min-height: 66px; }
         .palette-label {
           font-family: var(--font-ui-he, var(--font-ui, system-ui, sans-serif));
           font-size: 12.5px; color: var(--ink-3, #7c7562); margin: 0 0 8px;
         }
-        .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+        .swatches { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding: 2px; scrollbar-width: none; }
         .swatch {
-          width: 32px; height: 32px; border-radius: 50%; padding: 0;
+          width: 32px; height: 32px; border-radius: 50%; padding: 0; flex-shrink: 0;
           border: 2px solid var(--surface-1, #fff);
           box-shadow: 0 0 0 1px var(--hairline-strong, rgba(31,29,24,0.2));
           cursor: pointer;
@@ -219,7 +227,7 @@ class AvatarBuilder extends HTMLElement {
         @media (max-width: 560px) {
           .top { gap: 14px; }
           .preview { width: 96px; height: 96px; }
-          .options { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
+          .options { --tile: 58px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .opt, .swatch, .btn, .tab { transition: none; }
@@ -232,7 +240,7 @@ class AvatarBuilder extends HTMLElement {
         <div class="actions">
           <div class="actions-row">
             <button type="button" class="btn btn-primary" id="save-btn">שמירת האווטאר</button>
-            <button type="button" class="btn btn-ghost" id="random-btn">${icons.magic}הפתע אותי</button>
+            <button type="button" class="btn btn-ghost" id="random-btn">${icons.diceFive}הפתע אותי</button>
           </div>
           <button type="button" class="btn btn-ghost" id="undo-btn">${icons.undoAlt}ביטול השינויים</button>
           <p class="status" id="status" aria-live="polite"></p>
@@ -247,7 +255,6 @@ class AvatarBuilder extends HTMLElement {
       </div>
 
       <div id="panel" role="tabpanel">
-        <p class="hint" id="hint" hidden></p>
         <div class="options" role="radiogroup" id="options"></div>
         <div class="palette" id="palette">
           <p class="palette-label" id="palette-label"></p>
@@ -327,13 +334,11 @@ class AvatarBuilder extends HTMLElement {
 
     // Under a hat most hairstyles hide, so hair thumbnails are drawn without one.
     const hatHidesHair = tab.part === 'hair' && config.parts.hat !== 'none';
-    $('hint').hidden = !hatHidesHair;
-    $('hint').textContent = hatHidesHair
-      ? 'רוב השיער מוסתר מתחת לכובע. אפשר להוריד אותו בלשונית ״כובע״.'
-      : '';
 
     const options = $('options');
-    options.hidden = !tab.part;
+    const sameTab = this._renderedTab === tab.key;
+    const scroll = options.scrollLeft;
+    options.innerHTML = '';
     if (tab.part) {
       const part = AVATAR_PARTS[tab.part];
       options.setAttribute('aria-label', part.label);
@@ -353,9 +358,17 @@ class AvatarBuilder extends HTMLElement {
         })
         .join('');
     }
+    // Same tab: keep the scroll position; new tab: bring the current choice into view.
+    if (sameTab) options.scrollLeft = scroll;
+    else
+      options
+        .querySelector('[aria-checked="true"]')
+        ?.scrollIntoView?.({ block: 'nearest', inline: 'center' });
+    this._renderedTab = tab.key;
 
     const palette = tab.palette && AVATAR_COLORS[tab.palette];
-    $('palette').hidden = !palette;
+    $('palette-label').textContent = palette ? palette.label : '';
+    $('swatches').innerHTML = '';
     if (palette) {
       $('palette-label').textContent = palette.label;
       $('swatches').setAttribute('aria-label', palette.label);
