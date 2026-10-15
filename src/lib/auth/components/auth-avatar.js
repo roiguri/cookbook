@@ -147,14 +147,15 @@ class AuthAvatar extends HTMLElement {
 
   updateAvatar(user) {
     const avatar = this.shadowRoot.getElementById('auth-trigger');
+    // Use centralized avatar URL from auth service
+    const avatarUrl = user ? authService.getCurrentAvatarUrl() : null;
+    // Set on every update, signed out included: a stale 'built' (white background) would
+    // hide the white signed-out icon or initial.
+    avatar.classList.toggle('built', isBuiltAvatarUrl(avatarUrl));
 
     if (user) {
       avatar.classList.remove('signed-out');
 
-      // Use centralized avatar URL from auth service
-      const avatarUrl = authService.getCurrentAvatarUrl();
-
-      avatar.classList.toggle('built', isBuiltAvatarUrl(avatarUrl));
       if (avatarUrl) {
         avatar.innerHTML = `<img src="${avatarUrl}" alt="User Avatar">`;
       } else {

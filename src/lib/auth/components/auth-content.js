@@ -361,6 +361,8 @@ class AuthContent extends HTMLElement {
     let imgEl = avatarEl?.querySelector('img');
     const initialEl = avatarEl?.querySelector('.initial');
 
+    // Set on every update: a stale 'built' (white background) would hide the white initial.
+    avatarEl?.classList.toggle('built', isBuiltAvatarUrl(avatarUrl));
     if (avatarUrl) {
       if (!imgEl) {
         imgEl = document.createElement('img');
@@ -368,7 +370,6 @@ class AuthContent extends HTMLElement {
         avatarEl.prepend(imgEl);
       }
       imgEl.src = avatarUrl;
-      avatarEl.classList.toggle('built', isBuiltAvatarUrl(avatarUrl));
       if (initialEl) initialEl.style.display = 'none';
     } else {
       imgEl?.remove();
