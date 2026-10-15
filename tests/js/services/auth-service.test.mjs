@@ -510,6 +510,28 @@ describe('AuthService', () => {
       expect(authService._userData.favoriteFood).toBe('Pizza');
     });
 
+    test('updateProfile does not send a null photoURL for users without a photo', async () => {
+      // Email sign-ups have photoURL null; the Auth API rejects null ("photoUrl must be string").
+      mockUser.photoURL = null;
+      authService._userData = { role: 'user' };
+
+      await authService.updateProfile({ displayName: 'New Name', bio: '' });
+
+      expect(updateProfile).toHaveBeenCalledWith(mockUser, { displayName: 'New Name' });
+    });
+
+    test('updateProfile keeps an existing photo (e.g. Google) when only the name changes', async () => {
+      mockUser.photoURL = 'https://example.com/google.jpg';
+      authService._userData = { role: 'user' };
+
+      await authService.updateProfile({ displayName: 'New Name' });
+
+      expect(updateProfile).toHaveBeenCalledWith(mockUser, {
+        displayName: 'New Name',
+        photoURL: 'https://example.com/google.jpg',
+      });
+    });
+
     test('updateProfile should throw error if no user is signed in', async () => {
       authService._currentUser = null;
 
