@@ -155,8 +155,14 @@
   box-sizing: border-box;
   transition:
     border-color var(--dur-1, 160ms) var(--ease, ease),
-    background var(--dur-1, 160ms) var(--ease, ease);
+    background var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
   background: var(--surface-0, #faf7f2);
+}
+
+.upload-area:active,
+.add-more-area:active {
+  transform: scale(var(--press-scale-card, 0.985));
 }
 
 .upload-area:hover,
@@ -339,7 +345,8 @@
   color: var(--ink-3, #7c7562);
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    border-color var(--dur-1, 160ms) var(--ease, ease);
+    border-color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
 .add-more-area:hover,

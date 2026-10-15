@@ -63,6 +63,7 @@ class LoginForm extends HTMLElement {
           font-size: 18px;
         }
         .input-icon .eye:hover, .input-icon .eye:active { color: var(--ink, #1f1d18); }
+        .input-icon .eye:active { transform: translateY(-50%) scale(var(--press-scale-icon, 0.9)); }
 
         .row-between {
           display: flex; align-items: center; justify-content: space-between;

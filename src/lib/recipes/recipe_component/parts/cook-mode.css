@@ -43,6 +43,12 @@
   color: var(--ink-2, #3a3a3a);
   font-weight: 700;
   user-select: none;
+  cursor: pointer;
+  transition: opacity var(--dur-1, 160ms) var(--ease, ease);
+}
+
+.cook-mode-toggle__label:active {
+  opacity: 0.7;
 }
 
 /* iOS-style Toggle Switch */
@@ -94,8 +100,9 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Pressed state: a round halo on the thumb */
-.cook-mode-toggle__switch:active .cook-mode-toggle__slider::before {
+/* Pressed state: a round halo on the thumb (also when the text label is pressed) */
+.cook-mode-toggle__switch:active .cook-mode-toggle__slider::before,
+.cook-mode-toggle:has(.cook-mode-toggle__label:active) .cook-mode-toggle__slider::before {
   box-shadow:
     0 0 0 6px rgba(106, 153, 78, 0.2),
     0 2px 4px rgba(0, 0, 0, 0.2);

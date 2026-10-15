@@ -65,6 +65,7 @@ class SignupForm extends HTMLElement {
           font-size: 18px;
         }
         .input-icon .eye:hover, .input-icon .eye:active { color: var(--ink, #1f1d18); }
+        .input-icon .eye:active { transform: translateY(-50%) scale(var(--press-scale-icon, 0.9)); }
 
         /* 4-segment strength bar */
         .strength { display: flex; gap: 4px; margin-top: 6px; }

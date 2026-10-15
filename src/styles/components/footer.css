@@ -25,3 +25,7 @@ footer p {
 #icon-attribute:active {
   color: var(--primary-dark);
 }
+
+#icon-attribute:active {
+  opacity: 0.7;
+}

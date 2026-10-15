@@ -175,9 +175,13 @@
     border: 1px solid var(--hairline, rgba(31, 29, 24, 0.08));
   }
 
-  .pdf-toc-drawer .toc__summary:hover,
-  .pdf-toc-drawer .toc__summary:active {
+  .pdf-toc-drawer .toc__summary:hover {
     background: var(--surface-2, #f5f4f0);
+  }
+
+  .pdf-toc-drawer .toc__summary:active,
+  .pdf-toc-drawer .toc__recipe:active:not(.toc__recipe--active) {
+    background: color-mix(in oklab, var(--primary) 12%, var(--surface-2, #f5f4f0));
   }
 
   .pdf-toc-drawer .toc__cat--active > .toc__summary {
@@ -211,8 +215,7 @@
       color var(--dur-1, 160ms);
   }
 
-  .pdf-toc-drawer .toc__recipe:hover,
-  .pdf-toc-drawer .toc__recipe:active {
+  .pdf-toc-drawer .toc__recipe:hover {
     background: var(--surface-2, #f5f4f0);
     color: var(--ink, #1f1d18);
   }
@@ -221,6 +224,10 @@
     background: var(--primary, #6a994e);
     color: #fff;
     font-weight: 500;
+  }
+
+  .pdf-toc-drawer .toc__recipe--active:active {
+    background: var(--primary-dark, #386641);
   }
 
   .pdf-toc-drawer .toc__page {
