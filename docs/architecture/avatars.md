@@ -38,6 +38,18 @@ The artwork library is a separate ~53 KB (gzipped) chunk. It loads when the avat
 behind a skeleton in the app's grey shimmer. It is never in the app
 shell or the profile chunk.
 
+## Leaving with unsaved changes
+
+The profile modal asks before closing when the builder has unsaved changes
+(`builder.hasUnsavedChanges`): on the back button, ✕, Escape, backdrop and "הארוחה שלי". "סגור בלי
+לשמור" drops the changes (`discardChanges()`); "המשך לערוך" or dismissing the question stays.
+This is `custom-modal`'s close guard, set in `auth-controller.js`, which asks
+`user-profile.confirmClose()`.
+
+The back button closes the auth modal: opening it adds a same-URL history entry that back pops,
+and the router ignores pops that keep the route, so the page behind stays. Other modals don't
+handle back yet (#431).
+
 ## Data
 
 ```js

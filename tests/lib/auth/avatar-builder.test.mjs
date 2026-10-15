@@ -126,6 +126,29 @@ describe('<avatar-builder>', () => {
     expect($('#status').textContent).toContain('זה האווטאר שלך כרגע');
   });
 
+  it('tracks unsaved changes against the saved avatar, and can discard them', () => {
+    const { el, $ } = mount(SAVED);
+    expect(el.hasUnsavedChanges).toBe(false);
+    $('.tab[data-tab="eyes"]').click();
+    $('.opt[data-option="wink"]').click();
+    expect(el.hasUnsavedChanges).toBe(true);
+    el.discardChanges();
+    expect(el.config).toEqual(SAVED);
+    expect(el.hasUnsavedChanges).toBe(false);
+  });
+
+  it('a new user has unsaved changes only after changing the default chef', () => {
+    const { el, $ } = mount(null);
+    expect(el.hasUnsavedChanges).toBe(false);
+    expect($('#undo-btn').disabled).toBe(true);
+    $('.tab[data-tab="hat"]').click();
+    $('.opt[data-option="bandana"]').click();
+    expect(el.hasUnsavedChanges).toBe(true);
+    expect($('#undo-btn').disabled).toBe(false);
+    el.markSaved();
+    expect(el.hasUnsavedChanges).toBe(false);
+  });
+
   it('a failed save unlocks the builder and keeps the edits', () => {
     const { el, $ } = mount(SAVED);
     el.active = true;

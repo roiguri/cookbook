@@ -57,6 +57,7 @@ class AvatarBuilder extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._config = normalizeAvatarConfig(DEFAULT_AVATAR_CONFIG);
     this._saved = null;
+    this._initial = this._config; // what editing started from (undo/discard target)
     this._tab = TABS[0].key;
     this._busy = false;
     this._active = false;
@@ -79,6 +80,18 @@ class AvatarBuilder extends HTMLElement {
   set config(value) {
     this._config = normalizeAvatarConfig(value);
     this._saved = value ? this._config : null;
+    this._initial = this._config;
+    if (this.isConnected) this._update();
+  }
+
+  /** True when the avatar differs from what was last saved (or what editing started from). */
+  get hasUnsavedChanges() {
+    return !sameConfig(this._config, this._saved || this._initial);
+  }
+
+  /** Drop unsaved edits: back to the last saved (or starting) avatar. */
+  discardChanges() {
+    this._config = this._saved || this._initial;
     if (this.isConnected) this._update();
   }
 
@@ -354,8 +367,7 @@ class AvatarBuilder extends HTMLElement {
       this._update();
     });
     $('undo-btn').addEventListener('click', () => {
-      this._config = this._saved || normalizeAvatarConfig(DEFAULT_AVATAR_CONFIG);
-      this._update();
+      this.discardChanges();
     });
     $('save-btn').addEventListener('click', () => {
       if (this._busy) return;
@@ -460,7 +472,7 @@ class AvatarBuilder extends HTMLElement {
     const changed = !this._saved || !sameConfig(this._config, this._saved);
     $('save-btn').disabled = this._busy || (this._active && !changed);
     $('save-btn').textContent = this._busy ? 'שומר…' : 'שמירת האווטאר';
-    $('undo-btn').disabled = this._busy || !changed;
+    $('undo-btn').disabled = this._busy || !this.hasUnsavedChanges;
     $('random-btn').disabled = this._busy;
     $('status').textContent = this._active && !changed ? 'זה האווטאר שלך כרגע.' : '';
   }

@@ -302,12 +302,17 @@ class UserProfile extends HTMLElement {
 
       <!-- Confirmation modal for delete account -->
       <confirmation-modal id="delete-confirm"></confirmation-modal>
+      <!-- Leaving with unsaved avatar changes -->
+      <confirmation-modal id="leave-confirm"></confirmation-modal>
     `;
   }
 
   setupEventListeners() {
-    this.shadowRoot.getElementById('my-meal-btn').addEventListener('click', () => {
-      this.closest('auth-controller')?.closeModal();
+    this.shadowRoot.getElementById('my-meal-btn').addEventListener('click', async () => {
+      // Leaving the profile like the ✕ does (asks about unsaved avatar changes); navigate only
+      // once it's closed and its back-button history entry is gone.
+      const closed = await this.closest('auth-controller')?.closeModal({ byUser: true });
+      if (closed === false) return;
       if (window.spa?.router) window.spa.router.navigate('/my-meal');
       else window.location.hash = '/my-meal';
     });
@@ -373,6 +378,43 @@ class UserProfile extends HTMLElement {
     } catch (error) {
       this._showFeedback('details-feedback', 'err', error.message || 'השמירה נכשלה. נסה שנית.');
     }
+  }
+
+  // ---- Leaving the profile ----
+
+  /**
+   * Called before the profile closes (back button, ✕, Escape, backdrop, "my meal"). If the
+   * avatar builder has unsaved changes, asks first.
+   * @returns {Promise<boolean>} true to close (unsaved changes are dropped), false to stay
+   */
+  confirmClose() {
+    const builder = this.shadowRoot.getElementById('avatar-builder');
+    if (!builder?.hasUnsavedChanges) return Promise.resolve(true);
+    if (this._pendingClose) return this._pendingClose; // already asking (e.g. Escape twice)
+    const dialog = this.shadowRoot.getElementById('leave-confirm');
+    this._pendingClose = new Promise((resolve) => {
+      const listening = new AbortController();
+      const answer = (close) => {
+        if (listening.signal.aborted) return;
+        listening.abort();
+        if (close) builder.discardChanges();
+        this._pendingClose = null;
+        resolve(close);
+      };
+      const { signal } = listening;
+      dialog.addEventListener('confirm-approved', () => answer(true), { signal });
+      dialog.addEventListener('confirm-rejected', () => answer(false), { signal });
+      // Dismissed (✕/Escape/backdrop) = keep editing. The dialog closes before it reports a
+      // choice, so let a choice arrive first.
+      dialog.addEventListener('modal-closed', () => setTimeout(() => answer(false)), { signal });
+      dialog.confirm(
+        'השינויים באווטאר לא נשמרו ויאבדו.',
+        'לסגור בלי לשמור?',
+        'סגור בלי לשמור',
+        'המשך לערוך',
+      );
+    });
+    return this._pendingClose;
   }
 
   // ---- Avatar panel ----
