@@ -62,6 +62,11 @@
   background: #f4511e;
 }
 
+.retry-btn:active {
+  transform: scale(var(--press-scale, 0.97));
+  background: #f4511e;
+}
+
 .recipe-sidebar {
   position: absolute;
   top: 10px;

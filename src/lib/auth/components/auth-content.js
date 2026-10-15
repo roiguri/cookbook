@@ -65,8 +65,9 @@ class AuthContent extends HTMLElement {
           cursor: pointer;
           background: transparent;
           color: var(--ink-3, #7c7562);
-          transition: background var(--dur-1, 160ms) var(--ease, ease), color var(--dur-1, 160ms) var(--ease, ease);
+          transition: background var(--dur-1, 160ms) var(--ease, ease), color var(--dur-1, 160ms) var(--ease, ease), transform var(--dur-1, 160ms) var(--ease, ease);
         }
+        .auth-tab:active { color: var(--ink, #1f1d18); transform: scale(var(--press-scale, 0.97)); }
         .auth-tab.on {
           background: var(--surface-1, #fff);
           color: var(--primary-dark, #386641);
@@ -152,9 +153,10 @@ class AuthContent extends HTMLElement {
           color: var(--ink-3, #7c7562);
           cursor: pointer;
           position: relative;
-          transition: color var(--dur-1, 160ms) var(--ease, ease);
+          transition: color var(--dur-1, 160ms) var(--ease, ease), transform var(--dur-1, 160ms) var(--ease, ease);
         }
         .profile-tab:hover { color: var(--ink, #1f1d18); }
+        .profile-tab:active { color: var(--ink, #1f1d18); transform: scale(var(--press-scale, 0.97)); }
         .profile-tab.on { color: var(--primary-dark, #386641); }
         .profile-tab.on::after {
           content: "";

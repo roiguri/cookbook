@@ -87,7 +87,8 @@
 }
 
 .pizzatron-start-btn:active {
-  transform: scale(0.96);
+  background-color: var(--primary-dark, #386641);
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .pizzatron-hud {

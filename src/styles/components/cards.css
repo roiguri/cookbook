@@ -59,6 +59,11 @@
   box-shadow: var(--shadow-2);
 }
 
+.recipe-card:active {
+  transform: scale(var(--press-scale-card));
+  transition-duration: var(--dur-1);
+}
+
 /* Photo area */
 .recipe-card__photo {
   aspect-ratio: 4 / 3;
@@ -106,7 +111,12 @@
   padding: 0;
   transition:
     background var(--dur-1) var(--ease),
-    color var(--dur-1) var(--ease);
+    color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.recipe-card__fav:active {
+  transform: scale(var(--press-scale-icon));
 }
 
 .recipe-card__fav--active,

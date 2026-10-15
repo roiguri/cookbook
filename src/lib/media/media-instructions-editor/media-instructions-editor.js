@@ -410,7 +410,8 @@ class MediaInstructionsEditor extends FormFieldMixin(HTMLElement) {
           touch-action: none;
         }
 
-        .drag-handle:hover {
+        .drag-handle:hover,
+        .drag-handle:active {
           background: var(--primary, #6a994e);
           border-color: var(--primary, #6a994e);
           color: #fff;
@@ -430,11 +431,15 @@ class MediaInstructionsEditor extends FormFieldMixin(HTMLElement) {
           font-size: 16px;
           line-height: 28px;
           text-align: center;
-          transition: background var(--dur-1, 160ms);
+          transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
           z-index: 10;
         }
 
         .delete-button:hover { background: var(--secondary-dark, #bc4749); }
+        .delete-button:active {
+          background: var(--secondary-dark, #bc4749);
+          transform: scale(var(--press-scale-icon, 0.9));
+        }
 
         .media-preview {
           width: 100%;
@@ -522,15 +527,20 @@ class MediaInstructionsEditor extends FormFieldMixin(HTMLElement) {
           align-items: center;
           justify-content: center;
           border-radius: 50%;
-          transition: background var(--dur-1, 160ms);
+          transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
         }
 
-        .error-dismiss-button:hover {
+        .error-dismiss-button:hover,
+        .error-dismiss-button:active {
           background: var(--secondary, #e05050);
           color: #fff;
         }
 
-        .error-dismiss-button:focus {
+        .error-dismiss-button:active {
+          transform: scale(var(--press-scale-icon, 0.9));
+        }
+
+        .error-dismiss-button:focus-visible {
           outline: 2px solid var(--secondary, #e05050);
           outline-offset: 2px;
         }

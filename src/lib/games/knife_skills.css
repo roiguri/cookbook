@@ -433,7 +433,8 @@
 }
 
 .knife-start-btn:active {
-  transform: translateY(0);
+  background: var(--primary-dark);
+  transform: scale(var(--press-scale));
   box-shadow: var(--shadow-1);
 }
 

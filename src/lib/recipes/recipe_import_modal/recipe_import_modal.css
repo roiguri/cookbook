@@ -52,12 +52,18 @@
   cursor: pointer;
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    color var(--dur-1, 160ms) var(--ease, ease);
+    color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
   white-space: nowrap;
 }
 
-.tab-btn:hover {
+.tab-btn:hover,
+.tab-btn:active {
   color: var(--ink-1, #1a1a1a);
+}
+
+.tab-btn:active {
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .tab-btn.active {
@@ -149,11 +155,18 @@
   box-sizing: border-box;
   transition:
     border-color var(--dur-1, 160ms) var(--ease, ease),
-    background var(--dur-1, 160ms) var(--ease, ease);
+    background var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
   background: var(--surface-0, #faf7f2);
 }
 
-.upload-area:hover {
+.upload-area:active,
+.add-more-area:active {
+  transform: scale(var(--press-scale-card, 0.985));
+}
+
+.upload-area:hover,
+.upload-area:active {
   border-color: var(--primary, #6a994e);
   background: var(--surface-1, #fff);
 }
@@ -208,10 +221,16 @@
   color: var(--ink-2, #3a3a3a);
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    border-color var(--dur-1, 160ms) var(--ease, ease);
+    border-color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
-.tool-btn:hover {
+.tool-btn:active {
+  transform: scale(var(--press-scale-icon, 0.9));
+}
+
+.tool-btn:hover,
+.tool-btn:active {
   background: var(--surface-2, #f2e8cf);
   border-color: var(--primary, #6a994e);
   color: var(--primary-dark, #386641);
@@ -279,11 +298,17 @@
   font-size: 1rem;
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    border-color var(--dur-1, 160ms) var(--ease, ease);
+    border-color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
   color: var(--ink-2, #3a3a3a);
 }
 
-.control-btn:hover:not(:disabled) {
+.control-btn:active:not(:disabled) {
+  transform: scale(var(--press-scale-icon, 0.9));
+}
+
+.control-btn:hover:not(:disabled),
+.control-btn:active:not(:disabled) {
   background: var(--surface-2, #f2e8cf);
   border-color: var(--primary, #6a994e);
   color: var(--primary-dark, #386641);
@@ -294,7 +319,8 @@
   cursor: not-allowed;
 }
 
-.delete-btn:hover {
+.delete-btn:hover,
+.delete-btn:active {
   background: color-mix(in oklab, var(--secondary, #bc4749) 8%, white);
   border-color: var(--secondary, #bc4749);
   color: var(--secondary-dark, #9a3a3c);
@@ -319,10 +345,12 @@
   color: var(--ink-3, #7c7562);
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    border-color var(--dur-1, 160ms) var(--ease, ease);
+    border-color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
-.add-more-area:hover {
+.add-more-area:hover,
+.add-more-area:active {
   border-color: var(--primary, #6a994e);
   border-style: solid;
   color: var(--primary-dark, #386641);
@@ -402,6 +430,11 @@
   color: var(--secondary, #bc4749);
 }
 
+.btn-text:active {
+  color: var(--secondary, #bc4749);
+  opacity: 0.7;
+}
+
 /* ---- Footer buttons ---- */
 
 .modal-footer {
@@ -420,8 +453,14 @@
   border-radius: var(--r-sm, 8px);
   border: none;
   cursor: pointer;
-  transition: background var(--dur-1, 160ms) var(--ease, ease);
+  transition:
+    background var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
   min-width: 110px;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .btn-primary {
@@ -429,7 +468,8 @@
   color: var(--button-color, #fff);
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-primary:active:not(:disabled) {
   background: var(--primary-dark, #386641);
 }
 
@@ -444,7 +484,8 @@
   border: 1px solid var(--hairline-strong, rgba(31, 29, 24, 0.2));
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover,
+.btn-secondary:active {
   background: var(--surface-2, #f2e8cf);
 }
 

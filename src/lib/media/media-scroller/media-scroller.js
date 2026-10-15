@@ -156,6 +156,11 @@ class MediaScroller extends HTMLElement {
           transform: translateY(-2px);
         }
 
+        .media-scroller__item:active {
+          transform: scale(var(--press-scale-card, 0.985));
+          transition-duration: var(--dur-1, 160ms);
+        }
+
         .media-scroller__media-container {
           position: relative;
           width: 100%;

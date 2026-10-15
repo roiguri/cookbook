@@ -78,6 +78,10 @@ class RecipeRelatedField extends FormFieldMixin(HTMLElement) {
         outline: none;
       }
 
+      .related-search__item:active {
+        background: var(--hairline-strong, rgba(31, 29, 24, 0.18));
+      }
+
       .related-search__item-cat {
         font-size: 11px;
         color: var(--ink-3);
@@ -127,10 +131,15 @@ class RecipeRelatedField extends FormFieldMixin(HTMLElement) {
         padding: 0;
         font-size: 14px;
         line-height: 1;
-        transition: background var(--dur-1, 160ms);
+        transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
       }
 
-      .chip__remove:hover {
+      .chip__remove:active {
+        transform: scale(var(--press-scale-icon, 0.9));
+      }
+
+      .chip__remove:hover,
+      .chip__remove:active {
         background: var(--hairline);
         color: var(--ink-1);
       }

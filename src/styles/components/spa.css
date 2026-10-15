@@ -144,11 +144,18 @@ footer {
   font-family: var(--font-ui);
   font-size: var(--step-0);
   font-weight: 500;
-  transition: background var(--dur-1) var(--ease);
+  transition:
+    background var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
-.spa-content .page-error .reload-button:hover {
+.spa-content .page-error .reload-button:hover,
+.spa-content .page-error .reload-button:active {
   background: var(--secondary-dark);
+}
+
+.spa-content .page-error .reload-button:active {
+  transform: scale(var(--press-scale));
 }
 
 /* Placeholder page styles */

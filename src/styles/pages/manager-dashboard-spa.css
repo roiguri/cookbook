@@ -45,7 +45,7 @@
 }
 
 .spa-content .manager-dashboard .master-refresh:active {
-  transform: translateY(-50%) scale(0.97);
+  transform: translateY(-50%) scale(var(--press-scale-icon));
 }
 
 /* ---- Section grid ---- */
@@ -156,7 +156,8 @@
   flex-shrink: 0;
 }
 
-.spa-content .manager-dashboard .refresh-icon:hover {
+.spa-content .manager-dashboard .refresh-icon:hover,
+.spa-content .manager-dashboard .refresh-icon:active {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
@@ -167,7 +168,7 @@
 }
 
 .spa-content .manager-dashboard .section-refresh:active {
-  transform: scale(0.97);
+  transform: scale(var(--press-scale-icon));
 }
 
 .spa-content .manager-dashboard .refresh-icon svg {
@@ -291,6 +292,14 @@
     order: 1;
   }
 
+  .spa-content .manager-dashboard .master-refresh:active {
+    transform: scale(var(--press-scale-icon));
+  }
+
+  .spa-content .manager-dashboard .section-toggle:active {
+    opacity: 0.7;
+  }
+
   .spa-content .manager-dashboard .section-toggle {
     cursor: pointer;
     min-height: 32px;
@@ -364,10 +373,17 @@
   font-weight: 500;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background var(--dur-1, 160ms) var(--ease, ease);
+  transition:
+    background var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
-.spa-content .manager-dashboard .notifications-banner__btn:hover {
+.spa-content .manager-dashboard .notifications-banner__btn:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+}
+
+.spa-content .manager-dashboard .notifications-banner__btn:hover,
+.spa-content .manager-dashboard .notifications-banner__btn:active {
   background: var(--primary-dark, #527f3a);
 }
 
@@ -386,10 +402,18 @@
   cursor: pointer;
   flex-shrink: 0;
   border-radius: var(--r-sm, 10px);
+  transition:
+    background var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
 .spa-content .manager-dashboard .notifications-banner__dismiss:hover {
-  background: rgba(31, 29, 24, 0.06);
+  background: var(--press-tint);
+}
+
+.spa-content .manager-dashboard .notifications-banner__dismiss:active {
+  background: var(--hairline-strong);
+  transform: scale(var(--press-scale-icon));
 }
 
 @media (max-width: 600px) {

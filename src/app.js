@@ -21,6 +21,10 @@ import authService from './js/services/auth/auth-service.js';
 import { AppRouter } from './app/core/router.js';
 import { PageManager } from './app/core/page-manager.js';
 
+// iOS Safari only applies :active while a touch listener is registered. The tap
+// highlight is disabled app-wide (tokens.css), so :active is the press feedback.
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 // Initialize SPA when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeSPA);
 

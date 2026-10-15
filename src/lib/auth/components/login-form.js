@@ -62,7 +62,8 @@ class LoginForm extends HTMLElement {
           background: none; border: none; display: flex; align-items: center;
           font-size: 18px;
         }
-        .input-icon .eye:hover { color: var(--ink, #1f1d18); }
+        .input-icon .eye:hover, .input-icon .eye:active { color: var(--ink, #1f1d18); }
+        .input-icon .eye:active { transform: translateY(-50%) scale(var(--press-scale-icon, 0.9)); }
 
         .row-between {
           display: flex; align-items: center; justify-content: space-between;
@@ -82,9 +83,10 @@ class LoginForm extends HTMLElement {
           border: 1.5px solid var(--hairline-strong, rgba(31,29,24,0.2));
           background: var(--surface-0, #faf7f2);
           display: inline-flex; align-items: center; justify-content: center;
-          transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms);
+          transition: background var(--dur-1, 160ms), border-color var(--dur-1, 160ms), transform var(--dur-1, 160ms);
           flex-shrink: 0;
         }
+        .check:active .box { border-color: var(--primary, #6a994e); transform: scale(var(--press-scale-icon, 0.9)); }
         .check input:checked + .box {
           background: var(--primary, #6a994e);
           border-color: var(--primary, #6a994e);
@@ -104,6 +106,7 @@ class LoginForm extends HTMLElement {
           cursor: pointer;
         }
         .link:hover { border-color: var(--primary, #6a994e); }
+        .link:active { border-color: var(--primary, #6a994e); opacity: 0.7; }
 
         .btn {
           display: inline-flex; align-items: center; justify-content: center; gap: 10px;
@@ -115,15 +118,15 @@ class LoginForm extends HTMLElement {
           width: 100%;
         }
         .btn-primary { background: var(--primary, #6a994e); color: #fff; }
-        .btn-primary:hover { background: var(--primary-dark, #386641); }
-        .btn-primary:active { transform: translateY(1px); }
+        .btn:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
+        .btn-primary:hover, .btn-primary:active { background: var(--primary-dark, #386641); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-social {
           background: var(--surface-1, #fff); color: var(--ink, #1f1d18);
           border: 1px solid var(--hairline-strong, rgba(31,29,24,0.2));
           padding: 12px 16px; font-weight: 500; font-size: 13.5px;
         }
-        .btn-social:hover { background: var(--surface-2, #f2e8cf); }
+        .btn-social:hover, .btn-social:active { background: var(--surface-2, #f2e8cf); }
         .btn-social .logo {
           width: 18px; height: 18px;
           display: inline-flex; align-items: center; justify-content: center;
@@ -150,6 +153,7 @@ class LoginForm extends HTMLElement {
           color: var(--primary-dark, #386641); text-decoration: none;
           border-bottom: 1px dotted var(--primary, #6a994e); cursor: pointer;
         }
+        .footer-note a:active { opacity: 0.7; }
 
         @media (max-width: 560px) {
           .stack { padding-left: 22px; padding-right: 22px; }

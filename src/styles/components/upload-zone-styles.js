@@ -5,16 +5,22 @@ export const uploadZoneStyles = `
     padding: 40px;
     text-align: center;
     cursor: pointer;
-    transition: border-color var(--dur-1, 160ms), background var(--dur-1, 160ms);
+    transition: border-color var(--dur-1, 160ms), background var(--dur-1, 160ms),
+                transform var(--dur-1, 160ms);
     background: var(--surface-0, #fafaf8);
     margin-bottom: 10px;
     color: var(--ink-3, rgba(31,29,24,0.55));
     font-size: 14px;
   }
 
-  .upload-zone:hover {
+  .upload-zone:hover,
+  .upload-zone:active {
     border-color: var(--primary, #6a994e);
     background: var(--surface-2, #f0ede6);
+  }
+
+  .upload-zone:active {
+    transform: scale(var(--press-scale-card, 0.985));
   }
 
   .upload-zone.drag-over {

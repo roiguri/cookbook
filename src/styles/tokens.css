@@ -103,6 +103,15 @@
   --dur-2: 280ms;
   --dur-3: 520ms;
 
+  /* ---- Press (:active) feedback ----
+     The browser's tap highlight is disabled app-wide (it paints the element's
+     bounding rectangle, which looks wrong on pills, circles and rounded
+     cards), so every clickable gives its own pressed state instead. */
+  --press-scale: 0.97; /* buttons, chips, tabs */
+  --press-scale-icon: 0.9; /* small / round icon buttons */
+  --press-scale-card: 0.985; /* cards and large tiles */
+  --press-tint: rgba(31, 29, 24, 0.06); /* wash for rows and quiet buttons */
+
   /* ---- Layout ---- */
   --content-max: 1200px;
   --gutter: clamp(20px, 4vw, 48px);
@@ -137,6 +146,17 @@ html,
 body {
   margin: 0;
   padding: 0;
+}
+html {
+  /* Inherited, so it also reaches every Shadow DOM component. */
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-scale: 1;
+    --press-scale-icon: 1;
+    --press-scale-card: 1;
+  }
 }
 body {
   background: var(--bg);

@@ -27,7 +27,9 @@ export const styles = `
     padding: 10px 16px;
     border-radius: var(--r-pill, 999px);
     cursor: pointer;
-    transition: background-color var(--dur-1, 160ms) var(--ease, ease);
+    transition:
+      background-color var(--dur-1, 160ms) var(--ease, ease),
+      transform var(--dur-1, 160ms) var(--ease, ease);
     font-size: 13px;
     font-family: var(--font-ui, system-ui, sans-serif);
     font-weight: 500;
@@ -39,8 +41,9 @@ export const styles = `
     background-color: var(--surface-2, #f2e8cf);
   }
 
-  .filter-button:active {
+  .filter-button:active:not(:disabled) {
     background-color: var(--surface-2, #f2e8cf);
+    transform: scale(var(--press-scale, 0.97));
   }
 
   .filter-button:disabled {

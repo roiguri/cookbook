@@ -5,7 +5,14 @@
       <!-- Menu for recipe actions -->
       <!-- Every action needs a signed-in user; the menu is shown in setupMenuHandlers. -->
       <div class="recipe-menu" style="display: none">
-        <button class="recipe-menu-button" aria-label="תפריט" title="תפריט">
+        <button
+          class="recipe-menu-button"
+          type="button"
+          aria-label="תפריט"
+          title="תפריט"
+          aria-haspopup="menu"
+          aria-expanded="false"
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="5" r="2" />
             <circle cx="12" cy="12" r="2" />

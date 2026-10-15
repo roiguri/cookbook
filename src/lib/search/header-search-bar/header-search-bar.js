@@ -114,11 +114,17 @@ class HeaderSearchBar extends HTMLElement {
           justify-content: center;
           color: var(--ink-3, #6b6a63);
           font-size: 14px;
-          transition: color var(--dur-1, 160ms) var(--ease, ease);
+          transition: color var(--dur-1, 160ms) var(--ease, ease),
+                      transform var(--dur-1, 160ms) var(--ease, ease);
         }
 
         .search-button:hover {
           color: var(--primary-dark, #386641);
+        }
+
+        .search-button:active {
+          color: var(--primary-dark, #386641);
+          transform: scale(var(--press-scale-icon, 0.9));
         }
 
         /* The form already draws the pill-shaped ring (:focus-within); the

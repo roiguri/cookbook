@@ -240,6 +240,20 @@ class ScrollingList extends HTMLElement {
         background-color: var(--surface-2, #f5f4f0);
       }
 
+      .expandable .list-item-header:active {
+        background-color: var(--neutral, #f2e8cf);
+      }
+
+      /* Hosts build item buttons with inline styles, which can't carry :active,
+         so the list gives every button inside an item its pressed state. */
+      .list-item button {
+        transition: transform var(--dur-1, 160ms) var(--ease, ease);
+      }
+
+      .list-item button:active:not(:disabled) {
+        transform: scale(var(--press-scale, 0.97));
+      }
+
       .list-item-content {
         display: none;
         padding: 10px 14px;

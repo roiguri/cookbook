@@ -46,12 +46,18 @@
   border-radius: var(--r-sm);
   transition:
     background var(--dur-1) var(--ease),
-    color var(--dur-1) var(--ease);
+    color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
-.spa-content .recipe-detail .recipe-menu-button:hover {
+.spa-content .recipe-detail .recipe-menu-button:hover,
+.spa-content .recipe-detail .recipe-menu-button:active {
   background: var(--hairline);
   color: var(--ink);
+}
+
+.spa-content .recipe-detail .recipe-menu-button:active {
+  transform: scale(var(--press-scale-icon));
 }
 
 .spa-content .recipe-detail .recipe-menu-button svg {
@@ -102,6 +108,10 @@
 
 .spa-content .recipe-detail .menu-item:hover {
   background: var(--surface-2);
+}
+
+.spa-content .recipe-detail .menu-item:active {
+  background: var(--hairline-strong);
 }
 
 .spa-content .recipe-detail .menu-item svg {
@@ -251,11 +261,18 @@
   font-family: var(--font-ui);
   font-size: 14px;
   font-weight: 500;
-  transition: background var(--dur-1) var(--ease);
+  transition:
+    background var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
-.spa-content .recipe-detail .recipe-detail-error button:hover {
+.spa-content .recipe-detail .recipe-detail-error button:hover,
+.spa-content .recipe-detail .recipe-detail-error button:active {
   background: var(--primary);
+}
+
+.spa-content .recipe-detail .recipe-detail-error button:active {
+  transform: scale(var(--press-scale));
 }
 
 /* ---- Mobile ---- */

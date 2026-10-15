@@ -122,7 +122,12 @@ class RecipePreviewModal extends HTMLElement {
         cursor: pointer;
         transition:
           background var(--dur-1, 160ms),
-          opacity var(--dur-1, 160ms);
+          opacity var(--dur-1, 160ms),
+          transform var(--dur-1, 160ms);
+      }
+
+      .modal-buttons button:active:not(:disabled) {
+        transform: scale(var(--press-scale, 0.97));
       }
 
       .modal-buttons button#approve-button {
@@ -131,7 +136,8 @@ class RecipePreviewModal extends HTMLElement {
         border: none;
       }
 
-      .modal-buttons button#approve-button:hover {
+      .modal-buttons button#approve-button:hover,
+      .modal-buttons button#approve-button:active:not(:disabled) {
         background: var(--primary-dark, #4a7a32);
       }
 
@@ -141,7 +147,8 @@ class RecipePreviewModal extends HTMLElement {
         border: 1.5px solid var(--secondary-dark, #bc4749);
       }
 
-      .modal-buttons button#reject-button:hover {
+      .modal-buttons button#reject-button:hover,
+      .modal-buttons button#reject-button:active:not(:disabled) {
         background: rgba(188, 71, 73, 0.08);
       }
 

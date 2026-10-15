@@ -94,11 +94,18 @@
   color: var(--ink);
   text-decoration: none;
   white-space: nowrap;
-  transition: background var(--dur-1) var(--ease);
+  transition:
+    background var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
 .spa-content .my-recipes-page .mr-chip:hover {
   background: var(--neutral);
+}
+
+.spa-content .my-recipes-page .mr-chip:active {
+  background: var(--neutral);
+  transform: scale(var(--press-scale));
 }
 
 .spa-content .my-recipes-page .mr-chip--to-try {

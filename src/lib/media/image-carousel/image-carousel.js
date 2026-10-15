@@ -277,6 +277,10 @@ class ImageCarousel extends HTMLElement {
           filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
         }
 
+        .image-carousel__dot:active {
+          background: rgba(255,255,255,0.9);
+        }
+
         .image-carousel__dot--active {
           background: var(--primary, #6a994e);
           border-color: var(--primary, #6a994e);
@@ -315,7 +319,8 @@ class ImageCarousel extends HTMLElement {
         }
 
         .image-carousel__button:active {
-          transform: translateY(-50%) scale(0.95);
+          background: var(--surface-2, #f0ede6);
+          transform: translateY(-50%) scale(var(--press-scale-icon, 0.9));
         }
 
         .image-carousel__button--prev { left: 10px; }

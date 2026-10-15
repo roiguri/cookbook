@@ -176,7 +176,11 @@ class ImageHandler extends FormFieldMixin(HTMLElement) {
           cursor: pointer;
           width: 80%;
           border: 1px solid transparent;
-          transition: background var(--dur-1, 160ms);
+          transition: background var(--dur-1, 160ms), transform var(--dur-1, 160ms);
+        }
+
+        .control-button:active {
+          transform: scale(var(--press-scale, 0.97));
         }
 
         .control-button.remove-button {
@@ -184,7 +188,8 @@ class ImageHandler extends FormFieldMixin(HTMLElement) {
           color: #fff;
         }
 
-        .control-button.remove-button:hover {
+        .control-button.remove-button:hover,
+        .control-button.remove-button:active {
           background: var(--secondary-dark, #bc4749);
         }
 
@@ -194,7 +199,8 @@ class ImageHandler extends FormFieldMixin(HTMLElement) {
           border-color: rgba(255,255,255,0.5);
         }
 
-        .control-button.primary-button:hover {
+        .control-button.primary-button:hover,
+        .control-button.primary-button:active {
           background: rgba(255,255,255,0.25);
         }
 

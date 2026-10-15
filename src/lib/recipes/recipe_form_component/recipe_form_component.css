@@ -209,12 +209,17 @@
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
     border-color var(--dur-1, 160ms) var(--ease, ease),
-    color var(--dur-1, 160ms) var(--ease, ease);
+    color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
   user-select: none;
 }
 
 .recipe-form__chip:hover {
   background: var(--surface-2, #f2e8cf);
+}
+
+.recipe-form__chip:active {
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .recipe-form__chip.on {
@@ -250,7 +255,13 @@
   cursor: pointer;
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    color var(--dur-1, 160ms) var(--ease, ease);
+    color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
+}
+
+.recipe-form__seg-btn:active {
+  color: var(--ink-2, #3a3a3a);
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .recipe-form__seg-btn.on {
@@ -347,14 +358,24 @@ fieldset {
   margin-top: 0;
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    color var(--dur-1, 160ms) var(--ease, ease);
+    color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
 .recipe-form__ingredient-entry .recipe-form__button--add-ingredient:hover,
 .recipe-form__step .recipe-form__button--add-step:hover,
-.recipe-form__comment-entry .recipe-form__button--add-comment:hover {
+.recipe-form__comment-entry .recipe-form__button--add-comment:hover,
+.recipe-form__ingredient-entry .recipe-form__button--add-ingredient:active,
+.recipe-form__step .recipe-form__button--add-step:active,
+.recipe-form__comment-entry .recipe-form__button--add-comment:active {
   background: color-mix(in oklab, var(--primary, #6a994e) 12%, transparent);
   border-color: var(--primary, #6a994e);
+}
+
+.recipe-form__ingredient-entry .recipe-form__button--add-ingredient:active,
+.recipe-form__step .recipe-form__button--add-step:active,
+.recipe-form__comment-entry .recipe-form__button--add-comment:active {
+  transform: scale(var(--press-scale-icon, 0.9));
 }
 
 /* Below-list add buttons (section headers) keep the pill style */
@@ -378,17 +399,28 @@ fieldset {
   cursor: pointer;
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    border-color var(--dur-1, 160ms) var(--ease, ease);
+    border-color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
 .recipe-form__button--add-ingredient:hover,
 .recipe-form__button--add-step:hover,
 .recipe-form__button--add-comment:hover,
 .recipe-form__button--add-section:hover,
-.recipe-form__button--add-stage:hover {
+.recipe-form__button--add-stage:hover,
+.recipe-form__button--add-ingredient:active,
+.recipe-form__button--add-step:active,
+.recipe-form__button--add-comment:active,
+.recipe-form__button--add-section:active,
+.recipe-form__button--add-stage:active {
   background: var(--surface-2, #f2e8cf);
   border-color: var(--primary, #6a994e);
   border-style: solid;
+}
+
+.recipe-form__button--add-section:active,
+.recipe-form__button--add-stage:active {
+  transform: scale(var(--press-scale, 0.97));
 }
 
 .recipe-form__button--remove-ingredient,
@@ -415,17 +447,31 @@ fieldset {
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
     color var(--dur-1, 160ms) var(--ease, ease),
-    border-color var(--dur-1, 160ms) var(--ease, ease);
+    border-color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
 .recipe-form__button--remove-ingredient:hover,
 .recipe-form__button--remove-step:hover,
 .recipe-form__button--remove-comment:hover,
 .recipe-form__button--remove-section:hover,
-.recipe-form__button--remove-stage:hover {
+.recipe-form__button--remove-stage:hover,
+.recipe-form__button--remove-ingredient:active,
+.recipe-form__button--remove-step:active,
+.recipe-form__button--remove-comment:active,
+.recipe-form__button--remove-section:active,
+.recipe-form__button--remove-stage:active {
   background: color-mix(in oklab, var(--secondary, #bc4749) 10%, transparent);
   border-color: var(--secondary, #bc4749);
   color: var(--secondary-dark, #9a3a3c);
+}
+
+.recipe-form__button--remove-ingredient:active,
+.recipe-form__button--remove-step:active,
+.recipe-form__button--remove-comment:active,
+.recipe-form__button--remove-section:active,
+.recipe-form__button--remove-stage:active {
+  transform: scale(var(--press-scale-icon, 0.9));
 }
 
 /* ============ STAGE HEADER ============ */
@@ -458,10 +504,18 @@ fieldset {
   cursor: pointer;
   background: var(--primary, #6a994e);
   color: #fff;
-  transition: background var(--dur-1, 160ms) var(--ease, ease);
+  transition:
+    background var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
-.recipe-form__button--submit:hover {
+.recipe-form__button--submit:active,
+.recipe-form__button--clear:active {
+  transform: scale(var(--press-scale, 0.97));
+}
+
+.recipe-form__button--submit:hover,
+.recipe-form__button--submit:active {
   background: var(--primary-dark, #386641);
 }
 
@@ -477,10 +531,12 @@ fieldset {
   color: var(--ink-2, #3a3a3a);
   transition:
     background var(--dur-1, 160ms) var(--ease, ease),
-    border-color var(--dur-1, 160ms) var(--ease, ease);
+    border-color var(--dur-1, 160ms) var(--ease, ease),
+    transform var(--dur-1, 160ms) var(--ease, ease);
 }
 
-.recipe-form__button--clear:hover {
+.recipe-form__button--clear:hover,
+.recipe-form__button--clear:active {
   background: var(--surface-2, #f2e8cf);
 }
 
@@ -577,6 +633,11 @@ fieldset {
   white-space: nowrap;
 }
 
+.recipe-form__problem-link:active,
+.recipe-form__problem-more:active {
+  opacity: 0.7;
+}
+
 .recipe-form__problem-link:focus-visible,
 .recipe-form__problem-more:focus-visible,
 .recipe-form__jump:focus-visible {
@@ -609,6 +670,11 @@ fieldset {
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition: transform var(--dur-1, 160ms) var(--ease, ease);
+}
+
+.recipe-form__jump:active {
+  transform: scale(var(--press-scale-icon, 0.9));
 }
 
 .recipe-form__jump svg {

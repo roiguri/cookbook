@@ -98,10 +98,15 @@ class MessageModal extends Modal {
         border: none;
         border-radius: var(--r-sm, 8px);
         cursor: pointer;
-        transition: background var(--dur-1, 160ms) var(--ease, ease);
+        transition: background var(--dur-1, 160ms) var(--ease, ease),
+                    transform var(--dur-1, 160ms) var(--ease, ease);
       }
-      .modal-actions button:hover {
+      .modal-actions button:hover,
+      .modal-actions button:active {
         background: var(--primary-dark, #386641);
+      }
+      .modal-actions button:active {
+        transform: scale(var(--press-scale, 0.97));
       }
     `;
   }

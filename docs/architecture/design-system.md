@@ -57,6 +57,26 @@ Metric-adjusted fallbacks (`@font-face` declarations at the top of `tokens.css`)
 - Easings: `--ease` (general), `--ease-out` (exits, settles).
 - Durations: `--dur-1` 160ms (micro), `--dur-2` 280ms (default), `--dur-3` 520ms (large transitions).
 
+## Pressed (`:active`) states
+
+The browser's tap highlight is off app-wide (`-webkit-tap-highlight-color: transparent` on `html`; it inherits into every Shadow DOM component). It painted the element's bounding **rectangle**, which looked wrong on pills, circles, rounded cards and stretched links. Every clickable therefore gives its own pressed state:
+
+| Clickable                                    | Pressed state                                                    |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| Buttons, chips, tabs, pills                  | `transform: scale(var(--press-scale))` (0.97) + the hover colour |
+| Small / round icon buttons                   | `scale(var(--press-scale-icon))` (0.9)                           |
+| Cards and large tiles                        | `scale(var(--press-scale-card))` (0.985)                         |
+| Full-width rows (menu items, list rows, TOC) | a background tint only — no scale                                |
+| Square full-width rows (ingredient list)     | press the row's checkbox, not the row                            |
+
+- Add `transform var(--dur-1)` to the element's `transition` so the press eases in and out.
+- When the element already uses `transform` (e.g. `translateY(-50%)` centering), keep it: `translateY(-50%) scale(…)`.
+- Guard with `:not(:disabled)` where the button can be disabled.
+- Inside Shadow DOM use the fallback form: `var(--press-scale, 0.97)`.
+- Under `prefers-reduced-motion: reduce` the scale tokens are `1`, so only the colour change remains.
+- iOS Safari only applies `:active` while a touch listener exists — `src/app.js` registers a passive no-op `touchstart`.
+- Focus rings use `:focus-visible`, never `:focus`, so they show for keyboard users and not on tap/click.
+
 ## Layout
 
 - `--content-max` — `1200px` page cap.

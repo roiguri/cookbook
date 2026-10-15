@@ -16,7 +16,9 @@ const STYLES = `
     border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
     background: var(--surface-1); cursor: pointer; font-family: var(--font-ui-he);
     color: var(--ink); text-align: right;
+    transition: background var(--dur-1), border-color var(--dur-1), transform var(--dur-1);
   }
+  .save-opt:active { background: var(--surface-2); transform: scale(var(--press-scale)); }
   .save-opt input {
     margin: 2px 0 0; width: 16px; height: 16px; accent-color: var(--primary-dark); flex-shrink: 0;
   }

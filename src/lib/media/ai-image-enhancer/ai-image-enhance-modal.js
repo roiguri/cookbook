@@ -676,7 +676,8 @@ class AiImageEnhanceModal extends HTMLElement {
           cursor: zoom-in;
         }
 
-        .compare-pane.pane-clickable:hover img {
+        .compare-pane.pane-clickable:hover img,
+        .compare-pane.pane-clickable:active img {
           filter: brightness(1.06);
         }
 
@@ -782,7 +783,12 @@ class AiImageEnhanceModal extends HTMLElement {
           cursor: pointer;
           border: 1.5px solid transparent;
           transition: background-color var(--dur-1, 160ms) var(--ease, ease),
-                      color var(--dur-1, 160ms) var(--ease, ease);
+                      color var(--dur-1, 160ms) var(--ease, ease),
+                      transform var(--dur-1, 160ms) var(--ease, ease);
+        }
+
+        button.action:active:not(:disabled) {
+          transform: scale(var(--press-scale, 0.97));
         }
 
         button.action:disabled {
@@ -795,7 +801,8 @@ class AiImageEnhanceModal extends HTMLElement {
           color: #fff;
         }
 
-        button.primary:hover:not(:disabled) {
+        button.primary:hover:not(:disabled),
+        button.primary:active:not(:disabled) {
           background: var(--primary-dark, #557a3e);
         }
 
@@ -805,7 +812,8 @@ class AiImageEnhanceModal extends HTMLElement {
           border-color: var(--primary-dark, #557a3e);
         }
 
-        button.ghost:hover:not(:disabled) {
+        button.ghost:hover:not(:disabled),
+        button.ghost:active:not(:disabled) {
           background: rgba(106, 153, 78, 0.08);
         }
 
@@ -815,7 +823,8 @@ class AiImageEnhanceModal extends HTMLElement {
           border-color: var(--secondary, #bc4749);
         }
 
-        button.danger:hover:not(:disabled) {
+        button.danger:hover:not(:disabled),
+        button.danger:active:not(:disabled) {
           background: rgba(188, 71, 73, 0.08);
         }
 

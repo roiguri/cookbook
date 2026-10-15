@@ -60,10 +60,16 @@
     justify-content: center;
     transition:
       background var(--dur-1, 160ms),
-      border-color var(--dur-1, 160ms);
+      border-color var(--dur-1, 160ms),
+      transform var(--dur-1, 160ms);
   }
 
-  .pdf-toc-drawer__close:hover {
+  .pdf-toc-drawer__close:active {
+    transform: scale(var(--press-scale-icon, 0.9));
+  }
+
+  .pdf-toc-drawer__close:hover,
+  .pdf-toc-drawer__close:active {
     background: var(--surface-0, #fafaf8);
     border-color: var(--primary, #6a994e);
     color: var(--primary, #6a994e);
@@ -173,6 +179,11 @@
     background: var(--surface-2, #f5f4f0);
   }
 
+  .pdf-toc-drawer .toc__summary:active,
+  .pdf-toc-drawer .toc__recipe:active:not(.toc__recipe--active) {
+    background: color-mix(in oklab, var(--primary) 12%, var(--surface-2, #f5f4f0));
+  }
+
   .pdf-toc-drawer .toc__cat--active > .toc__summary {
     background: rgba(106, 153, 78, 0.1);
   }
@@ -213,6 +224,10 @@
     background: var(--primary, #6a994e);
     color: #fff;
     font-weight: 500;
+  }
+
+  .pdf-toc-drawer .toc__recipe--active:active {
+    background: var(--primary-dark, #386641);
   }
 
   .pdf-toc-drawer .toc__page {

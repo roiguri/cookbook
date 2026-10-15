@@ -86,11 +86,18 @@ Naming Convention:
   font-family: var(--font-ui);
   font-size: var(--step-0);
   font-weight: 500;
-  transition: background-color var(--dur-1) var(--ease);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
-.spa-content .[page-name] .button:hover {
+.spa-content .[page-name] .button:hover,
+.spa-content .[page-name] .button:active {
   background-color: var(--primary-hover);
+}
+
+.spa-content .[page-name] .button:active:not(:disabled) {
+  transform: scale(var(--press-scale));
 }
 
 .spa-content .[page-name] .button:disabled {
