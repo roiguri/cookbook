@@ -268,9 +268,6 @@ class UserProfile extends HTMLElement {
           </div>
           <avatar-builder id="avatar-builder" hidden></avatar-builder>
           <span class="feedback" id="avatar-feedback" style="margin-top:12px;"></span>
-          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn btn-quiet" type="button" id="use-initials-btn">השתמש בראשי תיבות</button>
-          </div>
         </section>
       </div>
 
@@ -319,9 +316,6 @@ class UserProfile extends HTMLElement {
     this.shadowRoot
       .getElementById('signout-btn')
       .addEventListener('click', () => this._handleSignout());
-    this.shadowRoot
-      .getElementById('use-initials-btn')
-      .addEventListener('click', () => this._useInitials());
     this.shadowRoot
       .getElementById('delete-account-btn')
       .addEventListener('click', () => this._confirmDeleteAccount());
@@ -435,26 +429,6 @@ class UserProfile extends HTMLElement {
       console.error('Error saving built avatar:', error);
       builder.setBusy(false);
       this._showFeedback('avatar-feedback', 'err', 'שמירת האווטאר נכשלה. נסה שנית.');
-    }
-  }
-
-  _deactivateBuilder() {
-    const builder = this.shadowRoot.getElementById('avatar-builder');
-    if (builder) builder.active = false;
-  }
-
-  async _useInitials() {
-    const btn = this.shadowRoot.getElementById('use-initials-btn');
-    btn.disabled = true;
-    try {
-      await authService.updateProfile({ avatarUrl: null });
-      this.selectedAvatarUrl = null;
-      this._deactivateBuilder();
-      this._showFeedback('avatar-feedback', 'ok', 'ראשי תיבות מוצגים כעת כאווטאר שלך.');
-    } catch (error) {
-      this._showFeedback('avatar-feedback', 'err', error.message || 'הפעולה נכשלה. נסה שנית.');
-    } finally {
-      btn.disabled = false;
     }
   }
 

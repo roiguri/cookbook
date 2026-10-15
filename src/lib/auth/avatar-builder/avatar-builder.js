@@ -13,8 +13,8 @@
  * uploads and then calls `markSaved(config)` (or `setBusy(false)` on failure).
  *
  * @property {Object} config - the avatar config being edited (set before or after connect)
- * @property {boolean} active - whether the saved config is the avatar in use (not a stock
- *   pick or initials); when false, Save stays enabled so the built avatar can be re-applied
+ * @property {boolean} active - whether the saved config is the avatar in use (false while the
+ *   user is still on an old stock avatar); when false, Save stays enabled to apply it
  *
  * @fires avatar-builder-save - detail: { config }
  */

@@ -1,11 +1,9 @@
 # Avatars
 
-Signed-in users pick their avatar in the profile modal's **אווטאר** tab:
-
-1. **Build one** in `<avatar-builder>`, choosing each part separately: hairstyle, eyes, brows,
-   mouth, facial hair, glasses, headwear and kitchen outfit, plus skin, hair, fabric and
-   background colours.
-2. **Use initials** (no image).
+Signed-in users build their avatar in the profile modal's **אווטאר** tab, in `<avatar-builder>`,
+choosing each part separately: hairstyle, eyes, brows, mouth, facial hair, glasses, headwear and
+kitchen outfit, plus skin, hair, fabric and background colours. Until they save one, the header
+shows their initial (or their Google photo); there is no option to go back to initials.
 
 Wherever an avatar is shown (header, profile head, family picker), it is a plain image URL from
 `users/{uid}.avatarUrl`. A built avatar is uploaded as a PNG, so none of those places know about
@@ -55,8 +53,8 @@ users/{uid}.avatarUrl = '<download URL of user-avatars/{uid}.png>&v=<save time>'
   part comes from it. `normalizeAvatarConfig()` turns anything (old versions, unknown ids,
   missing keys) into a valid config, so the catalogue can change without migrating stored
   configs.
-- `avatarConfig` stays when the user switches to initials, so the builder can
-  re-apply it later. The builder knows it is "in use" when `avatarUrl` points at `user-avatars/`.
+- The builder knows its config is "in use" when `avatarUrl` points at `user-avatars/`. Users still
+  on a stock avatar (until converted) see their look-alike or default chef with Save enabled.
 - The file name never changes; the `v` query parameter makes browsers fetch a new save.
 - Deleting the account deletes the PNG (best effort, `AuthService.deleteAccount`).
 
