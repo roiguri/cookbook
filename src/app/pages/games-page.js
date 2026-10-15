@@ -8,6 +8,7 @@ import '../../lib/games/game_start_overlay.css';
 import '../../lib/games/chef_says.css';
 import '../../lib/games/pancake_flip.css';
 import '../../lib/games/garden_harvest.css';
+import '../../lib/games/layer_cake.css';
 import '../../lib/utilities/modal/modal.js';
 
 // Phone-sized viewport — matches the modal's fullscreen-mobile activation.
