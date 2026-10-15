@@ -37,7 +37,9 @@ const TUNING = {
     firstPopSec: 0.4,
     maxFrameSec: 0.1,
   },
-  pacing: { hitShowSec: 0.35, endDelayMs: 450 },
+  // How long a hole shows its outcome animation (pluck / sink / wriggle)
+  // before it is free again. Matches the ~420ms animations in the CSS.
+  pacing: { hitShowSec: 0.45, endDelayMs: 450 },
 };
 
 let gardenIntroPending = true;

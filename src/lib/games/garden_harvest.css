@@ -117,7 +117,9 @@
   border: 0;
   background: none;
   cursor: pointer;
-  overflow: hidden;
+  /* Clip only below and at the sides, so a plucked item can rise above the
+     hole while a sunk one stays hidden under it. */
+  clip-path: inset(-60% -10% 0 -10%);
   /* The item sizes from the hole, not the viewport, so it reads the same in
      the desktop card, the portrait modal and the landscape layout. */
   container-type: size;
@@ -161,40 +163,115 @@
   bottom: 34%;
   font-size: 50cqh;
   line-height: 1;
+  /* Resting state: below the soil and invisible, with no transition, so a
+     hole that resets never shows the item travelling back down. */
   transform: translate(-50%, 110%);
-  transition: transform 160ms var(--ease-out);
+  opacity: 0;
   z-index: 1;
   pointer-events: none;
 }
 
+/* Pop: springy rise with a little overshoot. */
 .garden-hole[data-state='up'] .garden-item {
   transform: translate(-50%, 0);
+  opacity: 1;
+  transition:
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 80ms linear;
 }
 
+/* Soil heaves as something comes up. */
+.garden-hole[data-state='up'] .garden-soil {
+  animation: garden-heave 260ms var(--ease-out);
+}
+
+/* Harvest: plucked up out of the hole with a twist, then gone. */
 .garden-hole[data-state='hit'] .garden-item {
-  transform: translate(-50%, -40%) scale(1.15);
-  opacity: 0;
-  transition:
-    transform 300ms var(--ease-out),
-    opacity 300ms var(--ease-out);
+  animation: garden-pluck 420ms var(--ease-out) forwards;
+}
+
+/* Missed vegetable: sinks back slowly. */
+.garden-hole[data-state='missed'] .garden-item,
+.garden-hole[data-state='gone'] .garden-item {
+  animation: garden-sink 320ms ease-in forwards;
+}
+
+/* Tapped worm: wriggles, then ducks back in. */
+.garden-hole[data-state='bitten'] .garden-item {
+  animation: garden-wriggle 420ms var(--ease) forwards;
+}
+
+@keyframes garden-pluck {
+  0% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  45% {
+    transform: translate(-50%, -45%) scale(1.2) rotate(-14deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -70%) scale(0.7) rotate(10deg);
+    opacity: 0;
+  }
+}
+
+@keyframes garden-sink {
+  from {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, 110%);
+    opacity: 1;
+  }
+}
+
+@keyframes garden-wriggle {
+  0% {
+    transform: translate(-50%, 0) rotate(0);
+    opacity: 1;
+  }
+  15% {
+    transform: translate(-50%, 0) rotate(-16deg);
+  }
+  30% {
+    transform: translate(-50%, 0) rotate(14deg);
+  }
+  45% {
+    transform: translate(-50%, 0) rotate(-8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 110%) rotate(0);
+    opacity: 1;
+  }
+}
+
+@keyframes garden-heave {
+  40% {
+    transform: scale(1.06, 0.92);
+  }
 }
 
 .garden-hole[data-state='hit']::after,
 .garden-hole[data-state='bitten']::after,
 .garden-hole[data-state='missed']::after {
   position: absolute;
-  top: 6%;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   font-weight: 700;
-  font-size: var(--step-0);
+  font-size: var(--step-1);
   z-index: 3;
-  animation: garden-float 350ms var(--ease-out) forwards;
+  pointer-events: none;
+  animation: garden-float 450ms var(--ease-out) forwards;
 }
 
 .garden-hole[data-state='hit']::after {
   content: '+1';
   color: var(--primary-dark);
+  text-shadow: 0 1px 0 #fff;
 }
 
 .garden-hole[data-state='bitten']::after {
@@ -207,30 +284,14 @@
   color: var(--ink-3);
 }
 
-.garden-hole[data-state='bitten'] {
-  animation: garden-shake 320ms var(--ease);
-}
-
 @keyframes garden-float {
   from {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translate(-50%, 4px);
   }
   to {
     opacity: 0;
-    transform: translate(-50%, -12px);
-  }
-}
-
-@keyframes garden-shake {
-  25% {
-    transform: translateX(-5px);
-  }
-  50% {
-    transform: translateX(4px);
-  }
-  75% {
-    transform: translateX(-2px);
+    transform: translate(-50%, -14px);
   }
 }
 
@@ -262,11 +323,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .garden-item {
-    transition: none;
-  }
-
-  .garden-hole[data-state='bitten'] {
-    animation: none;
+  .garden-hole .garden-item,
+  .garden-hole .garden-soil {
+    transition: none !important;
+    animation-duration: 1ms !important;
   }
 }
