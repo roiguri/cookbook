@@ -68,10 +68,12 @@ describe('GardenHarvestGame', () => {
     game.destroy();
   });
 
-  test('a vegetable that sinks unpicked is a strike', () => {
+  test('a vegetable that sinks unpicked is not a strike', () => {
     const { host, game } = setup({ maxStrikes: 9 });
     advance(FIRST_POP_MS + 1750);
-    expect(pips(host)).toBeGreaterThanOrEqual(1);
+    expect(host.querySelector('.garden-hole[data-state="missed"]')).not.toBeNull();
+    advance(10000); // many more vegetables come and go
+    expect(pips(host)).toBe(0);
     game.destroy();
   });
 

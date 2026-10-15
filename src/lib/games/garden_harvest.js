@@ -2,9 +2,9 @@ import styles from './garden_harvest.css?inline';
 import { START_OVERLAY_STYLES, showStartOverlay } from './game_start_overlay.js';
 
 // Whack-a-mole in a vegetable bed: produce pops out of nine holes. Tap it
-// before it sinks back. Worms pop up too — don't tap those. Tapping a worm
-// or letting a vegetable sink unpicked is a strike. Harvest `toHarvest` to
-// win; `maxStrikes` loses.
+// before it sinks back. Worms pop up too — don't tap those. Only tapping a
+// worm is a strike; a vegetable that sinks unpicked is just a lost chance.
+// Harvest `toHarvest` to win; `maxStrikes` worm taps lose.
 //
 // All timing runs in one rAF loop on elapsed time, so a hidden tab freezes
 // the bed instead of letting everything sink at once.
@@ -105,7 +105,7 @@ export class GardenHarvestGame {
         emoji: '🥕',
         title: 'קציר בגינה',
         instructions:
-          'ירקות קופצים מהאדמה — הקישו עליהם לפני שהם חוזרים פנימה. אל תגעו בתולעים! תולעת או ירק שפספסתם — פספוס.',
+          'ירקות קופצים מהאדמה — הקישו עליהם לפני שהם חוזרים פנימה. אל תגעו בתולעים — כל תולעת היא פספוס.',
         onStart: () => {
           this.removeStartOverlay = null;
           this.beginPlay();
@@ -141,13 +141,8 @@ export class GardenHarvestGame {
       hole.timer -= dt;
       if (hole.timer > 0) continue;
       if (hole.state === 'up') {
-        // Sank back unpicked.
-        const missedVeg = hole.kind === 'veg';
-        this.sink(hole, missedVeg ? 'missed' : 'gone');
-        if (missedVeg) {
-          this.addStrike('פספסת ירק!');
-          if (!this.state.isRunning) return;
-        }
+        // Sank back unpicked — no penalty; only worms cost strikes.
+        this.sink(hole, hole.kind === 'veg' ? 'missed' : 'gone');
       } else {
         this.clearHole(hole);
       }
