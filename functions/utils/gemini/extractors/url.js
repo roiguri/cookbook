@@ -1,4 +1,4 @@
-const { createClient } = require('../client');
+const { createClient, requireRecipeText } = require('../client');
 const { RECIPE_SCHEMA, URL_EXTRACTION_PROMPT, validateRecipeData } = require('../recipe-schema');
 
 /**
@@ -44,8 +44,6 @@ IMPORTANT: Return ONLY the JSON object, no markdown formatting or additional tex
       },
     });
 
-    let responseText = response.text;
-
     if (response.candidates?.[0]?.urlContextMetadata) {
       console.log(
         'URL Context Metadata:',
@@ -53,7 +51,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown formatting or additional tex
       );
     }
 
-    responseText = responseText.trim();
+    let responseText = requireRecipeText(response, 'url').trim();
     if (responseText.startsWith('```json')) {
       responseText = responseText.slice(7);
     } else if (responseText.startsWith('```')) {
@@ -86,7 +84,7 @@ ${responseText}`,
           },
         });
 
-        data = JSON.parse(cleanupResponse.text);
+        data = JSON.parse(requireRecipeText(cleanupResponse, 'url cleanup'));
         console.log('Successfully parsed recipe using cleanup call');
       } catch (cleanupError) {
         console.error('Failed to parse Gemini response as JSON:', responseText.substring(0, 500));
