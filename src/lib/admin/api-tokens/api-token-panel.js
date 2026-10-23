@@ -13,6 +13,10 @@ const ERROR_MESSAGES = {
   'functions/invalid-argument': 'הפרטים שהוזנו אינם תקינים.',
 };
 
+// What the busy button says while its action runs, and what screen readers hear.
+const BUSY_LABELS = { create: 'יוצר…', revoke: 'מבטל…', retry: 'טוען…' };
+const BUSY_STATUS = { create: 'יוצר טוקן…', revoke: 'מבטל טוקן…', retry: 'טוען טוקנים…' };
+
 const day = new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
 const dayTime = new Intl.DateTimeFormat('he-IL', {
   day: '2-digit',
@@ -79,6 +83,10 @@ const STYLES = `
     color: var(--ink);
     cursor: pointer;
     transition: transform var(--dur-1) var(--ease);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
   }
   button:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
   button:focus-visible, input:focus-visible, select:focus-visible { outline: none; box-shadow: var(--ring); }
@@ -96,7 +104,42 @@ const STYLES = `
     color: var(--ink);
   }
   input { flex: 1; min-width: 140px; }
+  .form-actions { display: flex; gap: 8px; }
   .error { font-size: 13px; color: var(--secondary-dark); }
+  /* Action buttons hold both labels in one grid cell, so the width fits the longer one
+     and never changes when the busy label shows. */
+  .labels { display: inline-grid; }
+  .labels > span {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .labels > .busy, button[aria-busy='true'] .labels > .idle { visibility: hidden; }
+  button[aria-busy='true'] .labels > .busy { visibility: visible; }
+  /* The busy button keeps full opacity so its spinner and label read clearly. */
+  button[aria-busy='true']:disabled { opacity: 1; cursor: progress; }
+  .spinner {
+    width: 12px;
+    height: 12px;
+    box-sizing: border-box;
+    border: 2px solid currentColor;
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+    animation: api-token-spin 0.8s linear infinite;
+  }
+  @keyframes api-token-spin { to { transform: rotate(360deg); } }
+  /* Reduced motion: a still ring; the busy label says what is happening. */
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
   [hidden] { display: none !important; }
 `;
 
@@ -123,9 +166,23 @@ class ApiTokenPanel extends HTMLElement {
     this._labelOf = (uid) => uid;
     this._formOpen = false;
     this._draft = { name: '', scope: API_TOKEN_SCOPES.READ_WRITE };
-    this._busy = false;
+    // The running action, if any: { action: 'create' | 'revoke' | 'retry', tokenId? }.
+    // While set, every control is disabled and the acting button shows a busy label.
+    this._pending = null;
     this._error = '';
     this._loadError = false;
+    // Where focus goes after the next render (re-renders replace the controls).
+    this._focusNext = null;
+
+    // Style and the live status persist; render() replaces only the content, so a
+    // status change is announced rather than re-created.
+    const style = document.createElement('style');
+    style.textContent = STYLES;
+    this._status = document.createElement('p');
+    this._status.className = 'sr-only';
+    this._status.setAttribute('role', 'status');
+    this._content = document.createElement('div');
+    this.shadowRoot.append(style, this._status, this._content);
   }
 
   connectedCallback() {
@@ -138,6 +195,7 @@ class ApiTokenPanel extends HTMLElement {
    */
   setData({ user, tokens = [], maxTokens = 0, labelOf, loadError = false }) {
     this._loadError = loadError;
+    if (this._pending?.action === 'retry') this._pending = null; // the page answered
     this._user = user;
     this._tokens = [...tokens].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
     this._maxTokens = maxTokens;
@@ -154,7 +212,8 @@ class ApiTokenPanel extends HTMLElement {
 
   /** Revoke a token (the page has already confirmed). */
   async revoke(tokenId) {
-    this._setBusy(true);
+    const mine = { action: 'revoke', tokenId };
+    this._setPending(mine);
     try {
       await ApiTokenService.revoke(tokenId);
       this._tokens = this._tokens.filter((t) => t.tokenId !== tokenId);
@@ -162,8 +221,8 @@ class ApiTokenPanel extends HTMLElement {
     } catch (error) {
       this._error = ERROR_MESSAGES[error?.code] || 'ביטול הטוקן נכשל. נסו שוב.';
     } finally {
-      this._busy = false;
-      this.render();
+      this._focusNext = 'after-revoke';
+      this._finish(mine);
     }
   }
 
@@ -171,15 +230,59 @@ class ApiTokenPanel extends HTMLElement {
     return TOKEN_ROLES.includes(this._user?.role);
   }
 
-  _setBusy(busy) {
-    this._busy = busy;
-    this.shadowRoot.querySelectorAll('button, input, select').forEach((el) => {
-      el.disabled = busy;
+  _setPending(pending) {
+    this._pending = pending;
+    this.render();
+  }
+
+  /** An action ended: clear the busy state only if it is still this action's. */
+  _finish(mine) {
+    if (this._pending === mine) this._pending = null;
+    this.render();
+  }
+
+  /** Disable every control; the acting button shows a spinner and its busy label. */
+  _applyPending() {
+    const root = this.shadowRoot;
+    root.querySelectorAll('button, input, select').forEach((el) => {
+      el.disabled = true;
     });
+    const { action, tokenId } = this._pending;
+    const button = [...root.querySelectorAll(`button[data-action="${action}"]`)].find(
+      (b) => action !== 'revoke' || b.dataset.tokenId === tokenId,
+    );
+    button?.setAttribute('aria-busy', 'true');
+  }
+
+  /**
+   * A button for an action with a busy state. Both labels share one grid cell, so the
+   * button is as wide as the longer one whichever is showing.
+   */
+  _actionButton(action, label, { className = '', type = 'button', tokenId } = {}) {
+    const button = document.createElement('button');
+    button.type = type;
+    button.className = className;
+    button.dataset.action = action;
+    if (tokenId) button.dataset.tokenId = tokenId;
+    const labels = document.createElement('span');
+    labels.className = 'labels';
+    const idle = document.createElement('span');
+    idle.className = 'idle';
+    idle.textContent = label;
+    const busy = document.createElement('span');
+    busy.className = 'busy';
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+    busy.append(spinner, BUSY_LABELS[action]);
+    labels.append(idle, busy);
+    button.append(labels);
+    return button;
   }
 
   async _create(name, scope) {
-    this._setBusy(true);
+    const mine = { action: 'create' };
+    this._setPending(mine);
     try {
       const { token: secret, ...token } = await ApiTokenService.create({
         uid: this._user.id,
@@ -195,22 +298,38 @@ class ApiTokenPanel extends HTMLElement {
       );
     } catch (error) {
       this._error = ERROR_MESSAGES[error?.code] || 'יצירת הטוקן נכשלה. נסו שוב.';
+      this._focusNext = 'name';
     } finally {
-      this._busy = false;
-      this.render();
+      this._finish(mine);
     }
   }
 
   render() {
-    const root = this.shadowRoot;
-    root.innerHTML = '';
-    const style = document.createElement('style');
-    style.textContent = STYLES;
     const panel = document.createElement('section');
     panel.className = 'panel';
     panel.dir = 'rtl';
-    root.append(style, panel);
+    this._content.replaceChildren(panel);
+    this._renderContent(panel);
+    if (this._pending) this._applyPending();
+    const status = this._pending ? BUSY_STATUS[this._pending.action] : '';
+    if (this._status.textContent !== status) this._status.textContent = status;
+    this._applyFocus();
+  }
 
+  /** Put focus back where the manager was, after a re-render replaced the controls. */
+  _applyFocus() {
+    const target = this._focusNext;
+    if (!target || this._pending) return;
+    this._focusNext = null;
+    const root = this.shadowRoot;
+    const el =
+      target === 'name'
+        ? root.querySelector('form input')
+        : root.querySelector('button.add') || root.querySelector('button.danger');
+    el?.focus();
+  }
+
+  _renderContent(panel) {
     const title = document.createElement('h3');
     title.textContent = 'גישת API';
     panel.append(title);
@@ -220,13 +339,10 @@ class ApiTokenPanel extends HTMLElement {
     if (this._loadError) {
       const row = document.createElement('div');
       row.className = 'load-error';
-      const retry = document.createElement('button');
-      retry.type = 'button';
-      retry.className = 'retry';
-      retry.textContent = 'נסו שוב';
-      // Disabled until the page answers with setData (success or another error).
+      const retry = this._actionButton('retry', 'נסו שוב', { className: 'retry' });
+      // Busy until the page answers with setData (success or another error).
       retry.addEventListener('click', () => {
-        retry.disabled = true;
+        this._setPending({ action: 'retry' });
         this.dispatchEvent(new CustomEvent('api-token-retry'));
       });
       row.append(this._note('לא ניתן לטעון את הטוקנים.'), retry);
@@ -276,7 +392,6 @@ class ApiTokenPanel extends HTMLElement {
       error.textContent = this._error;
       panel.append(error);
     }
-    if (this._busy) this._setBusy(true);
   }
 
   _note(text) {
@@ -319,10 +434,10 @@ class ApiTokenPanel extends HTMLElement {
       li.append(inactive);
     }
 
-    const revoke = document.createElement('button');
-    revoke.type = 'button';
-    revoke.className = 'danger';
-    revoke.textContent = 'בטל';
+    const revoke = this._actionButton('revoke', 'בטל', {
+      className: 'danger',
+      tokenId: token.tokenId,
+    });
     revoke.addEventListener('click', () =>
       this.dispatchEvent(new CustomEvent('api-token-revoke', { detail: { token } })),
     );
@@ -358,10 +473,7 @@ class ApiTokenPanel extends HTMLElement {
       this._draft.scope = scope.value;
     });
 
-    const create = document.createElement('button');
-    create.type = 'submit';
-    create.className = 'primary';
-    create.textContent = 'צור';
+    const create = this._actionButton('create', 'צור', { className: 'primary', type: 'submit' });
     const cancel = document.createElement('button');
     cancel.type = 'button';
     cancel.textContent = 'ביטול';
@@ -376,10 +488,14 @@ class ApiTokenPanel extends HTMLElement {
       event.preventDefault();
       this._draft = { name: name.value, scope: scope.value };
       const value = name.value.trim();
-      if (!value || this._busy) return;
+      if (!value || this._pending) return;
       this._create(value, scope.value);
     });
-    form.append(name, scope, create, cancel);
+    // The two buttons wrap together, never one per line.
+    const actions = document.createElement('div');
+    actions.className = 'form-actions';
+    actions.append(cancel, create);
+    form.append(name, scope, actions);
     return form;
   }
 }

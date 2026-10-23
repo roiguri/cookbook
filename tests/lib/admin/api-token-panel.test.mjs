@@ -27,6 +27,11 @@ const $ = (sel) => panel.shadowRoot.querySelector(sel);
 const $$ = (sel) => [...panel.shadowRoot.querySelectorAll(sel)];
 const text = () => panel.shadowRoot.textContent;
 const flush = () => new Promise((r) => setTimeout(r, 0));
+// The label a button shows: action buttons hold an idle and a busy label.
+const shown = (button) =>
+  button.querySelector(button.getAttribute('aria-busy') === 'true' ? '.busy' : '.idle')
+    ?.textContent ?? button.textContent;
+const status = () => panel.shadowRoot.querySelector('[role="status"]').textContent;
 
 function mount({ role = 'approved', tokens = [], maxTokens = 3 } = {}) {
   panel = document.createElement('api-token-panel');
@@ -166,10 +171,160 @@ describe('<api-token-panel>', () => {
     $('button.retry').click();
     expect(retry).toHaveBeenCalled();
     expect($('button.retry').disabled).toBe(true);
+    expect($('button.retry').getAttribute('aria-busy')).toBe('true');
     // The page answers with fresh data: the panel leaves the error state.
     panel.setData({ user: { id: 'u1', role: 'approved' }, tokens: [token('t1')], maxTokens: 3 });
     expect($('button.retry')).toBeNull();
     expect($$('li')).toHaveLength(1);
+  });
+
+  it('puts cancel before create in the form', () => {
+    mount();
+    $('button.add').click();
+    const labels = $$('form button').map(shown);
+    expect(labels).toEqual(['ביטול', 'צור']);
+  });
+
+  it('shows a busy create button and locks the panel while creating', async () => {
+    mount({ tokens: [token('t1')] });
+    let finish;
+    service.create.mockReturnValue(new Promise((r) => (finish = r)));
+    fillAndSubmit('Jarvis');
+    const create = $('button[data-action="create"]');
+    expect(shown(create)).toBe('יוצר…');
+    expect(status()).toBe('יוצר טוקן…');
+    expect(create.getAttribute('aria-busy')).toBe('true');
+    expect(create.querySelector('.spinner')).not.toBeNull();
+    expect($$('button, input, select').every((el) => el.disabled)).toBe(true);
+    // A second submit while busy does nothing.
+    $('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(service.create).toHaveBeenCalledTimes(1);
+
+    finish({ ...token('new', { name: 'Jarvis' }), token: 'ckb_S' });
+    await flush();
+    expect($('[aria-busy="true"]')).toBeNull();
+    expect($$('button').some((b) => b.disabled)).toBe(false);
+    expect(status()).toBe('');
+  });
+
+  it('shows "revoking" on that row only while a revoke runs', async () => {
+    mount({ tokens: [token('t1'), token('t2')] });
+    let finish;
+    service.revoke.mockReturnValue(new Promise((r) => (finish = r)));
+    const done = panel.revoke('t1');
+    const busy = $('li[data-token-id="t1"] button.danger');
+    expect(shown(busy)).toBe('מבטל…');
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+    const other = $('li[data-token-id="t2"] button.danger');
+    expect(shown(other)).toBe('בטל');
+    expect(other.disabled).toBe(true);
+
+    finish();
+    await done;
+    expect($('li[data-token-id="t1"]')).toBeNull();
+    expect($('li[data-token-id="t2"] button.danger').disabled).toBe(false);
+  });
+
+  it('shows "loading" on retry until the page answers', () => {
+    panel = document.createElement('api-token-panel');
+    document.body.append(panel);
+    panel.setData({ user: { id: 'u1', role: 'approved' }, loadError: true });
+    $('button.retry').click();
+    expect(shown($('button.retry'))).toBe('טוען…');
+    // The page answers with another failure: back to an active retry button.
+    panel.setData({ user: { id: 'u1', role: 'approved' }, loadError: true });
+    expect(shown($('button.retry'))).toBe('נסו שוב');
+    expect($('button.retry').disabled).toBe(false);
+    expect($('button.retry').getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('reserves the longer label in every action button, so its width never changes', () => {
+    mount({ tokens: [token('t1')] });
+    $('button.add').click();
+    for (const [selector, idle, busy] of [
+      ['button[data-action="create"]', 'צור', 'יוצר…'],
+      ['button[data-action="revoke"]', 'בטל', 'מבטל…'],
+    ]) {
+      const button = $(selector);
+      const cell = button.querySelector('.labels');
+      // Both labels are always in the button, stacked in one grid cell.
+      expect(cell.querySelector('.idle').textContent).toBe(idle);
+      expect(cell.querySelector('.busy').textContent).toBe(busy);
+      expect(cell.querySelector('.busy .spinner')).not.toBeNull();
+    }
+  });
+
+  it('a failed create clears the busy state, keeps the draft and focuses the name', async () => {
+    mount();
+    service.create.mockRejectedValue({ code: 'functions/internal' });
+    fillAndSubmit('Jarvis', 'read');
+    await flush();
+    expect($('[aria-busy="true"]')).toBeNull();
+    expect($$('button, input, select').some((el) => el.disabled)).toBe(false);
+    expect($('.error').textContent).toContain('נכשלה');
+    expect($('input').value).toBe('Jarvis');
+    expect(panel.shadowRoot.activeElement).toBe($('input'));
+  });
+
+  it('a failed revoke clears the busy state, shows the error and keeps the token', async () => {
+    mount({ tokens: [token('t1')] });
+    service.revoke.mockRejectedValue({ code: 'functions/internal' });
+    await panel.revoke('t1');
+    expect($('[aria-busy="true"]')).toBeNull();
+    expect($('li[data-token-id="t1"] button.danger').disabled).toBe(false);
+    expect($('.error')).not.toBeNull();
+    expect(status()).toBe('');
+  });
+
+  it('moves focus to "new token" after a revoke', async () => {
+    mount({ tokens: [token('t1')] });
+    service.revoke.mockResolvedValue();
+    await panel.revoke('t1');
+    expect(panel.shadowRoot.activeElement).toBe($('button.add'));
+  });
+
+  it('stays busy when the page sends fresh data or a role mid-action', async () => {
+    mount({ tokens: [token('t1')] });
+    let finish;
+    service.revoke.mockReturnValue(new Promise((r) => (finish = r)));
+    const done = panel.revoke('t1');
+    panel.setData({ user: { id: 'u1', role: 'approved' }, tokens: [token('t1')], maxTokens: 3 });
+    expect(shown($('li[data-token-id="t1"] button.danger'))).toBe('מבטל…');
+    panel.setRole('manager');
+    expect(shown($('li[data-token-id="t1"] button.danger'))).toBe('מבטל…');
+    finish();
+    await done;
+    expect($('[aria-busy="true"]')).toBeNull();
+  });
+
+  it('a demotion during a create leaves nothing stuck', async () => {
+    mount();
+    let finish;
+    service.create.mockReturnValue(new Promise((r) => (finish = r)));
+    fillAndSubmit('Jarvis');
+    panel.setRole('user'); // the form (and its busy button) disappears
+    finish({ ...token('new', { name: 'Jarvis' }), token: 'ckb_S' });
+    await flush();
+    expect($('[aria-busy="true"]')).toBeNull();
+    expect($$('button').every((b) => !b.disabled)).toBe(true);
+  });
+
+  it('overlapping actions: the first to finish does not unlock the other', async () => {
+    mount({ tokens: [token('t1')] });
+    let finishCreate;
+    let finishRevoke;
+    service.create.mockReturnValue(new Promise((r) => (finishCreate = r)));
+    service.revoke.mockReturnValue(new Promise((r) => (finishRevoke = r)));
+    fillAndSubmit('Jarvis');
+    const revoking = panel.revoke('t1'); // e.g. a confirmation answered meanwhile
+    finishCreate({ ...token('new', { name: 'Jarvis' }), token: 'ckb_S' });
+    await flush();
+    // The revoke is still running: still busy, still locked.
+    expect(shown($('li[data-token-id="t1"] button.danger'))).toBe('מבטל…');
+    expect($$('button').every((b) => b.disabled)).toBe(true);
+    finishRevoke();
+    await revoking;
+    expect($('[aria-busy="true"]')).toBeNull();
   });
 
   it('follows a role change made in the dashboard', () => {
