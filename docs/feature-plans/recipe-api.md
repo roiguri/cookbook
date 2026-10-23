@@ -199,6 +199,7 @@ Original scope:
 ### Slice 3 — API skeleton: auth + user session + reads
 
 - `recipeApi` `onRequest` function with a small router.
+- Raise `functions/.eslintrc.js` `ecmaVersion` to ≥ 2020: loading the shared model needs dynamic `import()`, which the current 2018 setting fails to parse (slice 1 review).
 - Auth pipeline (§2 steps 1–3, 5): token lookup, scope check, owner exists/enabled/role check, `lastUsedAt`, custom token, per-request client session, guaranteed teardown.
 - Read endpoints: `GET /recipes/:id`, `/recipes/mine`, `/recipes`, `/categories`, using the same queries as `RecipeService` (queries must satisfy the rules — published filter, `authorId == me`).
 - Error mapping (§3), `404` for not-visible.

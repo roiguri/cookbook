@@ -24,7 +24,7 @@
  *   - imageFileName(id, originalName), mediaFileName(id, originalName)
  *   - buildImageEntry(...), buildMediaEntry(...)
  *   - COMMON_FRACTIONS, parseAmount(input)
- *   - RECIPE_CONTENT_FIELDS, normalizeRecipeContent(input)
+ *   - RECIPE_CONTENT_FIELDS, RECIPE_NUMBER_LIMITS, normalizeRecipeContent(input)
  */
 
 // --- Model fields ---------------------------------------------------------
@@ -269,6 +269,15 @@ export const RECIPE_CONTENT_FIELDS = Object.freeze([
   'relatedRecipes',
 ]);
 
+// Sanity bounds for numbers sent by an API caller. Deliberately loose — they only
+// keep out values that would break display (e.g. 1e300 minutes), not long recipes.
+// Text length and list sizes are not limited; the request size cap covers abuse.
+export const RECIPE_NUMBER_LIMITS = Object.freeze({
+  minutes: 100000,
+  servings: 10000,
+  amount: 1000000,
+});
+
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const trimmed = (v) => (typeof v === 'string' ? v.trim() : v);
 
@@ -281,7 +290,8 @@ const trimmed = (v) => (typeof v === 'string' ? v.trim() : v);
  * server-owned fields are rejected, so a caller's typo fails loudly.
  *
  * @param {*} input
- * @returns {{ ok: boolean, recipe: Object, errors: Array<{ field: string, message: string }> }}
+ * @returns {{ ok: boolean, recipe: Object|null, errors: Array<{ field: string, message: string }> }}
+ *   `recipe` is null whenever `ok` is false.
  */
 export function normalizeRecipeContent(input) {
   const errors = [];
@@ -294,7 +304,7 @@ export function normalizeRecipeContent(input) {
 
   if (!isPlainObject(input)) {
     fail('recipe', 'must be an object');
-    return { ok: false, recipe, errors };
+    return { ok: false, recipe: null, errors };
   }
 
   for (const key of Object.keys(input)) {
@@ -326,15 +336,16 @@ export function normalizeRecipeContent(input) {
     } else recipe.difficulty = input.difficulty;
   }
 
-  // whole numbers (minutes / servings)
-  for (const [key, min] of [
-    ['prepTime', 0],
-    ['waitTime', 0],
-    ['servings', 1],
+  // whole numbers (minutes / servings). Prep time must be positive, as the form
+  // requires on save; leave it out when unknown.
+  for (const [key, min, max] of [
+    ['prepTime', 1, RECIPE_NUMBER_LIMITS.minutes],
+    ['waitTime', 0, RECIPE_NUMBER_LIMITS.minutes],
+    ['servings', 1, RECIPE_NUMBER_LIMITS.servings],
   ]) {
     if (!has(key)) continue;
-    if (!Number.isInteger(input[key]) || input[key] < min) {
-      fail(key, `must be a whole number ≥ ${min}`);
+    if (!Number.isInteger(input[key]) || input[key] < min || input[key] > max) {
+      fail(key, `must be a whole number from ${min} to ${max}`);
     } else recipe[key] = input[key];
   }
 
@@ -345,22 +356,38 @@ export function normalizeRecipeContent(input) {
       fail(key, 'must be an array of strings');
     } else {
       const list = input[key].map((s) => s.trim()).filter(Boolean);
-      if (list.length) recipe[key] = list;
+      // The edit form joins tags with ", " and splits on "," when saving.
+      if (key === 'tags' && list.some((t) => t.includes(','))) {
+        fail(key, 'a tag cannot contain a comma');
+      } else if (key === 'relatedRecipes' && list.some((id) => id.includes('/'))) {
+        fail(key, 'must be recipe ids');
+      } else if (list.length) recipe[key] = list;
     }
   }
+
+  // Nested objects follow the top-level rule: unknown keys are errors. Validation
+  // goes on, so the caller sees every problem with the object at once.
+  const unknownKeys = (raw, allowed, field) => {
+    Object.keys(raw)
+      .filter((k) => !allowed.includes(k))
+      .forEach((k) => fail(`${field}.${k}`, 'unknown field'));
+  };
 
   // ingredients: flat list or sections, not both
   const ingredient = (raw, field) => {
     if (!isPlainObject(raw)) return fail(field, 'must be an object { item, amount?, unit? }');
+    unknownKeys(raw, ['item', 'amount', 'unit'], field);
     const item = trimmed(raw.item);
     if (typeof item !== 'string' || !item) return fail(`${field}.item`, 'is required');
     let amount = null;
     if (raw.amount !== undefined && raw.amount !== null && raw.amount !== '') {
-      amount = parseAmount(raw.amount);
-      if (!(amount > 0)) {
+      const typed = typeof raw.amount === 'number' || typeof raw.amount === 'string';
+      amount = typed ? parseAmount(raw.amount) : null;
+      if (!(amount > 0 && amount < RECIPE_NUMBER_LIMITS.amount)) {
         return fail(
           `${field}.amount`,
-          'must be a positive number or a common fraction (e.g. 2, 0.5, "1/2", "1½"); ' +
+          'must be a positive number under 1,000,000 or a common fraction ' +
+            '(e.g. 2, 0.5, "1/2", "1½"); ' +
             'put ranges or "to taste" in the item text',
         );
       }
@@ -391,6 +418,7 @@ export function normalizeRecipeContent(input) {
         .map((section, i) => {
           const field = `ingredientSections[${i}]`;
           if (!isPlainObject(section)) return fail(field, 'must be an object { title, items }');
+          unknownKeys(section, ['title', 'items'], field);
           const title = trimmed(section.title);
           if (typeof title !== 'string' || !title) return fail(`${field}.title`, 'is required');
           const items = ingredientList(section.items, `${field}.items`);
@@ -424,6 +452,7 @@ export function normalizeRecipeContent(input) {
           const field = `stages[${i}]`;
           if (!isPlainObject(stage))
             return fail(field, 'must be an object { title, instructions }');
+          unknownKeys(stage, ['title', 'instructions'], field);
           const title = trimmed(stage.title);
           if (typeof title !== 'string' || !title) return fail(`${field}.title`, 'is required');
           const steps = stepList(stage.instructions, `${field}.instructions`);
@@ -434,5 +463,7 @@ export function normalizeRecipeContent(input) {
     }
   }
 
-  return { ok: errors.length === 0, recipe, errors };
+  // A rejected input yields no recipe, so a caller can't use half-validated data.
+  const ok = errors.length === 0;
+  return { ok, recipe: ok ? recipe : null, errors };
 }

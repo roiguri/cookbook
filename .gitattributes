@@ -1,0 +1,4 @@
+# Shared modules are copied byte-for-byte into functions/ (scripts/sync-shared.mjs);
+# keep both sides LF so the stale-copy check holds on any checkout.
+src/js/shared/** text eol=lf
+functions/shared/** text eol=lf

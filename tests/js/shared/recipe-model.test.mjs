@@ -1,6 +1,7 @@
 import {
   CATEGORY_IDS,
   RECIPE_CONTENT_FIELDS,
+  RECIPE_NUMBER_LIMITS,
   STAGE,
   VISIBILITY,
   buildImageEntry,
@@ -293,6 +294,100 @@ describe('shared recipe model', () => {
         stages: 'step',
       });
       expect(errorFields(result)).toEqual(['ingredientSections[0].title', 'stages']);
+    });
+
+    it('returns no recipe when the input is rejected', () => {
+      expect(normalizeRecipeContent({ name: 'x', prepTime: -1 }).recipe).toBeNull();
+      expect(normalizeRecipeContent(null).recipe).toBeNull();
+    });
+
+    it('requires a positive prep time, as the form does on save', () => {
+      expect(errorFields(normalizeRecipeContent({ name: 'x', prepTime: 0 }))).toEqual(['prepTime']);
+      expect(normalizeRecipeContent({ name: 'x', waitTime: 0 }).ok).toBe(true);
+    });
+
+    it('keeps out absurd numbers but not long recipes', () => {
+      const absurd = normalizeRecipeContent({
+        name: 'x',
+        prepTime: 1e300,
+        waitTime: RECIPE_NUMBER_LIMITS.minutes + 1,
+        servings: RECIPE_NUMBER_LIMITS.servings + 1,
+        ingredients: [{ item: 'a', amount: '99999999999999999999' }],
+      });
+      expect(errorFields(absurd)).toEqual([
+        'prepTime',
+        'waitTime',
+        'servings',
+        'ingredients[0].amount',
+      ]);
+
+      const long = normalizeRecipeContent({
+        name: 'א'.repeat(5000),
+        instructions: Array.from({ length: 1000 }, (_, i) => `step ${i}`),
+        prepTime: RECIPE_NUMBER_LIMITS.minutes,
+      });
+      expect(long.ok).toBe(true);
+      expect(long.recipe.instructions).toHaveLength(1000);
+    });
+
+    it('accepts only numbers or strings as amounts', () => {
+      const result = normalizeRecipeContent({
+        name: 'x',
+        ingredients: [
+          { item: 'a', amount: [2] },
+          { item: 'b', amount: { n: 1 } },
+          { item: 'c', amount: true },
+        ],
+      });
+      expect(errorFields(result)).toEqual([
+        'ingredients[0].amount',
+        'ingredients[1].amount',
+        'ingredients[2].amount',
+      ]);
+    });
+
+    it('rejects unknown fields inside ingredients, sections and stages', () => {
+      const section = normalizeRecipeContent({
+        name: 'x',
+        ingredientSections: [{ title: 't', items: [{ item: 'a' }], note: '' }],
+      });
+      expect(errorFields(section)).toEqual(['ingredientSections[0].note']);
+      const flat = normalizeRecipeContent({ name: 'x', ingredients: [{ item: 'a', qty: 2 }] });
+      expect(errorFields(flat)).toEqual(['ingredients[0].qty']);
+      const nested = normalizeRecipeContent({
+        name: 'x',
+        ingredientSections: [{ title: 't', items: [{ item: 'a', qty: 2 }] }],
+      });
+      expect(errorFields(nested)).toEqual(['ingredientSections[0].items[0].qty']);
+      const stage = normalizeRecipeContent({
+        name: 'x',
+        stages: [{ title: 's', instructions: ['a'], steps: [] }],
+      });
+      expect(errorFields(stage)).toEqual(['stages[0].steps']);
+    });
+
+    it("reports an unknown field together with the object's other errors", () => {
+      const result = normalizeRecipeContent({
+        name: 'x',
+        stages: [{ title: '', foo: 1 }],
+        ingredients: [{ qty: 2 }],
+      });
+      expect(errorFields(result)).toEqual([
+        'ingredients[0].qty',
+        'ingredients[0].item',
+        'stages[0].foo',
+        'stages[0].title',
+      ]);
+    });
+
+    it('rejects tags with commas (the edit form splits on them)', () => {
+      expect(errorFields(normalizeRecipeContent({ name: 'x', tags: ['a,b'] }))).toEqual(['tags']);
+    });
+
+    it('rejects related recipe ids that are paths', () => {
+      expect(
+        errorFields(normalizeRecipeContent({ name: 'x', relatedRecipes: ['recipes/abc'] })),
+      ).toEqual(['relatedRecipes']);
     });
 
     it('validates string lists', () => {
