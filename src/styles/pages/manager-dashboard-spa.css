@@ -427,3 +427,63 @@
     text-align: center;
   }
 }
+
+/* Recipe-API token secret, shown once (api-token-secret-modal) */
+.api-token-secret {
+  display: grid;
+  gap: 12px;
+  font-family: var(--font-ui-he);
+  color: var(--ink);
+}
+.api-token-secret h2 {
+  margin: 0;
+  font-family: var(--font-display-he);
+  font-size: var(--step-2);
+}
+.api-token-secret p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.api-token-secret input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-1);
+  color: var(--ink);
+}
+.api-token-secret__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+.api-token-secret__actions button {
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui-he);
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-0);
+  color: var(--ink);
+  transition: transform var(--dur-1) var(--ease);
+}
+.api-token-secret__actions button:active {
+  transform: scale(var(--press-scale));
+}
+.api-token-secret__actions .api-token-secret__copy {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--button-color);
+}
+.api-token-secret .api-token-secret__not-copied {
+  color: var(--secondary-dark);
+  font-weight: 600;
+}
+.api-token-secret__not-copied[hidden] {
+  display: none;
+}

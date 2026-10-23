@@ -10,7 +10,7 @@ Status: **in progress** — decisions locked 2026-10-23; slice 0 (spike) done.
 
 - [x] Slice 0 — Spike: prove "act as the user" (emulators) — 16/16 checks passed, 2026-10-23
 - [x] Slice 1 — Shared recipe-model module — `src/js/shared/recipe-model.js`, 2026-10-24
-- [ ] Slice 2 — Token store + dashboard management
+- [x] Slice 2 — Token store + dashboard management — 2026-10-24 (functions deployed to staging for testing)
 - [ ] Slice 3 — API skeleton: auth + user session + reads
 - [ ] Slice 4 — Create (no media)
 - [ ] Slice 5 — Media (images + media instructions)
@@ -22,21 +22,21 @@ Details for each slice are in [§5](#5-slices).
 
 ## 1. Locked decisions
 
-| #   | Decision                                                                                                                                                                                                                                                                               |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Who:** only `approved` and `manager` users. A plain `user` gets no API access. The role is re-checked on every request, so a demotion cuts access immediately.                                                                                                                       |
-| 2   | **Structured only:** the caller sends a recipe in the published JSON format. No extraction endpoint, no free text, no Gemini.                                                                                                                                                          |
-| 3   | **Acts as the user:** the function signs in _as the token's owner_ and does all recipe work through the Firebase **client** SDK (`firebase/firestore/lite` + `firebase/storage`). `firestore.rules` and `storage.rules` stay the single permission model for both the app and the API. |
-| 4   | **Admin SDK is for token bookkeeping only:** hashing/lookup, last-used, revocation, and minting the custom token. It never reads or writes recipe data or recipe files.                                                                                                                |
-| 5   | **Shared recipe-model module:** one module defines the recipe shape (allowed fields, types, defaults, normalization, file-entry shapes) and is used by both the app and the function, so both paths build identical documents.                                                         |
-| 6   | **Tried / not tried is the caller's choice:** every create takes `stage: 'to-try' \| 'tested'` (default `to-try`). Like a create in the app, `tested` does **not** stamp `testedAt` (only "mark tested" later does; the recipe page falls back to `creationTime`).                     |
-| 7   | **Optional submission:** `submit: true` also proposes the recipe to managers (a `recipe_submissions` doc in the same batch, as the app does).                                                                                                                                          |
-| 8   | **Always private:** the API has no publish option; it always writes `visibility: 'private'`. Managers publish in the app.                                                                                                                                                              |
-| 9   | **Media is part of the feature:** images and media instructions are uploaded with the recipe (multipart). The feature is not released without them.                                                                                                                                    |
-| 10  | **Reads and writes ship together** as one feature.                                                                                                                                                                                                                                     |
-| 11  | **Tokens:** lifetime (no expiry), named, several per user, scope `read` or `read+write`, stored as a hash only (secret shown once), last-used tracked, revocable.                                                                                                                      |
-| 12  | **Tokens are managed in the manager dashboard** (for now): managers create tokens for themselves or for any approved user, list everyone's tokens (never the secret), and revoke. Each token records `createdBy`. User self-service is a later option.                                 |
-| 13  | **Not in v1:** updates/deletes, publishing, large videos (two-step upload), images by URL, extraction, user self-service tokens.                                                                                                                                                       |
+| #   | Decision                                                                                                                                                                                                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Who:** only `approved` and `manager` users. A plain `user` gets no API access. The role is re-checked on every request, so a demotion cuts access immediately.                                                                                                                           |
+| 2   | **Structured only:** the caller sends a recipe in the published JSON format. No extraction endpoint, no free text, no Gemini.                                                                                                                                                              |
+| 3   | **Acts as the user:** the function signs in _as the token's owner_ and does all recipe work through the Firebase **client** SDK (`firebase/firestore/lite` + `firebase/storage`). `firestore.rules` and `storage.rules` stay the single permission model for both the app and the API.     |
+| 4   | **Admin SDK is for token bookkeeping only:** hashing/lookup, last-used, revocation, and minting the custom token. It never reads or writes recipe data or recipe files.                                                                                                                    |
+| 5   | **Shared recipe-model module:** one module defines the recipe shape (allowed fields, types, defaults, normalization, file-entry shapes) and is used by both the app and the function, so both paths build identical documents.                                                             |
+| 6   | **Tried / not tried is the caller's choice:** every create takes `stage: 'to-try' \| 'tested'` (default `to-try`). Like a create in the app, `tested` does **not** stamp `testedAt` (only "mark tested" later does; the recipe page falls back to `creationTime`).                         |
+| 7   | **Optional submission:** `submit: true` also proposes the recipe to managers (a `recipe_submissions` doc in the same batch, as the app does).                                                                                                                                              |
+| 8   | **Always private:** the API has no publish option; it always writes `visibility: 'private'`. Managers publish in the app.                                                                                                                                                                  |
+| 9   | **Media is part of the feature:** images and media instructions are uploaded with the recipe (multipart). The feature is not released without them.                                                                                                                                        |
+| 10  | **Reads and writes ship together** as one feature.                                                                                                                                                                                                                                         |
+| 11  | **Tokens:** lifetime (no expiry), named, **at most 3 per user**, scope `read` or `read+write`, stored as a hash only (secret shown once), last-used tracked; **revoking deletes the record**.                                                                                              |
+| 12  | **Tokens are managed in the manager dashboard** (for now), inside each user's expanded record: managers create tokens for themselves or for any approved user, list everyone's tokens (never the secret), and revoke. Each token records `createdBy`. User self-service is a later option. |
+| 13  | **Not in v1:** updates/deletes, publishing, large videos (two-step upload), images by URL, extraction, user self-service tokens.                                                                                                                                                           |
 
 ---
 
@@ -123,12 +123,15 @@ Reads return the same shape that `POST /recipes` accepts, with file entries reso
 
 ## 4. Data model additions
 
-`api_tokens/{sha256(token)}` — **no client access** (rules deny all; only functions touch it):
+`api_tokens/{tokenId}` (random id, unrelated to the token) — **no client access** (rules deny all; only functions touch it):
 
 ```
-uid, name, scope ('read' | 'read+write'), createdBy (manager uid), createdAt,
-lastUsedAt, revokedAt (null = active), revokedBy
+hash (SHA-256 hex — the API looks tokens up by it), prefix (first 8 chars, to tell
+tokens apart), uid, name, scope ('read' | 'read+write'), createdBy (manager uid),
+createdAt, lastUsedAt
 ```
+
+Revoking deletes the document. At most 3 per user (checked in a transaction).
 
 Recipes created through the API get one hidden field: `createdVia: { kind: 'api', tokenId }` (for auditing and cleanup if a token leaks; not shown in the UI).
 
@@ -190,6 +193,10 @@ Original scope:
 - Tests: unknown and server-owned fields rejected (a caller's typo fails loudly), types validated, both ingredient/instruction formats.
 
 ### Slice 2 — Token store + dashboard management
+
+**Built 2026-10-24; reviewed twice.** `functions/utils/api-tokens.js` (generate / hash / validate / public shape) + three manager-only callables in `functions/index.js` (`createApiToken` checks the owner is approved/manager and the 3-token cap inside a transaction; `listApiTokens` returns metadata + `maxPerUser`, never the hash; `revokeApiToken` deletes). Rules: explicit deny on `api_tokens`. Client: `ApiTokenService` (`src/js/services/admin/`) and `<api-token-panel>` (`src/lib/admin/api-tokens/`) in each expanded user record of the dashboard; the page shows the secret once in a modal (cleared on close) and confirms revokes. Verified: unit tests (helpers, service, panel, page dialogs in `token-dialogs.js`), rules tests (no client access, managers included), and `npm run test:functions` — the callables in the Functions emulator (hash-only storage, role guards, cap incl. 6 concurrent creates, idempotent revoke; a deliberate guard regression fails it). Review fixes: the panel shows a load error with a retry instead of hiding; the create form keeps its draft on a server error; bidi control characters are stripped from token names and names are bidi-isolated; closing the secret modal before copying warns once. `npm run dev:emulators` now includes the Functions emulator, so the panel works locally. Second review: retry refreshes the token panels in place (open records stay open); tests assert the stored hash is exactly the token's SHA-256 and that unauthenticated calls are refused; the secret is removed after the modal's fade-out; zero-width characters and the Arabic letter mark are stripped from names too; `firebase/functions` is imported lazily, emulator mode only (keeps it out of the main bundle); the panel's parts are spaced by one column gap.
+
+Original scope:
 
 - `api_tokens` collection, rules deny all client access (+ rules test).
 - Callables (manager only): `createApiToken({ uid, name, scope })` → returns the secret once; `listApiTokens()`; `revokeApiToken({ tokenId })`. `createApiToken` refuses targets that aren't `approved`/`manager`.

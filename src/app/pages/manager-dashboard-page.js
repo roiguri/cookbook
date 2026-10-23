@@ -3,6 +3,12 @@ import { RecipeService, VISIBILITY } from '../../js/services/recipes/recipe-serv
 import { RecipeSubmissionService } from '../../js/services/recipes/recipe-submission-service.js';
 import { RecipeEditSuggestionService } from '../../js/services/recipes/recipe-edit-suggestion-service.js';
 import { UserService } from '../../js/services/users/user-service.js';
+import { ApiTokenService } from '../../js/services/admin/api-token-service.js';
+import {
+  askToRevokeToken,
+  cancelRevokeQuestion,
+  showTokenSecretOnce,
+} from '../../lib/admin/api-tokens/token-dialogs.js';
 import authService from '../../js/services/auth/auth-service.js';
 import notificationService from '../../js/services/users/notification-service.js';
 import { AppConfig } from '../../js/config/app-config.js';
@@ -61,6 +67,7 @@ export default {
     document.removeEventListener('recipe-updated', this._onRecipeUpdated);
     document.removeEventListener('image-enhanced-saved', this._onImageEnhancedSaved);
     this._mobileQuery?.removeEventListener('change', this._onMobileQueryChange);
+    cancelRevokeQuestion();
   },
 
   getTitle() {
@@ -87,6 +94,7 @@ export default {
       import('../../lib/utilities/loading-spinner/loading-spinner.js'),
       import('../../lib/media/image-handler/image-handler.js'),
       import('../../lib/media/ai-image-enhancer/ai-image-enhancer.js'),
+      import('../../lib/admin/api-tokens/api-token-panel.js'),
     ]);
   },
 
@@ -298,7 +306,19 @@ export default {
     const userList = document.getElementById('user-list');
     userList.setItems([]); // Clear existing items first
     try {
-      const users = await UserService.list();
+      // Tokens are a side panel: if they fail to load, the users still show.
+      const [users, apiTokens] = await Promise.all([
+        UserService.list(),
+        ApiTokenService.list().catch((error) => {
+          console.error('Failed to load API tokens:', error);
+          return null;
+        }),
+      ]);
+      this._apiTokens = apiTokens;
+      this._userLabels = new Map(
+        users.map((u) => [u.id, u.fullName || u.displayName || u.email || u.id]),
+      );
+      this._tokenPanels = new Map();
       const userItems = users.map((user) => ({
         header: this.createHeader(user.email),
         content: this.createContent(user),
@@ -320,6 +340,7 @@ export default {
   },
 
   createContent(user) {
+    const wrapper = document.createElement('div');
     const content = document.createElement('div');
     content.style.cssText = 'display: flex; align-items: center; gap: 10px;';
 
@@ -359,12 +380,64 @@ export default {
     content.appendChild(label);
     content.appendChild(select);
     content.appendChild(saveBtn);
-    return content;
+    wrapper.appendChild(content);
+    wrapper.appendChild(this.createApiTokenPanel(user));
+    return wrapper;
+  },
+
+  /**
+   * Recipe-API tokens of one user (docs/feature-plans/recipe-api.md, slice 2).
+   * The panel creates tokens itself; the page's modals show the secret once and
+   * confirm revokes (token-dialogs.js).
+   */
+  createApiTokenPanel(user) {
+    const panel = document.createElement('api-token-panel');
+    this.setApiTokenPanelData(panel, user);
+    panel.addEventListener('api-token-created', (e) =>
+      showTokenSecretOnce(document.getElementById('api-token-secret-modal'), e.detail),
+    );
+    panel.addEventListener('api-token-revoke', (e) =>
+      askToRevokeToken(
+        document.getElementById('api-token-revoke-confirmation'),
+        e.detail.token,
+        () => panel.revoke(e.detail.token.tokenId),
+      ),
+    );
+    panel.addEventListener('api-token-retry', () => this.reloadApiTokens());
+    this._tokenPanels.set(user.id, { panel, user });
+    return panel;
+  },
+
+  setApiTokenPanelData(panel, user) {
+    panel.setData({
+      user: { id: user.id, role: user.role },
+      tokens: (this._apiTokens?.tokens || []).filter((t) => t.uid === user.id),
+      maxTokens: this._apiTokens?.maxPerUser ?? 0,
+      labelOf: (uid) => this._userLabels.get(uid) || uid,
+      // Tokens failed to load (e.g. functions not deployed): say so, offer a retry.
+      loadError: !this._apiTokens,
+    });
+  },
+
+  /** Retry after a failed token load: refresh the panels in place (open records stay open). */
+  async reloadApiTokens() {
+    this._apiTokens = await ApiTokenService.list().catch((error) => {
+      console.error('Failed to load API tokens:', error);
+      return null;
+    });
+    for (const { panel, user } of this._tokenPanels.values()) {
+      this.setApiTokenPanelData(panel, user);
+    }
   },
 
   async updateUserRole(userId, newRole) {
     try {
       await UserService.update(userId, { role: newRole });
+      const record = this._tokenPanels?.get(userId);
+      if (record) {
+        record.user = { ...record.user, role: newRole };
+        record.panel.setRole(newRole);
+      }
       this.showSuccess('תפקיד המשתמש עודכן בהצלחה', 'התפקיד עודכן');
     } catch (error) {
       this.handleError(error);

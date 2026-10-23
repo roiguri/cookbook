@@ -26,13 +26,19 @@ export function initFirebase(config) {
     firebaseAuth = initializeAuth(firebaseApp, { persistence: browserLocalPersistence });
     firebaseFirestore = getFirestore(firebaseApp);
     firebaseStorage = getStorage(firebaseApp);
-    // `npm run dev:emulators` — local Auth/Firestore/Storage emulators (ports in firebase.json),
-    // on the machine that served the page, so a phone on the same network works too.
+    // `npm run dev:emulators` — local Auth/Firestore/Storage/Functions emulators (ports in
+    // firebase.json), on the machine that served the page, so a phone on the same network
+    // works too. Services call getFunctions(app), which returns this same connected instance.
+    // firebase/functions is imported lazily so production bundles don't carry it here; a
+    // callable fired in the first milliseconds of an emulator session could miss the hookup.
     if (import.meta.env?.VITE_USE_EMULATORS === 'true') {
       const host = globalThis.location?.hostname || '127.0.0.1';
       connectAuthEmulator(firebaseAuth, `http://${host}:9099`, { disableWarnings: true });
       connectFirestoreEmulator(firebaseFirestore, host, 8080);
       connectStorageEmulator(firebaseStorage, host, 9199);
+      import('firebase/functions').then(({ getFunctions, connectFunctionsEmulator }) =>
+        connectFunctionsEmulator(getFunctions(firebaseApp), host, 5001),
+      );
     }
   }
   return {

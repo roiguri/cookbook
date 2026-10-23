@@ -6,13 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev          # Vite dev server (http://localhost:5173)
-npm run dev:emulators # Dev server against local Auth/Firestore/Storage emulators (this checkout's rules)
+npm run dev:emulators # Dev server against local Auth/Firestore/Storage/Functions emulators (this checkout's rules + functions)
 netlify dev          # Dev server with Netlify features (redirects, functions) — more accurate to prod
 npm run build        # Production build
 npm run serve        # Preview production build
 npm run test         # Jest unit tests
 npm run test -- tests/js/router.test.js  # Run a single test file
 npm run test:rules   # Firestore + Storage security-rules tests on the emulator (needs Java 21+)
+npm run test:functions # Cloud Functions integration tests in the Functions emulator (needs Java 21+)
 npm run lint         # ESLint check
 npm run lint:fix     # ESLint auto-fix
 npm run format       # Prettier formatting (required before committing — enforced by pre-commit hook)
