@@ -4,11 +4,11 @@ Tracking issue: _TBD_
 
 An HTTP API that lets external tools and agents (first consumer: a personal assistant agent) read and add recipes **on behalf of a family member**, with exactly the permissions that member has in the app. Structured recipes only — the API never extracts, guesses or calls Gemini.
 
-Status: **planning** — decisions locked 2026-10-23, nothing built yet.
+Status: **in progress** — decisions locked 2026-10-23; slice 0 (spike) done.
 
 ## Progress
 
-- [ ] Slice 0 — Spike: prove "act as the user" (emulators)
+- [x] Slice 0 — Spike: prove "act as the user" (emulators) — 16/16 checks passed, 2026-10-23
 - [ ] Slice 1 — Shared recipe-model module
 - [ ] Slice 2 — Token store + dashboard management
 - [ ] Slice 3 — API skeleton: auth + user session + reads
@@ -152,6 +152,31 @@ Goal: remove the technical risk before building anything real. All against the e
 - Measure added latency per request.
 
 Exit: a short findings note appended here. If any check fails, revisit decision 3 before slice 1.
+
+**Findings (2026-10-23)** — branch `spike/recipe-api-act-as-user`, `spikes/recipe-api/spike.mjs`; Node 22, `firebase` 11.10.0 (same as the app), Auth/Firestore/Storage emulators with this repo's rules. **16/16 passed — decision 3 stands.**
+
+| Check                                                                                  | Result                                            |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Custom token → per-request named app → `signInWithCustomToken`                         | ✅ correct uid                                    |
+| Approved: private `to-try`; `tested` + submission in one `writeBatch`                  | ✅                                                |
+| Plain user: recipe + submission batch passes `submittedTogether` (`getAfter` via lite) | ✅ (without the submission → denied)              |
+| Other `authorId` / `published` create                                                  | ✅ denied                                         |
+| Reads: own private, published, shared-with-me by id; other's private                   | ✅ / ✅ / ✅ / denied                             |
+| Queries: `authorId == me`, `visibility == published`; unfiltered list                  | ✅ / ✅ / denied                                  |
+| Storage `uploadBytes`: own `uploadedBy` tag; other's tag; `text/plain`                 | ✅ / denied / denied                              |
+| 2 users × 15 interleaved concurrent sessions                                           | ✅ identities never mixed                         |
+| Custom token for a **non-existent** uid                                                | ⚠️ sign-in **creates** that Auth user — confirmed |
+| Disabled user                                                                          | ✅ rejected (`auth/user-disabled`)                |
+| Session open + close (emulator)                                                        | median 11 ms — not representative of production   |
+| Client SDK loads via CommonJS `require` (functions are CJS)                            | ✅                                                |
+
+Carry into later slices:
+
+- **Slice 3:** look the owner up (exists, not disabled, role) **before** `createCustomToken` — confirmed that skipping it silently creates Auth users.
+- **Slice 3:** the client SDK logs every failed RPC to the console **including document paths and the request body**. Call `setLogLevel('silent')` (or `'error'` without bodies) in the function, so Cloud Logging never captures recipe content or ids.
+- **Slice 1:** SDK types don't cross SDKs — an Admin write rejects the client `Timestamp` (and vice versa). The shared model must stay SDK-free (plain values); each path converts to its own SDK's types at the edge.
+- **Slice 6:** real latency is only measurable on the test project — `createCustomToken` there signs through IAM (a network call) and sign-in goes through Identity Toolkit. Measure it as part of the end-to-end check.
+- Not covered by the spike (by design): IAM Token Creator grant and API-key restrictions — slice 6.
 
 ### Slice 1 — Shared recipe-model module
 
