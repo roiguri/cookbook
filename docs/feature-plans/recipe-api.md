@@ -9,7 +9,7 @@ Status: **in progress** — decisions locked 2026-10-23; slice 0 (spike) done.
 ## Progress
 
 - [x] Slice 0 — Spike: prove "act as the user" (emulators) — 16/16 checks passed, 2026-10-23
-- [ ] Slice 1 — Shared recipe-model module
+- [x] Slice 1 — Shared recipe-model module — `src/js/shared/recipe-model.js`, 2026-10-24
 - [ ] Slice 2 — Token store + dashboard management
 - [ ] Slice 3 — API skeleton: auth + user session + reads
 - [ ] Slice 4 — Create (no media)
@@ -29,7 +29,7 @@ Details for each slice are in [§5](#5-slices).
 | 3   | **Acts as the user:** the function signs in _as the token's owner_ and does all recipe work through the Firebase **client** SDK (`firebase/firestore/lite` + `firebase/storage`). `firestore.rules` and `storage.rules` stay the single permission model for both the app and the API. |
 | 4   | **Admin SDK is for token bookkeeping only:** hashing/lookup, last-used, revocation, and minting the custom token. It never reads or writes recipe data or recipe files.                                                                                                                |
 | 5   | **Shared recipe-model module:** one module defines the recipe shape (allowed fields, types, defaults, normalization, file-entry shapes) and is used by both the app and the function, so both paths build identical documents.                                                         |
-| 6   | **Tried / not tried is the caller's choice:** every create takes `stage: 'to-try' \| 'tested'` (default `to-try`). `tested` also stamps `testedAt`, exactly like marking tested in the app.                                                                                            |
+| 6   | **Tried / not tried is the caller's choice:** every create takes `stage: 'to-try' \| 'tested'` (default `to-try`). Like a create in the app, `tested` does **not** stamp `testedAt` (only "mark tested" later does; the recipe page falls back to `creationTime`).                     |
 | 7   | **Optional submission:** `submit: true` also proposes the recipe to managers (a `recipe_submissions` doc in the same batch, as the app does).                                                                                                                                          |
 | 8   | **Always private:** the API has no publish option; it always writes `visibility: 'private'`. Managers publish in the app.                                                                                                                                                              |
 | 9   | **Media is part of the feature:** images and media instructions are uploaded with the recipe (multipart). The feature is not released without them.                                                                                                                                    |
@@ -180,10 +180,14 @@ Carry into later slices:
 
 ### Slice 1 — Shared recipe-model module
 
+**Done (2026-10-24).** `src/js/shared/recipe-model.js` (pure ESM, no imports, no SDK types) holds the model fields + `withModelFields`, categories, difficulties, the Storage folder layout, media types and size cap, image/media id + file-name + entry builders, `parseAmount`, and `normalizeRecipeContent` (API input: only `name` required; sent fields must be valid; unknown/server-owned fields rejected). The app's existing modules re-export from it — same exports, unchanged behaviour (965/965 existing tests still pass). `npm run sync:shared` writes the committed copy `functions/shared/recipe-model.mjs` (CommonJS functions load it with `await import()`); a unit test and the functions predeploy (`--check`) fail while it is stale. A drift-guard test fails if the app's recipe shape (`formatRecipeData`) gains a field the shared model doesn't classify.
+
+Original scope:
+
 - Extract the recipe shape into one module used by the app and the function: allowed fields, types, defaults (`withModelFields`), normalization (`formatRecipeData` logic), category ids, image entry `{id, full, fileName, isPrimary}` and media entry `{path, type, caption, order}` builders, file-name sanitizing.
 - App switches to it with **no behaviour change** (existing tests stay green).
 - Functions deploy only `functions/`: add a predeploy/build step that copies the module into `functions/`, plus a CI check that fails if the copy is stale.
-- Tests: unknown fields dropped, types coerced/rejected, both ingredient/instruction formats.
+- Tests: unknown and server-owned fields rejected (a caller's typo fails loudly), types validated, both ingredient/instruction formats.
 
 ### Slice 2 — Token store + dashboard management
 
@@ -203,7 +207,7 @@ Carry into later slices:
 ### Slice 4 — Create (no media)
 
 - `POST /recipes` with a JSON-only body (multipart arrives in slice 5; the parser is written to accept both).
-- Shared model normalizes the recipe; server sets `authorId`, `visibility: 'private'`, `stage` (+ `testedAt` when `tested`), `creationTime`, `createdVia`.
+- Shared model normalizes the recipe; server sets `authorId`, `visibility: 'private'`, `stage` (no `testedAt`, as in the app), `creationTime`, `createdVia`.
 - `submit: true` → recipe + submission in one `writeBatch`.
 - Caller-supplied `id` with a create-only precondition → retry-safe; existing own recipe → `200`, someone else's → `409`.
 - Daily per-token cap.

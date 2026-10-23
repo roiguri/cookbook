@@ -29,6 +29,7 @@
  */
 
 import { parseAmount } from './recipe-ingredients-utils.js';
+import { CATEGORY_MAP } from '../../shared/recipe-model.js';
 
 /**
  * @typedef {Object} Ingredient
@@ -68,19 +69,8 @@ import { parseAmount } from './recipe-ingredients-utils.js';
  * @property {string[]} [relatedRecipes] - IDs of complementary recipes
  */
 
-// Category mapping and icons - Single source of truth for all category data
-export const CATEGORY_MAP = {
-  appetizers: 'מנות ראשונות',
-  'main-courses': 'מנות עיקריות',
-  'side-dishes': 'תוספות',
-  'soups-stews': 'מרקים ותבשילים',
-  salads: 'סלטים',
-  desserts: 'קינוחים',
-  'breakfast-brunch': 'ארוחות בוקר',
-  'breads-pastries': 'לחמים ומאפים',
-  snacks: 'חטיפים',
-  beverages: 'משקאות',
-};
+// Category ids and labels: the shared recipe model is the single source of truth.
+export { CATEGORY_MAP };
 
 export const CATEGORY_ICONS = {
   appetizers: '🥗',

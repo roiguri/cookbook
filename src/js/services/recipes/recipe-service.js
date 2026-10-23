@@ -5,6 +5,7 @@ import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeImageService } from './recipe-image-service.js';
 import { MediaInstructionService } from './media-instruction-service.js';
 import { captureError } from '../logger.js';
+import { VISIBILITY, STAGE, withModelFields } from '../../shared/recipe-model.js';
 
 /**
  * RecipeService — Recipe-Aware Service Layer
@@ -36,23 +37,9 @@ import { captureError } from '../logger.js';
 
 const RECIPES_COLLECTION = 'recipes';
 
-export const VISIBILITY = Object.freeze({ PRIVATE: 'private', PUBLISHED: 'published' });
-export const STAGE = Object.freeze({ TO_TRY: 'to-try', TESTED: 'tested' });
-
-/**
- * The model fields of a recipe being created: `authorId`, `visibility`
- * (private unless said otherwise) and `stage` ('tested' by default). The legacy
- * `userId` / `approved` are accepted as input but never written.
- */
-function withModelFields(data) {
-  const { userId, approved, ...out } = data;
-  out.authorId = out.authorId ?? userId ?? null;
-  const published =
-    out.visibility !== undefined ? out.visibility === VISIBILITY.PUBLISHED : approved === true;
-  out.visibility = published ? VISIBILITY.PUBLISHED : VISIBILITY.PRIVATE;
-  if (out.stage === undefined) out.stage = STAGE.TESTED;
-  return out;
-}
+// The model fields (and withModelFields) live in the shared recipe model, so the
+// recipe API writes them exactly as the app does.
+export { VISIBILITY, STAGE };
 
 async function uploadImagesAtomic(recipeId, imagesToUpload, uploadedBy) {
   // allSettled (not all) so we can clean up resolutions when any sibling

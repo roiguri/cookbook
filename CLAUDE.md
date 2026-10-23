@@ -16,6 +16,7 @@ npm run test:rules   # Firestore + Storage security-rules tests on the emulator 
 npm run lint         # ESLint check
 npm run lint:fix     # ESLint auto-fix
 npm run format       # Prettier formatting (required before committing — enforced by pre-commit hook)
+npm run sync:shared  # Copy src/js/shared/* into functions/shared/ after editing them (a test fails while stale)
 ```
 
 Pre-commit hook runs format check, ESLint, tests, and build — all must pass.

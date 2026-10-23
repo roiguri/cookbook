@@ -13,10 +13,14 @@
  * scripts/migrations/003-restructure-storage.mjs copies them to this layout.
  */
 
-export const recipeImagesFolder = (recipeId) => `recipes/${recipeId}/images`;
-export const recipeMediaFolder = (recipeId) => `recipes/${recipeId}/media`;
-export const suggestionImagesFolder = (suggestionId) => `suggestions/${suggestionId}/images`;
-export const suggestionMediaFolder = (suggestionId) => `suggestions/${suggestionId}/media`;
+// The folder builders live in the shared recipe model, so the recipe API uploads
+// to exactly the same layout.
+export {
+  recipeImagesFolder,
+  recipeMediaFolder,
+  suggestionImagesFolder,
+  suggestionMediaFolder,
+} from '../../shared/recipe-model.js';
 
 /**
  * True when a string is a Storage path to recipe/suggestion files (current or

@@ -30,6 +30,12 @@
  * unicode fractions (½, ⅓ …).
  */
 
+// COMMON_FRACTIONS and parseAmount live in the shared recipe model (the API
+// parses amounts exactly as the form does).
+import { COMMON_FRACTIONS, parseAmount } from '../../shared/recipe-model.js';
+
+export { COMMON_FRACTIONS, parseAmount };
+
 /**
  * @typedef {Object} Ingredient
  * @property {number|null} amount - Canonical numeric quantity (e.g. 1, 0.5, 2.5); `null`
@@ -39,19 +45,6 @@
  * @property {string} unit - The unit of measurement (e.g. "cup", "tbsp", "g")
  * @property {string} item - The name of the ingredient (e.g. "flour", "sugar")
  */
-
-/**
- * The only fractions accepted on input and produced on display.
- * @type {Record<string, number>}
- */
-export const COMMON_FRACTIONS = {
-  '⅛': 1 / 8,
-  '¼': 1 / 4,
-  '⅓': 1 / 3,
-  '½': 1 / 2,
-  '⅔': 2 / 3,
-  '¾': 3 / 4,
-};
 
 // ASCII label per common fraction. Display uses ASCII ("1/2", "1 1/2") — more
 // legible than the compact vulgar-fraction glyph and bidi-safe in RTL Hebrew.
@@ -63,9 +56,6 @@ const COMMON_ASCII = {
   '⅔': '2/3',
   '¾': '3/4',
 };
-
-const COMMON_RATIOS = Object.values(COMMON_FRACTIONS);
-const RATIO_EPSILON = 1e-6; // fraction-notation must resolve (near) exactly
 
 // Display rounding is conservative: a value only renders as a fraction when it
 // is essentially exact (EXACT_DISPLAY_TOLERANCE). The only exception is the
@@ -80,61 +70,6 @@ const COMMON_ASCII_ENTRIES = Object.entries(COMMON_FRACTIONS).map(([glyph, ratio
   ratio,
   glyph === '⅓' || glyph === '⅔' ? REPEATING_DISPLAY_TOLERANCE : EXACT_DISPLAY_TOLERANCE,
 ]);
-
-const matchesCommonRatio = (value) =>
-  COMMON_RATIOS.some((ratio) => Math.abs(value - ratio) < RATIO_EPSILON);
-
-/**
- * Parse a user/stored amount string into a number.
- * Returns `null` for anything that is not a valid numeric amount
- * (empty, free text, ranges, or non-common fraction notation).
- * @param {string|number|null|undefined} input
- * @returns {number|null}
- */
-export function parseAmount(input) {
-  if (input === null || input === undefined) return null;
-  const s = String(input).trim();
-  if (s === '') return null;
-
-  // Plain integer or decimal: "2", "2.5", "0.375"
-  if (/^\d+(\.\d+)?$/.test(s)) {
-    const n = parseFloat(s);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  // Unicode vulgar fraction alone: "½"
-  if (Object.prototype.hasOwnProperty.call(COMMON_FRACTIONS, s)) {
-    return COMMON_FRACTIONS[s];
-  }
-
-  // Mixed number + unicode fraction: "1½", "2 ¾"
-  const mixedUnicode = s.match(/^(\d+)\s*([⅛¼⅓½⅔¾])$/);
-  if (mixedUnicode) {
-    return parseInt(mixedUnicode[1], 10) + COMMON_FRACTIONS[mixedUnicode[2]];
-  }
-
-  // ASCII fraction: "1/2" — must resolve to a common ratio ("3/8" rejected)
-  const fraction = s.match(/^(\d+)\/(\d+)$/);
-  if (fraction) {
-    const den = parseInt(fraction[2], 10);
-    if (den === 0) return null;
-    const value = parseInt(fraction[1], 10) / den;
-    return matchesCommonRatio(value) ? value : null;
-  }
-
-  // Mixed number + ASCII fraction: "1 1/2" — fraction part must be common
-  const mixedAscii = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixedAscii) {
-    const den = parseInt(mixedAscii[3], 10);
-    if (den === 0) return null;
-    const fracValue = parseInt(mixedAscii[2], 10) / den;
-    if (!matchesCommonRatio(fracValue)) return null;
-    return parseInt(mixedAscii[1], 10) + fracValue;
-  }
-
-  // Ranges ("2-3", "1/2-1") and everything else are invalid.
-  return null;
-}
 
 /**
  * Format a numeric amount for display as a legible ASCII string, snapping the
