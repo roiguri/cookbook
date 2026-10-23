@@ -9,7 +9,7 @@
 # SPA Settings
 [build.environment]
   # Node.js version
-  NODE_VERSION = "18"
+  NODE_VERSION = "22"
 
 # Disable automatic plugin detection to avoid esbuild issues
 [build.processing]

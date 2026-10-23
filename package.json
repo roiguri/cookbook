@@ -60,6 +60,7 @@
   },
   "overrides": {
     "@eslint/plugin-kit": "^0.3.4",
-    "@tootallnate/once": "^3.0.1"
+    "@tootallnate/once": "^3.0.1",
+    "@grpc/grpc-js": "^1.14.6"
   }
 }
