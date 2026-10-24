@@ -22,21 +22,22 @@ Details for each slice are in [§5](#5-slices).
 
 ## 1. Locked decisions
 
-| #   | Decision                                                                                                                                                                                                                                                                                   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Who:** only `approved` and `manager` users. A plain `user` gets no API access. The role is re-checked on every request, so a demotion cuts access immediately.                                                                                                                           |
-| 2   | **Structured only:** the caller sends a recipe in the published JSON format. No extraction endpoint, no free text, no Gemini.                                                                                                                                                              |
-| 3   | **Acts as the user:** the function signs in _as the token's owner_ and does all recipe work through the Firebase **client** SDK (`firebase/firestore/lite` + `firebase/storage`). `firestore.rules` and `storage.rules` stay the single permission model for both the app and the API.     |
-| 4   | **Admin SDK is for token bookkeeping only:** hashing/lookup, last-used, revocation, and minting the custom token. It never reads or writes recipe data or recipe files.                                                                                                                    |
-| 5   | **Shared recipe-model module:** one module defines the recipe shape (allowed fields, types, defaults, normalization, file-entry shapes) and is used by both the app and the function, so both paths build identical documents.                                                             |
-| 6   | **Tried / not tried is the caller's choice:** every create takes `stage: 'to-try' \| 'tested'` (default `to-try`). Like a create in the app, `tested` does **not** stamp `testedAt` (only "mark tested" later does; the recipe page falls back to `creationTime`).                         |
-| 7   | **Optional submission:** `submit: true` also proposes the recipe to managers (a `recipe_submissions` doc in the same batch, as the app does).                                                                                                                                              |
-| 8   | **Always private:** the API has no publish option; it always writes `visibility: 'private'`. Managers publish in the app.                                                                                                                                                                  |
-| 9   | **Media is part of the feature:** images and media instructions are uploaded with the recipe (multipart). The feature is not released without them.                                                                                                                                        |
-| 10  | **Reads and writes ship together** as one feature.                                                                                                                                                                                                                                         |
-| 11  | **Tokens:** lifetime (no expiry), named, **at most 3 per user**, scope `read` or `read+write`, stored as a hash only (secret shown once), last-used tracked; **revoking deletes the record**.                                                                                              |
-| 12  | **Tokens are managed in the manager dashboard** (for now), inside each user's expanded record: managers create tokens for themselves or for any approved user, list everyone's tokens (never the secret), and revoke. Each token records `createdBy`. User self-service is a later option. |
-| 13  | **Not in v1:** updates/deletes, publishing, large videos (two-step upload), images by URL, extraction, user self-service tokens.                                                                                                                                                           |
+| #   | Decision                                                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Who:** only `approved` and `manager` users. A plain `user` gets no API access. The role is re-checked on every request, so a demotion cuts access immediately.                                                                                                                                                    |
+| 2   | **Structured only:** the caller sends a recipe in the published JSON format. No extraction endpoint, no free text, no Gemini.                                                                                                                                                                                       |
+| 3   | **Acts as the user:** the function signs in _as the token's owner_ and does all recipe work through the Firebase **client** SDK (`firebase/firestore/lite` + `firebase/storage`). `firestore.rules` and `storage.rules` stay the single permission model for both the app and the API.                              |
+| 4   | **Admin SDK is for token bookkeeping only:** hashing/lookup, last-used, revocation, and minting the custom token. It never reads or writes recipe data or recipe files.                                                                                                                                             |
+| 5   | **Shared recipe-model module:** one module defines the recipe shape (allowed fields, types, defaults, normalization, file-entry shapes) and is used by both the app and the function, so both paths build identical documents.                                                                                      |
+| 6   | **Tried / not tried is the caller's choice:** every create takes `stage: 'to-try' \| 'tested'` (default `to-try`). Like a create in the app, `tested` does **not** stamp `testedAt` (only "mark tested" later does; the recipe page falls back to `creationTime`).                                                  |
+| 7   | **Optional submission:** `submit: true` also proposes the recipe to managers (a `recipe_submissions` doc in the same batch, as the app does).                                                                                                                                                                       |
+| 8   | **Always private:** the API has no publish option; it always writes `visibility: 'private'`. Managers publish in the app.                                                                                                                                                                                           |
+| 9   | **Media is part of the feature:** images and media instructions are uploaded with the recipe (multipart). The feature is not released without them.                                                                                                                                                                 |
+| 10  | **Reads and writes ship together** as one feature.                                                                                                                                                                                                                                                                  |
+| 11  | **Tokens:** lifetime (no expiry), named, **at most 3 per user**, scope `read` or `read+write`, stored as a hash only (secret shown once), last-used tracked; **revoking deletes the record**.                                                                                                                       |
+| 12  | **Tokens are managed in the manager dashboard** (for now), inside each user's expanded record: managers create tokens for themselves or for any approved user, list everyone's tokens (never the secret), and revoke. Each token records `createdBy`. User self-service is a later option.                          |
+| 13  | **Not in v1:** updates/deletes, publishing, large videos (two-step upload), images by URL, extraction, user self-service tokens.                                                                                                                                                                                    |
+| 14  | **Through the API everyone reads like a family member** — own recipes, published ones, and ones shared with them — **managers included** (2026-10-24). The rules would let a manager open any private recipe; a leaked manager token must not expose every library. Narrowing what the rules allow, never widening. |
 
 ---
 
@@ -66,9 +67,9 @@ Why the client SDK and not the Admin SDK: the Admin SDK bypasses both rule files
 
 ## 3. API contract (v1)
 
-Base: `https://<region>-<project>.cloudfunctions.net/recipeApi`. Auth on every call: `Authorization: Bearer <token>`.
+Base: `https://<region>-<project>.cloudfunctions.net/recipeApi`; every path is under `/v1`. Auth on every call: `Authorization: Bearer <token>`.
 
-### Write — `POST /recipes` (scope `read+write`)
+### Write — `POST /v1/recipes` (scope `read+write`)
 
 `multipart/form-data`:
 
@@ -106,12 +107,12 @@ Response `201`: `{ id, name, stage, submitted, link, images: n, mediaInstruction
 
 ### Reads (scope `read` or `read+write`)
 
-| Endpoint                    | Returns                                                                             | Mirrors                             |
-| --------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------- |
-| `GET /recipes/:id`          | one recipe in the shared format, if the user can see it in the app; otherwise `404` | `RecipeService.get` + read rule     |
-| `GET /recipes/mine?stage=`  | the user's own recipes (private and published), newest first                        | `RecipeService.listMine`            |
-| `GET /recipes?category=&q=` | published recipes (search/filter)                                                   | `RecipeService.listPublished`       |
-| `GET /categories`           | valid category ids + Hebrew labels                                                  | `recipe-data-utils.js` category map |
+| Endpoint                       | Returns                                                                                                               | Mirrors                             |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `GET /v1/recipes/:id`          | one recipe in the shared format, if it is the caller's, published, or shared with them (decision 14); otherwise `404` | `RecipeService.get` + read rule     |
+| `GET /v1/recipes/mine?stage=`  | the user's own recipes (private and published), newest first                                                          | `RecipeService.listMine`            |
+| `GET /v1/recipes?category=&q=` | published recipes (search/filter)                                                                                     | `RecipeService.listPublished`       |
+| `GET /v1/categories`           | valid category ids + Hebrew labels                                                                                    | `recipe-data-utils.js` category map |
 
 Reads return the same shape that `POST /recipes` accepts, with file entries resolved to download URLs.
 
@@ -205,8 +206,14 @@ Original scope:
 
 ### Slice 3 — API skeleton: auth + user session + reads
 
+**Built 2026-10-24 (in review).** `functions/api/`: `routes.js` (route table), `auth.js` (bearer → hash lookup → owner role + Auth account exists/enabled, checked before any login is minted → daily cap of 1,000 requests — an increment of that day's counter `usage.<date>`, never a reset, so parallel requests neither contend nor overwrite — and `lastUsedAt`), `session.js` (per-request client app signed in with a custom token; client SDK logging silenced; emulator-aware), `recipes.js` (reads with the app's queries; images/media URLs resolved as the user), `format.js` (summary + full recipe: content nested under `recipe` in the write shape; no author uid, legacy fields or `createdVia`), `errors.js`. Exported as `recipeApi` (HTTP) with the `WEB_API_KEY` secret (bound only when deployed). Endpoints: `GET /v1/me`, `/v1/categories`, `/v1/recipes/mine?stage=`, `/v1/recipes?category=&q=`, `/v1/recipes/{id}`. `firebase@11.10.0` added to functions (with the root's `@grpc/grpc-js` override; audit clean). Tests: unit (`tests/js/functions/recipe-api.test.mjs`) and `npm run test:functions` over HTTP (`tests/functions/recipe-api.test.js`, shared setup in `tests/functions/helpers.js`; Storage emulator added) — auth failures (missing / malformed / unknown / revoked token, demoted / disabled / deleted owner without re-creating the account), cap, `lastUsedAt`, routing, read rules (other's private → 404, shared by id, published), filters, file URLs. Removing the owner-account check fails 2 of them. Review fixes: reads narrowed to own / published / shared for everyone (decision 14); `maxInstances: 5`, `timeoutSeconds: 60`; Storage retries capped at 8 s; only a missing / unreadable file gets `url: null` (other Storage failures are errors); malformed file entries skipped; the session closes before the response; tests for manager narrowing, two owners in parallel, a 10-request burst on one token (which caught counters overwriting each other — fixed by the per-day counter), `read+write` reads, repeated filters, legacy file paths. Known and accepted: a deletion in the milliseconds between the owner check and the login could re-create the account; `listPublished` is unpaginated, as in the app; query strings appear in request logs.
+
+Deploy needs (approved 2026-10-24, not yet done): Token Creator IAM grant for the functions' service account and the `WEB_API_KEY` secret on staging; then deploy `recipeApi` and smoke-test.
+
+Original scope:
+
 - `recipeApi` `onRequest` function with a small router.
-- Raise `functions/.eslintrc.js` `ecmaVersion` to ≥ 2020: loading the shared model needs dynamic `import()`, which the current 2018 setting fails to parse (slice 1 review).
+- ~~Raise `functions/.eslintrc.js` `ecmaVersion`~~ — not needed: ESLint 8.57 in `functions/` uses the root flat config (ES2021), not `.eslintrc.js`.
 - Auth pipeline (§2 steps 1–3, 5): token lookup, scope check, owner exists/enabled/role check, `lastUsedAt`, custom token, per-request client session, guaranteed teardown.
 - Read endpoints: `GET /recipes/:id`, `/recipes/mine`, `/recipes`, `/categories`, using the same queries as `RecipeService` (queries must satisfy the rules — published filter, `authorId == me`).
 - Error mapping (§3), `404` for not-visible.

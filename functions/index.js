@@ -1,8 +1,10 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
+const { getAuth } = require('firebase-admin/auth');
 const {
   extractRecipeFromImage,
   extractRecipeFromUrl,
@@ -13,6 +15,7 @@ const {
 const { withAuthAndRole } = require('./utils/guards');
 const { FAMILY_ROLES, familyMembers } = require('./utils/family');
 const apiTokens = require('./utils/api-tokens');
+const recipeApi = require('./api');
 const { sendNotificationToRole } = require('./notifications');
 
 // Initialize Firebase Admin
@@ -317,6 +320,34 @@ exports.revokeApiToken = onCall(
     await db.collection(apiTokens.TOKENS_COLLECTION).doc(tokenId).delete();
     return { revoked: tokenId };
   }),
+);
+
+// ---------------------------------------------------------------------------
+// Recipe API (docs/feature-plans/recipe-api.md) — HTTP, authenticated by personal
+// tokens; works as the token's owner through the client SDK (functions/api/).
+// WEB_API_KEY: the web API key the server signs users in with (Secret Manager).
+// ---------------------------------------------------------------------------
+
+const WEB_API_KEY = defineSecret('WEB_API_KEY');
+// The emulators accept any key, so the secret is bound only when deployed (a local run
+// would otherwise try to read it from the real Secret Manager).
+const IN_EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+
+exports.recipeApi = onRequest(
+  {
+    secrets: IN_EMULATOR ? [] : [WEB_API_KEY],
+    // A public endpoint: bound what a flood of requests can cost.
+    maxInstances: 5,
+    timeoutSeconds: 60,
+  },
+  (req, res) =>
+    recipeApi.handleRequest(req, res, {
+      db,
+      auth: getAuth(),
+      Timestamp,
+      FieldValue,
+      apiKey: IN_EMULATOR ? '' : WEB_API_KEY.value(),
+    }),
 );
 
 // Tell the managers a recipe is waiting — on a new submission, and on a

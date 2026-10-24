@@ -4,81 +4,30 @@
  * Plan: docs/feature-plans/recipe-api.md, slice 2.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
-
-const PROJECT = 'demo-cookbook';
-// Ports as the running emulators were started (emulators:exec sets the Auth host;
-// the Functions port comes from firebase.json).
-const EMULATORS = JSON.parse(readFileSync('firebase.json', 'utf8')).emulators;
-const EMULATOR = {
-  auth: process.env.FIREBASE_AUTH_EMULATOR_HOST || `127.0.0.1:${EMULATORS.auth.port}`,
-  functions: EMULATORS.functions.port,
-};
+import { initializeApp } from 'firebase/app';
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
+import { startContext, rejectsWith, PROJECT, EMULATOR } from './helpers.js';
 
 // Test users by role; their real uids come from signing up in the Auth emulator.
 const ROLES = { manager: 'manager', approved: 'approved', approved2: 'approved', plain: 'user' };
-const uid = {};
-const call = {};
 
-let testEnv;
-const sessions = [];
-
-/** Seed / inspect Firestore as the Admin SDK would (rules off); resolves to fn's result. */
-async function asAdmin(fn) {
-  let result;
-  await testEnv.withSecurityRulesDisabled(async (ctx) => {
-    result = await fn(ctx.firestore());
-  });
-  return result;
-}
+let ctx;
+let uid;
+let call;
+const asAdmin = (fn) => ctx.asAdmin(fn);
 const tokenDoc = (tokenId) => asAdmin((db) => getDoc(doc(db, 'api_tokens', tokenId)));
 const tokensOf = (owner) =>
   asAdmin((db) => getDocs(query(collection(db, 'api_tokens'), where('uid', '==', owner))));
 
-async function signUp(name) {
-  const app = initializeApp({ apiKey: 'demo', projectId: PROJECT }, `functions-test-${name}`);
-  sessions.push(app);
-  const auth = getAuth(app);
-  connectAuthEmulator(auth, `http://${EMULATOR.auth}`, { disableWarnings: true });
-  const fns = getFunctions(app);
-  connectFunctionsEmulator(fns, '127.0.0.1', EMULATOR.functions);
-  const { user } = await createUserWithEmailAndPassword(auth, `${name}@example.test`, 'password');
-  uid[name] = user.uid;
-  call[name] = (fnName, data) => httpsCallable(fns, fnName)(data).then((r) => r.data);
-}
-
-const rejectsWith = (promise, code) =>
-  expect(promise).rejects.toMatchObject({ code: `functions/${code}` });
-
 beforeAll(async () => {
-  testEnv = await initializeTestEnvironment({
-    projectId: PROJECT,
-    firestore: { rules: readFileSync('firestore.rules', 'utf8') },
-  });
-  await fetch(`http://${EMULATOR.auth}/emulator/v1/projects/${PROJECT}/accounts`, {
-    method: 'DELETE',
-  });
-  for (const name of Object.keys(ROLES)) await signUp(name);
+  ctx = await startContext(ROLES);
+  ({ uid, call } = ctx);
 });
 
-beforeEach(async () => {
-  await testEnv.clearFirestore();
-  await asAdmin((db) =>
-    Promise.all(
-      Object.entries(ROLES).map(([name, role]) => setDoc(doc(db, 'users', uid[name]), { role })),
-    ),
-  );
-});
+beforeEach(() => ctx.reset());
 
-afterAll(async () => {
-  await Promise.all(sessions.map((app) => deleteApp(app)));
-  await testEnv?.cleanup();
-});
+afterAll(() => ctx?.close());
 
 describe('createApiToken', () => {
   it('returns the secret once and stores only its hash', async () => {
@@ -203,7 +152,6 @@ describe('revokeApiToken', () => {
 describe('only managers', () => {
   it('a caller who is not signed in is refused', async () => {
     const app = initializeApp({ apiKey: 'demo', projectId: PROJECT }, 'functions-test-anon');
-    sessions.push(app);
     const fns = getFunctions(app);
     connectFunctionsEmulator(fns, '127.0.0.1', EMULATOR.functions);
     await rejectsWith(httpsCallable(fns, 'listApiTokens')(), 'unauthenticated');

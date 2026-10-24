@@ -15,6 +15,7 @@
   "main": "index.js",
   "dependencies": {
     "@google/genai": "^1.35.0",
+    "firebase": "11.10.0",
     "firebase-admin": "^14.5.0",
     "firebase-functions": "^7.4.0"
   },
@@ -26,6 +27,7 @@
   "overrides": {
     "@tootallnate/once": "^3.0.1",
     "uuid": "^14.0.0",
-    "@babel/core": "^7.29.6"
+    "@babel/core": "^7.29.6",
+    "@grpc/grpc-js": "^1.14.6"
   }
 }
