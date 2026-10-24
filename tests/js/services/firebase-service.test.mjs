@@ -4,6 +4,7 @@ import '../../common/mocks/firebase-app.mock.js';
 import '../../common/mocks/firebase-auth.mock.js';
 import '../../common/mocks/firebase-firestore.mock.js';
 import '../../common/mocks/firebase-storage.mock.js';
+import '../../common/mocks/firebase-functions.mock.js';
 
 describe('firebase-service', () => {
   let firebaseService;

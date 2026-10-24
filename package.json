@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite --config vite.config.js",
-    "dev:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-cookbook \"vite --config vite.config.js --mode emulators --host\"",
+    "dev:emulators": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-cookbook \"vite --config vite.config.js --mode emulators --host\"",
     "build": "vite build",
     "serve": "vite preview",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
@@ -17,6 +17,8 @@
     "lint": "eslint . --ext .js,.mjs",
     "lint:fix": "eslint . --ext .js,.mjs --fix",
     "check:avatars": "node scripts/avatars/check-avatars.mjs",
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "test:functions": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.functions.config.mjs\"",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.rules.config.mjs\""
   },
   "repository": {

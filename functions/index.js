@@ -1,8 +1,10 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
+const { getAuth } = require('firebase-admin/auth');
 const {
   extractRecipeFromImage,
   extractRecipeFromUrl,
@@ -12,6 +14,8 @@ const {
 } = require('./utils/gemini-service');
 const { withAuthAndRole } = require('./utils/guards');
 const { FAMILY_ROLES, familyMembers } = require('./utils/family');
+const apiTokens = require('./utils/api-tokens');
+const recipeApi = require('./api');
 const { sendNotificationToRole } = require('./notifications');
 
 // Initialize Firebase Admin
@@ -245,6 +249,109 @@ exports.listFamilyMembers = onCall(
     );
     return { members };
   }),
+);
+
+// ---------------------------------------------------------------------------
+// Recipe API tokens (docs/feature-plans/recipe-api.md, slice 2) — managers issue,
+// list and revoke personal tokens from the dashboard. Only these functions touch
+// api_tokens (the rules deny clients). Never log a token or its hash.
+// ---------------------------------------------------------------------------
+
+exports.createApiToken = onCall(
+  withAuthAndRole(['manager'], async (request, { uid: managerUid }) => {
+    const input = apiTokens.validateCreateInput(request.data);
+    if (!input.ok) throw new HttpsError('invalid-argument', input.message);
+    const { uid, name, scope } = input.value;
+
+    const owner = await db.collection('users').doc(uid).get();
+    if (!owner.exists || !apiTokens.TOKEN_ROLES.includes(owner.get('role'))) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Tokens can only be issued to approved family or managers.',
+      );
+    }
+
+    const tokens = db.collection(apiTokens.TOKENS_COLLECTION);
+    const ref = tokens.doc();
+    const token = apiTokens.generateToken();
+    const record = apiTokens.tokenRecord({
+      token,
+      uid,
+      name,
+      scope,
+      createdBy: managerUid,
+      createdAt: Timestamp.now(),
+    });
+    // The per-user cap is checked inside the transaction, so two concurrent
+    // creates can't both slip under it.
+    await db.runTransaction(async (tx) => {
+      const existing = await tx.get(tokens.where('uid', '==', uid));
+      if (existing.size >= apiTokens.MAX_TOKENS_PER_USER) {
+        throw new HttpsError(
+          'resource-exhausted',
+          `A user can have at most ${apiTokens.MAX_TOKENS_PER_USER} tokens.`,
+        );
+      }
+      tx.set(ref, record);
+    });
+
+    // The only time the secret leaves the server.
+    return { token, ...apiTokens.toPublicToken(ref.id, record) };
+  }),
+);
+
+exports.listApiTokens = onCall(
+  withAuthAndRole(['manager'], async () => {
+    const snap = await db.collection(apiTokens.TOKENS_COLLECTION).get();
+    return {
+      tokens: snap.docs.map((d) => apiTokens.toPublicToken(d.id, d.data())),
+      maxPerUser: apiTokens.MAX_TOKENS_PER_USER,
+    };
+  }),
+);
+
+exports.revokeApiToken = onCall(
+  withAuthAndRole(['manager'], async (request) => {
+    const tokenId = request.data?.tokenId;
+    if (!apiTokens.isDocId(tokenId)) {
+      throw new HttpsError('invalid-argument', 'tokenId must be a token id.');
+    }
+    // Revoking deletes the record; deleting a missing one is a no-op.
+    await db.collection(apiTokens.TOKENS_COLLECTION).doc(tokenId).delete();
+    return { revoked: tokenId };
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Recipe API (docs/feature-plans/recipe-api.md) — HTTP, authenticated by personal
+// tokens; works as the token's owner through the client SDK (functions/api/).
+// WEB_API_KEY: the web API key the server signs users in with (Secret Manager).
+// ---------------------------------------------------------------------------
+
+const WEB_API_KEY = defineSecret('WEB_API_KEY');
+// The emulators accept any key, so the secret is bound only when deployed (a local run
+// would otherwise try to read it from the real Secret Manager).
+const IN_EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+
+exports.recipeApi = onRequest(
+  {
+    secrets: IN_EMULATOR ? [] : [WEB_API_KEY],
+    // A public endpoint: bound what a flood of requests can cost.
+    maxInstances: 5,
+    timeoutSeconds: 60,
+    // Multipart bodies (≤ 30 MB) are held in memory a few times over: few requests per
+    // instance, and room for them.
+    memory: '1GiB',
+    concurrency: 4,
+  },
+  (req, res) =>
+    recipeApi.handleRequest(req, res, {
+      db,
+      auth: getAuth(),
+      Timestamp,
+      FieldValue,
+      apiKey: IN_EMULATOR ? '' : WEB_API_KEY.value(),
+    }),
 );
 
 // Tell the managers a recipe is waiting — on a new submission, and on a

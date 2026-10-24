@@ -6,6 +6,7 @@ import {
   generateImageId,
   getPrimaryImage,
 } from '../../utils/recipes/recipe-image-utils.js';
+import { buildImageEntry, imageFileName } from '../../shared/recipe-model.js';
 import { captureError } from '../logger.js';
 
 function makeBackupPath(fullPath) {
@@ -58,24 +59,15 @@ export class RecipeImageService {
    */
   static async uploadFile(recipeId, file, options = {}) {
     const { isPrimary = false, uploadedBy, folder } = options;
-    const fileExtension = file.name.split('.').pop();
     // Every upload gets its own name, so an upload never overwrites an existing
     // file (Storage rules only let managers overwrite). Which image is primary is
     // the `isPrimary` flag on the recipe's images[], not the file name.
     const id = generateImageId();
-    const fileName = `${id}.${fileExtension}`;
+    const fileName = imageFileName(id, file.name);
     const fullPath = folder ? `${folder}/${fileName}` : getImageStoragePath(recipeId, fileName);
     await StorageService.uploadFile(file, fullPath);
 
-    return {
-      id,
-      full: fullPath,
-      fileName,
-      isPrimary,
-      uploadedBy,
-      access: 'public',
-      uploadTimestamp: new Date(),
-    };
+    return buildImageEntry({ id, path: fullPath, fileName, isPrimary, uploadedBy });
   }
 
   /**

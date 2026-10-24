@@ -36,8 +36,11 @@ src/js/services/
 ├── meals/
 │   └── active-meal-service.js               # owns active_meals/{uid} (per-user shopping/cooking list)
 └── admin/
-    └── failed-url-extraction-service.js     # owns failed_url_extractions (manager dashboard)
+    ├── failed-url-extraction-service.js     # owns failed_url_extractions (manager dashboard)
+    └── api-token-service.js                 # recipe-API tokens (callables only; no client access to api_tokens)
 ```
+
+The recipe shape and its rules (fields, categories, file types, Storage layout, entry builders) live in `src/js/shared/recipe-model.js`, which the recipe services and the recipe API's function both use; `npm run sync:shared` copies it into `functions/shared/`.
 
 Firebase configuration is in `src/js/config/firebase-config.js`. Firestore security rules live in `firestore.rules`; Storage rules in `storage.rules`.
 
@@ -58,6 +61,7 @@ Reference only — the JSDoc on each service class is canonical.
 | `FavoritesService`            | favorites toggle (delegates to `UserService`)                                                                           |
 | `AuthService`                 | sign-in/out, current user, `waitForAuth()`, role                                                                        |
 | `FailedUrlExtractionService`  | failed-URL admin queue                                                                                                  |
+| `ApiTokenService`             | `list`, `create`, `revoke` (managers; the secret is returned once by `create`)                                          |
 | `NotificationService`         | toast UI surface                                                                                                        |
 
 ## Load-bearing conventions
@@ -235,5 +239,6 @@ For server-side enforcement, the truth is in `firestore.rules` and `storage.rule
 
 - **Gemini-backed recipe extraction** — pulls a recipe from an image upload or a URL. Triggered by the client via callable functions (called through `ai-enhancement-service.js`).
 - **Firestore triggers** — manager notifications on `recipe_submissions` create/resubmit.
+- **Recipe API** — `recipeApi` (HTTP, `functions/api/`) reads and creates recipes for outside callers, signed in as the token's owner so the rules apply; tokens are managed by the `createApiToken` / `listApiTokens` / `revokeApiToken` callables. Caller reference: [`recipe-api.md`](./recipe-api.md).
 
 Image resizing is **not** a Cloud Function any more — it's the Firebase "Resize Images" extension; configuration and bulk-reprocessing notes live in [`docs/firebase-image-optimization.md`](../firebase-image-optimization.md).

@@ -6,16 +6,8 @@ import {
   validateMediaFile,
   generateMediaInstructionId,
 } from '../../utils/recipes/recipe-media-utils.js';
+import { buildMediaEntry, mediaFileName, mediaTypeOf } from '../../shared/recipe-model.js';
 import { captureError } from '../logger.js';
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
-
-function getMediaType(file) {
-  if (ALLOWED_IMAGE_TYPES.includes(file.type)) return 'image';
-  if (ALLOWED_VIDEO_TYPES.includes(file.type)) return 'video';
-  return null;
-}
 
 /**
  * MediaInstructionService — Media-Instruction Storage Ops
@@ -63,10 +55,9 @@ export class MediaInstructionService {
 
     try {
       const mediaId = generateMediaInstructionId();
-      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = `${folder || recipeMediaFolder(recipeId)}/${mediaId}_${sanitizedFileName}`;
+      const storagePath = `${folder || recipeMediaFolder(recipeId)}/${mediaFileName(mediaId, file.name)}`;
 
-      const mediaType = getMediaType(file);
+      const mediaType = mediaTypeOf(file.type);
       if (!mediaType) {
         throw new Error('Unable to determine media type');
       }
@@ -79,15 +70,12 @@ export class MediaInstructionService {
 
       if (typeof onProgress === 'function') onProgress(100);
 
-      return {
+      return buildMediaEntry({
         id: mediaId,
         path: storagePath,
-        caption: '',
         type: mediaType,
-        order: 0,
         uploadedBy: userId,
-        uploadedAt: new Date(),
-      };
+      });
     } catch (error) {
       console.error('Error uploading media instruction file:', error);
       captureError(error, { service: 'media-instruction', op: 'upload', recipeId });

@@ -11,7 +11,10 @@
       "source": "functions",
       "codebase": "default",
       "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log", "*.local"],
-      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run lint"]
+      "predeploy": [
+        "node \"$PROJECT_DIR/scripts/sync-shared.mjs\" --check",
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
     }
   ],
   "emulators": {
@@ -25,6 +28,10 @@
     },
     "storage": {
       "port": 9199,
+      "host": "0.0.0.0"
+    },
+    "functions": {
+      "port": 5001,
       "host": "0.0.0.0"
     },
     "ui": {

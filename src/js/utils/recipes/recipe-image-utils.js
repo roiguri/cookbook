@@ -57,13 +57,8 @@ export function getImageStoragePath(recipeId, fileName) {
 }
 
 // --- Image ID Helper ---
-/**
- * Generates a unique image ID with 'img-' prefix
- * @returns {string}
- */
-export function generateImageId() {
-  return 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-}
+// Unique image ID with 'img-' prefix (shared recipe model).
+export { generateImageId } from '../../shared/recipe-model.js';
 
 // --- Retrieval ---
 /**

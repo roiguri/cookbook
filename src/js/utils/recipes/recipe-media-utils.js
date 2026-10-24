@@ -28,10 +28,12 @@
  */
 
 // --- Constants ---
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
-const ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES];
-const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+// Allowed types and the size cap come from the shared recipe model.
+import {
+  MEDIA_TYPES as ALLOWED_TYPES,
+  MEDIA_MAX_BYTES as MAX_SIZE,
+  generateMediaInstructionId,
+} from '../../shared/recipe-model.js';
 
 // --- Validation ---
 /**
@@ -110,12 +112,5 @@ export function validateMediaInstructionData(mediaInstructions) {
 }
 
 // --- ID Generation ---
-/**
- * Generates a unique media instruction ID with 'media-' prefix
- * Uses crypto.randomUUID() for guaranteed uniqueness and cryptographic security
- * @returns {string} Format: 'media-550e8400-e29b-41d4-a716-446655440000'
- */
-export function generateMediaInstructionId() {
-  // Use globalThis.crypto for compatibility with both browsers and Node.js
-  return 'media-' + globalThis.crypto.randomUUID();
-}
+// UUID-like id for a media instruction (shared recipe model).
+export { generateMediaInstructionId };

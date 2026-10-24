@@ -304,6 +304,15 @@ service cloud.firestore {
     }
     
     // =========================================================================
+    // RECIPE API TOKENS
+    // =========================================================================
+    // Hashed personal API tokens (functions/utils/api-tokens.js). Only Cloud
+    // Functions read or write them — no client, managers included.
+    match /api_tokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
     // DEFAULT LOCK
     // =========================================================================
     match /{document=**} {

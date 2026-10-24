@@ -673,3 +673,32 @@ describe('user profile: avatar config', () => {
     await assertSucceeds(setDoc(doc(db(fresh), 'users', fresh), { role: 'user' }));
   });
 });
+
+describe('recipe API tokens', () => {
+  const tokenDoc = (uid) => doc(db(uid), 'api_tokens', 't1');
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'api_tokens', 't1'), { uid: AUTHOR, hash: 'h', scope: 'read' }),
+    );
+  });
+
+  test('no client can read a token — not the owner, not a manager', async () => {
+    await assertFails(getDoc(tokenDoc(AUTHOR)));
+    await assertFails(getDoc(tokenDoc(MANAGER)));
+    await assertFails(getDoc(tokenDoc(null)));
+    await assertFails(getDocs(collection(db(MANAGER), 'api_tokens')));
+    await assertFails(
+      getDocs(query(collection(db(AUTHOR), 'api_tokens'), where('uid', '==', AUTHOR))),
+    );
+  });
+
+  test('no client can create, change or delete a token', async () => {
+    await assertFails(
+      setDoc(doc(db(MANAGER), 'api_tokens', 'new'), { uid: MANAGER, hash: 'h', scope: 'read' }),
+    );
+    await assertFails(updateDoc(tokenDoc(MANAGER), { scope: 'read+write' }));
+    await assertFails(deleteDoc(tokenDoc(MANAGER)));
+    await assertFails(deleteDoc(tokenDoc(AUTHOR)));
+  });
+});

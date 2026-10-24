@@ -6,16 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev          # Vite dev server (http://localhost:5173)
-npm run dev:emulators # Dev server against local Auth/Firestore/Storage emulators (this checkout's rules)
+npm run dev:emulators # Dev server against local Auth/Firestore/Storage/Functions emulators (this checkout's rules + functions)
 netlify dev          # Dev server with Netlify features (redirects, functions) — more accurate to prod
 npm run build        # Production build
 npm run serve        # Preview production build
 npm run test         # Jest unit tests
 npm run test -- tests/js/router.test.js  # Run a single test file
 npm run test:rules   # Firestore + Storage security-rules tests on the emulator (needs Java 21+)
+npm run test:functions # Cloud Functions integration tests in the Functions emulator (needs Java 21+)
 npm run lint         # ESLint check
 npm run lint:fix     # ESLint auto-fix
 npm run format       # Prettier formatting (required before committing — enforced by pre-commit hook)
+npm run sync:shared  # Copy src/js/shared/* into functions/shared/ after editing them (a test fails while stale)
 ```
 
 Pre-commit hook runs format check, ESLint, tests, and build — all must pass.
@@ -82,7 +84,7 @@ Unit tests use Jest with jsdom in `tests/`. Firebase is mocked via `tests/common
 
 ### Cloud Functions
 
-`functions/index.js` handles Gemini AI recipe extraction from images/URLs/videos, AI image enhancement, edit-suggestion file promotion, and manager notifications. Callable functions plus Firestore triggers on `recipe_submissions`. (Legacy image compression via Sharp was removed in favor of automated Storage-triggered WebP resizing).
+`functions/index.js` handles Gemini AI recipe extraction from images/URLs/videos, AI image enhancement, edit-suggestion file promotion, manager notifications, and the recipe API (`recipeApi`, HTTP, code in `functions/api/`; tokens managed by the `*ApiToken` callables — see `docs/architecture/recipe-api.md`). Callable functions plus Firestore triggers on `recipe_submissions`. (Legacy image compression via Sharp was removed in favor of automated Storage-triggered WebP resizing).
 
 ### Design System
 
@@ -171,6 +173,7 @@ Deeper references — consult these before making non-trivial changes:
 - `docs/architecture/services.md` — Firebase service wrappers, caching/dedup patterns, role enforcement.
 - `docs/architecture/observability.md` — Sentry error tracking: init flow, release/environment wiring, privacy, aggregation, quota, source-map safety.
 - `docs/architecture/design-system.md` — canonical token reference (colours, type, z-index, icons).
+- `docs/architecture/recipe-api.md` — the recipe API for outside callers (agents): tokens, endpoints, recipe format, files, errors, `curl` examples, deploy prerequisites.
 - `docs/architecture/avatars.md` — chef avatar builder: part catalogue, data, rules, adding parts, future photo matching.
 - `docs/lessons/performance.md`, `docs/lessons/accessibility.md`, `docs/lessons/security.md` — patterns and pitfalls discovered while building.
 - `docs/firebase-image-optimization.md` — image pipeline configuration.

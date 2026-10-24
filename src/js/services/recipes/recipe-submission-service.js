@@ -4,6 +4,7 @@ import { Timestamp, serverTimestamp } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { RecipeService, VISIBILITY } from './recipe-service.js';
 import { RecipeShareService } from './recipe-share-service.js';
+import { submissionRecord } from '../../shared/recipe-model.js';
 
 const COLLECTION = 'recipe_submissions';
 
@@ -75,15 +76,8 @@ export class RecipeSubmissionService {
       type: 'set',
       collection: COLLECTION,
       id: recipeId,
-      data: {
-        recipeId,
-        authorId,
-        status: SUBMISSION_STATUS.PENDING,
-        reviewedBy: null,
-        reviewedAt: null,
-        rejectionReason: null,
-        createdAt: Timestamp.now(),
-      },
+      // The shared record, so the recipe API submits exactly the same thing.
+      data: submissionRecord({ recipeId, authorId, createdAt: Timestamp.now() }),
     };
   }
 
