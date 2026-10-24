@@ -83,7 +83,7 @@ Base: `https://<region>-<project>.cloudfunctions.net/recipeApi`; every path is u
     "stage": "to-try", // "to-try" | "tested" (default "to-try")
     "submit": false, // true → also propose to managers
     "recipe": {
-      // the shared recipe format; only `name` is required
+      // the shared recipe format; must be complete (decision 16)
       "name": "…",
       "description": "…",
       "attribution": "…",
@@ -249,6 +249,10 @@ Original scope:
 - Tests: primary image, mixed image/video media in order with captions, rejected type, oversize, failure mid-way leaves no orphan files.
 
 ### Slice 6 — Hardening, docs, rollout
+
+**In progress (2026-10-24).** Caller reference written: [`docs/architecture/recipe-api.md`](../architecture/recipe-api.md) (`services.md` and `CLAUDE.md` point to it). Logging: the function writes only the route and an error code for 500s, and the client SDK is silenced; functions report to Cloud Logging, not Sentry, like the other functions. **Test project done:** Token Creator grant, `WEB_API_KEY`, deploy; end-to-end with a real token (8/8: `me`, published list, JSON create with a related recipe, read-back in the write shape, retry → 200 unchanged, incomplete → 400, multipart with a real JPEG served back, resize-extension thumbnails made for the API upload); test recipes, files and token removed afterwards, and the revoked token then got 401. `submit` was left to the emulator tests (on staging it would notify the managers). Latency 0.8–3 s per call. **Production, checked read-only:** the auto-created browser key has the same API restrictions as the test project's (no referrer restriction), so no key change is needed; the required APIs are enabled; missing are the Token Creator grant and the `WEB_API_KEY` secret.
+
+Reviewed. Fixes: related recipes are checked before any upload (a bad link no longer uploads files, and leaves no thumbnails), and again in the transaction; `GET /v1/recipes/__x__` (Firestore's reserved ids) is a 404, not a 500; Firestore Lite's logger is silenced too — each Firebase package bundles its own logger, so `firebase/app`'s `setLogLevel` never reached it, and a failed commit was logged with document paths and values (found in the emulator log; none in staging's logs); the docs describe retries exactly (validated first; `200` with the recipe's current stage, submission and file counts), the platform's non-JSON errors, the request log's URLs, and the remaining limits. The cleanup-after-upload test now uses a same-id race (4 parallel requests: one `201`, only the winner's photo left). Accepted: each unauthenticated request costs one Firestore read (bounded by `maxInstances` and the cap); a `409` reveals that another user's private recipe id exists (ids are 20 random characters).
 
 - Docs: `docs/architecture/recipe-api.md` (contract, auth model, examples with `curl`), update `services.md` and `CLAUDE.md` further-reading.
 - Sentry/logging for the function (no tokens or recipe content in logs).

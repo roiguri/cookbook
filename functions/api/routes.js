@@ -32,7 +32,8 @@ const ROUTES = [
   },
   {
     method: 'GET',
-    pattern: /^\/v1\/recipes\/([A-Za-z0-9_-]{1,128})$/,
+    // Firestore's reserved __…__ ids can't be recipes.
+    pattern: /^\/v1\/recipes\/((?!__)[A-Za-z0-9_-]{1,128})$/,
     handler: 'getRecipe',
     params: ['id'],
     scopes: READ_SCOPES,

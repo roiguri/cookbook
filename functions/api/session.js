@@ -9,12 +9,19 @@
 const crypto = require('node:crypto');
 const { initializeApp, deleteApp, setLogLevel } = require('firebase/app');
 const { getAuth, connectAuthEmulator, signInWithCustomToken } = require('firebase/auth');
-const { getFirestore, connectFirestoreEmulator } = require('firebase/firestore/lite');
+const {
+  getFirestore,
+  connectFirestoreEmulator,
+  setLogLevel: setFirestoreLogLevel,
+} = require('firebase/firestore/lite');
 const { getStorage, connectStorageEmulator } = require('firebase/storage');
 
 // The client SDK logs failed calls with document paths and request bodies; keep recipe
-// content and ids out of Cloud Logging.
+// content and ids out of Cloud Logging. Each package bundles its own logger, so
+// firebase/app's setLogLevel doesn't reach Firestore's: silence both. (Storage doesn't
+// log; Auth logs only internal assertions.)
 setLogLevel('silent');
+setFirestoreLogLevel('silent');
 
 const inEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
 

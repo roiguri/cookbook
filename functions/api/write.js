@@ -110,6 +110,26 @@ async function hasSubmission(db, recipeId) {
 }
 
 /**
+ * Related recipes must be published ones, as the form offers — read as the user, with
+ * `read` (getDoc, or a transaction's get).
+ */
+async function checkRelated(db, related, read) {
+  const badLinks = [];
+  for (const [i, relatedId] of related.entries()) {
+    const linked = await read(doc(db, 'recipes', relatedId)).catch((error) => {
+      if (isPermissionDenied(error)) return null;
+      throw error;
+    });
+    if (!linked?.exists() || linked.get('visibility') !== 'published') {
+      badLinks.push({ field: `relatedRecipes[${i}]`, message: 'must be a published recipe' });
+    }
+  }
+  if (badLinks.length) {
+    throw invalid('invalid-recipe', 'The recipe has invalid fields.', badLinks);
+  }
+}
+
+/**
  * The write handlers. Each gets `{ session, caller, body, files, model, setStatus }`
  * (`files`: the multipart file parts, or null for JSON).
  */
@@ -161,6 +181,8 @@ const handlers = {
     if (plan.images.length || plan.media.length) {
       outcome = existingOutcome(await readOwn((r) => getDoc(r), ref), uid);
       if (!outcome) {
+        // Before uploading, so a bad link doesn't cost an upload (and leave thumbnails).
+        await checkRelated(db, related, (r) => getDoc(r));
         const stored = await uploadPlanned(session, ref.id, plan, model);
         uploaded = stored.uploaded;
         if (stored.images.length) data.images = stored.images;
@@ -175,23 +197,8 @@ const handlers = {
         outcome = await runTransaction(db, async (tx) => {
           const existing = existingOutcome(await readOwn((r) => tx.get(r), ref), uid);
           if (existing) return existing;
-          // Related recipes: published ones only, as the form offers (read as the user).
-          const badLinks = [];
-          for (const [i, relatedId] of related.entries()) {
-            const linked = await tx.get(doc(db, 'recipes', relatedId)).catch((error) => {
-              if (isPermissionDenied(error)) return null;
-              throw error;
-            });
-            if (!linked?.exists() || linked.get('visibility') !== 'published') {
-              badLinks.push({
-                field: `relatedRecipes[${i}]`,
-                message: 'must be a published recipe',
-              });
-            }
-          }
-          if (badLinks.length) {
-            throw invalid('invalid-recipe', 'The recipe has invalid fields.', badLinks);
-          }
+          // Again in the write, in case a related recipe changed since the check above.
+          await checkRelated(db, related, (r) => tx.get(r));
           tx.set(ref, data);
           if (submit) {
             tx.set(

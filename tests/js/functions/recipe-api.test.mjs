@@ -128,6 +128,8 @@ describe('recipe API (functions/api)', () => {
     it('rejects unknown paths and other methods', () => {
       expect(matchRoute('GET', '/v1/recipes/a/b')).toBeNull();
       expect(matchRoute('GET', '/v1/recipes/a.b')).toBeNull();
+      // Firestore's reserved ids would be a 500; they are simply not recipes.
+      expect(matchRoute('GET', '/v1/recipes/__x__')).toBeNull();
       expect(matchRoute('POST', '/v1/me')).toEqual({ methodNotAllowed: true });
     });
   });

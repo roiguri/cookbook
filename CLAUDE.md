@@ -84,7 +84,7 @@ Unit tests use Jest with jsdom in `tests/`. Firebase is mocked via `tests/common
 
 ### Cloud Functions
 
-`functions/index.js` handles Gemini AI recipe extraction from images/URLs/videos, AI image enhancement, edit-suggestion file promotion, manager notifications, and the recipe API (`recipeApi`, HTTP, code in `functions/api/`; tokens managed by the `*ApiToken` callables — see `docs/feature-plans/recipe-api.md`). Callable functions plus Firestore triggers on `recipe_submissions`. (Legacy image compression via Sharp was removed in favor of automated Storage-triggered WebP resizing).
+`functions/index.js` handles Gemini AI recipe extraction from images/URLs/videos, AI image enhancement, edit-suggestion file promotion, manager notifications, and the recipe API (`recipeApi`, HTTP, code in `functions/api/`; tokens managed by the `*ApiToken` callables — see `docs/architecture/recipe-api.md`). Callable functions plus Firestore triggers on `recipe_submissions`. (Legacy image compression via Sharp was removed in favor of automated Storage-triggered WebP resizing).
 
 ### Design System
 
@@ -173,6 +173,7 @@ Deeper references — consult these before making non-trivial changes:
 - `docs/architecture/services.md` — Firebase service wrappers, caching/dedup patterns, role enforcement.
 - `docs/architecture/observability.md` — Sentry error tracking: init flow, release/environment wiring, privacy, aggregation, quota, source-map safety.
 - `docs/architecture/design-system.md` — canonical token reference (colours, type, z-index, icons).
+- `docs/architecture/recipe-api.md` — the recipe API for outside callers (agents): tokens, endpoints, recipe format, files, errors, `curl` examples, deploy prerequisites.
 - `docs/architecture/avatars.md` — chef avatar builder: part catalogue, data, rules, adding parts, future photo matching.
 - `docs/lessons/performance.md`, `docs/lessons/accessibility.md`, `docs/lessons/security.md` — patterns and pitfalls discovered while building.
 - `docs/firebase-image-optimization.md` — image pipeline configuration.

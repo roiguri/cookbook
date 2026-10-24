@@ -298,10 +298,11 @@ const trimmed = (v) => (typeof v === 'string' ? v.trim() : v);
 /**
  * Normalize recipe content sent by an API caller into document fields.
  *
- * Only `name` is required: a recipe may be incomplete and is finished later in
- * the app. Fields the caller leaves out stay absent. Every field that IS sent
- * must be valid — the same rules the recipe form applies — and unknown or
- * server-owned fields are rejected, so a caller's typo fails loudly.
+ * Only `name` is required here; completeness is a separate check
+ * (missingRequiredFields), which the API applies to every create. Fields the
+ * caller leaves out stay absent. Every field that IS sent must be valid — the
+ * same rules the recipe form applies — and unknown or server-owned fields are
+ * rejected, so a caller's typo fails loudly.
  *
  * @param {*} input
  * @returns {{ ok: boolean, recipe: Object|null, errors: Array<{ field: string, message: string }> }}

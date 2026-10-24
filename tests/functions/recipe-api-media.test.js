@@ -166,11 +166,10 @@ describe('photos and step media', () => {
     expect(await filesOf('incomplete-1')).toEqual([]);
   });
 
-  it('removes uploaded files when the write is then refused', async () => {
-    // Related recipes are checked in the write itself, after the upload.
+  it('checks related recipes before any file is uploaded', async () => {
     const res = await postFiles(
       {
-        id: 'cleanup-1',
+        id: 'bad-link-1',
         recipe: { ...complete, relatedRecipes: ['no-such-recipe'] },
         images: [{ part: 'p' }],
       },
@@ -178,7 +177,18 @@ describe('photos and step media', () => {
     );
     expect(res.status).toBe(400);
     expect(fields(res)).toEqual(['relatedRecipes[0]']);
-    expect(await filesOf('cleanup-1')).toEqual([]);
+    expect(await filesOf('bad-link-1')).toEqual([]);
+  });
+
+  it('a request that loses a same-id race removes its files', async () => {
+    const request = { id: 'race-files-1', recipe: complete, images: [{ part: 'p' }] };
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () => postFiles(request, { p: [JPEG, 'image/jpeg'] })),
+    );
+    expect(results.map((r) => r.status).sort()).toEqual([200, 200, 200, 201]);
+    // Only the winner's photo is left, and it is the one the recipe points to.
+    const saved = (await stored('race-files-1')).data();
+    expect(await filesOf('race-files-1')).toEqual([saved.images[0].full]);
   });
 
   it('a retry with the same id uploads nothing and reports the recipe as it is', async () => {
