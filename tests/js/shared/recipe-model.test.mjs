@@ -2,6 +2,10 @@ import {
   CATEGORY_IDS,
   RECIPE_CONTENT_FIELDS,
   RECIPE_NUMBER_LIMITS,
+  MIN_SECTIONS,
+  MAX_RELATED_RECIPES,
+  missingRequiredFields,
+  submissionRecord,
   STAGE,
   VISIBILITY,
   buildImageEntry,
@@ -247,17 +251,35 @@ describe('shared recipe model', () => {
       ]);
     });
 
-    it('accepts ingredient sections and drops empty ones', () => {
+    it('accepts ingredient sections (at least two, each titled with items)', () => {
       const result = normalizeRecipeContent({
         name: 'x',
         ingredientSections: [
           { title: ' Dough ', items: [{ item: 'flour', amount: 2, unit: 'cups' }] },
-          { title: 'Empty', items: [] },
+          { title: 'Filling', items: [{ item: 'apples' }] },
         ],
       });
       expect(result.recipe.ingredientSections).toEqual([
         { title: 'Dough', items: [{ item: 'flour', amount: 2, unit: 'cups' }] },
+        { title: 'Filling', items: [{ item: 'apples', amount: null, unit: '' }] },
       ]);
+    });
+
+    it('rejects one section, and a section without items, like the form', () => {
+      const one = normalizeRecipeContent({
+        name: 'x',
+        ingredientSections: [{ title: 'Only', items: [{ item: 'a' }] }],
+      });
+      expect(errorFields(one)).toEqual(['ingredientSections']);
+      const empty = normalizeRecipeContent({
+        name: 'x',
+        ingredientSections: [
+          { title: 'A', items: [{ item: 'a' }] },
+          { title: 'Empty', items: [] },
+        ],
+      });
+      expect(errorFields(empty)).toEqual(['ingredientSections[1].items']);
+      expect(MIN_SECTIONS).toBe(2);
     });
 
     it('rejects both ingredient formats at once', () => {
@@ -274,10 +296,26 @@ describe('shared recipe model', () => {
         name: 'x',
         stages: [
           { title: 'Prep', instructions: ['Chop', ' '] },
-          { title: 'Empty', instructions: [] },
+          { title: 'Cook', instructions: ['Fry'] },
         ],
       });
-      expect(staged.recipe.stages).toEqual([{ title: 'Prep', instructions: ['Chop'] }]);
+      expect(staged.recipe.stages).toEqual([
+        { title: 'Prep', instructions: ['Chop'] },
+        { title: 'Cook', instructions: ['Fry'] },
+      ]);
+      const oneStage = normalizeRecipeContent({
+        name: 'x',
+        stages: [{ title: 'Only', instructions: ['a'] }],
+      });
+      expect(errorFields(oneStage)).toEqual(['stages']);
+      const emptyStage = normalizeRecipeContent({
+        name: 'x',
+        stages: [
+          { title: 'A', instructions: ['a'] },
+          { title: 'B', instructions: [' '] },
+        ],
+      });
+      expect(errorFields(emptyStage)).toEqual(['stages[1].instructions']);
 
       const both = normalizeRecipeContent({
         name: 'x',
@@ -388,6 +426,80 @@ describe('shared recipe model', () => {
       expect(
         errorFields(normalizeRecipeContent({ name: 'x', relatedRecipes: ['recipes/abc'] })),
       ).toEqual(['relatedRecipes']);
+    });
+
+    it('lists what the form requires before any save', () => {
+      expect(missingRequiredFields({ name: 'x' })).toEqual([
+        'category',
+        'difficulty',
+        'prepTime',
+        'servings',
+        'ingredients',
+        'instructions',
+      ]);
+      const complete = {
+        name: 'x',
+        category: 'desserts',
+        difficulty: 'קלה',
+        prepTime: 10,
+        servings: 4,
+        ingredientSections: [{ title: 'a', items: [{ item: 'b' }] }],
+        stages: [{ title: 's', instructions: ['t'] }],
+      };
+      expect(missingRequiredFields(complete)).toEqual([]);
+      expect(missingRequiredFields(null)).toContain('name');
+    });
+
+    it('builds the submission record the rules expect', () => {
+      expect(submissionRecord({ recipeId: 'r', authorId: 'u', createdAt: 'T' })).toEqual({
+        recipeId: 'r',
+        authorId: 'u',
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null,
+        createdAt: 'T',
+      });
+    });
+
+    it('links related recipes like the form: unique, at most four', () => {
+      expect(
+        normalizeRecipeContent({ name: 'x', relatedRecipes: ['a', 'b'] }).recipe.relatedRecipes,
+      ).toEqual(['a', 'b']);
+      expect(
+        errorFields(normalizeRecipeContent({ name: 'x', relatedRecipes: ['a', 'a'] })),
+      ).toEqual(['relatedRecipes']);
+      expect(
+        errorFields(
+          normalizeRecipeContent({ name: 'x', relatedRecipes: ['a', 'b', 'c', 'd', 'e'] }),
+        ),
+      ).toEqual(['relatedRecipes']);
+      expect(MAX_RELATED_RECIPES).toBe(4);
+    });
+
+    it('skips fully blank ingredient rows, as the form does', () => {
+      const result = normalizeRecipeContent({
+        name: 'x',
+        ingredients: [{ item: 'a' }, { item: '', amount: '', unit: ' ' }, {}],
+      });
+      expect(result.recipe.ingredients).toEqual([{ item: 'a', amount: null, unit: '' }]);
+      // An amount without an ingredient is still an error.
+      expect(
+        errorFields(normalizeRecipeContent({ name: 'x', ingredients: [{ amount: 2 }] })),
+      ).toEqual(['ingredients[0].item']);
+    });
+
+    it('treats an empty list as absent', () => {
+      const result = normalizeRecipeContent({
+        name: 'x',
+        ingredients: [],
+        ingredientSections: [
+          { title: 'a', items: [{ item: 'b' }] },
+          { title: 'c', items: [{ item: 'd' }] },
+        ],
+      });
+      expect(result.ok).toBe(true);
+      expect(result.recipe.ingredients).toBeUndefined();
     });
 
     it('validates string lists', () => {

@@ -23,7 +23,9 @@
  *   - imageFileName(id, originalName), mediaFileName(id, originalName)
  *   - buildImageEntry(...), buildMediaEntry(...)
  *   - COMMON_FRACTIONS, parseAmount(input)
- *   - RECIPE_CONTENT_FIELDS, RECIPE_NUMBER_LIMITS, normalizeRecipeContent(input)
+ *   - RECIPE_CONTENT_FIELDS, RECIPE_NUMBER_LIMITS, MIN_SECTIONS, normalizeRecipeContent(input)
+ *   - MAX_RELATED_RECIPES, missingRequiredFields(recipe)
+ *   - submissionRecord({ recipeId, authorId, createdAt })
  */
 
 // --- Model fields ---------------------------------------------------------
@@ -277,6 +279,13 @@ export const RECIPE_NUMBER_LIMITS = Object.freeze({
   amount: 1000000,
 });
 
+// The recipe form links at most this many related recipes, all published.
+export const MAX_RELATED_RECIPES = 4;
+
+// The recipe form's section mode (ingredients or instruction stages) needs at least
+// two sections, each with a title and items; a single list uses the flat format.
+export const MIN_SECTIONS = 2;
+
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const trimmed = (v) => (typeof v === 'string' ? v.trim() : v);
 
@@ -309,7 +318,12 @@ export function normalizeRecipeContent(input) {
   for (const key of Object.keys(input)) {
     if (!RECIPE_CONTENT_FIELDS.includes(key)) fail(key, 'unknown or server-owned field');
   }
-  const has = (key) => input[key] !== undefined && input[key] !== null;
+  // Absent: missing, null, or an empty list (so `ingredients: []` beside sections is
+  // not "both formats").
+  const has = (key) =>
+    input[key] !== undefined &&
+    input[key] !== null &&
+    !(Array.isArray(input[key]) && input[key].length === 0);
 
   // name (required)
   const name = trimmed(input.name);
@@ -360,6 +374,10 @@ export function normalizeRecipeContent(input) {
         fail(key, 'a tag cannot contain a comma');
       } else if (key === 'relatedRecipes' && list.some((id) => id.includes('/'))) {
         fail(key, 'must be recipe ids');
+      } else if (key === 'relatedRecipes' && new Set(list).size !== list.length) {
+        fail(key, 'lists a recipe twice');
+      } else if (key === 'relatedRecipes' && list.length > MAX_RELATED_RECIPES) {
+        fail(key, `can link at most ${MAX_RELATED_RECIPES} recipes, as in the recipe form`);
       } else if (list.length) recipe[key] = list;
     }
   }
@@ -373,9 +391,13 @@ export function normalizeRecipeContent(input) {
   };
 
   // ingredients: flat list or sections, not both
+  const blank = (v) => v === undefined || v === null || (typeof v === 'string' && !v.trim());
   const ingredient = (raw, field) => {
     if (!isPlainObject(raw)) return fail(field, 'must be an object { item, amount?, unit? }');
     unknownKeys(raw, ['item', 'amount', 'unit'], field);
+    // A fully blank row is skipped, as the form ignores empty rows.
+    const onlyKnownKeys = Object.keys(raw).every((k) => ['item', 'amount', 'unit'].includes(k));
+    if (onlyKnownKeys && blank(raw.item) && blank(raw.amount) && blank(raw.unit)) return null;
     const item = trimmed(raw.item);
     if (typeof item !== 'string' || !item) return fail(`${field}.item`, 'is required');
     let amount = null;
@@ -413,6 +435,7 @@ export function normalizeRecipeContent(input) {
     if (!Array.isArray(input.ingredientSections)) {
       fail('ingredientSections', 'must be an array');
     } else {
+      const errorsBefore = errors.length;
       const sections = input.ingredientSections
         .map((section, i) => {
           const field = `ingredientSections[${i}]`;
@@ -420,11 +443,21 @@ export function normalizeRecipeContent(input) {
           unknownKeys(section, ['title', 'items'], field);
           const title = trimmed(section.title);
           if (typeof title !== 'string' || !title) return fail(`${field}.title`, 'is required');
+          const before = errors.length;
           const items = ingredientList(section.items, `${field}.items`);
+          if (!items.length && errors.length === before) {
+            return fail(`${field}.items`, 'needs at least one ingredient');
+          }
           return items.length ? { title, items } : null;
         })
         .filter(Boolean);
-      if (sections.length) recipe.ingredientSections = sections;
+      // The count rule only once the sections themselves are valid.
+      if (errors.length === errorsBefore && sections.length < MIN_SECTIONS) {
+        fail(
+          'ingredientSections',
+          `needs at least ${MIN_SECTIONS} sections, as in the recipe form (for one list, send ingredients)`,
+        );
+      } else if (sections.length) recipe.ingredientSections = sections;
     }
   }
 
@@ -446,6 +479,7 @@ export function normalizeRecipeContent(input) {
     if (!Array.isArray(input.stages)) {
       fail('stages', 'must be an array');
     } else {
+      const errorsBefore = errors.length;
       const stages = input.stages
         .map((stage, i) => {
           const field = `stages[${i}]`;
@@ -454,15 +488,62 @@ export function normalizeRecipeContent(input) {
           unknownKeys(stage, ['title', 'instructions'], field);
           const title = trimmed(stage.title);
           if (typeof title !== 'string' || !title) return fail(`${field}.title`, 'is required');
+          const before = errors.length;
           const steps = stepList(stage.instructions, `${field}.instructions`);
+          if (!steps.length && errors.length === before) {
+            return fail(`${field}.instructions`, 'needs at least one step');
+          }
           return steps.length ? { title, instructions: steps } : null;
         })
         .filter(Boolean);
-      if (stages.length) recipe.stages = stages;
+      if (errors.length === errorsBefore && stages.length < MIN_SECTIONS) {
+        fail(
+          'stages',
+          `needs at least ${MIN_SECTIONS} stages, as in the recipe form (for one list, send instructions)`,
+        );
+      } else if (stages.length) recipe.stages = stages;
     }
   }
 
   // A rejected input yields no recipe, so a caller can't use half-validated data.
   const ok = errors.length === 0;
   return { ok, recipe: ok ? recipe : null, errors };
+}
+
+// --- Completeness and submission ------------------------------------------
+
+/**
+ * What the recipe form requires before any recipe can be saved. The API requires the
+ * same of every recipe it creates (decision 16; incomplete private recipes: #434).
+ * Wait time is not here: the form treats an empty wait time as 0.
+ * @param {Object} recipe - Normalized content (normalizeRecipeContent's `recipe`).
+ * @returns {string[]} The missing fields, in form order; empty when complete.
+ */
+export function missingRequiredFields(recipe) {
+  const r = recipe || {};
+  const missing = [];
+  for (const field of ['name', 'category', 'difficulty', 'prepTime', 'servings']) {
+    if (r[field] === undefined || r[field] === null || r[field] === '') missing.push(field);
+  }
+  if (!r.ingredients?.length && !r.ingredientSections?.length) missing.push('ingredients');
+  if (!r.instructions?.length && !r.stages?.length) missing.push('instructions');
+  return missing;
+}
+
+/**
+ * The `recipe_submissions/{recipeId}` record that puts a recipe in the approval queue
+ * (firestore.rules: status pending, the caller as author, written with the recipe).
+ * @param {{ recipeId: string, authorId: string, createdAt: * }} params - `createdAt` in
+ *   the writing SDK's own type (a Timestamp or serverTimestamp()).
+ */
+export function submissionRecord({ recipeId, authorId, createdAt }) {
+  return {
+    recipeId,
+    authorId,
+    status: 'pending',
+    reviewedBy: null,
+    reviewedAt: null,
+    rejectionReason: null,
+    createdAt,
+  };
 }

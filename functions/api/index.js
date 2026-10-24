@@ -8,8 +8,37 @@
  */
 const { authenticate } = require('./auth');
 const { openUserSession } = require('./session');
-const { handlers } = require('./recipes');
-const { notFound, methodNotAllowed, forbidden, toResponse } = require('./errors');
+const { handlers: readHandlers } = require('./recipes');
+const { handlers: writeHandlers } = require('./write');
+const {
+  notFound,
+  methodNotAllowed,
+  forbidden,
+  badRequest,
+  unsupportedMediaType,
+  payloadTooLarge,
+  toResponse,
+} = require('./errors');
+
+const handlers = { ...readHandlers, ...writeHandlers };
+
+// Firestore documents are at most 1 MiB; a recipe body never needs more.
+const MAX_JSON_BODY_BYTES = 1024 * 1024;
+
+/** The JSON body of a request, parsed from the raw bytes. */
+function readJsonBody(req) {
+  if (!req.is('application/json')) throw unsupportedMediaType();
+  const raw = req.rawBody;
+  if (!raw || raw.length === 0) throw badRequest('The body is empty.');
+  if (raw.length > MAX_JSON_BODY_BYTES) {
+    throw payloadTooLarge(`The body must be at most ${MAX_JSON_BODY_BYTES} bytes.`);
+  }
+  try {
+    return JSON.parse(raw.toString('utf8'));
+  } catch {
+    throw badRequest('The body is not valid JSON.');
+  }
+}
 const { matchRoute } = require('./routes');
 
 let modelPromise;
@@ -36,9 +65,11 @@ async function handleRequest(req, res, deps) {
       throw forbidden('This token does not have the scope for this endpoint.');
     }
 
+    const body = route.body ? readJsonBody(req) : undefined;
     const model = await loadModel();
     let session = null;
     let result;
+    let status = 200;
     try {
       if (route.session) {
         session = await openUserSession(caller.uid, { auth: deps.auth, apiKey: deps.apiKey });
@@ -48,13 +79,17 @@ async function handleRequest(req, res, deps) {
         caller,
         params,
         query: req.query || {},
+        body,
         model,
+        setStatus: (code) => {
+          status = code;
+        },
       });
     } finally {
       // Before responding: after the response the instance's CPU may be throttled.
       await session?.close();
     }
-    res.status(200).json(result);
+    res.status(status).json(result);
   } catch (error) {
     const { status, body } = toResponse(error);
     // Only the route and an error code: never the token, request content or paths.

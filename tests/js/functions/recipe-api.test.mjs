@@ -18,6 +18,21 @@ describe('recipe API (functions/api)', () => {
       expect(errors.toResponse(errors.rateLimited('x')).status).toBe(429);
     });
 
+    it('maps Firestore failures the caller should hear about', () => {
+      const fs = (code, message = '') => Object.assign(new Error(message), { code });
+      expect(errors.fromFirestoreError(fs('permission-denied')).status).toBe(403);
+      const big = errors.fromFirestoreError(
+        fs('invalid-argument', 'Document exceeds the maximum allowed size of 1,048,576 bytes.'),
+      );
+      expect([big.status, big.code]).toEqual([400, 'recipe-too-large']);
+      expect(errors.fromFirestoreError(fs('aborted')).status).toBe(503);
+      // Anything else stays as it is (a 500).
+      const other = fs('internal');
+      expect(errors.fromFirestoreError(other)).toBe(other);
+      const api = errors.conflict('x');
+      expect(errors.fromFirestoreError(api)).toBe(api);
+    });
+
     it('hides anything else behind a generic 500', () => {
       const res = errors.toResponse(new Error('db path recipes/secret failed'));
       expect(res.status).toBe(500);
@@ -104,6 +119,10 @@ describe('recipe API (functions/api)', () => {
       expect(matchRoute('GET', '/v1/recipes/abc').params).toEqual({ id: 'abc' });
       expect(matchRoute('GET', '/v1/recipes/').route.handler).toBe('listPublished');
       expect(matchRoute('GET', '/v1/me').route.handler).toBe('me');
+      const create = matchRoute('POST', '/v1/recipes').route;
+      expect(create.handler).toBe('createRecipe');
+      expect(create.scopes).toEqual(['read+write']);
+      expect(create.body).toBe(true);
     });
 
     it('rejects unknown paths and other methods', () => {

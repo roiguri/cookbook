@@ -2,6 +2,7 @@
  * Recipe API — the route table (docs/feature-plans/recipe-api.md §3). Pure: no SDKs.
  */
 const READ_SCOPES = ['read', 'read+write'];
+const WRITE_SCOPES = ['read+write'];
 
 // Path patterns (after the function name). /recipes/mine must precede /recipes/{id}.
 const ROUTES = [
@@ -20,6 +21,14 @@ const ROUTES = [
     handler: 'listPublished',
     scopes: READ_SCOPES,
     session: true,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/recipes$/,
+    handler: 'createRecipe',
+    scopes: WRITE_SCOPES,
+    session: true,
+    body: true,
   },
   {
     method: 'GET',
@@ -49,4 +58,4 @@ function matchRoute(method, path) {
   return pathMatched ? { methodNotAllowed: true } : null;
 }
 
-module.exports = { matchRoute, ROUTES, READ_SCOPES };
+module.exports = { matchRoute, ROUTES, READ_SCOPES, WRITE_SCOPES };
