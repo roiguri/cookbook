@@ -20,10 +20,31 @@ const {
   toResponse,
 } = require('./errors');
 
+const { parseMultipart } = require('./media');
+
 const handlers = { ...readHandlers, ...writeHandlers };
 
 // Firestore documents are at most 1 MiB; a recipe body never needs more.
 const MAX_JSON_BODY_BYTES = 1024 * 1024;
+
+/**
+ * The body of a write: JSON, or multipart with the JSON in a `request` part and files.
+ * @returns {Promise<{ body: *, files: Map|null }>}
+ */
+async function readBody(req) {
+  if (req.is('multipart/form-data')) {
+    const { fields, files } = await parseMultipart(req);
+    if (typeof fields.request !== 'string') {
+      throw badRequest('A multipart body needs a "request" part with the JSON request.');
+    }
+    try {
+      return { body: JSON.parse(fields.request), files };
+    } catch {
+      throw badRequest('The "request" part is not valid JSON.');
+    }
+  }
+  return { body: readJsonBody(req), files: null };
+}
 
 /** The JSON body of a request, parsed from the raw bytes. */
 function readJsonBody(req) {
@@ -65,7 +86,7 @@ async function handleRequest(req, res, deps) {
       throw forbidden('This token does not have the scope for this endpoint.');
     }
 
-    const body = route.body ? readJsonBody(req) : undefined;
+    const { body, files } = route.body ? await readBody(req) : {};
     const model = await loadModel();
     let session = null;
     let result;
@@ -80,6 +101,7 @@ async function handleRequest(req, res, deps) {
         params,
         query: req.query || {},
         body,
+        files,
         model,
         setStatus: (code) => {
           status = code;

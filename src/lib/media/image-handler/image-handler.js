@@ -2,15 +2,18 @@ import { generateImageId } from '../../../js/utils/recipes/recipe-image-utils.js
 import { FormFieldMixin, deepEqual, deepClone } from '../../forms/form-field-base.js';
 import '../upload-zone/upload-zone.js';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+import {
+  PHOTO_MAX_BYTES as MAX_FILE_SIZE,
+  PHOTO_TYPES as ALLOWED_TYPES,
+  MAX_PHOTOS,
+} from '../../../js/shared/recipe-model.js';
 
 class ImageHandler extends FormFieldMixin(HTMLElement) {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this.images = [];
-    this.maxImages = 5;
+    this.maxImages = MAX_PHOTOS;
     this.draggedImage = null;
     this.removedImages = [];
     this._isDisabled = false; // persists across re-renders

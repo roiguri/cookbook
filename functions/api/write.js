@@ -1,15 +1,17 @@
 /**
- * Recipe API — creating recipes (docs/feature-plans/recipe-api.md §3, slice 4).
+ * Recipe API — creating recipes (docs/feature-plans/recipe-api.md §3, slices 4–5).
  *
- * POST /v1/recipes, JSON: { id?, stage?, submit?, recipe }. The recipe is validated
- * by the shared model with the recipe form's rules — complete (decision 16), either
- * flat lists or sections of at least two (decision 15), related recipes published,
- * unique and at most four — then written in the caller's session, so firestore.rules
- * decide, exactly as for the app. Always private; `submit` also puts it in the
- * managers' queue, in the same transaction (the rules' submittedTogether). A
- * caller-supplied `id` makes retries safe: the same id again returns the existing
- * recipe unchanged (whatever the new body says) instead of a duplicate.
- * Photos and step media arrive with multipart in slice 5.
+ * POST /v1/recipes, as JSON `{ id?, stage?, submit?, recipe }`, or as multipart with that
+ * JSON in a `request` part plus photos and step media (`images` / `mediaInstructions`
+ * entries naming file parts — see media.js). The recipe is validated by the shared model
+ * with the recipe form's rules — complete (decision 16), flat lists or sections of at
+ * least two (decision 15), related recipes published, unique and at most four — and the
+ * files by the app's file rules. Everything is then written in the caller's session, so
+ * firestore.rules / storage.rules decide, exactly as for the app. Always private;
+ * `submit` also puts it in the managers' queue in the same transaction (the rules'
+ * submittedTogether). A caller-supplied `id` makes retries safe: the same id again
+ * returns the existing recipe unchanged (whatever the new body says), and uploads
+ * nothing.
  */
 const {
   doc,
@@ -19,6 +21,8 @@ const {
   serverTimestamp,
 } = require('firebase/firestore/lite');
 const { ApiError, badRequest, conflict, invalid, fromFirestoreError } = require('./errors');
+const { planUploads } = require('./media');
+const { uploadPlanned, removeFiles } = require('./uploads');
 
 const BODY_FIELDS = ['id', 'stage', 'submit', 'recipe'];
 const MEDIA_FIELDS = ['images', 'mediaInstructions'];
@@ -30,18 +34,25 @@ const ID_FORMAT = /^(?!__)[A-Za-z0-9_-]{8,64}$/;
 // documents near that size (a misleading permission-denied). Real recipes are ~10 KB;
 // refuse anything whose stored form would come near the limit, up front.
 const MAX_RECIPE_BYTES = 900 * 1024;
+// Generous size of one image / media entry without its caption (paths, ids, times).
+const FILE_ENTRY_BYTES = 512;
 
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isPermissionDenied = (error) => error?.code === 'permission-denied';
+const taken = () => conflict('This id belongs to another recipe.');
 
-/** Validate the request body (everything but the recipe content). */
-function readOptions(body) {
+/**
+ * Validate the request body (everything but the recipe content and the files).
+ * @param {*} body
+ * @param {boolean} multipart - Files may only come with multipart.
+ */
+function readOptions(body, multipart) {
   if (!isPlainObject(body)) throw badRequest('The body must be a JSON object.');
-  const media = Object.keys(body).filter((k) => MEDIA_FIELDS.includes(k));
-  if (media.length) {
-    throw badRequest('Photos and step media are not supported by this endpoint yet.');
+  if (!multipart && Object.keys(body).some((k) => MEDIA_FIELDS.includes(k))) {
+    throw badRequest('Send photos and step media as multipart/form-data.');
   }
-  const unknown = Object.keys(body).filter((k) => !BODY_FIELDS.includes(k));
+  const allowed = multipart ? [...BODY_FIELDS, ...MEDIA_FIELDS] : BODY_FIELDS;
+  const unknown = Object.keys(body).filter((k) => !allowed.includes(k));
   if (unknown.length) {
     throw invalid(
       'invalid-request',
@@ -60,11 +71,51 @@ function readOptions(body) {
 }
 
 /**
- * The write handlers. Each gets `{ session, caller, body, model, setStatus }`.
+ * The caller's existing recipe at `ref`, as `{ stage, images, mediaInstructions }`, or
+ * null if there is none; someone else's recipe there is a conflict.
+ */
+function existingOutcome(snap, uid) {
+  if (!snap.exists()) return null;
+  if (snap.get('authorId') !== uid) throw taken();
+  const count = (list) => (Array.isArray(list) ? list.length : 0);
+  return {
+    created: false,
+    stage: snap.get('stage'),
+    images: count(snap.get('images')),
+    mediaInstructions: count(snap.get('mediaInstructions')),
+  };
+}
+
+/** Read a recipe by id, as the user; someone else's private recipe is a conflict. */
+async function readOwn(read, ref) {
+  try {
+    return await read(ref);
+  } catch (error) {
+    if (isPermissionDenied(error)) throw taken();
+    throw error;
+  }
+}
+
+/**
+ * Whether the caller's recipe has a submission. The rules refuse reading a missing
+ * submission (their read check needs the document), so permission-denied means none.
+ */
+async function hasSubmission(db, recipeId) {
+  try {
+    return (await getDoc(doc(db, 'recipe_submissions', recipeId))).exists();
+  } catch (error) {
+    if (isPermissionDenied(error)) return false;
+    throw error;
+  }
+}
+
+/**
+ * The write handlers. Each gets `{ session, caller, body, files, model, setStatus }`
+ * (`files`: the multipart file parts, or null for JSON).
  */
 const handlers = {
-  async createRecipe({ session, caller, body, model, setStatus }) {
-    const { id, stage, submit } = readOptions(body);
+  async createRecipe({ session, caller, body, files, model, setStatus }) {
+    const { id, stage, submit } = readOptions(body, !!files);
 
     const content = model.normalizeRecipeContent(body.recipe);
     if (!content.ok) {
@@ -79,6 +130,7 @@ const handlers = {
         missing.map((field) => ({ field, message: 'is required' })),
       );
     }
+    const plan = files ? planUploads(body, files, model) : { images: [], media: [] };
 
     const { db, uid } = session;
     const ref = id ? doc(db, 'recipes', id) : doc(collection(db, 'recipes'));
@@ -95,58 +147,75 @@ const handlers = {
       visibility: 'private',
       stage,
     });
-    if (Buffer.byteLength(JSON.stringify(data), 'utf8') > MAX_RECIPE_BYTES) {
+    // Before any upload: the files' entries (captions included) count toward the size.
+    const filesBytes =
+      plan.media.reduce((sum, m) => sum + Buffer.byteLength(m.caption, 'utf8'), 0) +
+      FILE_ENTRY_BYTES * (plan.images.length + plan.media.length);
+    if (Buffer.byteLength(JSON.stringify(data), 'utf8') + filesBytes > MAX_RECIPE_BYTES) {
       throw new ApiError(400, 'recipe-too-large', 'The recipe is too large to store.');
+    }
+
+    // Files: a retry or someone else's id is settled before anything is uploaded.
+    let uploaded = [];
+    let outcome = null;
+    if (plan.images.length || plan.media.length) {
+      outcome = existingOutcome(await readOwn((r) => getDoc(r), ref), uid);
+      if (!outcome) {
+        const stored = await uploadPlanned(session, ref.id, plan, model);
+        uploaded = stored.uploaded;
+        if (stored.images.length) data.images = stored.images;
+        if (stored.mediaInstructions.length) data.mediaInstructions = stored.mediaInstructions;
+      }
     }
     data.creationTime = serverTimestamp();
     data.createdVia = { kind: 'api', tokenId: caller.tokenId };
 
-    let outcome;
-    try {
-      outcome = await runTransaction(db, async (tx) => {
-        let existing;
-        try {
-          existing = await tx.get(ref);
-        } catch (error) {
-          // Someone else's private recipe: the id is taken.
-          if (isPermissionDenied(error)) throw conflict('This id belongs to another recipe.');
-          throw error;
-        }
-        if (existing.exists()) {
-          if (existing.get('authorId') !== uid) {
-            throw conflict('This id belongs to another recipe.');
+    if (!outcome) {
+      try {
+        outcome = await runTransaction(db, async (tx) => {
+          const existing = existingOutcome(await readOwn((r) => tx.get(r), ref), uid);
+          if (existing) return existing;
+          // Related recipes: published ones only, as the form offers (read as the user).
+          const badLinks = [];
+          for (const [i, relatedId] of related.entries()) {
+            const linked = await tx.get(doc(db, 'recipes', relatedId)).catch((error) => {
+              if (isPermissionDenied(error)) return null;
+              throw error;
+            });
+            if (!linked?.exists() || linked.get('visibility') !== 'published') {
+              badLinks.push({
+                field: `relatedRecipes[${i}]`,
+                message: 'must be a published recipe',
+              });
+            }
           }
-          return { created: false, stage: existing.get('stage') };
-        }
-        // Related recipes: published ones only, as the form offers (read as the user).
-        const badLinks = [];
-        for (const [i, relatedId] of related.entries()) {
-          const linked = await tx.get(doc(db, 'recipes', relatedId)).catch((error) => {
-            if (isPermissionDenied(error)) return null;
-            throw error;
-          });
-          if (!linked?.exists() || linked.get('visibility') !== 'published') {
-            badLinks.push({ field: `relatedRecipes[${i}]`, message: 'must be a published recipe' });
+          if (badLinks.length) {
+            throw invalid('invalid-recipe', 'The recipe has invalid fields.', badLinks);
           }
-        }
-        if (badLinks.length) {
-          throw invalid('invalid-recipe', 'The recipe has invalid fields.', badLinks);
-        }
-        tx.set(ref, data);
-        if (submit) {
-          tx.set(
-            doc(db, 'recipe_submissions', ref.id),
-            model.submissionRecord({
-              recipeId: ref.id,
-              authorId: uid,
-              createdAt: serverTimestamp(),
-            }),
-          );
-        }
-        return { created: true, stage };
-      });
-    } catch (error) {
-      throw fromFirestoreError(error);
+          tx.set(ref, data);
+          if (submit) {
+            tx.set(
+              doc(db, 'recipe_submissions', ref.id),
+              model.submissionRecord({
+                recipeId: ref.id,
+                authorId: uid,
+                createdAt: serverTimestamp(),
+              }),
+            );
+          }
+          return {
+            created: true,
+            stage,
+            images: data.images?.length || 0,
+            mediaInstructions: data.mediaInstructions?.length || 0,
+          };
+        });
+      } catch (error) {
+        await removeFiles(session, uploaded);
+        throw fromFirestoreError(error);
+      }
+      // Lost a race to a concurrent request with the same id: its files stay, ours go.
+      if (!outcome.created) await removeFiles(session, uploaded);
     }
 
     let submitted = submit;
@@ -167,21 +236,10 @@ const handlers = {
       stage: outcome.stage === 'to-try' ? 'to-try' : 'tested',
       submitted,
       created: outcome.created,
+      images: outcome.images,
+      mediaInstructions: outcome.mediaInstructions,
     };
   },
 };
-
-/**
- * Whether the caller's recipe has a submission. The rules refuse reading a missing
- * submission (their read check needs the document), so permission-denied means none.
- */
-async function hasSubmission(db, recipeId) {
-  try {
-    return (await getDoc(doc(db, 'recipe_submissions', recipeId))).exists();
-  } catch (error) {
-    if (isPermissionDenied(error)) return false;
-    throw error;
-  }
-}
 
 module.exports = { handlers, readOptions, ID_FORMAT };

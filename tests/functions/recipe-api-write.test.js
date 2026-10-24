@@ -70,6 +70,8 @@ describe('creating a recipe', () => {
       stage: 'to-try',
       submitted: false,
       created: true,
+      images: 0,
+      mediaInstructions: 0,
     });
     const saved = (await stored('recipes', res.body.id)).data();
     expect(saved).toEqual({
@@ -224,7 +226,7 @@ describe('validation', () => {
     expect((await post({ recipe: complete, publish: true })).status).toBe(400);
     const media = await post({ recipe: complete, images: [] });
     expect(media.status).toBe(400);
-    expect(media.body.error.message).toMatch(/not supported/);
+    expect(media.body.error.message).toMatch(/multipart/);
     expect((await post({ recipe: complete, stage: 'done' })).status).toBe(400);
     expect((await post({ recipe: complete, submit: 'yes' })).status).toBe(400);
     expect((await post({ recipe: complete, id: 'a/b' })).status).toBe(400);
@@ -259,6 +261,8 @@ describe('retries and ids', () => {
       stage: 'to-try',
       submitted: true,
       created: false,
+      images: 0,
+      mediaInstructions: 0,
     });
     expect((await stored('recipes', 'my-recipe-1')).get('name')).toBe(complete.name);
   });

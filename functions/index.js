@@ -339,6 +339,10 @@ exports.recipeApi = onRequest(
     // A public endpoint: bound what a flood of requests can cost.
     maxInstances: 5,
     timeoutSeconds: 60,
+    // Multipart bodies (≤ 30 MB) are held in memory a few times over: few requests per
+    // instance, and room for them.
+    memory: '1GiB',
+    concurrency: 4,
   },
   (req, res) =>
     recipeApi.handleRequest(req, res, {

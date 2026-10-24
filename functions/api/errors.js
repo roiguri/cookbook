@@ -29,7 +29,11 @@ const rateLimited = (message) => new ApiError(429, 'rate-limited', message);
 const conflict = (message) => new ApiError(409, 'conflict', message);
 const invalid = (code, message, details) => new ApiError(400, code, message, details);
 const unsupportedMediaType = () =>
-  new ApiError(415, 'unsupported-media-type', 'Send the body as application/json.');
+  new ApiError(
+    415,
+    'unsupported-media-type',
+    'Send the body as application/json (or multipart/form-data with files).',
+  );
 const payloadTooLarge = (message) => new ApiError(413, 'payload-too-large', message);
 const unavailable = (message) => new ApiError(503, 'unavailable', message);
 

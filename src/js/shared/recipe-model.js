@@ -19,6 +19,7 @@
  *   - CATEGORY_MAP, CATEGORY_IDS, DIFFICULTIES
  *   - recipeImagesFolder, recipeMediaFolder, suggestionImagesFolder, suggestionMediaFolder
  *   - MEDIA_IMAGE_TYPES, MEDIA_VIDEO_TYPES, MEDIA_TYPES, MEDIA_MAX_BYTES, mediaTypeOf(mime)
+ *   - PHOTO_TYPES, PHOTO_MAX_BYTES, MAX_PHOTOS
  *   - generateImageId(), generateMediaInstructionId()
  *   - imageFileName(id, originalName), mediaFileName(id, originalName)
  *   - buildImageEntry(...), buildMediaEntry(...)
@@ -89,6 +90,11 @@ export const MEDIA_IMAGE_TYPES = Object.freeze([
 export const MEDIA_VIDEO_TYPES = Object.freeze(['video/mp4', 'video/webm', 'video/quicktime']);
 export const MEDIA_TYPES = Object.freeze([...MEDIA_IMAGE_TYPES, ...MEDIA_VIDEO_TYPES]);
 export const MEDIA_MAX_BYTES = 50 * 1024 * 1024; // matches storage.rules
+
+// Recipe photos (the image picker): fewer types, smaller files, at most five, one primary.
+export const PHOTO_TYPES = Object.freeze(['image/jpeg', 'image/png', 'image/webp']);
+export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+export const MAX_PHOTOS = 5;
 
 /**
  * @param {string} mime

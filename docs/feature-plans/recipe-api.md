@@ -11,9 +11,9 @@ Status: **in progress** — decisions locked 2026-10-23; slice 0 (spike) done.
 - [x] Slice 0 — Spike: prove "act as the user" (emulators) — 16/16 checks passed, 2026-10-23
 - [x] Slice 1 — Shared recipe-model module — `src/js/shared/recipe-model.js`, 2026-10-24
 - [x] Slice 2 — Token store + dashboard management — 2026-10-24 (functions deployed to staging for testing)
-- [ ] Slice 3 — API skeleton: auth + user session + reads
-- [ ] Slice 4 — Create (no media)
-- [ ] Slice 5 — Media (images + media instructions)
+- [x] Slice 3 — API skeleton: auth + user session + reads — 2026-10-24 (staging)
+- [x] Slice 4 — Create (no media) — 2026-10-24
+- [x] Slice 5 — Media (images + media instructions) — 2026-10-24
 - [ ] Slice 6 — Hardening, docs, rollout (test project → production)
 
 Details for each slice are in [§5](#5-slices).
@@ -73,9 +73,9 @@ Base: `https://<region>-<project>.cloudfunctions.net/recipeApi`; every path is u
 
 ### Write — `POST /v1/recipes` (scope `read+write`)
 
-`multipart/form-data`:
+`application/json` (no files), or `multipart/form-data` with the same JSON in a part named **`request`** (as built — the sketch below predates it) plus one file part per referenced `part` name:
 
-- `recipe` (JSON part):
+- `request` (JSON part):
 
   ```jsonc
   {
@@ -105,7 +105,9 @@ Base: `https://<region>-<project>.cloudfunctions.net/recipeApi`; every path is u
 
 - one file part per referenced `part` name.
 
-Response `201`: `{ id, name, stage, submitted, link, images: n, mediaInstructions: n }`. A retry with an existing `id` returns `200` with the same body.
+Response `201`: `{ id, path, stage, submitted, created: true, images: n, mediaInstructions: n }`. A retry with an existing `id` returns `200` with `created: false` and the recipe as it is (nothing changed, nothing uploaded).
+
+Files follow the app: photos JPEG / PNG / WebP ≤ 5 MB, at most 5, exactly one primary (the first unless chosen); step media the app's image / video types ≤ 50 MB with optional captions; each file's bytes must match its declared type; one request carries at most 30 MB.
 
 ### Reads (scope `read` or `read+write`)
 
@@ -235,6 +237,10 @@ Original scope:
 - Tests: tried vs not tried, submit on/off, retry, plain-user token impossible, rules rejection surfaces as `403`, manager notification trigger fires on submit.
 
 ### Slice 5 — Media (images + media instructions)
+
+**Built 2026-10-24; reviewed.** Multipart via `busboy` (audit clean): `functions/api/media.js` (pure: `parseMultipart` from the raw bytes, `sniffType` — magic bytes must match the declared type, `planUploads` — the app's file rules, now shared: `PHOTO_TYPES`, `PHOTO_MAX_BYTES`, `MAX_PHOTOS` in the shared model, also used by the app's image picker) and `functions/api/uploads.js` (`uploadPlanned` as the user with the shared paths / names / entry builders and `uploadedBy` metadata; `removeFiles`). Order in `createRecipe`: validate request, recipe and files → settle a retry / someone else's id **before** uploading → upload → transaction (related recipes, recipe + submission) → on refusal or a lost same-id race, remove the uploaded files. Tests: `tests/js/functions/recipe-api-media.test.mjs` (sniffing, planning, parsing) and `tests/functions/recipe-api-media.test.js` (7: stored layout + entries + metadata + URLs, multipart without files, invalid files upload nothing, recipe checked before upload, cleanup after a refused write, retry uploads nothing, multipart-only + request part). Removing the cleanup fails the cleanup test. Large videos (> ~30 MB per request) still need the deferred two-step upload. Review fixes: a failed upload waits for the others and removes every one that landed (with photo thumbnail variants already made); `recipeApi` gets 1 GiB and at most 4 concurrent requests per instance (multipart bodies sit in memory a few times over); photos are named by their checked type and media names are sanitized and shortened (the client's name is not trusted); captions count toward the size check before anything is uploaded; too many multipart fields is a 400. Open: orphaned files after a crash mid-upload and thumbnails made after cleanup — a scheduled cleanup sweep (also covers the app's own orphans) is proposed.
+
+Original scope:
 
 - Multipart parsing (Cloud Functions body cap ~32 MB per request); per-file type/size checks matching `MediaInstructionService` and `storage.rules` (≤ 50 MB, image/video only).
 - Upload as the user via `firebase/storage` to `recipes/{id}/images/…` and `recipes/{id}/media/…` with `uploadedBy` metadata, using the shared entry builders.
