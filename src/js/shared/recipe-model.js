@@ -415,8 +415,9 @@ export function normalizeRecipeContent(input) {
         return fail(
           `${field}.amount`,
           'must be a positive number under 1,000,000 or a common fraction ' +
-            '(e.g. 2, 0.5, "1/2", "1½"); ' +
-            'put ranges or "to taste" in the item text',
+            '(e.g. 2, 0.5, "1/2", "1½"). For a range, send one value (e.g. the lower) ' +
+            'and keep the range in the item text, so the amount still scales; ' +
+            'leave amount out only when there is no quantity ("to taste")',
         );
       }
     }
