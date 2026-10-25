@@ -101,7 +101,13 @@ The recipe must be **complete**, as the recipe form requires: `name`, `category`
 | `comments`                                     | `["…"]`                                          |                                                                                    |
 | `relatedRecipes`                               | `["recipe-id", …]`                               | published recipes only, no repeats, at most 4, never the recipe itself             |
 
-Ingredient `amount` is a positive number under 1,000,000 or a common fraction — `2`, `0.5`, `"1/2"`, `"1½"` (stored as a number). Put ranges and "to taste" in `item`. Strings are trimmed; empty rows are dropped, and `null` or an empty list counts as leaving the field out (so a required field sent as `null` is reported as missing). Text length and list sizes are not limited; a stored recipe must stay under ~900 KB.
+Ingredient `amount` is a positive number under 1,000,000 or a common fraction — `2`, `0.5`, `"1/2"`, `"1½"` (stored as a number). Ranges and free text aren't amounts, as in the recipe form, and only `amount` rescales when servings change on the recipe page. So:
+
+- **A range** ("2–3 eggs"): send the lower value as `amount` and keep the range in `item`: `{ "item": "ביצים (2–3)", "amount": 2 }`. The amount rescales; the range text stays as written.
+- **No quantity** ("salt to taste", "oil for frying"): leave `amount` out and put the wording in `item`: `{ "item": "מלח לפי הטעם" }`.
+- **An odd fraction** ("3/8 cup"): round to the nearest common one (`"1/3"`, `"1/2"`) or use a decimal (`0.375`).
+
+Strings are trimmed; empty rows are dropped, and `null` or an empty list counts as leaving the field out (so a required field sent as `null` is reported as missing). Text length and list sizes are not limited; a stored recipe must stay under ~900 KB.
 
 ### Photos and step media
 
