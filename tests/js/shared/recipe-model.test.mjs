@@ -237,6 +237,8 @@ describe('shared recipe model', () => {
         'ingredients[2].amount',
         'ingredients[3].amount',
       ]);
+      // A caller (often an agent) is steered to one scalable value, not to text.
+      expect(result.errors[0].message).toMatch(/For a range, send one value/);
     });
 
     it('requires an ingredient name and a string unit', () => {
