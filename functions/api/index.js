@@ -1,5 +1,5 @@
 /**
- * Recipe API — HTTP entry (docs/archive/feature-plans/recipe-api.md). Exported from
+ * Recipe API — HTTP entry. Exported from
  * functions/index.js as `recipeApi`.
  *
  * Every request is authenticated first (so an unauthenticated caller learns nothing

@@ -14,8 +14,8 @@ const call = async (name, data) => {
 /**
  * ApiTokenService — personal tokens for the recipe API (managers only)
  *
- * Managers issue tokens to approved family and managers from the dashboard
- * (docs/archive/feature-plans/recipe-api.md, slice 2). Tokens live in `api_tokens`,
+ * Managers issue tokens to approved family and managers from the dashboard.
+ * Tokens live in `api_tokens`,
  * which no client can read: every operation is a Cloud Function, and only a
  * token's hash is stored. The secret is returned once, by `create`.
  *

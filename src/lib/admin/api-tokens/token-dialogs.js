@@ -1,6 +1,5 @@
 /**
- * The page-level dialogs of the dashboard's API-token panel
- * (docs/archive/feature-plans/recipe-api.md, slice 2):
+ * The page-level dialogs of the dashboard's API-token panel:
  *
  *   askToRevokeToken(modal, token, onApprove) — a revoke question on a <confirmation-modal>
  *   cancelRevokeQuestion()                    — drop an unanswered question (page unmount)
