@@ -2,7 +2,7 @@
 
 An HTTP API for reading recipes and adding new ones from outside the app — e.g. an assistant agent that turns a link into a recipe. It acts **as the token's owner**: everything it reads or writes goes through `firestore.rules` and `storage.rules`, exactly as in the app.
 
-Design, decisions and slice history: [`docs/feature-plans/recipe-api.md`](../feature-plans/recipe-api.md). Code: `functions/api/` (exported as `recipeApi` from `functions/index.js`); the recipe shape and its rules: `src/js/shared/recipe-model.js`.
+Design, decisions and slice history: [`docs/archive/feature-plans/recipe-api.md`](../archive/feature-plans/recipe-api.md). Code: `functions/api/` (exported as `recipeApi` from `functions/index.js`); the recipe shape and its rules: `src/js/shared/recipe-model.js`.
 
 ## At a glance
 

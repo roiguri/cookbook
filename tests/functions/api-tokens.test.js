@@ -1,7 +1,7 @@
 /**
  * Recipe-API token callables (createApiToken / listApiTokens / revokeApiToken) against
  * the real functions in the Functions emulator. Run with `npm run test:functions`.
- * Plan: docs/feature-plans/recipe-api.md, slice 2.
+ * Plan: docs/archive/feature-plans/recipe-api.md, slice 2.
  */
 import { createHash } from 'node:crypto';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';

@@ -1,5 +1,5 @@
 /**
- * Recipe API — read endpoints (docs/feature-plans/recipe-api.md §3, slice 3).
+ * Recipe API — read endpoints (docs/archive/feature-plans/recipe-api.md §3, slice 3).
  *
  * Every read runs in the caller's user session, with the same queries as the app's
  * RecipeService, so firestore.rules / storage.rules decide what is visible. Queries

@@ -252,7 +252,7 @@ exports.listFamilyMembers = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// Recipe API tokens (docs/feature-plans/recipe-api.md, slice 2) — managers issue,
+// Recipe API tokens (docs/archive/feature-plans/recipe-api.md, slice 2) — managers issue,
 // list and revoke personal tokens from the dashboard. Only these functions touch
 // api_tokens (the rules deny clients). Never log a token or its hash.
 // ---------------------------------------------------------------------------
@@ -323,7 +323,7 @@ exports.revokeApiToken = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// Recipe API (docs/feature-plans/recipe-api.md) — HTTP, authenticated by personal
+// Recipe API (docs/archive/feature-plans/recipe-api.md) — HTTP, authenticated by personal
 // tokens; works as the token's owner through the client SDK (functions/api/).
 // WEB_API_KEY: the web API key the server signs users in with (Secret Manager).
 // ---------------------------------------------------------------------------

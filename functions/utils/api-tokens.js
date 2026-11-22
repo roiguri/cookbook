@@ -1,5 +1,5 @@
 /**
- * Personal API tokens for the recipe API (docs/feature-plans/recipe-api.md, slice 2).
+ * Personal API tokens for the recipe API (docs/archive/feature-plans/recipe-api.md, slice 2).
  *
  * Managers issue tokens to approved family and managers from the dashboard. A token
  * is `ckb_` + 32 random bytes (base64url); only its SHA-256 is stored, in

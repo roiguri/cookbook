@@ -1,5 +1,5 @@
 /**
- * Recipe API — who is calling (docs/feature-plans/recipe-api.md §2, steps 1–3).
+ * Recipe API — who is calling (docs/archive/feature-plans/recipe-api.md §2, steps 1–3).
  *
  * The bearer token is hashed and looked up in api_tokens (Admin SDK). The owner must
  * still be approved family or a manager, and their Auth account must exist and be

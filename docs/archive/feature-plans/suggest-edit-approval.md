@@ -1,5 +1,7 @@
 # Feature Plan: Suggest an Edit (with manager approval)
 
+> **Archived 2026-11-22 — Milestone 1 shipped** (#307). Open follow-ups are tracked as GitHub issues: **#313** (umbrella), **#308** (Milestone 2: edit before apply), **#309** (suggester-facing status), **#310** (manager notifications), **#311** (concurrent/duplicate suggestions), **#316** (atomic approval).
+
 ## Context
 
 Today only managers can edit a recipe (`firestore.rules` recipes `update` rule; all editing UI lives behind `/dashboard`). Regular signed-in users can _propose a new recipe_ and _suggest images_, but cannot suggest a correction to an existing recipe (a typo in an ingredient, a missing step, a better attribution).
@@ -21,14 +23,14 @@ Confirmed product decisions:
 
 ## Status (branch `feat/suggest-edit-approval`)
 
-| Slice | What                                                       | State        |
-| ----- | ---------------------------------------------------------- | ------------ |
-| 1     | Suggest → persist (create path)                            | ✅ committed |
-| 2     | Manager review loop (approve/reject)                       | ✅ committed |
-| 3     | Full-recipe contextual diff view (subsumes old slices 3–5) | ✅ committed |
-| M2    | Edit-before-apply                                          | ⏳ deferred  |
+| Slice | What                                                       | State              |
+| ----- | ---------------------------------------------------------- | ------------------ |
+| 1     | Suggest → persist (create path)                            | ✅ committed       |
+| 2     | Manager review loop (approve/reject)                       | ✅ committed       |
+| 3     | Full-recipe contextual diff view (subsumes old slices 3–5) | ✅ committed       |
+| M2    | Edit-before-apply                                          | ⏳ deferred (#308) |
 
-Remaining to ship Milestone 1: deploy `firestore.rules` to **production** (staging done), then open the PR → `development`.
+Milestone 1 shipped (#307). Milestone 2 and open product questions are tracked on GitHub (#308–#313, #316).
 
 ---
 

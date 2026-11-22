@@ -1,5 +1,5 @@
 /**
- * Recipe API — the route table (docs/feature-plans/recipe-api.md §3). Pure: no SDKs.
+ * Recipe API — the route table (docs/archive/feature-plans/recipe-api.md §3). Pure: no SDKs.
  */
 const READ_SCOPES = ['read', 'read+write'];
 const WRITE_SCOPES = ['read+write'];

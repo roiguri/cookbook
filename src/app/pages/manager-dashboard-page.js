@@ -386,7 +386,7 @@ export default {
   },
 
   /**
-   * Recipe-API tokens of one user (docs/feature-plans/recipe-api.md, slice 2).
+   * Recipe-API tokens of one user (docs/archive/feature-plans/recipe-api.md, slice 2).
    * The panel creates tokens itself; the page's modals show the secret once and
    * confirm revokes (token-dialogs.js).
    */

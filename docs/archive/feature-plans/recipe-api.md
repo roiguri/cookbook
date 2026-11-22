@@ -1,10 +1,12 @@
 # Recipe API — Design & Build Plan
 
+> **Archived 2026-11-22 — shipped to production** (#436, #441; `recipeApi` and `*ApiToken` callables live on production). Open follow-ups: **#434** (incomplete private recipes), **#435** (orphan file cleanup).
+
 Tracking issue: _TBD_
 
 An HTTP API that lets external tools and agents (first consumer: a personal assistant agent) read and add recipes **on behalf of a family member**, with exactly the permissions that member has in the app. Structured recipes only — the API never extracts, guesses or calls Gemini.
 
-Status: **in progress** — decisions locked 2026-10-23; slice 0 (spike) done.
+Status: **shipped** — merged via #436 / #441 and deployed to production.
 
 ## Progress
 
@@ -14,7 +16,7 @@ Status: **in progress** — decisions locked 2026-10-23; slice 0 (spike) done.
 - [x] Slice 3 — API skeleton: auth + user session + reads — 2026-10-24 (staging)
 - [x] Slice 4 — Create (no media) — 2026-10-24
 - [x] Slice 5 — Media (images + media instructions) — 2026-10-24
-- [ ] Slice 6 — Hardening, docs, rollout (test project → production)
+- [x] Slice 6 — Hardening, docs, rollout (test project → production)
 
 Details for each slice are in [§5](#5-slices).
 
@@ -250,7 +252,7 @@ Original scope:
 
 ### Slice 6 — Hardening, docs, rollout
 
-**In progress (2026-10-24).** Caller reference written: [`docs/architecture/recipe-api.md`](../architecture/recipe-api.md) (`services.md` and `CLAUDE.md` point to it). Logging: the function writes only the route and an error code for 500s, and the client SDK is silenced; functions report to Cloud Logging, not Sentry, like the other functions. **Test project done:** Token Creator grant, `WEB_API_KEY`, deploy; end-to-end with a real token (8/8: `me`, published list, JSON create with a related recipe, read-back in the write shape, retry → 200 unchanged, incomplete → 400, multipart with a real JPEG served back, resize-extension thumbnails made for the API upload); test recipes, files and token removed afterwards, and the revoked token then got 401. `submit` was left to the emulator tests (on staging it would notify the managers). Latency 0.8–3 s per call. **Production, checked read-only:** the auto-created browser key has the same API restrictions as the test project's (no referrer restriction), so no key change is needed; the required APIs are enabled; missing are the Token Creator grant and the `WEB_API_KEY` secret.
+**Shipped.** Caller reference written: [`docs/architecture/recipe-api.md`](../../architecture/recipe-api.md) (`services.md` and `CLAUDE.md` point to it). Logging: the function writes only the route and an error code for 500s, and the client SDK is silenced; functions report to Cloud Logging, not Sentry, like the other functions. **Test project done:** Token Creator grant, `WEB_API_KEY`, deploy; end-to-end with a real token (8/8: `me`, published list, JSON create with a related recipe, read-back in the write shape, retry → 200 unchanged, incomplete → 400, multipart with a real JPEG served back, resize-extension thumbnails made for the API upload); test recipes, files and token removed afterwards, and the revoked token then got 401. `submit` was left to the emulator tests (on staging it would notify the managers). Latency 0.8–3 s per call. **Production, checked read-only:** the auto-created browser key has the same API restrictions as the test project's (no referrer restriction), so no key change is needed; the required APIs are enabled; missing are the Token Creator grant and the `WEB_API_KEY` secret.
 
 Reviewed. Fixes: related recipes are checked before any upload (a bad link no longer uploads files, and leaves no thumbnails), and again in the transaction; `GET /v1/recipes/__x__` (Firestore's reserved ids) is a 404, not a 500; Firestore Lite's logger is silenced too — each Firebase package bundles its own logger, so `firebase/app`'s `setLogLevel` never reached it, and a failed commit was logged with document paths and values (found in the emulator log; none in staging's logs); the docs describe retries exactly (validated first; `200` with the recipe's current stage, submission and file counts), the platform's non-JSON errors, the request log's URLs, and the remaining limits. The cleanup-after-upload test now uses a same-id race (4 parallel requests: one `201`, only the winner's photo left). Accepted: each unauthenticated request costs one Firestore read (bounded by `maxInstances` and the cap); a `409` reveals that another user's private recipe id exists (ids are 20 random characters).
 
