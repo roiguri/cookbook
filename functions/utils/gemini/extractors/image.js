@@ -1,4 +1,4 @@
-const { createClient } = require('../client');
+const { createClient, requireRecipeText } = require('../client');
 const { RECIPE_SCHEMA, IMAGE_EXTRACTION_PROMPT, validateRecipeData } = require('../recipe-schema');
 
 /**
@@ -27,8 +27,7 @@ async function extractRecipeFromImage(images) {
       },
     });
 
-    const responseText = response.text;
-    const data = JSON.parse(responseText);
+    const data = JSON.parse(requireRecipeText(response, 'image'));
 
     if (!validateRecipeData(data)) {
       throw new Error('Could not extract valid recipe data from the image(s)');
