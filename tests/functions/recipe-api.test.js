@@ -1,7 +1,7 @@
 /**
  * Recipe API (recipeApi, HTTP) read endpoints against the real function in the
  * Functions emulator, with tokens issued through createApiToken. Run with
- * `npm run test:functions`. Plan: docs/feature-plans/recipe-api.md, slice 3.
+ * `npm run test:functions`.
  */
 import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';

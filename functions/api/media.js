@@ -1,5 +1,5 @@
 /**
- * Recipe API — photos and step media (docs/feature-plans/recipe-api.md §3, slice 5).
+ * Recipe API — photos and step media.
  *
  * POST /v1/recipes as multipart/form-data: a `request` part (the JSON body, plus
  * `images: [{ part, isPrimary? }]` and `mediaInstructions: [{ part, caption? }]`) and one

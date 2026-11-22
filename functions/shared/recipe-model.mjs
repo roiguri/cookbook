@@ -3,7 +3,7 @@
  * Recipe Model (shared with Cloud Functions)
  * ------------------------------------------
  * The one definition of a recipe document's shape, used by the app and by the
- * recipe API (docs/feature-plans/recipe-api.md). Anything both write paths must
+ * recipe API. Anything both write paths must
  * agree on lives here: model fields, categories, difficulties, the Storage
  * layout, image / media-instruction entries, amount parsing, and the
  * normalization of recipe content sent by an API caller.

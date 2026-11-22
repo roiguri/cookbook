@@ -1,5 +1,5 @@
 /**
- * Recipe API — acting as the user (docs/feature-plans/recipe-api.md §2, steps 4–5).
+ * Recipe API — acting as the user.
  *
  * Each request gets its own Firebase client app, signed in as the token's owner with a
  * custom token, so firestore.rules and storage.rules decide what it may do — exactly as

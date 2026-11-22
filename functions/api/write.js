@@ -1,5 +1,5 @@
 /**
- * Recipe API — creating recipes (docs/feature-plans/recipe-api.md §3, slices 4–5).
+ * Recipe API — creating recipes.
  *
  * POST /v1/recipes, as JSON `{ id?, stage?, submit?, recipe }`, or as multipart with that
  * JSON in a `request` part plus photos and step media (`images` / `mediaInstructions`

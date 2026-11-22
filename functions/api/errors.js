@@ -1,5 +1,5 @@
 /**
- * Recipe API errors (docs/feature-plans/recipe-api.md §3). Every failure the caller
+ * Recipe API errors. Every failure the caller
  * can act on is an ApiError; the router turns it into `{ error: { code, message } }`.
  * Anything else is a 500 with a generic message — internals never reach the caller.
  */

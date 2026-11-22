@@ -145,7 +145,7 @@ const STYLES = `
 
 /**
  * `<api-token-panel>` — one user's recipe-API tokens, in the dashboard's
- * expanded user record (docs/feature-plans/recipe-api.md, slice 2).
+ * expanded user record.
  *
  * The page sets the data and owns the modals:
  *   panel.setData({ user: { id, role }, tokens, maxTokens, labelOf, loadError })

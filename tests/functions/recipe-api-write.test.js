@@ -1,6 +1,6 @@
 /**
  * Recipe API — POST /v1/recipes against the real function in the Functions emulator.
- * Run with `npm run test:functions`. Plan: docs/feature-plans/recipe-api.md, slice 4.
+ * Run with `npm run test:functions`.
  */
 import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { startContext, FUNCTIONS_URL } from './helpers.js';

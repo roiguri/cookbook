@@ -1,5 +1,5 @@
 /**
- * Recipe API — the shapes callers see (docs/feature-plans/recipe-api.md §3).
+ * Recipe API — the shapes callers see.
  *
  * A full recipe nests its content under `recipe`, in exactly the shape POST /recipes
  * accepts (the shared model's RECIPE_CONTENT_FIELDS), so a caller can read, edit and

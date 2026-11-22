@@ -1,5 +1,7 @@
 # Knife Skills — Design & Build Plan
 
+> **Archived 2026-11-22 — shipped** (#297). Kept for design decisions and reference.
+
 Tracking issue: [#266](https://github.com/roiguri/cookbook/issues/266)
 Umbrella: [#263](https://github.com/roiguri/cookbook/issues/263)
 

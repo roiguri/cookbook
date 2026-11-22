@@ -1,7 +1,6 @@
 /**
  * Recipe API — POST /v1/recipes with photos and step media (multipart), against the
  * real function and the Storage emulator. Run with `npm run test:functions`.
- * Plan: docs/feature-plans/recipe-api.md, slice 5.
  */
 import { doc, getDoc } from 'firebase/firestore';
 import { ref, listAll, getMetadata } from 'firebase/storage';
