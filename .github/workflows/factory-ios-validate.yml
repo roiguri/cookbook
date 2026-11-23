@@ -1,7 +1,10 @@
 name: Factory iOS Simulator Validation (Gated, 0 EAS Builds)
 
-# Triggered ONLY via workflow_dispatch after local WSL2 Android convergence passes
-# (never on push/PR) to conserve private-repo macOS runner minutes (10x multiplier).
+# Triggered ONLY via manual workflow_dispatch or an explicit opt-in tag push
+# (`factory-ios-smoke-*` / `factory-ios-holdout-*`) after local WSL2 Android
+# convergence passes — never on normal branch pushes/PRs — to conserve
+# private-repo macOS runner minutes (10x multiplier) while keeping `main`
+# completely untouched.
 on:
   workflow_dispatch:
     inputs:
@@ -18,6 +21,10 @@ on:
         required: false
         default: false
         type: boolean
+  push:
+    tags:
+      - 'factory-ios-smoke-*'
+      - 'factory-ios-holdout-*'
 
 concurrency:
   group: factory-ios-${{ github.ref }}
@@ -31,6 +38,23 @@ jobs:
     if: github.ref != 'refs/heads/main'
 
     steps:
+      - name: Resolve suite & rebuild flags
+        id: cfg
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SUITE="${{ inputs.suite }}"
+            FORCE_REBUILD="${{ inputs.force_native_rebuild }}"
+          elif [[ "${{ github.ref }}" == refs/tags/factory-ios-holdout-* ]]; then
+            SUITE="holdout"
+            FORCE_REBUILD="false"
+          else
+            SUITE="smoke"
+            FORCE_REBUILD="false"
+          fi
+          echo "suite=${SUITE}" >> "$GITHUB_OUTPUT"
+          echo "force_native_rebuild=${FORCE_REBUILD}" >> "$GITHUB_OUTPUT"
+          echo "Resolved suite=${SUITE}, force_native_rebuild=${FORCE_REBUILD} (ref=${{ github.ref }})"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -61,11 +85,22 @@ jobs:
 
       - name: Restore cached compiled iOS Simulator .app (reused across JS-only fixes)
         id: app-cache
-        if: ${{ !inputs.force_native_rebuild }}
+        if: ${{ steps.cfg.outputs.force_native_rebuild != 'true' }}
         uses: actions/cache@v4
         with:
           path: apps/mobile/ios-sim-cache
           key: ios-sim-app-macos15-${{ steps.fp.outputs.hash }}
+
+      - name: Generate native iOS project via Expo CNG (before restoring Pods/DerivedData cache)
+        if: ${{ steps.app-cache.outputs.cache-hit != 'true' }}
+        env:
+          APP_VARIANT: e2e
+          EXPO_PUBLIC_USE_DTU: 'true'
+          EXPO_ENABLE_APPLE_PAID_ENTITLEMENTS: 'false'
+          EXPO_NO_TELEMETRY: '1'
+        run: |
+          cd apps/mobile
+          npx expo prebuild --platform ios --no-install --clean
 
       - name: Restore CocoaPods & Xcode DerivedData caches
         if: ${{ steps.app-cache.outputs.cache-hit != 'true' }}
@@ -79,7 +114,7 @@ jobs:
           restore-keys: |
             ios-pods-derived-macos15-
 
-      - name: Build iOS Simulator .app via Expo CNG + xcodebuild (0 EAS quota)
+      - name: Build iOS Simulator .app via CocoaPods + xcodebuild (0 EAS quota)
         if: ${{ steps.app-cache.outputs.cache-hit != 'true' }}
         env:
           APP_VARIANT: e2e
@@ -87,9 +122,7 @@ jobs:
           EXPO_ENABLE_APPLE_PAID_ENTITLEMENTS: 'false'
           EXPO_NO_TELEMETRY: '1'
         run: |
-          cd apps/mobile
-          npx expo prebuild --platform ios --no-install
-          cd ios
+          cd apps/mobile/ios
           pod install
           WORKSPACE=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
           SCHEME=$(basename "$WORKSPACE" .xcworkspace)
@@ -115,6 +148,7 @@ jobs:
         env:
           APP_VARIANT: e2e
           EXPO_PUBLIC_USE_DTU: 'true'
+          EXPO_NO_TELEMETRY: '1'
         run: |
           echo "Native fingerprint unchanged — reusing compiled .app and refreshing JS bundle only."
           cd apps/mobile
@@ -132,7 +166,7 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Checkout isolated holdout repository (holdout suite only)
-        if: ${{ inputs.suite == 'holdout' }}
+        if: ${{ steps.cfg.outputs.suite == 'holdout' }}
         uses: actions/checkout@v4
         with:
           repository: roiguri/cookbook-factory-holdout
@@ -143,8 +177,13 @@ jobs:
         run: |
           UDID=$(xcrun simctl list devices available -j | node -e "
             const d = JSON.parse(require('fs').readFileSync(0,'utf8')).devices;
-            const ios = Object.entries(d).filter(([k]) => k.includes('iOS')).sort().pop()[1];
-            const phone = ios.find((x) => x.name.includes('iPhone') && x.isAvailable);
+            const match = Object.entries(d)
+              .filter(([k, list]) => k.includes('iOS') && Array.isArray(list) && list.some((x) => x.name.includes('iPhone') && x.isAvailable))
+              .sort(([a], [b]) => a.localeCompare(b))
+              .pop();
+            if (!match) { console.error('No available iOS iPhone simulator found'); process.exit(1); }
+            const phone = match[1].find((x) => x.name.includes('iPhone') && x.isAvailable);
+            console.error('Selected simulator:', match[0], phone.name, phone.udid);
             console.log(phone.udid);
           ")
           echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
@@ -156,7 +195,7 @@ jobs:
         env:
           NO_UPDATE_NOTIFIER: '1'
         run: |
-          if [ "${{ inputs.suite }}" = "holdout" ]; then
+          if [ "${{ steps.cfg.outputs.suite }}" = "holdout" ]; then
             FLOW_TARGET=".factory-holdout/scenarios/"
           else
             FLOW_TARGET="apps/mobile/.maestro/smoke/boot-dtu.yml"
@@ -169,7 +208,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-simulator-validation-${{ inputs.suite }}-${{ github.run_number }}
+          name: ios-simulator-validation-${{ steps.cfg.outputs.suite }}-${{ github.run_number }}
           path: |
             apps/mobile/ios-sim-cache/CookbookE2E.app
             factory-ios-artifacts/
