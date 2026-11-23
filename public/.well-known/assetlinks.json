@@ -4,7 +4,9 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.roiguri.cookbook.staging",
-      "sha256_cert_fingerprints": ["REPLACE_WITH_LOCAL_STAGING_ANDROID_SHA256_FINGERPRINT"]
+      "sha256_cert_fingerprints": [
+        "A3:3B:9C:E3:5F:BC:FE:DD:56:F3:C0:9D:C6:2D:2B:6A:F6:5F:E9:2B:52:10:52:19:23:DB:E6:E8:D7:DF:D4:42"
+      ]
     }
   }
 ]

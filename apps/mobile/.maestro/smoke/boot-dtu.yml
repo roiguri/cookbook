@@ -1,0 +1,13 @@
+appId: com.roiguri.cookbook.e2e
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: 'app-title'
+    timeout: 15000
+- assertVisible: 'ספר המתכונים המשפחתי'
+- assertVisible: 'קטגוריות זמינות: 10'
+- extendedWaitUntil:
+    visible: 'DTU: מחובר.*'
+    timeout: 15000

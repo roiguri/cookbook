@@ -3,8 +3,17 @@ import globals from 'globals';
 
 export default [
   {
-    // .netlify/ is the Netlify CLI's local cache (netlify dev)
-    ignores: ['coverage/', 'dist/', '.netlify/'],
+    // .netlify/ is the Netlify CLI's local cache (netlify dev);
+    // apps/mobile generated native projects and own node_modules are ignored here.
+    ignores: [
+      'coverage/',
+      'dist/',
+      '.netlify/',
+      'apps/mobile/node_modules/',
+      'apps/mobile/android/',
+      'apps/mobile/ios/',
+      'apps/mobile/.expo/',
+    ],
   },
   {
     files: ['**/*.{js,mjs,cjs}'],

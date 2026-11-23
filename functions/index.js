@@ -22,6 +22,12 @@ const { sendNotificationToRole } = require('./notifications');
 initializeApp();
 const db = getFirestore();
 
+// Emulators run with local twins or demo keys, so Secret Manager secrets are
+// bound only when deployed (a clean CI runner with no Secret Manager access
+// would otherwise fail to load functions in the emulator).
+const IN_EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+const GEMINI_SECRETS = IN_EMULATOR ? [] : ['GEMINI_API_KEY'];
+
 async function logFailedUrlExtraction(url, error, userId, kind = 'url') {
   try {
     const collectionRef = db.collection('failed_url_extractions');
@@ -59,7 +65,7 @@ async function logFailedUrlExtraction(url, error, userId, kind = 'url') {
 }
 
 exports.extractRecipeFromImage = onCall(
-  { secrets: ['GEMINI_API_KEY'] },
+  { secrets: GEMINI_SECRETS },
   withAuthAndRole(['approved', 'manager'], async (request) => {
     const { images } = request.data;
 
@@ -109,7 +115,7 @@ function validateInstruction(instruction) {
 }
 
 exports.enhanceFoodImage = onCall(
-  { secrets: ['GEMINI_API_KEY'] },
+  { secrets: GEMINI_SECRETS },
   withAuthAndRole(['manager'], async (request) => {
     const { image, parameters, instruction } = request.data || {};
 
@@ -133,7 +139,7 @@ exports.enhanceFoodImage = onCall(
 );
 
 exports.extractRecipeFromUrl = onCall(
-  { secrets: ['GEMINI_API_KEY'] },
+  { secrets: GEMINI_SECRETS },
   withAuthAndRole(['approved', 'manager'], async (request, { uid }) => {
     const { url } = request.data;
 
@@ -162,7 +168,7 @@ exports.extractRecipeFromUrl = onCall(
 );
 
 exports.extractRecipeFromVideo = onCall(
-  { secrets: ['GEMINI_API_KEY'], timeoutSeconds: 300 },
+  { secrets: GEMINI_SECRETS, timeoutSeconds: 300 },
   withAuthAndRole(['approved', 'manager'], async (request, { uid }) => {
     const { url } = request.data || {};
 
@@ -329,9 +335,6 @@ exports.revokeApiToken = onCall(
 // ---------------------------------------------------------------------------
 
 const WEB_API_KEY = defineSecret('WEB_API_KEY');
-// The emulators accept any key, so the secret is bound only when deployed (a local run
-// would otherwise try to read it from the real Secret Manager).
-const IN_EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 
 exports.recipeApi = onRequest(
   {

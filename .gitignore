@@ -77,6 +77,11 @@ avatar-check/
 
 # Software Factory run traces & local mobile Firebase configs / signing keystores
 factory/runs/
+apps/mobile/node_modules/
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/ios-sim-cache/
 apps/mobile/config/**/google-services.json
 apps/mobile/config/**/GoogleService-Info.plist
 apps/mobile/config/**/*.keystore

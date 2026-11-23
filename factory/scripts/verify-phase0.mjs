@@ -2,15 +2,17 @@
  * Phase 0 Readiness Verifier ($0 Upfront, 0 EAS Cloud Builds, Staging-Only).
  *
  * Audits local WSL2 Android-first build & validator tools (Node, Java, Android
- * SDK/ADB/Emulator, Docker, Firebase CLI, GitHub CLI), git/Firebase production
- * isolation invariants (`native-mobile` branch, staging-only configs), and free
- * Phase 0 staging prerequisites (no EAS cloud token or paid store accounts).
+ * SDK/ADB/Emulator, Docker, Firebase CLI, GitHub CLI, agy CLI), git/Firebase
+ * production-isolation invariants (`native-mobile` branch, staging-only
+ * configs), and free Phase 0 staging prerequisites (no EAS cloud token or paid
+ * store accounts).
  *
  * Usage:
  *   node factory/scripts/verify-phase0.mjs           # diagnostic report (exit 0 unless hard safety violation)
  *   node factory/scripts/verify-phase0.mjs --strict  # exit 1 if any Phase 0 item is still TODO
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -73,8 +75,16 @@ checkBin('docker', ['--version']);
 checkBin('adb', ['version']);
 checkBin('emulator', ['-version']);
 
-const androidSdkDir = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || '';
-if (androidSdkDir && fs.existsSync(androidSdkDir)) {
+const defaultAndroidSdk = path.join(os.homedir(), 'Android/Sdk');
+const androidSdkDir =
+  process.env.ANDROID_HOME ||
+  process.env.ANDROID_SDK_ROOT ||
+  (fs.existsSync(defaultAndroidSdk) ? defaultAndroidSdk : '');
+const hasSdkTools =
+  Boolean(androidSdkDir) &&
+  fs.existsSync(path.join(androidSdkDir, 'platforms')) &&
+  fs.existsSync(path.join(androidSdkDir, 'build-tools'));
+if (hasSdkTools) {
   record('PASS', 'toolchain', 'ANDROID_HOME (local Gradle builds)', androidSdkDir);
 } else {
   record(
@@ -172,26 +182,77 @@ if (fs.existsSync(stagingKeystorePath)) {
   );
 }
 
-// 3. Free Phase 0 Secrets (0 EAS / 0 Paid Developer Accounts)
+// 3. Free Phase 0 Auth & Secrets (0 EAS / 0 Paid Developer Accounts)
+
+// Firebase App Distribution auth: prefer GOOGLE_APPLICATION_CREDENTIALS service account (staging only)
+const gacPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
+if (gacPath) {
+  if (!fs.existsSync(gacPath)) {
+    record(
+      'FAIL',
+      'phase0-secrets',
+      'GOOGLE_APPLICATION_CREDENTIALS',
+      `File not found at ${gacPath}`,
+    );
+  } else {
+    const saRaw = fs.readFileSync(gacPath, 'utf8');
+    if (saRaw.includes(PROD_PROJECT_ID)) {
+      record(
+        'FAIL',
+        'safety',
+        'GOOGLE_APPLICATION_CREDENTIALS points to production',
+        `Refusing service account for ${PROD_PROJECT_ID}`,
+      );
+    } else {
+      record(
+        'PASS',
+        'phase0-secrets',
+        'GOOGLE_APPLICATION_CREDENTIALS (Firebase App Distribution)',
+        gacPath,
+      );
+    }
+  }
+} else if (process.env.FIREBASE_APP_DIST_TOKEN) {
+  record('PASS', 'phase0-secrets', 'FIREBASE_APP_DIST_TOKEN', 'Present in local env');
+} else {
+  record(
+    'TODO',
+    'phase0-secrets',
+    'GOOGLE_APPLICATION_CREDENTIALS (or FIREBASE_APP_DIST_TOKEN)',
+    'Staging service account JSON for `firebase appdistribution:distribute` (cook-book-test-479e8)',
+  );
+}
+
+// Judge auth: prefer authenticated `agy` CLI (existing quota) or FACTORY_JUDGE_API_KEY
+const agyRes = run('agy', ['--version']);
+if (!agyRes.error && agyRes.status === 0) {
+  const agyVer = (agyRes.stdout || agyRes.stderr || '').trim().split('\n')[0] || 'installed';
+  record('PASS', 'phase0-secrets', 'Multimodal Judge via agy CLI', agyVer);
+} else if (process.env.FACTORY_JUDGE_API_KEY) {
+  record('PASS', 'phase0-secrets', 'FACTORY_JUDGE_API_KEY', 'Present in local env');
+} else {
+  record(
+    'TODO',
+    'phase0-secrets',
+    'agy CLI (or FACTORY_JUDGE_API_KEY)',
+    'Authenticate `agy` CLI on existing quota or set FACTORY_JUDGE_API_KEY for the Multimodal Judge',
+  );
+}
+
 const secretSpecs = [
-  [
-    'FIREBASE_APP_DIST_TOKEN',
-    'Firebase App Distribution auth for staging (`firebase appdistribution:distribute` on cook-book-test-479e8)',
-  ],
   [
     'HOLDOUT_REPO_DEPLOY_KEY',
     'Read-only SSH deploy key for private roiguri/cookbook-factory-holdout (local validator container + gated macos-15 CI)',
   ],
   ['EXPO_PUBLIC_SENTRY_DSN_STAGING', 'Sentry mobile staging DSN'],
   ['SENTRY_AUTH_TOKEN', 'Sentry source-map/ProGuard upload token'],
-  ['FACTORY_JUDGE_API_KEY', 'Multimodal LLM-as-a-Judge API key (separate from builder model)'],
 ];
 
 for (const [envName, desc] of secretSpecs) {
   if (process.env[envName]) {
     record('PASS', 'phase0-secrets', envName, 'Present in local env');
   } else {
-    record('TODO', 'phase0-secrets', `${envName}`, desc);
+    record('TODO', 'phase0-secrets', envName, desc);
   }
 }
 

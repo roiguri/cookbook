@@ -6,3 +6,7 @@ coverage/
 .idea/
 .vscode/
 .taskmaster/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/.expo/
+apps/mobile/node_modules/

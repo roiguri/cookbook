@@ -22,6 +22,11 @@
     "check:avatars": "node scripts/avatars/check-avatars.mjs",
     "check:tokens": "node packages/cookbook-tokens/sync-tokens.mjs --check",
     "verify:phase0": "node factory/scripts/verify-phase0.mjs",
+    "dtu:start": "node factory/dtu/start-dtu.mjs --seed=baseline",
+    "test:dtu": "node factory/dtu/start-dtu.mjs --exec=\"node --experimental-vm-modules node_modules/.bin/jest -c jest.dtu.config.mjs\"",
+    "mobile:build:android": "node factory/scripts/build-android-local.mjs",
+    "mobile:smoke:android": "node factory/scripts/run-android-smoke-local.mjs",
+    "mobile:distribute:staging": "node factory/scripts/distribute-staging-android.mjs",
     "sync:shared": "node scripts/sync-shared.mjs",
     "test:functions": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.functions.config.mjs\"",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.rules.config.mjs\""

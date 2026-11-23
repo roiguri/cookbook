@@ -1,0 +1,40 @@
+{
+  "name": "@cookbook/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "prebuild:android": "expo prebuild --platform android",
+    "prebuild:ios": "expo prebuild --platform ios"
+  },
+  "dependencies": {
+    "@cookbook/core": "file:../../packages/cookbook-core",
+    "@cookbook/tokens": "file:../../packages/cookbook-tokens",
+    "expo": "~53.0.0",
+    "expo-asset": "~11.1.7",
+    "expo-constants": "~17.1.0",
+    "expo-file-system": "~18.1.11",
+    "expo-font": "~13.3.2",
+    "expo-keep-awake": "~14.1.4",
+    "expo-linking": "~7.1.0",
+    "expo-localization": "~16.1.0",
+    "expo-router": "~5.1.0",
+    "expo-status-bar": "~2.2.0",
+    "expo-system-ui": "~5.0.0",
+    "query-string": "^7.1.3",
+    "react": "19.0.0",
+    "react-native": "0.79.6",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~19.0.10",
+    "typescript": "~5.8.3"
+  }
+}

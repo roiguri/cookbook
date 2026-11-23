@@ -1,0 +1,176 @@
+name: Factory iOS Simulator Validation (Gated, 0 EAS Builds)
+
+# Triggered ONLY via workflow_dispatch after local WSL2 Android convergence passes
+# (never on push/PR) to conserve private-repo macOS runner minutes (10x multiplier).
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Validation suite to run: smoke (visible) or holdout (private repo)'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - holdout
+      force_native_rebuild:
+        description: 'Force full Expo prebuild + CocoaPods + xcodebuild even if native cache matches'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: factory-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator-validate:
+    runs-on: macos-15
+    timeout-minutes: 45
+    # Hard safety guard: never run autonomous factory validation on main
+    if: github.ref != 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java 21 (for Firebase Local Emulators)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install root, functions, and mobile dependencies
+        run: |
+          npm ci
+          npm --prefix functions ci
+          npm --prefix apps/mobile ci
+
+      - name: Compute iOS native fingerprint
+        id: fp
+        run: |
+          HASH=$(cat apps/mobile/package.json apps/mobile/package-lock.json apps/mobile/app.config.ts | shasum -a 256 | cut -c1-16)
+          echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
+          echo "Native iOS fingerprint: ${HASH}"
+
+      - name: Restore cached compiled iOS Simulator .app (reused across JS-only fixes)
+        id: app-cache
+        if: ${{ !inputs.force_native_rebuild }}
+        uses: actions/cache@v4
+        with:
+          path: apps/mobile/ios-sim-cache
+          key: ios-sim-app-macos15-${{ steps.fp.outputs.hash }}
+
+      - name: Restore CocoaPods & Xcode DerivedData caches
+        if: ${{ steps.app-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/CocoaPods
+            apps/mobile/ios/Pods
+            apps/mobile/ios/build/DerivedData
+          key: ios-pods-derived-macos15-${{ steps.fp.outputs.hash }}
+          restore-keys: |
+            ios-pods-derived-macos15-
+
+      - name: Build iOS Simulator .app via Expo CNG + xcodebuild (0 EAS quota)
+        if: ${{ steps.app-cache.outputs.cache-hit != 'true' }}
+        env:
+          APP_VARIANT: e2e
+          EXPO_PUBLIC_USE_DTU: 'true'
+          EXPO_ENABLE_APPLE_PAID_ENTITLEMENTS: 'false'
+          EXPO_NO_TELEMETRY: '1'
+        run: |
+          cd apps/mobile
+          npx expo prebuild --platform ios --no-install
+          cd ios
+          pod install
+          WORKSPACE=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "Building iOS Simulator workspace=${WORKSPACE} scheme=${SCHEME}"
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build/DerivedData \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          APP_PATH=$(find build/DerivedData/Build/Products/Release-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
+          mkdir -p ../ios-sim-cache
+          rm -rf ../ios-sim-cache/CookbookE2E.app
+          cp -R "$APP_PATH" ../ios-sim-cache/CookbookE2E.app
+
+      - name: Refresh embedded JS bundle inside cached .app (JS-only fast path)
+        if: ${{ steps.app-cache.outputs.cache-hit == 'true' }}
+        env:
+          APP_VARIANT: e2e
+          EXPO_PUBLIC_USE_DTU: 'true'
+        run: |
+          echo "Native fingerprint unchanged — reusing compiled .app and refreshing JS bundle only."
+          cd apps/mobile
+          npx expo export:embed \
+            --platform ios \
+            --entry-file node_modules/expo-router/entry.js \
+            --bundle-output ios-sim-cache/CookbookE2E.app/main.jsbundle \
+            --assets-dest ios-sim-cache/CookbookE2E.app \
+            --dev false
+
+      - name: Install Firebase CLI & Maestro CLI
+        run: |
+          npm install -g firebase-tools
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Checkout isolated holdout repository (holdout suite only)
+        if: ${{ inputs.suite == 'holdout' }}
+        uses: actions/checkout@v4
+        with:
+          repository: roiguri/cookbook-factory-holdout
+          ssh-key: ${{ secrets.HOLDOUT_REPO_DEPLOY_KEY }}
+          path: .factory-holdout
+
+      - name: Boot iOS Simulator & install compiled .app
+        run: |
+          UDID=$(xcrun simctl list devices available -j | node -e "
+            const d = JSON.parse(require('fs').readFileSync(0,'utf8')).devices;
+            const ios = Object.entries(d).filter(([k]) => k.includes('iOS')).sort().pop()[1];
+            const phone = ios.find((x) => x.name.includes('iPhone') && x.isAvailable);
+            console.log(phone.udid);
+          ")
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" apps/mobile/ios-sim-cache/CookbookE2E.app
+
+      - name: Start hermetic Cookbook DTU & execute Maestro flows on iOS Simulator
+        env:
+          NO_UPDATE_NOTIFIER: '1'
+        run: |
+          if [ "${{ inputs.suite }}" = "holdout" ]; then
+            FLOW_TARGET=".factory-holdout/scenarios/"
+          else
+            FLOW_TARGET="apps/mobile/.maestro/smoke/boot-dtu.yml"
+          fi
+          mkdir -p factory-ios-artifacts
+          node factory/dtu/start-dtu.mjs --seed=baseline \
+            --exec="maestro --device \"${SIM_UDID}\" test --debug-output factory-ios-artifacts --flatten-debug-output ${FLOW_TARGET}"
+
+      - name: Upload iOS Simulator .app and Maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-validation-${{ inputs.suite }}-${{ github.run_number }}
+          path: |
+            apps/mobile/ios-sim-cache/CookbookE2E.app
+            factory-ios-artifacts/
+          retention-days: 14

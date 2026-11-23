@@ -158,6 +158,8 @@ const config = {
     '/tests/visuals/',
     '/tests/rules/',
     '/tests/functions/',
+    '/tests/dtu/',
+    '/apps/mobile/',
     '<rootDir>/.claude/worktrees/',
   ],
 
