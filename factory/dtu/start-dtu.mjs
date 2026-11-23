@@ -97,6 +97,7 @@ export async function startDtu({ seedProfile = null, quiet = false } = {}) {
     ...process.env,
     XDG_CONFIG_HOME: '/tmp',
     NO_UPDATE_NOTIFIER: '1',
+    JAVA_TOOL_OPTIONS: process.env.JAVA_TOOL_OPTIONS || '-Xmx512m',
     FUNCTIONS_EMULATOR: 'true',
     GEMINI_TWIN_URL: gemini.url,
     FCM_TWIN_URL: fcm.url,

@@ -27,7 +27,12 @@
     "mobile:build:android": "node factory/scripts/build-android-local.mjs",
     "mobile:smoke:android": "node factory/scripts/run-android-smoke-local.mjs",
     "mobile:distribute:staging": "node factory/scripts/distribute-staging-android.mjs",
+    "mobile:release:staging": "node factory/scripts/release-staging-android.mjs",
     "factory:calibrate": "node factory/validator/calibrate-mutations.mjs",
+    "factory:gate": "node factory/orchestrator/orchestrator.mjs --mode=inner-gate",
+    "factory:review": "node factory/orchestrator/orchestrator.mjs --mode=review",
+    "factory:validate:android": "node factory/orchestrator/orchestrator.mjs --mode=validate-android",
+    "factory:verify:ios": "node factory/orchestrator/orchestrator.mjs --mode=verify-ios",
     "sync:shared": "node scripts/sync-shared.mjs",
     "test:functions": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.functions.config.mjs\"",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.rules.config.mjs\""

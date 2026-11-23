@@ -4,10 +4,17 @@ appId: com.roiguri.cookbook.e2e
     clearState: true
 - extendedWaitUntil:
     visible:
-      id: 'app-title'
+      id: 'app-root'
     timeout: 15000
-- assertVisible: 'ספר המתכונים המשפחתי'
-- assertVisible: 'קטגוריות זמינות: 10'
+- assertVisible:
+    id: 'brand-logo'
+- assertVisible:
+    id: 'tab-home'
+- assertVisible:
+    id: 'tab-categories'
+- assertVisible:
+    id: 'auth-open-btn'
 - extendedWaitUntil:
-    visible: 'DTU: מחובר.*'
+    visible: '.*DTU: מחובר.*'
     timeout: 15000
+- assertVisible: '.*RTL: פעיל.*'

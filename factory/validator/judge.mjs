@@ -192,7 +192,12 @@ export function reconcileJudgment(llmResult, deterministic, trajectory) {
  */
 export async function judgeTrajectory(
   trajectory,
-  { rubricText = '', model = resolveJudgeModel(), timeoutSec = 90, deterministicOnly = false } = {},
+  {
+    rubricText = '',
+    model = resolveJudgeModel(),
+    timeoutSec = 150,
+    deterministicOnly = false,
+  } = {},
 ) {
   const deterministic = evaluateDeterministicInvariants(trajectory);
 
@@ -236,14 +241,23 @@ export async function judgeTrajectory(
   fs.mkdirSync(workDir, { recursive: true });
 
   try {
+    const existingShots = (trajectory.screenshots || []).filter((src) => src && fs.existsSync(src));
+    // Keep at most 3 high-signal screenshots (first, penultimate/failure, final-screen.png)
+    // so multimodal judging stays fast and never hits CLI print timeouts.
+    const selectedShots =
+      existingShots.length <= 3
+        ? existingShots
+        : [
+            existingShots[0],
+            existingShots[Math.floor(existingShots.length / 2)],
+            existingShots[existingShots.length - 1],
+          ];
     const copiedScreenshots = [];
-    for (let i = 0; i < (trajectory.screenshots || []).length; i++) {
-      const src = trajectory.screenshots[i];
-      if (src && fs.existsSync(src)) {
-        const dest = path.join(workDir, `step-${i + 1}${path.extname(src) || '.png'}`);
-        fs.copyFileSync(src, dest);
-        copiedScreenshots.push(dest);
-      }
+    for (let i = 0; i < selectedShots.length; i++) {
+      const src = selectedShots[i];
+      const dest = path.join(workDir, `step-${i + 1}${path.extname(src) || '.png'}`);
+      fs.copyFileSync(src, dest);
+      copiedScreenshots.push(dest);
     }
 
     const trajectoryPayload = JSON.stringify(
@@ -270,8 +284,8 @@ export async function judgeTrajectory(
     fs.copyFileSync(SCHEMA_PATH, schemaCopy);
 
     const screenshotInstructions = copiedScreenshots.length
-      ? `First, read and visually inspect EVERY screenshot file using your file-reading tool: ${copiedScreenshots.join(', ')}.`
-      : 'No screenshots were attached; evaluate based on the structured trajectory evidence below.';
+      ? `First, read and visually inspect ONLY these screenshot file(s) using your file-reading tool: ${copiedScreenshots.join(', ')}. Do NOT run any shell commands or inspect any other files.`
+      : 'No screenshots were attached; do NOT call any tools or run commands — evaluate strictly from the structured trajectory evidence below.';
 
     const prompt = [
       'You are the independent Multimodal QA Judge for the Hebrew RTL Family Cookbook native mobile app.',

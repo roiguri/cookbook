@@ -17,4 +17,8 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// Required for Firebase JS SDK v11 compatibility under Expo SDK 53 / Metro 0.82
+config.resolver.sourceExts = Array.from(new Set([...(config.resolver.sourceExts || []), 'cjs']));
+config.resolver.unstable_enablePackageExports = false;
+
 module.exports = config;

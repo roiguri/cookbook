@@ -1,9 +1,9 @@
 name: Factory iOS Simulator Validation (Gated, 0 EAS Builds)
 
 # Triggered ONLY via manual workflow_dispatch or an explicit opt-in tag push
-# (`factory-ios-smoke-*` / `factory-ios-holdout-*`) after local WSL2 Android
-# convergence passes — never on normal branch pushes/PRs — to conserve
-# private-repo macOS runner minutes (10x multiplier) while keeping `main`
+# (`factory-ios-smoke-*`, `factory-ios-holdout-slice<XX>-*`, `factory-ios-holdout-*`)
+# after local WSL2 Android convergence passes — never on normal branch pushes/PRs —
+# to conserve private-repo macOS runner minutes (10x multiplier) while keeping `main`
 # completely untouched.
 on:
   workflow_dispatch:
@@ -16,6 +16,11 @@ on:
         options:
           - smoke
           - holdout
+      slice:
+        description: 'Optional slice filter (e.g. 00) for holdout runs'
+        required: false
+        default: ''
+        type: string
       force_native_rebuild:
         description: 'Force full Expo prebuild + CocoaPods + xcodebuild even if native cache matches'
         required: false
@@ -38,22 +43,28 @@ jobs:
     if: github.ref != 'refs/heads/main'
 
     steps:
-      - name: Resolve suite & rebuild flags
+      - name: Resolve suite, slice filter & rebuild flags
         id: cfg
         run: |
+          SLICE=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SUITE="${{ inputs.suite }}"
+            SLICE="${{ inputs.slice }}"
             FORCE_REBUILD="${{ inputs.force_native_rebuild }}"
           elif [[ "${{ github.ref }}" == refs/tags/factory-ios-holdout-* ]]; then
             SUITE="holdout"
             FORCE_REBUILD="false"
+            if [[ "${{ github.ref }}" =~ factory-ios-holdout-slice([0-9]{2})- ]]; then
+              SLICE="${BASH_REMATCH[1]}"
+            fi
           else
             SUITE="smoke"
             FORCE_REBUILD="false"
           fi
           echo "suite=${SUITE}" >> "$GITHUB_OUTPUT"
+          echo "slice=${SLICE}" >> "$GITHUB_OUTPUT"
           echo "force_native_rebuild=${FORCE_REBUILD}" >> "$GITHUB_OUTPUT"
-          echo "Resolved suite=${SUITE}, force_native_rebuild=${FORCE_REBUILD} (ref=${{ github.ref }})"
+          echo "Resolved suite=${SUITE}, slice=${SLICE:-all}, force_native_rebuild=${FORCE_REBUILD} (ref=${{ github.ref }})"
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -191,20 +202,28 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" apps/mobile/ios-sim-cache/CookbookE2E.app
 
-      - name: Start hermetic Cookbook DTU & execute Maestro flows on iOS Simulator
+      - name: Start hermetic Cookbook DTU & execute validation on iOS Simulator
         env:
           NO_UPDATE_NOTIFIER: '1'
         run: |
-          if [ "${{ steps.cfg.outputs.suite }}" = "holdout" ]; then
-            FLOW_TARGET=".factory-holdout/scenarios/"
-          else
-            FLOW_TARGET="apps/mobile/.maestro/smoke/boot-dtu.yml"
-          fi
           mkdir -p factory-ios-artifacts
-          node factory/dtu/start-dtu.mjs --seed=baseline \
-            --exec="maestro --device \"${SIM_UDID}\" test --debug-output factory-ios-artifacts --flatten-debug-output ${FLOW_TARGET}"
+          if [ "${{ steps.cfg.outputs.suite }}" = "holdout" ]; then
+            SLICE_ARG=""
+            if [ -n "${{ steps.cfg.outputs.slice }}" ]; then
+              SLICE_ARG="--slice=${{ steps.cfg.outputs.slice }}"
+            fi
+            node factory/dtu/start-dtu.mjs --seed=baseline \
+              --exec="node factory/validator/run-validation.mjs --holdout-dir=.factory-holdout --platform=ios --device=\"${SIM_UDID}\" --out-dir=factory-ios-artifacts --deterministic-only --save-trajectories ${SLICE_ARG}"
+          else
+            node factory/dtu/start-dtu.mjs --seed=baseline \
+              --exec="maestro --device \"${SIM_UDID}\" test --debug-output factory-ios-artifacts --flatten-debug-output apps/mobile/.maestro/smoke/boot-dtu.yml"
+          fi
 
-      - name: Upload iOS Simulator .app and Maestro artifacts
+      - name: Purge isolated holdout checkout immediately after execution
+        if: always()
+        run: rm -rf .factory-holdout
+
+      - name: Upload iOS Simulator .app and validation artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:

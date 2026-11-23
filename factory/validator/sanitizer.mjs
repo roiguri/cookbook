@@ -12,6 +12,8 @@ const LEAK_PATTERNS = [
   /\.factory-holdout[^\s"'`)]*/gi,
   /cookbook-factory-holdout[^\s"'`)]*/gi,
   /\/holdout\/[^\s"'`)]*/gi,
+  /\/out\/debug\/[^\s"'`)]*/gi,
+  /(?:\.\.\/)*_subflows\/[a-z0-9_.-]+\.ya?ml/gi,
   /\bsuite-[a-l]-[a-z0-9-]+\b/gi,
   /\b(?:scenarios|rubrics|assertions)\/[a-z0-9_./-]+\.(?:ya?ml|md|mjs|json)\b/gi,
   /\b(?:extendedWaitUntil|assertVisible|assertNotVisible|tapOn|launchApp)\b\s*[:(][^\n]*/gi,

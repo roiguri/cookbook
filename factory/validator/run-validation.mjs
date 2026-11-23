@@ -6,19 +6,26 @@
  * access `--holdout-dir` and receive ONLY the generated `sanitized-tickets.json`.
  *
  * Usage:
+ *   # Execute Maestro scenarios against DTU + deterministic checks (and optional agy judge):
  *   node factory/validator/run-validation.mjs \
  *     --holdout-dir=/holdout \
  *     --platform=android|ios \
  *     --device=emulator-5554 \
  *     --out-dir=factory/runs/<run-id>/validation \
- *     [--suite=A,B] [--slice=00] [--consecutive=2] [--deterministic-only]
+ *     [--suite=A,B] [--slice=00] [--consecutive=2] [--deterministic-only] [--save-trajectories]
+ *
+ *   # Run host Multimodal agy Judge over previously saved trajectories (Docker / iOS CI artifacts):
+ *   node factory/validator/run-validation.mjs \
+ *     --judge-trajectories=factory/runs/<run-id>/validation \
+ *     [--judge-concurrency=4] [--model=gemini-3.8-flash-medium]
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { DTU_CONFIG, dtuUrls } from '../dtu/config.mjs';
 import { evaluateConvergence, judgeTrajectory, resolveJudgeModel } from './judge.mjs';
+import { assertZeroHoldoutLeakage } from './sanitizer.mjs';
 
 function parseArg(prefix, fallback = '') {
   const hit = process.argv.find((a) => a.startsWith(`${prefix}=`));
@@ -52,6 +59,30 @@ function runMaestroAsync({ flowFile, device, debugDir, env }) {
   });
 }
 
+function captureFinalScreenshot({ platform, device, destPath }) {
+  try {
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    if (platform === 'android') {
+      const args = device
+        ? ['-s', device, 'exec-out', 'screencap', '-p']
+        : ['exec-out', 'screencap', '-p'];
+      const res = spawnSync('adb', args, { maxBuffer: 25 * 1024 * 1024 });
+      if (res.status === 0 && res.stdout && res.stdout.length > 100) {
+        fs.writeFileSync(destPath, res.stdout);
+        return destPath;
+      }
+    } else if (platform === 'ios' && device) {
+      const res = spawnSync('xcrun', ['simctl', 'io', device, 'screenshot', destPath]);
+      if (res.status === 0 && fs.existsSync(destPath)) {
+        return destPath;
+      }
+    }
+  } catch {
+    // Non-fatal: Maestro debug screenshots may still exist
+  }
+  return null;
+}
+
 function collectScreenshots(dir) {
   if (!fs.existsSync(dir)) return [];
   const results = [];
@@ -66,6 +97,22 @@ function collectScreenshots(dir) {
   return results.sort();
 }
 
+async function runPool(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIdx = 0;
+  const limit = Math.max(1, Math.min(concurrency, items.length || 1));
+  await Promise.all(
+    Array.from({ length: limit }, async () => {
+      while (true) {
+        const i = nextIdx++;
+        if (i >= items.length) break;
+        results[i] = await worker(items[i], i);
+      }
+    }),
+  );
+  return results;
+}
+
 export async function runHoldoutValidation({
   holdoutDir,
   platform = 'android',
@@ -75,6 +122,7 @@ export async function runHoldoutValidation({
   sliceFilter = [],
   consecutivePasses = 1,
   deterministicOnly = false,
+  saveTrajectories = false,
   judgeModel = resolveJudgeModel(),
   dtu = dtuUrls(DTU_CONFIG),
 }) {
@@ -107,6 +155,7 @@ export async function runHoldoutValidation({
 
   const allJudgments = [];
   const allTickets = [];
+  const savedTrajectories = [];
 
   for (const scenario of selected) {
     const flowFile = path.join(holdoutDir, scenario.flow);
@@ -116,10 +165,12 @@ export async function runHoldoutValidation({
     const rubricText = [baseRubric, domainRubric].filter(Boolean).join('\n\n');
 
     let finalOutcome = null;
+    let finalTrajectory = null;
     for (let passIdx = 1; passIdx <= consecutivePasses; passIdx++) {
       await fetchJson(`${dtu.seed}/seed/${scenario.seedProfile || 'baseline'}`, {
         method: 'POST',
       });
+      await fetch(`${dtu.fcm}/reset`, { method: 'POST' }).catch(() => {});
       const beforeSnapshot = await fetchJson(`${dtu.seed}/snapshot`);
 
       const scenarioDebugDir = path.join(outDir, 'debug', `${scenario.id}-pass${passIdx}`);
@@ -131,6 +182,9 @@ export async function runHoldoutValidation({
         debugDir: scenarioDebugDir,
         env: process.env,
       });
+
+      const finalShotPath = path.join(scenarioDebugDir, 'final-screen.png');
+      captureFinalScreenshot({ platform, device, destPath: finalShotPath });
 
       const afterSnapshot = await fetchJson(`${dtu.seed}/snapshot`);
       const fcmInbox = await fetchJson(`${dtu.fcm}/messages`).catch(() => ({ messages: [] }));
@@ -156,6 +210,7 @@ export async function runHoldoutValidation({
         postAssertionFailures,
         runtimeLogs: maestro.output,
       };
+      finalTrajectory = trajectory;
 
       const outcome = await judgeTrajectory(trajectory, {
         rubricText,
@@ -172,7 +227,16 @@ export async function runHoldoutValidation({
       allJudgments.push(finalOutcome.judgment);
       allTickets.push(...finalOutcome.tickets);
     }
+    if (saveTrajectories && finalTrajectory) {
+      savedTrajectories.push({
+        ...finalTrajectory,
+        screenshots: (finalTrajectory.screenshots || []).map((p) => path.relative(outDir, p)),
+        rubricText,
+      });
+    }
   }
+
+  assertZeroHoldoutLeakage(allTickets);
 
   const convergence = evaluateConvergence(allJudgments);
   const report = {
@@ -190,19 +254,123 @@ export async function runHoldoutValidation({
     })),
   };
 
-  fs.writeFileSync(path.join(outDir, 'validation-report.json'), JSON.stringify(report, null, 2));
-  fs.writeFileSync(
-    path.join(outDir, 'sanitized-tickets.json'),
-    JSON.stringify(allTickets, null, 2),
-  );
+  function writeJsonReplace(filePath, data) {
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+        // Fall through to overwrite
+      }
+    }
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    try {
+      fs.chmodSync(filePath, 0o666);
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  writeJsonReplace(path.join(outDir, 'validation-report.json'), report);
+  writeJsonReplace(path.join(outDir, 'sanitized-tickets.json'), allTickets);
+  if (saveTrajectories) {
+    writeJsonReplace(path.join(outDir, 'trajectories.json'), {
+      platform,
+      trajectories: savedTrajectories,
+    });
+  }
+
+  return { report, tickets: allTickets };
+}
+
+export async function judgeSavedTrajectories({
+  trajectoriesDir,
+  judgeModel = resolveJudgeModel(),
+  concurrency = 4,
+  deterministicOnly = false,
+}) {
+  const filePath = path.join(trajectoriesDir, 'trajectories.json');
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`trajectories.json not found in ${trajectoriesDir}`);
+  }
+  const bundle = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const items = bundle.trajectories || [];
+
+  const outcomes = await runPool(items, concurrency, async (entry) => {
+    const resolvedShots = (entry.screenshots || [])
+      .map((rel) => (path.isAbsolute(rel) ? rel : path.join(trajectoriesDir, rel)))
+      .filter((p) => fs.existsSync(p));
+    const trajectory = {
+      ...entry,
+      screenshots: resolvedShots,
+    };
+    return judgeTrajectory(trajectory, {
+      rubricText: entry.rubricText || '',
+      model: judgeModel,
+      deterministicOnly,
+    });
+  });
+
+  const allJudgments = outcomes.map((o) => o.judgment);
+  const allTickets = outcomes.flatMap((o) => o.tickets);
+  assertZeroHoldoutLeakage(allTickets);
+
+  const convergence = evaluateConvergence(allJudgments);
+  const report = {
+    generatedAt: new Date().toISOString(),
+    platform: bundle.platform || items[0]?.platform || 'android',
+    judgeModel: deterministicOnly ? 'deterministic-only' : judgeModel,
+    consecutivePasses: 1,
+    convergence,
+    scenarios: allJudgments.map((j) => ({
+      scenarioId: j.scenarioId,
+      passed: j.passed,
+      p0Violation: j.p0Violation,
+      weightedScore: j.weightedScore,
+      dimensions: j.dimensions,
+      visualAssessment: j.visualAssessment,
+    })),
+  };
+
+  const reportPath = path.join(trajectoriesDir, 'validation-report.json');
+  const ticketsPath = path.join(trajectoriesDir, 'sanitized-tickets.json');
+  for (const p of [reportPath, ticketsPath]) {
+    if (fs.existsSync(p)) {
+      try {
+        fs.unlinkSync(p);
+      } catch {
+        // Ignore
+      }
+    }
+  }
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  fs.writeFileSync(ticketsPath, JSON.stringify(allTickets, null, 2));
 
   return { report, tickets: allTickets };
 }
 
 async function main() {
+  const judgeDir = parseArg('--judge-trajectories');
+  const deterministicOnly = process.argv.includes('--deterministic-only');
+  const modelOverride = parseArg('--model');
+  const judgeModel = modelOverride || resolveJudgeModel();
+
+  if (judgeDir) {
+    const concurrency = Number(parseArg('--judge-concurrency', '4')) || 4;
+    const { report, tickets } = await judgeSavedTrajectories({
+      trajectoriesDir: path.resolve(judgeDir),
+      judgeModel,
+      concurrency,
+      deterministicOnly,
+    });
+    console.log(
+      `[validator] judged platform=${report.platform} model=${report.judgeModel} converged=${report.convergence.converged} score=${report.convergence.aggregateScore}% p0Violations=${report.convergence.p0ViolationCount} tickets=${tickets.length}`,
+    );
+    process.exit(report.convergence.converged ? 0 : 1);
+  }
+
   const holdoutDir = parseArg('--holdout-dir');
   if (!holdoutDir) {
-    console.error('Missing required --holdout-dir=<path>');
+    console.error('Missing required --holdout-dir=<path> (or --judge-trajectories=<dir>)');
     process.exit(1);
   }
   const platform = parseArg('--platform', 'android');
@@ -217,7 +385,7 @@ async function main() {
     .map((s) => s.trim())
     .filter(Boolean);
   const consecutivePasses = Number(parseArg('--consecutive', '1')) || 1;
-  const deterministicOnly = process.argv.includes('--deterministic-only');
+  const saveTrajectories = process.argv.includes('--save-trajectories');
 
   const { report, tickets } = await runHoldoutValidation({
     holdoutDir,
@@ -228,6 +396,8 @@ async function main() {
     sliceFilter,
     consecutivePasses,
     deterministicOnly,
+    saveTrajectories,
+    judgeModel,
   });
 
   console.log(

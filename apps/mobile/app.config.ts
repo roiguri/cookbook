@@ -7,6 +7,7 @@ type AppVariant = 'e2e' | 'staging' | 'production';
 
 const VARIANT = (process.env.APP_VARIANT || 'e2e') as AppVariant;
 const ENABLE_APPLE_PAID = process.env.EXPO_ENABLE_APPLE_PAID_ENTITLEMENTS === 'true';
+const PROD_PROJECT_ID = 'my-cook-book-67fde';
 
 const VARIANT_META: Record<
   AppVariant,
@@ -37,10 +38,44 @@ function existingConfigFile(relPath: string): string | undefined {
   return fs.existsSync(full) ? `./${relPath}` : undefined;
 }
 
+function loadStagingFirebaseConfig(relPath: string) {
+  const full = path.resolve(__dirname, relPath);
+  if (!fs.existsSync(full)) return null;
+  const raw = fs.readFileSync(full, 'utf8');
+  if (raw.includes(PROD_PROJECT_ID)) {
+    throw new Error(
+      `Refusing to load production Firebase project (${PROD_PROJECT_ID}) into ${VARIANT} build.`,
+    );
+  }
+  const parsed = JSON.parse(raw);
+  const projectInfo = parsed.project_info || {};
+  const client = (parsed.client || [])[0] || {};
+  return {
+    apiKey: client.api_key?.[0]?.current_key || '',
+    authDomain: `${projectInfo.project_id}.firebaseapp.com`,
+    projectId: projectInfo.project_id || '',
+    storageBucket: projectInfo.storage_bucket || '',
+    messagingSenderId: projectInfo.project_number || '',
+    appId: client.client_info?.mobilesdk_app_id || '',
+  };
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   const meta = VARIANT_META[VARIANT] || VARIANT_META.e2e;
   const googleServicesFile = existingConfigFile(`${meta.configDir}/google-services.json`);
   const googleServiceInfoPlist = existingConfigFile(`${meta.configDir}/GoogleService-Info.plist`);
+
+  const firebaseConfig =
+    VARIANT === 'staging'
+      ? loadStagingFirebaseConfig(`${meta.configDir}/google-services.json`)
+      : {
+          apiKey: 'demo-cookbook-e2e-key',
+          authDomain: 'demo-cookbook.firebaseapp.com',
+          projectId: 'demo-cookbook',
+          storageBucket: 'demo-cookbook.appspot.com',
+          messagingSenderId: '000000000000',
+          appId: '1:000000000000:web:cookbooke2e',
+        };
 
   const plugins: NonNullable<ExpoConfig['plugins']> = [
     'expo-router',
@@ -53,10 +88,24 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       },
     ],
+    [
+      'expo-notifications',
+      {
+        color: '#6a994e',
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'האפליקציה זקוקה לגישה לתמונות כדי להוסיף תמונות מתכון ולייבא מתכונים.',
+        cameraPermission: 'האפליקציה זקוקה לגישה למצלמה כדי לצלם תמונות מתכון או לסרוק מתכון.',
+      },
+    ],
+    'expo-screen-orientation',
+    'expo-web-browser',
   ];
 
   // Physical-device Apple capabilities requiring a paid Apple Developer account
-  // (APNs remote push, Associated Domains Universal Links, Share Extension App Groups)
   // stay cleanly disabled by default in $0 v1 and flip on in Phase 6.
   const iosPaidEntitlements = ENABLE_APPLE_PAID
     ? {
@@ -82,6 +131,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       applePaidEntitlementsEnabled: ENABLE_APPLE_PAID,
       supportsRTL: true,
       forcesRTL: true,
+      firebaseConfig,
+      sentryDsn: VARIANT === 'staging' ? process.env.EXPO_PUBLIC_SENTRY_DSN_STAGING || '' : '',
     },
     ios: {
       bundleIdentifier: meta.bundleId,
@@ -105,16 +156,32 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins,
   };
 
-  // E2E-only cleartext loopback access to local Cookbook DTU (never enabled on staging/prod)
-  if (VARIANT === 'e2e') {
-    return withAndroidManifest(baseConfig, (mod) => {
-      const app = mod.modResults.manifest.application?.[0];
-      if (app) {
+  return withAndroidManifest(baseConfig, (mod) => {
+    const app = mod.modResults.manifest.application?.[0];
+    if (app) {
+      app.$['android:supportsRtl'] = 'true';
+      if (VARIANT === 'e2e') {
         app.$['android:usesCleartextTraffic'] = 'true';
       }
-      return mod;
-    });
-  }
-
-  return baseConfig;
+      // Add Android ACTION_SEND share target for URLs / recipe photos
+      const mainActivity = app.activity?.find((act) => act.$['android:name'] === '.MainActivity');
+      if (mainActivity) {
+        mainActivity['intent-filter'] = mainActivity['intent-filter'] || [];
+        const hasShare = mainActivity['intent-filter'].some((f) =>
+          f.action?.some((a) => a.$['android:name'] === 'android.intent.action.SEND'),
+        );
+        if (!hasShare) {
+          mainActivity['intent-filter'].push({
+            action: [{ $: { 'android:name': 'android.intent.action.SEND' } }],
+            category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }],
+            data: [
+              { $: { 'android:mimeType': 'text/plain' } },
+              { $: { 'android:mimeType': 'image/*' } },
+            ],
+          });
+        }
+      }
+    }
+    return mod;
+  });
 };
