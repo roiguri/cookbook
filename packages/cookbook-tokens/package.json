@@ -1,0 +1,14 @@
+{
+  "name": "@cookbook/tokens",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Canonical design tokens shared between the web SPA (src/styles/tokens.css) and native mobile (apps/mobile).",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./tokens.json": "./tokens.json"
+  }
+}

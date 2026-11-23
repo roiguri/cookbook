@@ -17,7 +17,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** [source, generated copy], relative to the repo root. */
 export const SHARED_FILES = [
-  ['src/js/shared/recipe-model.js', 'functions/shared/recipe-model.mjs'],
+  ['packages/cookbook-core/recipe-model.js', 'functions/shared/recipe-model.mjs'],
 ];
 
 /**

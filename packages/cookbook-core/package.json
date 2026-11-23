@@ -1,0 +1,18 @@
+{
+  "name": "@cookbook/core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure domain model, recipe utilities, filtering, and chef-avatar composer shared by web, Cloud Functions, and native mobile.",
+  "exports": {
+    ".": "./index.js",
+    "./recipe-model": "./recipe-model.js",
+    "./push-devices": "./push-devices.js",
+    "./recipe-utils/*": "./recipe-utils/*.js",
+    "./filter-utils": "./filter-utils.js",
+    "./youtube-url": "./youtube-url.js",
+    "./lru-cache": "./lru-cache.js",
+    "./avatar/chef-avatar": "./avatar/chef-avatar.js",
+    "./avatar/avatar-url": "./avatar/avatar-url.js"
+  }
+}

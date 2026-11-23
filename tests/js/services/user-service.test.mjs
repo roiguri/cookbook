@@ -140,20 +140,65 @@ describe('UserService', () => {
   describe('removeFromArrayField', () => {
     it('calls updateDocument with an arrayRemove sentinel for the requested field', async () => {
       firestoreMocks.updateDocument.mockResolvedValue();
-      await UserService.removeFromArrayField('u1', 'fcmTokens', 'token-abc');
-      const expectedSentinel = arrayRemove('token-abc');
+      await UserService.removeFromArrayField('u1', 'favorites', 'recipe-7');
+      const expectedSentinel = arrayRemove('recipe-7');
       expect(firestoreMocks.updateDocument).toHaveBeenCalledWith('users', 'u1', {
-        fcmTokens: expectedSentinel,
+        favorites: expectedSentinel,
       });
     });
 
     it('throws when uid or field is missing', async () => {
-      await expect(UserService.removeFromArrayField('', 'fcmTokens', 'x')).rejects.toThrow(
+      await expect(UserService.removeFromArrayField('', 'favorites', 'x')).rejects.toThrow(
         'uid is required',
       );
       await expect(UserService.removeFromArrayField('u1', '', 'x')).rejects.toThrow(
         'field is required',
       );
+    });
+  });
+
+  describe('registerDevice', () => {
+    it('writes a validated device record to users/{uid}/devices/{deviceId}', async () => {
+      firestoreMocks.setDocument.mockResolvedValue();
+      const updatedAt = { seconds: 1700000000, nanoseconds: 0 };
+      await UserService.registerDevice('u1', 'dev-1', {
+        token: 'tok-abc',
+        platform: 'web',
+        ua: 'Mozilla/5.0',
+        updatedAt,
+      });
+      expect(firestoreMocks.setDocument).toHaveBeenCalledWith('users/u1/devices', 'dev-1', {
+        token: 'tok-abc',
+        platform: 'web',
+        ua: 'Mozilla/5.0',
+        updatedAt,
+      });
+    });
+
+    it('rejects missing uid, deviceId, or invalid platform', async () => {
+      const updatedAt = new Date();
+      await expect(
+        UserService.registerDevice('', 'dev-1', { token: 't', platform: 'web', updatedAt }),
+      ).rejects.toThrow('uid is required');
+      await expect(
+        UserService.registerDevice('u1', '', { token: 't', platform: 'web', updatedAt }),
+      ).rejects.toThrow('deviceId is required');
+      await expect(
+        UserService.registerDevice('u1', 'dev-1', { token: 't', platform: 'fridge', updatedAt }),
+      ).rejects.toThrow('platform');
+    });
+  });
+
+  describe('unregisterDevice', () => {
+    it('deletes users/{uid}/devices/{deviceId}', async () => {
+      firestoreMocks.deleteDocument.mockResolvedValue();
+      await UserService.unregisterDevice('u1', 'dev-1');
+      expect(firestoreMocks.deleteDocument).toHaveBeenCalledWith('users/u1/devices', 'dev-1');
+    });
+
+    it('rejects missing uid or deviceId', async () => {
+      await expect(UserService.unregisterDevice('', 'dev-1')).rejects.toThrow('uid is required');
+      await expect(UserService.unregisterDevice('u1', '')).rejects.toThrow('deviceId is required');
     });
   });
 

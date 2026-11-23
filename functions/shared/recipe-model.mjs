@@ -1,4 +1,4 @@
-// GENERATED from src/js/shared/recipe-model.js by scripts/sync-shared.mjs — do not edit.
+// GENERATED from packages/cookbook-core/recipe-model.js by scripts/sync-shared.mjs — do not edit.
 /*
  * Recipe Model (shared with Cloud Functions)
  * ------------------------------------------

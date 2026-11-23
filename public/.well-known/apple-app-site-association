@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_APPLE_TEAM_ID.com.roiguri.cookbook.staging"
+        ],
+        "components": [
+          { "/": "/recipe/*" },
+          { "/": "/categories*" },
+          { "/": "/my-meal*" },
+          { "/": "/my-recipes*" },
+          { "/": "/propose-recipe*" },
+          { "/": "/grandmas-cooking*" },
+          { "/": "/dashboard*" },
+          { "/": "/games*" }
+        ]
+      }
+    ]
+  }
+}

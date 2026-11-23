@@ -57,7 +57,7 @@ service cloud.firestore {
                     && isValidAvatarConfig(request.resource.data);
       
       // UPDATE:
-      // - Users can update their own profile (avatar, favorites, name, fcmTokens)
+      // - Users can update their own profile (avatar, favorites, name)
       // - CRITICAL: Users CANNOT change their role
       // - Managers can update anything (including roles)
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role
@@ -68,6 +68,24 @@ service cloud.firestore {
       // - Users can delete their own account
       // - Managers can delete users
       allow delete: if isOwner(userId) || isManager();
+
+      // Registered push-notification devices (`users/{uid}/devices/{deviceId}`).
+      // Only the owner manages their own device tokens; Cloud Functions read and
+      // prune dead devices via Admin SDK.
+      match /devices/{deviceId} {
+        function isValidDevice(data) {
+          return data.keys().hasOnly(['token', 'platform', 'ua', 'updatedAt'])
+              && data.keys().hasAll(['token', 'platform', 'updatedAt'])
+              && data.token is string && data.token.size() > 0 && data.token.size() <= 4096
+              && data.platform in ['web', 'android', 'ios']
+              && (!('ua' in data) || (data.ua is string && data.ua.size() <= 200))
+              && data.updatedAt is timestamp;
+        }
+
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidDevice(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
     }
 
     // =========================================================================

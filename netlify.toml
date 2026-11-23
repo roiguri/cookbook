@@ -29,6 +29,11 @@
   status = 200
 
 [[redirects]]
+  from = "/.well-known/*"
+  to = "/.well-known/:splat"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
@@ -70,3 +75,16 @@
   for = "/site.webmanifest.json"
   [headers.values]
     Cache-Control = "public, max-age=86400"
+
+# Deep-link verification files (Android App Links + iOS Universal Links)
+[[headers]]
+  for = "/.well-known/assetlinks.json"
+  [headers.values]
+    Content-Type = "application/json"
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/.well-known/apple-app-site-association"
+  [headers.values]
+    Content-Type = "application/json"
+    Cache-Control = "public, max-age=3600"

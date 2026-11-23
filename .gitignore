@@ -74,3 +74,10 @@ test-results/
 # Link-preview edge function settings, written by the Vite build
 netlify/edge-functions/link-preview/site.generated.js
 avatar-check/
+
+# Software Factory run traces & local mobile Firebase configs / signing keystores
+factory/runs/
+apps/mobile/config/**/google-services.json
+apps/mobile/config/**/GoogleService-Info.plist
+apps/mobile/config/**/*.keystore
+apps/mobile/config/**/*.jks

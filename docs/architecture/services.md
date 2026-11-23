@@ -21,9 +21,9 @@ src/js/services/
 ├── auth/
 │   └── auth-service.js                      # auth state, sign-in/out, current user, role
 ├── users/
-│   ├── user-service.js                      # owns users/{uid}
+│   ├── user-service.js                      # owns users/{uid} and users/{uid}/devices/{deviceId}
 │   ├── favorites-service.js                 # favorites — delegates user-doc writes to UserService
-│   └── notification-service.js              # in-app toast surface; FCM-token writes via UserService
+│   └── notification-service.js              # push notification manager; device subcollection writes via UserService
 ├── recipes/
 │   ├── recipe-service.js                    # owns recipes/{id}; composes image + media services
 │   ├── recipe-image-service.js              # image Storage ops + URL reads; ZERO Firestore
@@ -40,7 +40,7 @@ src/js/services/
     └── api-token-service.js                 # recipe-API tokens (callables only; no client access to api_tokens)
 ```
 
-The recipe shape and its rules (fields, categories, file types, Storage layout, entry builders) live in `src/js/shared/recipe-model.js`, which the recipe services and the recipe API's function both use; `npm run sync:shared` copies it into `functions/shared/`.
+The recipe shape and its rules (fields, categories, file types, Storage layout, entry builders) and push-device schema live in `@cookbook/core` (`packages/cookbook-core/recipe-model.js`, re-exported at `src/js/shared/recipe-model.js`), which the web app, mobile app, and Cloud Functions all use; `npm run sync:shared` copies `recipe-model.js` into `functions/shared/`.
 
 Firebase configuration is in `src/js/config/firebase-config.js`. Firestore security rules live in `firestore.rules`; Storage rules in `storage.rules`.
 

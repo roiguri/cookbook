@@ -9,6 +9,7 @@
 /api/*    /api/:splat    200
 
 # Specific files that should be served directly
+/.well-known/*            /.well-known/:splat       200
 /favicon.ico              /favicon.ico              200
 /robots.txt               /robots.txt               200
 /sitemap.xml              /sitemap.xml              200

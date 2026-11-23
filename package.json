@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "This is a my first web project.",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "directories": {
     "doc": "docs",
     "lib": "lib"
@@ -17,6 +20,8 @@
     "lint": "eslint . --ext .js,.mjs",
     "lint:fix": "eslint . --ext .js,.mjs --fix",
     "check:avatars": "node scripts/avatars/check-avatars.mjs",
+    "check:tokens": "node packages/cookbook-tokens/sync-tokens.mjs --check",
+    "verify:phase0": "node factory/scripts/verify-phase0.mjs",
     "sync:shared": "node scripts/sync-shared.mjs",
     "test:functions": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.functions.config.mjs\"",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.rules.config.mjs\""

@@ -3,10 +3,12 @@
 import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import { FirestoreService } from '../_firebase/firestore-service.js';
 import { StorageService } from '../_firebase/storage-service.js';
+import { buildDeviceRecord } from '@cookbook/core/push-devices';
 
 const USERS_COLLECTION = 'users';
 const AVATAR_OPTIONS_PATH = 'Avatars';
 const customAvatarPath = (uid) => `user-avatars/${uid}.png`;
+const devicesCollectionPath = (uid) => `${USERS_COLLECTION}/${uid}/devices`;
 
 /**
  * UserService — The Single Owner of `users/{uid}`
@@ -28,6 +30,8 @@ const customAvatarPath = (uid) => `user-avatars/${uid}.png`;
  *   - delete(uid)
  *   - addToArrayField(uid, field, value)
  *   - removeFromArrayField(uid, field, value)
+ *   - registerDevice(uid, deviceId, { token, platform, ua, updatedAt })
+ *   - unregisterDevice(uid, deviceId)
  *   - listAvatarOptions()
  *   - uploadAvatarImage(uid, pngBlob)
  *   - deleteAvatarImage(uid)
@@ -110,7 +114,7 @@ export class UserService {
    * already in the array is a no-op.
    *
    * @param {string} uid
-   * @param {string} field - Name of the array field (e.g. 'favorites', 'fcmTokens').
+   * @param {string} field - Name of the array field (e.g. 'favorites').
    * @param {*} value - Value to add.
    * @returns {Promise<void>}
    */
@@ -138,6 +142,35 @@ export class UserService {
     return await FirestoreService.updateDocument(USERS_COLLECTION, uid, {
       [field]: arrayRemove(value),
     });
+  }
+
+  /**
+   * Register or refresh a push-notification device under `users/{uid}/devices/{deviceId}`.
+   * Idempotent: calling again for the same deviceId updates the record in place.
+   *
+   * @param {string} uid
+   * @param {string} deviceId
+   * @param {{ token: string, platform: 'web'|'android'|'ios', ua?: string, updatedAt: * }} device
+   * @returns {Promise<void>}
+   */
+  static async registerDevice(uid, deviceId, device) {
+    if (!uid) throw new Error('UserService.registerDevice: uid is required');
+    if (!deviceId) throw new Error('UserService.registerDevice: deviceId is required');
+    const record = buildDeviceRecord(device || {});
+    return await FirestoreService.setDocument(devicesCollectionPath(uid), deviceId, record);
+  }
+
+  /**
+   * Remove a registered push-notification device from `users/{uid}/devices/{deviceId}`.
+   *
+   * @param {string} uid
+   * @param {string} deviceId
+   * @returns {Promise<void>}
+   */
+  static async unregisterDevice(uid, deviceId) {
+    if (!uid) throw new Error('UserService.unregisterDevice: uid is required');
+    if (!deviceId) throw new Error('UserService.unregisterDevice: deviceId is required');
+    return await FirestoreService.deleteDocument(devicesCollectionPath(uid), deviceId);
   }
 
   /**

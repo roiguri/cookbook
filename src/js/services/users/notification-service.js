@@ -6,33 +6,35 @@
  * decoupled from the underlying channel so additional channels (email, in-app)
  * can be layered in later without touching call sites.
  *
- * The service is not tied to any specific user role or notification type.
- * Tokens are stored on `users/{uid}.fcmTokens` (array of { token, ua, createdAt }),
- * so any future notification type can target any user.
+ * Registered devices are stored in the `users/{uid}/devices/{deviceId}`
+ * subcollection (`{ token, platform: 'web' | 'android' | 'ios', ua?, updatedAt }`),
+ * with a deterministic `deviceId` derived from the token so registration is
+ * idempotent and sign-out cleanup is a single document delete.
  *
  * Public API:
  *   - init(): One-time setup of FCM + service worker. Idempotent. Call on app start.
  *   - isSupported(): Whether the current browser supports push notifications.
  *   - getStatus(): One of 'unsupported' | 'denied' | 'default' | 'granted-unregistered' | 'granted-registered'.
  *   - requestPermissionAndRegister(uid): Call from a user gesture. Requests
- *       permission, acquires a token, and stores it on the user's doc.
- *   - unregisterCurrentDevice(uid): Removes this device's token from the user's doc.
+ *       permission, acquires a token, and stores the device doc under `users/{uid}/devices`.
+ *   - unregisterCurrentDevice(uid): Deletes this device's doc from `users/{uid}/devices`.
  *       Called on sign-out.
  */
 import { getFirebaseApp } from '../_firebase/firebase-service.js';
 import { Timestamp } from 'firebase/firestore';
+import { PUSH_PLATFORMS, deviceIdForToken } from '@cookbook/core/push-devices';
 import { UserService } from './user-service.js';
 import { captureError } from '../logger.js';
 
 const SW_PATH = '/firebase-messaging-sw.js';
-const TOKEN_CACHE_KEY = 'mcb_fcm_token_v1';
+const DEVICE_CACHE_KEY = 'mcb_push_device_v2';
 
 class NotificationService {
   constructor() {
     this._initialized = false;
     this._messaging = null;
     this._swRegistration = null;
-    this._currentToken = null;
+    this._currentDevice = null; // { deviceId, token }
     this._vapidKey = null;
     this._initPromise = null;
   }
@@ -118,9 +120,9 @@ class NotificationService {
           });
         });
 
-        // Cache last-known token so we can unregister on sign-out even if
-        // getToken() can't be called in time (e.g. permission revoked).
-        this._currentToken = localStorage.getItem(TOKEN_CACHE_KEY) || null;
+        // Cache last-known deviceId so sign-out can delete the exact device doc
+        // even if getToken() cannot be called (e.g. permission revoked).
+        this._currentDevice = this._readCachedDevice();
 
         this._initialized = true;
         return true;
@@ -145,15 +147,15 @@ class NotificationService {
     if (Notification.permission === 'denied') return 'denied';
     if (Notification.permission === 'default') return 'default';
     // permission === 'granted'
-    return this._currentToken ? 'granted-registered' : 'granted-unregistered';
+    const cached = this._currentDevice || this._readCachedDevice();
+    return cached?.deviceId ? 'granted-registered' : 'granted-unregistered';
   }
 
   /**
-   * Requests browser notification permission and registers an FCM token for
-   * the current device against the given user. MUST be called from a user
-   * gesture (button click) — browsers block requestPermission() otherwise.
+   * Requests browser notification permission and registers this device under
+   * `users/{uid}/devices/{deviceId}`. MUST be called from a user gesture.
    *
-   * @param {string} uid - User ID to associate the token with.
+   * @param {string} uid - User ID to associate the device with.
    * @returns {Promise<{ ok: boolean, reason?: string }>}
    */
   async requestPermissionAndRegister(uid) {
@@ -172,9 +174,9 @@ class NotificationService {
       });
       if (!token) return { ok: false, reason: 'no-token' };
 
-      await this._storeToken(uid, token);
-      this._currentToken = token;
-      localStorage.setItem(TOKEN_CACHE_KEY, token);
+      const deviceId = await this._storeDevice(uid, token);
+      this._currentDevice = { deviceId, token };
+      this._writeCachedDevice(this._currentDevice);
       return { ok: true };
     } catch (error) {
       console.error('[notifications] requestPermissionAndRegister failed:', error);
@@ -184,24 +186,16 @@ class NotificationService {
   }
 
   /**
-   * Removes the current device's token from the user's doc. Called on sign-out
-   * to keep tokens fresh and avoid sending pushes to a device the user no
-   * longer wants to receive on.
+   * Removes the current device doc from `users/{uid}/devices/{deviceId}`.
+   * Called on sign-out to keep registrations fresh.
    *
-   * @param {string} uid - User ID to remove the token from.
+   * @param {string} uid - User ID to remove the device from.
    */
   async unregisterCurrentDevice(uid) {
-    const token = this._currentToken || localStorage.getItem(TOKEN_CACHE_KEY);
-    if (!token || !uid) return;
+    const cached = this._currentDevice || this._readCachedDevice();
+    if (!cached?.deviceId || !uid) return;
     try {
-      // We don't know the full token object shape on the server, so we remove
-      // any entry with this token by writing back all-but-this-token. Cheaper:
-      // store the canonical entry locally and remove that exact object via
-      // UserService (which wraps arrayRemove).
-      const cachedEntry = this._readCachedEntry();
-      if (cachedEntry) {
-        await UserService.removeFromArrayField(uid, 'fcmTokens', cachedEntry);
-      }
+      await UserService.unregisterDevice(uid, cached.deviceId);
       // Best-effort: also delete the token from FCM itself.
       try {
         const { deleteToken } = await import('firebase/messaging');
@@ -213,35 +207,50 @@ class NotificationService {
       console.warn('[notifications] unregisterCurrentDevice failed:', error);
       captureError(error, { service: 'notification', op: 'unregisterCurrentDevice', uid });
     } finally {
-      this._currentToken = null;
-      localStorage.removeItem(TOKEN_CACHE_KEY);
-      localStorage.removeItem(`${TOKEN_CACHE_KEY}_entry`);
+      this._currentDevice = null;
+      this._clearCachedDevice();
     }
   }
 
-  async _storeToken(uid, token) {
-    const entry = {
+  async _storeDevice(uid, token) {
+    const deviceId = deviceIdForToken(token);
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : '';
+    await UserService.registerDevice(uid, deviceId, {
       token,
-      ua: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : '',
-      createdAt: Timestamp.now(),
-    };
-    await UserService.addToArrayField(uid, 'fcmTokens', entry);
-    localStorage.setItem(`${TOKEN_CACHE_KEY}_entry`, JSON.stringify(entry));
+      platform: PUSH_PLATFORMS.WEB,
+      ua,
+      updatedAt: Timestamp.now(),
+    });
+    return deviceId;
   }
 
-  _readCachedEntry() {
+  _readCachedDevice() {
     try {
-      const raw = localStorage.getItem(`${TOKEN_CACHE_KEY}_entry`);
+      const raw = localStorage.getItem(DEVICE_CACHE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      // Re-hydrate the Timestamp so arrayRemove matches the stored object.
-      if (parsed.createdAt && typeof parsed.createdAt === 'object') {
-        parsed.createdAt = new Timestamp(parsed.createdAt.seconds, parsed.createdAt.nanoseconds);
-      }
-      return parsed;
+      return parsed && typeof parsed.deviceId === 'string' && typeof parsed.token === 'string'
+        ? parsed
+        : null;
     } catch (error) {
-      captureError(error, { service: 'notification', op: '_readCachedEntry' });
+      captureError(error, { service: 'notification', op: '_readCachedDevice' });
       return null;
+    }
+  }
+
+  _writeCachedDevice(device) {
+    try {
+      localStorage.setItem(DEVICE_CACHE_KEY, JSON.stringify(device));
+    } catch (error) {
+      captureError(error, { service: 'notification', op: '_writeCachedDevice' });
+    }
+  }
+
+  _clearCachedDevice() {
+    try {
+      localStorage.removeItem(DEVICE_CACHE_KEY);
+    } catch (_) {
+      // silent: storage may be unavailable in restricted contexts
     }
   }
 }

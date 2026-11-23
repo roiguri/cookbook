@@ -702,3 +702,60 @@ describe('recipe API tokens', () => {
     await assertFails(deleteDoc(tokenDoc(AUTHOR)));
   });
 });
+
+describe('user push devices (users/{uid}/devices/{deviceId})', () => {
+  const deviceRef = (callerUid, ownerUid, deviceId = 'dev1') =>
+    doc(db(callerUid), 'users', ownerUid, 'devices', deviceId);
+
+  const validDevice = (platform = 'web', extra = {}) => ({
+    token: 'fcm-token-123456',
+    platform,
+    ua: 'TestDevice/1.0',
+    updatedAt: serverTimestamp(),
+    ...extra,
+  });
+
+  test('the owner can create, read, update, and delete their own device for web, android, and ios', async () => {
+    for (const platform of ['web', 'android', 'ios']) {
+      await assertSucceeds(setDoc(deviceRef(USER, USER, `d-${platform}`), validDevice(platform)));
+      await assertSucceeds(getDoc(deviceRef(USER, USER, `d-${platform}`)));
+    }
+    await assertSucceeds(
+      updateDoc(deviceRef(USER, USER, 'd-web'), {
+        token: 'rotated-token',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(deleteDoc(deviceRef(USER, USER, 'd-web')));
+  });
+
+  test('other users, managers, and signed-out visitors cannot read or modify someone else’s devices', async () => {
+    await testEnv.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'users', USER, 'devices', 'dev1'), validDevice('android')),
+    );
+
+    await assertFails(getDoc(deviceRef(OTHER, USER, 'dev1')));
+    await assertFails(getDoc(deviceRef(MANAGER, USER, 'dev1')));
+    await assertFails(getDoc(deviceRef(null, USER, 'dev1')));
+    await assertFails(setDoc(deviceRef(MANAGER, USER, 'dev2'), validDevice('ios')));
+    await assertFails(deleteDoc(deviceRef(MANAGER, USER, 'dev1')));
+  });
+
+  test('invalid platform, missing/empty token, extra keys, or oversized ua are rejected', async () => {
+    await assertFails(setDoc(deviceRef(USER, USER, 'bad1'), validDevice('desktop')));
+    await assertFails(setDoc(deviceRef(USER, USER, 'bad2'), validDevice('web', { token: '' })));
+    await assertFails(
+      setDoc(deviceRef(USER, USER, 'bad3'), validDevice('ios', { role: 'manager' })),
+    );
+    await assertFails(
+      setDoc(deviceRef(USER, USER, 'bad4'), validDevice('android', { ua: 'x'.repeat(201) })),
+    );
+    await assertFails(
+      setDoc(deviceRef(USER, USER, 'bad5'), {
+        token: 'tok-ok',
+        platform: 'web',
+        updatedAt: '2026-11-23',
+      }),
+    );
+  });
+});
