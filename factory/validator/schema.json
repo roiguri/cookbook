@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CookbookMultimodalJudgment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenarioId",
+    "platform",
+    "passed",
+    "p0Violation",
+    "dimensions",
+    "weightedScore",
+    "visualAssessment",
+    "findings",
+    "rationale"
+  ],
+  "properties": {
+    "scenarioId": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "enum": ["android", "ios"] },
+    "passed": { "type": "boolean" },
+    "p0Violation": { "type": "boolean" },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["functionalIntent", "backendIntegrity", "rtlVisualFidelity", "uxStability"],
+      "properties": {
+        "functionalIntent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "backendIntegrity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "rtlVisualFidelity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "uxStability": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "weightedScore": { "type": "number", "minimum": 0, "maximum": 100 },
+    "visualAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["isRtlCorrect", "paletteConsistent", "hasClippedHebrew", "notes"],
+      "properties": {
+        "isRtlCorrect": { "type": "boolean" },
+        "paletteConsistent": { "type": "boolean" },
+        "hasClippedHebrew": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "domain", "route", "role", "symptom", "evidence"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["P0", "P1", "P2"] },
+          "domain": { "type": "string" },
+          "route": { "type": "string" },
+          "role": { "type": "string" },
+          "symptom": { "type": "string" },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "rationale": { "type": "string" }
+  }
+}

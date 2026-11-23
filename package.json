@@ -27,6 +27,7 @@
     "mobile:build:android": "node factory/scripts/build-android-local.mjs",
     "mobile:smoke:android": "node factory/scripts/run-android-smoke-local.mjs",
     "mobile:distribute:staging": "node factory/scripts/distribute-staging-android.mjs",
+    "factory:calibrate": "node factory/validator/calibrate-mutations.mjs",
     "sync:shared": "node scripts/sync-shared.mjs",
     "test:functions": "firebase emulators:exec --only auth,firestore,storage,functions --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.functions.config.mjs\"",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cookbook \"node --experimental-vm-modules node_modules/.bin/jest -c jest.rules.config.mjs\""
