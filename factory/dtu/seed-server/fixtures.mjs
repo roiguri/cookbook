@@ -390,7 +390,9 @@ export function buildSeedDataset(profile = 'baseline') {
   };
 
   const sharedPrivateId = 'dtu-priv-shared';
-  const sharedImgPath = `users/${approvedUid}/recipes/${sharedPrivateId}/images/img-priv-1.jpg`;
+  // All recipe photos (private AND published) live under recipes/{recipeId}/images/
+  // matching packages/cookbook-core/recipe-model.js so approving in-place never breaks URLs.
+  const sharedImgPath = `recipes/${sharedPrivateId}/images/img-priv-1.jpg`;
   files.push({
     path: sharedImgPath,
     contentType: 'image/jpeg',
@@ -493,42 +495,61 @@ export function buildSeedDataset(profile = 'baseline') {
     createdAt: tsAt(54),
   };
 
-  // 5. Pending edit suggestion
+  // 5. Pending edit suggestion — full snapshot matching web RecipeEditSuggestionService
+  // so buildApplyPayload() preserves all existing ingredients, steps, and images.
+  const saladBase = docs['recipes/dtu-pub-salads'];
   docs['recipe_edit_suggestions/dtu-suggestion-1'] = {
     recipeId: 'dtu-pub-salads',
-    recipeName: 'סלט ירקות קצוץ דק',
+    recipeName: saladBase.name,
     suggestedBy: approvedUid,
     suggestedByName: 'דנה כהן',
     status: 'pending',
+    note: 'עדכנתי זמן הכנה והוספתי טיפ סומק',
     proposedChanges: {
+      name: saladBase.name,
+      description: saladBase.description,
+      attribution: saladBase.attribution,
+      category: saladBase.category,
+      difficulty: saladBase.difficulty,
       prepTime: 12,
+      waitTime: saladBase.waitTime,
+      servings: saladBase.servings,
+      servingsUnit: saladBase.servingsUnit,
+      mainIngredient: saladBase.mainIngredient,
+      tags: saladBase.tags,
+      ingredients: saladBase.ingredients,
+      instructions: saladBase.instructions,
       comments: ['להוסיף כף סומק מעל'],
+      images: saladBase.images,
+      mediaInstructions: saladBase.mediaInstructions,
     },
     storagePaths: [],
     createdAt: tsAt(56),
   };
 
-  // 6. Active meal for approved user
+  // 6. Active meal for approved user (exact web schema: `lastUpdated`, `currentStepIndex`)
   docs[`active_meals/${approvedUid}`] = {
     recipeIds: ['dtu-pub-main-courses', 'dtu-pub-salads'],
     activeRecipeId: 'dtu-pub-main-courses',
     recipeStates: {
-      'dtu-pub-main-courses': { servings: 6, unselectedIngredients: [] },
-      'dtu-pub-salads': { servings: 4, unselectedIngredients: [] },
+      'dtu-pub-main-courses': { servings: 6, currentStepIndex: 0, unselectedIngredients: [] },
+      'dtu-pub-salads': { servings: 4, currentStepIndex: 0, unselectedIngredients: [] },
     },
-    updatedAt: tsAt(57),
+    lastUpdated: tsAt(57),
   };
 
-  // 7. Grandma's scanned cookbook manifest + 3 sample pages
-  docs['cookbook/grandmas_cookbook'] = {
-    title: 'ספר המתכונים של סבתא',
-    totalPages: 3,
-    storagePrefix: 'grandmas_cookbook/original',
-    toc: [
-      { title: 'מרקים ותבשילים', page: 1 },
-      { title: 'מאפים וחלות', page: 2 },
-      { title: 'קינוחים של שבת', page: 3 },
-    ],
+  // 7. Grandma's scanned cookbook index at `cookbook/recipes` (exact web PdfService schema)
+  docs['cookbook/recipes'] = {
+    categories: {
+      'מרקים ותבשילים': { startPage: 1, endPage: 1 },
+      'מאפים וחלות': { startPage: 2, endPage: 2 },
+      'קינוחים של שבת': { startPage: 3, endPage: 3 },
+    },
+    recipes: {
+      'מרק עוף של סבתא': 1,
+      'חלת שבת קלועה': 2,
+      'עוגת דבש של פעם': 3,
+    },
   };
   for (let p = 1; p <= 3; p++) {
     files.push({

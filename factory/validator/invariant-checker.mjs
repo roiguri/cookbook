@@ -402,6 +402,14 @@ export function evaluateDeterministicInvariants(trajectory = {}) {
     trajectory.snapshotDiff ||
     diffSnapshots(trajectory.beforeSnapshot || {}, trajectory.afterSnapshot || {});
 
+  const postAssertionViolations = (trajectory.postAssertionFailures || []).map((msg) => ({
+    invariant: trajectory.isP0 ? 'INV-P0-POST' : 'INV-P1-POST',
+    severity: trajectory.isP0 ? 'P0' : 'P1',
+    domain: trajectory.domain || 'backend-post-assertion',
+    symptom: String(msg),
+    evidence: 'Post-scenario snapshot assertion failed',
+  }));
+
   const allViolations = [
     ...checkStorageUploadedBy(diff.storage),
     ...checkSentryPrivacy(trajectory.sentryEvents || []),
@@ -409,6 +417,7 @@ export function evaluateDeterministicInvariants(trajectory = {}) {
     ...checkRtlHierarchy(trajectory.hierarchy || {}),
     ...checkServingScaling(trajectory.scalingObservations || []),
     ...checkNativeCrashes(trajectory.runtimeLogs || ''),
+    ...postAssertionViolations,
   ];
 
   const p0Violations = allViolations.filter((v) => v.severity === 'P0');

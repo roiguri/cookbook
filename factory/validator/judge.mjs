@@ -126,7 +126,15 @@ export function reconcileJudgment(llmResult, deterministic, trajectory) {
 
   // Clamp affected dimension scores deterministically when hard invariants fail
   for (const v of deterministic.allViolations) {
-    if (['storage', 'avatar', 'observability', 'manager-dashboard'].includes(v.domain)) {
+    if (
+      [
+        'storage',
+        'avatar',
+        'observability',
+        'manager-dashboard',
+        'backend-post-assertion',
+      ].includes(v.domain)
+    ) {
       dimensions.backendIntegrity = Math.min(
         dimensions.backendIntegrity,
         v.severity === 'P0' ? 0 : 40,

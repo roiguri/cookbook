@@ -28,20 +28,20 @@ from PIL import Image, ImageDraw
 out_dir = sys.argv[1]
 
 def save_clean(path):
-    # Warm cream surface0 (#faf6ec), right-aligned RTL card (#fffdf8), primary green pill (#6a994e)
+    # Warm cream surface0 (#faf6ec), right-aligned RTL card (#ffffff), primary green pill (#6a994e)
     img = Image.new("RGB", (420, 760), (250, 246, 236))
     d = ImageDraw.Draw(img)
-    # Header bar (RTL: brand on right, avatar on left)
-    d.rectangle([0, 0, 420, 72], fill=(242, 232, 207))
+    # Header bar (RTL: brand on right, avatar on left; surface2 #f6eed6)
+    d.rectangle([0, 0, 420, 72], fill=(246, 238, 214))
     d.rounded_rectangle([240, 18, 396, 54], radius=12, fill=(106, 153, 78))
     d.text((262, 28), "COOKBOOK RTL", fill=(255, 255, 255))
     d.ellipse([20, 16, 60, 56], fill=(188, 71, 73))
-    # Main card
-    d.rounded_rectangle([24, 104, 396, 460], radius=20, fill=(255, 253, 248), outline=(220, 212, 196), width=2)
-    # Right-aligned heading & subtitle indicators (RTL anchored to right edge x=376)
-    d.rectangle([160, 134, 376, 164], fill=(28, 25, 23))
-    d.text((220, 142), "RTL HEADING RIGHT", fill=(255, 253, 248))
-    d.rectangle([200, 184, 376, 206], fill=(120, 113, 108))
+    # Main card (surface1 #ffffff)
+    d.rounded_rectangle([24, 104, 396, 460], radius=20, fill=(255, 255, 255), outline=(220, 212, 196), width=2)
+    # Right-aligned heading & subtitle indicators (RTL anchored to right edge x=376; ink #1f1d18 / ink3 #6b6a63)
+    d.rectangle([160, 134, 376, 164], fill=(31, 29, 24))
+    d.text((220, 142), "RTL HEADING RIGHT", fill=(255, 255, 255))
+    d.rectangle([200, 184, 376, 206], fill=(107, 106, 99))
     # Scaled ingredient rows right-aligned
     d.rounded_rectangle([180, 240, 376, 276], radius=14, fill=(106, 153, 78))
     d.text((205, 251), "Servings: 6 -> 3/4 cup", fill=(255, 255, 255))

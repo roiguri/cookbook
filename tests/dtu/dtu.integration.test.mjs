@@ -118,9 +118,11 @@ describe('Cookbook Digital Twin Universe (DTU)', () => {
     );
     expect(managerDeviceKeys).toHaveLength(3);
 
-    // Grandma's cookbook & active meal & failed URL queue
-    expect(snap.firestore['cookbook/grandmas_cookbook'].totalPages).toBe(3);
+    // Grandma's cookbook (`cookbook/recipes`) & active meal (`lastUpdated`) & failed URL queue
+    expect(Object.keys(snap.firestore['cookbook/recipes'].categories)).toHaveLength(3);
+    expect(snap.firestore['cookbook/recipes'].recipes['עוגת דבש של פעם']).toBe(3);
     expect(snap.firestore['active_meals/dtu-approved-1'].recipeIds).toHaveLength(2);
+    expect(snap.firestore['active_meals/dtu-approved-1'].lastUpdated).toBeDefined();
     expect(snap.firestore['failed_url_extractions/dtu-failed-url-1']).toBeDefined();
 
     // Empty profile resets cleanly

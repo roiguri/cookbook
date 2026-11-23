@@ -206,6 +206,44 @@ describe('Software Factory Validator & Multimodal Judge Harness', () => {
     expect(reconciled.dimensions.rtlVisualFidelity).toBeLessThanOrEqual(15);
   });
 
+  test('postAssertionFailures enforce P0/P1 failures and clamp backendIntegrity', () => {
+    const p0Det = evaluateDeterministicInvariants({
+      isP0: true,
+      postAssertionFailures: ['Expected FCM push message to manager device token'],
+    });
+    expect(p0Det.ok).toBe(false);
+    expect(p0Det.p0Passed).toBe(false);
+
+    const reconciled = reconcileJudgment(
+      {
+        scenarioId: 'K01',
+        platform: 'android',
+        passed: true,
+        p0Violation: false,
+        dimensions: {
+          functionalIntent: 100,
+          backendIntegrity: 100,
+          rtlVisualFidelity: 100,
+          uxStability: 100,
+        },
+        weightedScore: 100,
+        visualAssessment: {
+          isRtlCorrect: true,
+          paletteConsistent: true,
+          hasClippedHebrew: false,
+          notes: '',
+        },
+        findings: [],
+        rationale: 'Looks fine visually',
+      },
+      p0Det,
+      { scenarioId: 'K01', platform: 'android', route: '/dashboard', role: 'manager' },
+    );
+    expect(reconciled.passed).toBe(false);
+    expect(reconciled.p0Violation).toBe(true);
+    expect(reconciled.dimensions.backendIntegrity).toBe(0);
+  });
+
   test('deterministic mutation calibration detects 5/5 faults and passes clean control', async () => {
     const res = await runMutationCalibration({ deterministicOnly: true });
     expect(res.ok).toBe(true);

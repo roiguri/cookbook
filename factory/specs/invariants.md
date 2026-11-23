@@ -21,7 +21,7 @@
 
 ## P1 Quality Invariants (Scored by Multimodal Judge — Target ≥ 95%)
 
-- **INV-P1-01 (Design Token Adherence):** Warm cream surface ladder (`#faf6ec` → `#fffdf8` → `#f2e8cf`), primary green (`#6a994e`), secondary red (`#bc4749`), caution amber (`#b7791f`), proper Hebrew fonts (`Noto Sans Hebrew` / `Noto Serif Hebrew` + `Instrument Serif` / `Geist`), zero raw hex colors.
+- **INV-P1-01 (Design Token Adherence):** Warm cream surface ladder (`#faf6ec` → `#ffffff` → `#f6eed6`, neutral `#f2e8cf`), primary green (`#6a994e`), secondary red (`#bc4749`), caution amber (`#b7791f`), ink ladder (`#1f1d18` → `#3a3a3a` → `#6b6a63` → `#a6a49a`), proper Hebrew fonts (`Noto Sans Hebrew` / `Noto Serif Hebrew` + `Instrument Serif` / `Geist`), zero raw hex colors.
 - **INV-P1-02 (Exact Serving & Fraction Math):** Scaling uses `@cookbook/core` `scaleIngredients` & `formatIngredientAmount` verbatim (`0.5` → `1/2`, `1.5` → `1 1/2`, near-integer snap `1/3 * 3` → `1`, bidi-safe LTR-isolated amounts inside RTL Hebrew rows).
 - **INV-P1-03 (Offline Kitchen Resilience):** Native Firestore SQLite cache keeps previously viewed recipes, My Meal tabs, and ingredient checkoffs readable & interactive in airplane mode, syncing cleanly upon reconnect.
 - **INV-P1-04 (Per-Platform Push Hygiene):** Opting in writes `users/{uid}/devices/{deviceId}` with exact `{ token, platform: 'android'|'ios', updatedAt }`; sign-out deletes that device doc.

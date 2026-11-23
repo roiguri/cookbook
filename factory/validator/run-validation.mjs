@@ -87,6 +87,15 @@ export async function runHoldoutValidation({
   const baseRubricPath = path.join(holdoutDir, 'rubrics', 'base-rubric.md');
   const baseRubric = fs.existsSync(baseRubricPath) ? fs.readFileSync(baseRubricPath, 'utf8') : '';
 
+  const postAssertionsPath = path.join(holdoutDir, 'assertions', 'post-assertions.mjs');
+  let runPostAssertions = () => [];
+  if (fs.existsSync(postAssertionsPath)) {
+    const mod = await import(pathToFileURL(postAssertionsPath).href);
+    if (typeof mod.runPostAssertions === 'function') {
+      runPostAssertions = mod.runPostAssertions;
+    }
+  }
+
   const selected = (manifest.scenarios || []).filter((s) => {
     if (Array.isArray(s.platforms) && !s.platforms.includes(platform)) return false;
     if (suiteFilter.length && !suiteFilter.includes(s.suite)) return false;
@@ -124,11 +133,18 @@ export async function runHoldoutValidation({
       });
 
       const afterSnapshot = await fetchJson(`${dtu.seed}/snapshot`);
+      const fcmInbox = await fetchJson(`${dtu.fcm}/messages`).catch(() => ({ messages: [] }));
       const screenshots = collectScreenshots(scenarioDebugDir);
+      const postAssertionFailures = runPostAssertions(scenario.id, {
+        before: beforeSnapshot,
+        after: afterSnapshot,
+        fcmMessages: fcmInbox.messages || [],
+      });
 
       const trajectory = {
         scenarioId: scenario.id,
         title: scenario.title,
+        isP0: Boolean(scenario.p0),
         platform,
         route: scenario.route || '/home',
         role: scenario.role || 'approved',
@@ -137,6 +153,7 @@ export async function runHoldoutValidation({
         screenshots,
         beforeSnapshot,
         afterSnapshot,
+        postAssertionFailures,
         runtimeLogs: maestro.output,
       };
 
