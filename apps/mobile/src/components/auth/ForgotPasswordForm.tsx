@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, fontFamilies, radii, spacing, statusColors, typeScale } from '@/theme';
 import { Button } from '@/components/ui';
 import { AuthService } from '@/services/auth/auth-service';
@@ -62,6 +62,8 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           placeholder="name@example.com"
           placeholderTextColor={colors.ink4}
           style={styles.input}

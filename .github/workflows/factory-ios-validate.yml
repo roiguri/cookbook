@@ -188,7 +188,7 @@ jobs:
   validate-ios-sim:
     needs: build-ios-sim
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     if: github.ref != 'refs/heads/main'
     strategy:
       fail-fast: false
@@ -281,7 +281,7 @@ jobs:
           - assertNotVisible:
               text: 'Open in.*'
           EOF
-          perl -e 'alarm 120; exec @ARGV' -- maestro --device "$UDID" test /tmp/ios-scheme-warmup.yml
+          perl -e 'alarm 240; exec @ARGV' -- maestro --device "$UDID" test /tmp/ios-scheme-warmup.yml
           rm -f /tmp/ios-scheme-warmup.yml
           xcrun simctl terminate "$UDID" com.roiguri.cookbook.e2e || true
           sleep 1

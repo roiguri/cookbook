@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontFamilies, radii, spacing, statusColors, typeScale } from '@/theme';
 import { Button } from '@/components/ui';
@@ -92,6 +92,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           testID="auth-fullname-input"
           value={fullName}
           onChangeText={setFullName}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           placeholder="ישראל ישראלי"
           placeholderTextColor={colors.ink4}
           style={styles.input}
@@ -107,6 +109,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           placeholder="name@example.com"
           placeholderTextColor={colors.ink4}
           style={styles.input}
@@ -122,6 +126,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
             placeholder="לפחות 6 תווים"
             placeholderTextColor={colors.ink4}
             style={styles.passwordInput}
@@ -169,6 +175,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           onChangeText={setConfirmPassword}
           secureTextEntry={!showPassword}
           autoCapitalize="none"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           placeholder="הזן סיסמה שוב"
           placeholderTextColor={colors.ink4}
           style={styles.input}

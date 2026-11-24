@@ -491,6 +491,7 @@ export function RecipeImportModal({
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               contentContainerStyle={styles.scrollBody}
             >
               {/* Inline Recoverable Error Banner */}

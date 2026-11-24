@@ -1421,6 +1421,7 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={styles.scrollContent}
       >
         {/* Post-Import Review Banner */}

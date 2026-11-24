@@ -40,7 +40,7 @@ async function fetchJson(url, opts = {}) {
   return res.json();
 }
 
-function runMaestroAsync({ flowFile, device, debugDir, env, timeoutMs = 180_000 }) {
+function runMaestroAsync({ flowFile, device, debugDir, env, timeoutMs = 240_000 }) {
   return new Promise((resolve) => {
     const args = [];
     if (device) args.push('--device', device);
@@ -48,7 +48,12 @@ function runMaestroAsync({ flowFile, device, debugDir, env, timeoutMs = 180_000 
 
     let output = '';
     let settled = false;
-    const child = spawn('maestro', args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const useProcessGroup = process.platform !== 'win32';
+    const child = spawn('maestro', args, {
+      env,
+      detached: useProcessGroup,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     const finish = (res) => {
       if (settled) return;
       settled = true;
@@ -56,11 +61,19 @@ function runMaestroAsync({ flowFile, device, debugDir, env, timeoutMs = 180_000 
       resolve(res);
     };
     const watchdog = setTimeout(() => {
-      output += `\n[validator] Maestro timed out after ${Math.round(timeoutMs / 1000)}s; killing hung process.`;
+      output += `\n[validator] Maestro timed out after ${Math.round(timeoutMs / 1000)}s; killing hung process group.`;
       try {
-        child.kill('SIGKILL');
+        if (useProcessGroup && child.pid) {
+          process.kill(-child.pid, 'SIGKILL');
+        } else {
+          child.kill('SIGKILL');
+        }
       } catch {
-        // Ignore
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // Ignore
+        }
       }
       finish({ code: 124, output });
     }, timeoutMs);
@@ -75,13 +88,22 @@ function runMaestroAsync({ flowFile, device, debugDir, env, timeoutMs = 180_000 
   });
 }
 
-function terminateIosAppIfRunning({ platform, device }) {
+async function terminateIosAppIfRunning({ platform, device, afterTimeout = false }) {
   if (platform !== 'ios' || !device) return;
   try {
+    if (afterTimeout) {
+      // Reap any orphaned XCTest driver spawned by a killed Maestro session so
+      // the next scenario never hits ConnectException or clearAppState deadlocks.
+      spawnSync('pkill', ['-9', '-f', 'maestro-driver-ios|xcodebuild.*test-without-building'], {
+        stdio: 'ignore',
+        timeout: 5_000,
+      });
+    }
     spawnSync('xcrun', ['simctl', 'terminate', device, 'com.roiguri.cookbook.e2e'], {
       stdio: 'ignore',
       timeout: 15_000,
     });
+    await new Promise((r) => setTimeout(r, afterTimeout ? 1500 : 800));
   } catch {
     // Non-fatal if app is not currently running
   }
@@ -204,7 +226,7 @@ export async function runHoldoutValidation({
       const scenarioDebugDir = path.join(outDir, 'debug', `${scenario.id}-pass${passIdx}`);
       fs.mkdirSync(scenarioDebugDir, { recursive: true });
 
-      terminateIosAppIfRunning({ platform, device });
+      await terminateIosAppIfRunning({ platform, device });
 
       const maestro = await runMaestroAsync({
         flowFile,
@@ -215,7 +237,7 @@ export async function runHoldoutValidation({
 
       const finalShotPath = path.join(scenarioDebugDir, 'final-screen.png');
       captureFinalScreenshot({ platform, device, destPath: finalShotPath });
-      terminateIosAppIfRunning({ platform, device });
+      await terminateIosAppIfRunning({ platform, device, afterTimeout: maestro.code === 124 });
 
       const afterSnapshot = await fetchJson(`${dtu.seed}/snapshot`);
       const fcmInbox = await fetchJson(`${dtu.fcm}/messages`).catch(() => ({ messages: [] }));

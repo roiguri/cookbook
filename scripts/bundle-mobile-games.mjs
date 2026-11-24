@@ -252,22 +252,30 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
   var ASSET_VARS = ${JSON.stringify(assetRegistry.cssVars)};
   window.__COOKBOOK_ASSETS__ = ASSETS;
 
-  // Lazily inject :root CSS custom properties ONLY when launching a sprite-backed game
-  // (burger / pizza / knife) so emoji/canvas games like memory paint instantly without
-  // stalling Chromium/WKWebView on 1.3MB of base64 CSS rules.
-  var assetVarsInjected = false;
+  // Lazily inject ONLY the :root CSS custom properties needed by the active sprite-backed
+  // game (burger / pizza / knife) so emoji/canvas games paint instantly and sprite games
+  // avoid stalling WKWebView/Chromium on unrelated assets during orientation changes.
+  var injectedAssetGroups = {};
   window.__ensureCookbookAssetVars = function (gameKey) {
-    if (assetVarsInjected) return;
     if (gameKey !== 'burger' && gameKey !== 'pizza' && gameKey !== 'knife') return;
-    assetVarsInjected = true;
+    if (injectedAssetGroups[gameKey]) return;
+    injectedAssetGroups[gameKey] = true;
     var varRules = [];
     for (var key in ASSET_VARS) {
-      if (Object.prototype.hasOwnProperty.call(ASSET_VARS, key) && ASSETS[key]) {
-        varRules.push(ASSET_VARS[key] + ':url("' + ASSETS[key] + '");');
+      if (!Object.prototype.hasOwnProperty.call(ASSET_VARS, key) || !ASSETS[key]) continue;
+      if (gameKey === 'pizza' && key.indexOf('assets/pizzatron/') !== 0) continue;
+      if (gameKey === 'knife' && key.indexOf('assets/knife/') !== 0) continue;
+      if (
+        gameKey === 'burger' &&
+        (key.indexOf('assets/pizzatron/') === 0 || key.indexOf('assets/knife/') === 0)
+      ) {
+        continue;
       }
+      varRules.push(ASSET_VARS[key] + ':url("' + ASSETS[key] + '");');
     }
+    if (varRules.length === 0) return;
     var assetStyleEl = document.createElement('style');
-    assetStyleEl.id = 'cookbook-asset-vars';
+    assetStyleEl.id = 'cookbook-asset-vars-' + gameKey;
     assetStyleEl.textContent = ':root{' + varRules.join('') + '}';
     document.head.appendChild(assetStyleEl);
   };
@@ -610,9 +618,12 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
       currentWrapper.markAsyncReady();
     }
 
-    // Trigger resize and wait for two real compositor frames before signaling 'ready'
-    // so native reveals the WebView only after cards/canvas are genuinely painted.
+    // Trigger resize and wait for a real compositor frame (with 150ms safety fallback so
+    // iOS orientation-rotation animations never starve rAF and stall 'ready').
+    var readySent = false;
     var emitReady = function () {
+      if (readySent) return;
+      readySent = true;
       window.dispatchEvent(new Event('resize'));
       postToNative({
         type: 'ready',
@@ -624,9 +635,10 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
       timerShim.nativeRAF(function () {
         timerShim.nativeRAF(emitReady);
       });
-    } else if (timerShim && timerShim.nativeSetTimeout) {
-      timerShim.nativeSetTimeout(emitReady, 60);
-    } else {
+    }
+    if (timerShim && timerShim.nativeSetTimeout) {
+      timerShim.nativeSetTimeout(emitReady, 150);
+    } else if (!timerShim || typeof timerShim.nativeRAF !== 'function') {
       emitReady();
     }
   }

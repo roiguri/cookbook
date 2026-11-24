@@ -26,6 +26,7 @@ export default function AuthModalScreen() {
   const [avatarDirty, setAvatarDirty] = useState(false);
   const avatarDirtyRef = useRef(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   const handleAvatarDirtyChange = useCallback((dirty: boolean) => {
     avatarDirtyRef.current = dirty;
@@ -36,6 +37,7 @@ export default function AuthModalScreen() {
     avatarDirtyRef.current = false;
     setAvatarDirty(false);
     setConfirmCloseOpen(false);
+    setIsClosing(true);
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -71,6 +73,10 @@ export default function AuthModalScreen() {
     return unsubscribe;
   }, [navigation, isAuthenticated]);
 
+  if (isClosing) {
+    return null;
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -93,6 +99,7 @@ export default function AuthModalScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         {isAuthenticated ? (

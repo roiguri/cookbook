@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontFamilies, radii, spacing, statusColors, typeScale } from '@/theme';
 import { Button } from '@/components/ui';
@@ -66,6 +66,8 @@ export function LoginForm({ onSuccess, onForgotPress }: LoginFormProps) {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           placeholder="name@example.com"
           placeholderTextColor={colors.ink4}
           style={styles.input}
@@ -81,6 +83,8 @@ export function LoginForm({ onSuccess, onForgotPress }: LoginFormProps) {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
             placeholder="הזן סיסמה"
             placeholderTextColor={colors.ink4}
             style={styles.passwordInput}
