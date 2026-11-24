@@ -1,33 +1,75 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  BackHandler,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme';
-import { Button, Chip, ConfirmDialog, ScreenHeader } from '@/components/ui';
+import { Button, Chip, ScreenHeader } from '@/components/ui';
 import { useSession } from '@/context/SessionContext';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { UserProfileSheet } from '@/components/auth/UserProfileSheet';
+import { AvatarUnsavedDialog } from '@/components/auth/avatar-builder/AvatarUnsavedDialog';
 
 export default function AuthModalScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { isAuthenticated } = useSession();
   const [authView, setAuthView] = useState<'login' | 'signup' | 'forgot'>('login');
   const [avatarDirty, setAvatarDirty] = useState(false);
+  const avatarDirtyRef = useRef(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
 
-  const handleClose = () => {
-    if (isAuthenticated && avatarDirty) {
-      setConfirmCloseOpen(true);
-      return;
-    }
+  const handleAvatarDirtyChange = useCallback((dirty: boolean) => {
+    avatarDirtyRef.current = dirty;
+    setAvatarDirty(dirty);
+  }, []);
+
+  const closeModalImmediately = useCallback(() => {
+    avatarDirtyRef.current = false;
+    setAvatarDirty(false);
+    setConfirmCloseOpen(false);
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/(tabs)/home');
     }
-  };
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (isAuthenticated && (avatarDirty || avatarDirtyRef.current)) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+    closeModalImmediately();
+  }, [isAuthenticated, avatarDirty, closeModalImmediately]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isAuthenticated && avatarDirtyRef.current) {
+        setConfirmCloseOpen(true);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (!isAuthenticated || !avatarDirtyRef.current) return;
+      e.preventDefault();
+      setConfirmCloseOpen(true);
+    });
+    return unsubscribe;
+  }, [navigation, isAuthenticated]);
 
   return (
     <KeyboardAvoidingView
@@ -55,12 +97,8 @@ export default function AuthModalScreen() {
       >
         {isAuthenticated ? (
           <UserProfileSheet
-            onRequestClose={() => {
-              setAvatarDirty(false);
-              if (router.canGoBack()) router.back();
-              else router.replace('/(tabs)/home');
-            }}
-            onAvatarDirtyChange={setAvatarDirty}
+            onRequestClose={closeModalImmediately}
+            onAvatarDirtyChange={handleAvatarDirtyChange}
           />
         ) : (
           <View style={styles.authCard}>
@@ -94,20 +132,10 @@ export default function AuthModalScreen() {
         )}
       </ScrollView>
 
-      <ConfirmDialog
+      <AvatarUnsavedDialog
         visible={confirmCloseOpen}
-        title="לסגור בלי לשמור?"
-        message="יש שינויים שלא נשמרו באווטאר."
-        confirmLabel="סגור בלי לשמור"
-        cancelLabel="הישאר"
-        destructive
-        onCancel={() => setConfirmCloseOpen(false)}
-        onConfirm={() => {
-          setConfirmCloseOpen(false);
-          setAvatarDirty(false);
-          if (router.canGoBack()) router.back();
-          else router.replace('/(tabs)/home');
-        }}
+        onKeepEditing={() => setConfirmCloseOpen(false)}
+        onDiscard={closeModalImmediately}
       />
     </KeyboardAvoidingView>
   );

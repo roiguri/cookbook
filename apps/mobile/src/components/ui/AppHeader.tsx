@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,9 @@ import { isBuiltAvatarUrl } from '@cookbook/core/avatar/avatar-url';
 import { colors, fontFamilies, radii, spacing, typeScale } from '@/theme';
 import { useSession } from '@/context/SessionContext';
 import { useEasterEgg } from '@/context/EasterEggContext';
+import { RecipeSearchService } from '@/services/recipes/recipe-search-service';
 import { PressableScale } from './PressableScale';
+import { useToast } from './ToastProvider';
 
 interface AppHeaderProps {
   onQuickSearch?: (query: string) => void;
@@ -17,29 +19,56 @@ interface AppHeaderProps {
 export function AppHeader({ onQuickSearch }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const { user, profile, isApproved, isManager } = useSession();
+  const { user, profile, role, isApproved, isManager } = useSession();
   const { registerLogoTap } = useEasterEgg();
+  const { showToast } = useToast();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const searchingRef = useRef(false);
 
   const displayName = profile?.fullName || user?.displayName || '';
   const initial = displayName.trim() ? displayName.trim().charAt(0).toUpperCase() : '';
   const avatarUrl = profile?.avatarUrl || null;
   const builtAvatar = isBuiltAvatarUrl(avatarUrl);
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = async () => {
     const trimmed = searchText.trim();
     if (!trimmed) {
       setSearchOpen(false);
       return;
     }
+
     if (onQuickSearch) {
       onQuickSearch(trimmed);
-    } else {
-      router.push({ pathname: '/(tabs)/categories', params: { q: trimmed } });
+      setSearchOpen(false);
+      setSearchText('');
+      return;
     }
+
+    if (searchingRef.current) return;
+    searchingRef.current = true;
     setSearchOpen(false);
     setSearchText('');
+
+    try {
+      const { recipes } = await RecipeSearchService.searchUnified(trimmed, {
+        role,
+        uid: user?.uid || null,
+      });
+
+      if (recipes.length === 1) {
+        const single = recipes[0];
+        showToast(`נמצא מתכון אחד: "${single.name}" - מעבר ישיר למתכון`, 'success', 3000);
+        router.push(`/recipe/${single.id}`);
+        return;
+      }
+    } catch {
+      // Fall through to categories search results on error
+    } finally {
+      searchingRef.current = false;
+    }
+
+    router.push({ pathname: '/(tabs)/categories', params: { q: trimmed } });
   };
 
   return (
@@ -131,7 +160,9 @@ export function AppHeader({ onQuickSearch }: AppHeaderProps) {
                 contentFit={builtAvatar ? 'contain' : 'cover'}
               />
             ) : user ? (
-              <Text style={styles.avatarInitial}>{initial || 'ש'}</Text>
+              <Text style={styles.avatarInitial} allowFontScaling={false}>
+                {initial || 'ש'}
+              </Text>
             ) : (
               <View style={styles.guestPill}>
                 <Ionicons name="person-outline" size={15} color={colors.primaryDark} />
@@ -150,15 +181,25 @@ export function AppHeader({ onQuickSearch }: AppHeaderProps) {
             testID="header-search-input"
             value={searchText}
             onChangeText={setSearchText}
-            onSubmitEditing={handleSearchSubmit}
+            onSubmitEditing={() => {
+              void handleSearchSubmit();
+            }}
             placeholder="חפש מתכון..."
             placeholderTextColor={colors.ink4}
             returnKeyType="search"
             autoFocus
             style={styles.searchInput}
           />
-          <PressableScale variant="button" onPress={handleSearchSubmit} style={styles.searchGoBtn}>
-            <Text style={styles.searchGoText}>חיפוש</Text>
+          <PressableScale
+            variant="button"
+            onPress={() => {
+              void handleSearchSubmit();
+            }}
+            style={styles.searchGoBtn}
+          >
+            <Text style={styles.searchGoText} allowFontScaling={false}>
+              חיפוש
+            </Text>
           </PressableScale>
         </View>
       ) : null}
@@ -263,7 +304,7 @@ const styles = StyleSheet.create({
     color: colors.buttonColor,
     fontSize: typeScale.step0,
     fontFamily: fontFamilies.bodyBold,
-    fontWeight: '700',
+    includeFontPadding: false,
   },
   guestPill: {
     flexDirection: 'row',
@@ -294,6 +335,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.body,
     color: colors.ink,
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   searchGoBtn: {
     backgroundColor: colors.primary,
@@ -305,6 +347,6 @@ const styles = StyleSheet.create({
     color: colors.buttonColor,
     fontSize: typeScale.stepMinus1,
     fontFamily: fontFamilies.bodyBold,
-    fontWeight: '600',
+    includeFontPadding: false,
   },
 });

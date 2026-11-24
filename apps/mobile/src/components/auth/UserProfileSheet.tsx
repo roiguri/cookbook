@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { colors, fontFamilies, radii, spacing, statusColors, typeScale } from '@/theme';
-import { Badge, Button, Card, Chip, ConfirmDialog, EmptyState, useToast } from '@/components/ui';
+import { Badge, Button, Card, Chip, ConfirmDialog, useToast } from '@/components/ui';
 import { useSession } from '@/context/SessionContext';
 import { AuthService } from '@/services/auth/auth-service';
+import { AvatarBuilder, AvatarUnsavedDialog } from './avatar-builder';
 
 export type AvatarTabRenderer = (props: {
   onDirtyChange: (dirty: boolean) => void;
@@ -58,10 +59,13 @@ export function UserProfileSheet({ onRequestClose, onAvatarDirtyChange }: UserPr
     setBio(profile?.bio || '');
   }, [profile?.fullName, profile?.bio, user?.displayName]);
 
-  const handleDirty = (dirty: boolean) => {
-    setAvatarDirty(dirty);
-    onAvatarDirtyChange?.(dirty);
-  };
+  const handleDirty = useCallback(
+    (dirty: boolean) => {
+      setAvatarDirty(dirty);
+      onAvatarDirtyChange?.(dirty);
+    },
+    [onAvatarDirtyChange],
+  );
 
   const guardAvatarDirty = (action: () => void) => {
     if (activeTab === 'avatar' && avatarDirty) {
@@ -259,10 +263,12 @@ export function UserProfileSheet({ onRequestClose, onAvatarDirtyChange }: UserPr
               },
             })
           ) : (
-            <EmptyState
-              icon="happy-outline"
-              title="בונה אווטאר השף"
-              subtitle="בונה האווטאר יהיה זמין לאחר טעינת מודול האווטאר."
+            <AvatarBuilder
+              onDirtyChange={handleDirty}
+              onSaved={() => {
+                handleDirty(false);
+                void refreshProfile();
+              }}
             />
           )}
         </View>
@@ -391,15 +397,10 @@ export function UserProfileSheet({ onRequestClose, onAvatarDirtyChange }: UserPr
         ) : null}
       </ConfirmDialog>
 
-      <ConfirmDialog
+      <AvatarUnsavedDialog
         visible={Boolean(discardTarget)}
-        title="לסגור בלי לשמור?"
-        message="יש שינויים שלא נשמרו באווטאר."
-        confirmLabel="סגור בלי לשמור"
-        cancelLabel="הישאר"
-        destructive
-        onCancel={() => setDiscardTarget(null)}
-        onConfirm={() => {
+        onKeepEditing={() => setDiscardTarget(null)}
+        onDiscard={() => {
           const fn = discardTarget;
           setDiscardTarget(null);
           handleDirty(false);

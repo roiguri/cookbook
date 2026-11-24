@@ -8,8 +8,36 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors, FONT_ASSETS } from '@/theme';
 import { initTelemetry } from '@/services/logger';
 import { ToastProvider } from '@/components/ui';
+import { PushForegroundBanner } from '@/components/ui/PushForegroundBanner';
 import { SessionProvider } from '@/context/SessionContext';
 import { EasterEggProvider } from '@/context/EasterEggContext';
+import { useDeepLinks } from '@/hooks/useDeepLinks';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { registerSuggestEditModalRenderer } from '@/components/recipe-detail';
+import { SuggestEditModal } from '@/components/recipe-form';
+
+registerSuggestEditModalRenderer(({ visible, recipeId, onClose, onSubmitted }) => (
+  <SuggestEditModal
+    visible={visible}
+    recipeId={recipeId}
+    onClose={onClose}
+    onSubmitted={onSubmitted}
+  />
+));
+
+function AppLifecycleBridge() {
+  useDeepLinks();
+  const { foregroundNotification, pressForegroundNotification, dismissForegroundNotification } =
+    usePushNotifications();
+
+  return (
+    <PushForegroundBanner
+      notification={foregroundNotification}
+      onPress={pressForegroundNotification}
+      onDismiss={dismissForegroundNotification}
+    />
+  );
+}
 
 // Cold-start Hebrew RTL lock (INV-P0-09): MUST execute before first render
 if (!I18nManager.isRTL) {
@@ -68,6 +96,7 @@ export default function RootLayout() {
                   />
                 </Stack>
               </EasterEggProvider>
+              <AppLifecycleBridge />
             </SessionProvider>
           </ToastProvider>
         </View>

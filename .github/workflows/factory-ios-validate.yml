@@ -201,6 +201,19 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" apps/mobile/ios-sim-cache/CookbookE2E.app
+          # Pre-accept the one-time iOS Simulator custom URL scheme prompt ("Open in ...?")
+          # so deep-link scenarios never stall behind an unhandled SpringBoard alert.
+          cat << 'EOF' > /tmp/ios-scheme-warmup.yml
+          appId: com.roiguri.cookbook.e2e
+          ---
+          - openLink: 'cookbook-e2e://home'
+          - tapOn:
+              text: 'Open'
+              optional: true
+          EOF
+          maestro --device "$UDID" test /tmp/ios-scheme-warmup.yml || true
+          rm -f /tmp/ios-scheme-warmup.yml
+          xcrun simctl terminate "$UDID" com.roiguri.cookbook.e2e || true
 
       - name: Start hermetic Cookbook DTU & execute validation on iOS Simulator
         env:
