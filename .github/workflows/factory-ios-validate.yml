@@ -1,10 +1,9 @@
 name: Factory iOS Simulator Validation (Gated, 0 EAS Builds)
 
-# Triggered ONLY via manual workflow_dispatch or an explicit opt-in tag push
-# (`factory-ios-smoke-*`, `factory-ios-holdout-slice<XX>-*`, `factory-ios-holdout-*`)
-# after local WSL2 Android convergence passes — never on normal branch pushes/PRs —
-# to conserve private-repo macOS runner minutes (10x multiplier) while keeping `main`
-# completely untouched.
+# Triggered ONLY via manual workflow_dispatch (on `native-mobile`, sharing actions/cache!)
+# or explicit opt-in tag push (`factory-ios-smoke-*`, `factory-ios-holdout-*`)
+# after local WSL2 Android convergence passes — never on normal pushes/PRs —
+# to conserve private-repo macOS runner minutes while keeping `main` untouched.
 on:
   workflow_dispatch:
     inputs:
@@ -36,14 +35,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ios-simulator-validate:
+  build-ios-sim:
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 45
     # Hard safety guard: never run autonomous factory validation on main
     if: github.ref != 'refs/heads/main'
+    outputs:
+      suite: ${{ steps.cfg.outputs.suite }}
+      slice: ${{ steps.cfg.outputs.slice }}
+      shards: ${{ steps.cfg.outputs.shards }}
+      fp_hash: ${{ steps.fp.outputs.hash }}
 
     steps:
-      - name: Resolve suite, slice filter & rebuild flags
+      - name: Resolve suite, slice filter & shard matrix
         id: cfg
         run: |
           SLICE=""
@@ -61,9 +65,17 @@ jobs:
             SUITE="smoke"
             FORCE_REBUILD="false"
           fi
+
+          if [ "$SUITE" = "holdout" ] && [ -z "$SLICE" ]; then
+            SHARDS='[{"id":"s1","suites":"A,B,C"},{"id":"s2","suites":"D,E,F"},{"id":"s3","suites":"G,H,I"},{"id":"s4","suites":"J,K,L"}]'
+          else
+            SHARDS='[{"id":"single","suites":""}]'
+          fi
+
           echo "suite=${SUITE}" >> "$GITHUB_OUTPUT"
           echo "slice=${SLICE}" >> "$GITHUB_OUTPUT"
           echo "force_native_rebuild=${FORCE_REBUILD}" >> "$GITHUB_OUTPUT"
+          echo "shards=${SHARDS}" >> "$GITHUB_OUTPUT"
           echo "Resolved suite=${SUITE}, slice=${SLICE:-all}, force_native_rebuild=${FORCE_REBUILD} (ref=${{ github.ref }})"
 
       - name: Checkout repository
@@ -75,17 +87,8 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Setup Java 21 (for Firebase Local Emulators)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Install root, functions, and mobile dependencies
-        run: |
-          npm ci
-          npm --prefix functions ci
-          npm --prefix apps/mobile ci
+      - name: Install mobile dependencies
+        run: npm --prefix apps/mobile ci
 
       - name: Compute iOS native fingerprint
         id: fp
@@ -170,6 +173,61 @@ jobs:
             --assets-dest ios-sim-cache/CookbookE2E.app \
             --dev false
 
+      - name: Package CookbookE2E.app tarball (preserves Mach-O executable bits & symlinks)
+        run: |
+          tar -cf CookbookE2E.app.tar -C apps/mobile/ios-sim-cache CookbookE2E.app
+          ls -lh CookbookE2E.app.tar
+
+      - name: Upload compiled CookbookE2E.app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-sim-app-${{ github.run_number }}
+          path: CookbookE2E.app.tar
+          retention-days: 14
+
+  validate-ios-sim:
+    needs: build-ios-sim
+    runs-on: macos-15
+    timeout-minutes: 45
+    if: github.ref != 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.build-ios-sim.outputs.shards) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java 21 (for Firebase Local Emulators)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install root & functions dependencies for hermetic DTU
+        run: |
+          npm ci
+          npm --prefix functions ci
+
+      - name: Download compiled CookbookE2E.app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-sim-app-${{ github.run_number }}
+          path: .
+
+      - name: Extract CookbookE2E.app
+        run: |
+          mkdir -p apps/mobile/ios-sim-cache
+          tar -xf CookbookE2E.app.tar -C apps/mobile/ios-sim-cache
+          ls -ld apps/mobile/ios-sim-cache/CookbookE2E.app
+
       - name: Install Firebase CLI & Maestro CLI
         run: |
           npm install -g firebase-tools
@@ -177,14 +235,14 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Checkout isolated holdout repository (holdout suite only)
-        if: ${{ steps.cfg.outputs.suite == 'holdout' }}
+        if: ${{ needs.build-ios-sim.outputs.suite == 'holdout' }}
         uses: actions/checkout@v4
         with:
           repository: roiguri/cookbook-factory-holdout
           ssh-key: ${{ secrets.HOLDOUT_REPO_DEPLOY_KEY }}
           path: .factory-holdout
 
-      - name: Boot iOS Simulator & install compiled .app
+      - name: Boot iOS Simulator, install .app & verify SpringBoard URL-scheme approval
         run: |
           UDID=$(xcrun simctl list devices available -j | node -e "
             const d = JSON.parse(require('fs').readFileSync(0,'utf8')).devices;
@@ -201,32 +259,56 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" apps/mobile/ios-sim-cache/CookbookE2E.app
-          # Pre-accept the one-time iOS Simulator custom URL scheme prompt ("Open in ...?")
-          # so deep-link scenarios never stall behind an unhandled SpringBoard alert.
+
+          # Launch the app FIRST so Maestro XCTest attaches to the active window, then open
+          # the custom scheme URL and explicitly tap SpringBoard's one-time "Open" confirmation
+          # (both before and after clearState), failing fast if any SpringBoard alert remains.
+          xcrun simctl launch "$UDID" com.roiguri.cookbook.e2e || true
+          sleep 4
+          xcrun simctl openurl "$UDID" "cookbook-e2e://home" || true
+          sleep 3
           cat << 'EOF' > /tmp/ios-scheme-warmup.yml
           appId: com.roiguri.cookbook.e2e
           ---
+          - tapOn:
+              text: 'Open'
+              optional: true
+          - waitForAnimationToEnd
+          - tapOn:
+              text: 'Open'
+              optional: true
+          - waitForAnimationToEnd
+          - assertNotVisible:
+              text: 'Open in.*'
+          - launchApp:
+              clearState: true
           - openLink: 'cookbook-e2e://home'
           - tapOn:
               text: 'Open'
               optional: true
+          - waitForAnimationToEnd
+          - assertNotVisible:
+              text: 'Open in.*'
           EOF
-          maestro --device "$UDID" test /tmp/ios-scheme-warmup.yml || true
+          maestro --device "$UDID" test /tmp/ios-scheme-warmup.yml
           rm -f /tmp/ios-scheme-warmup.yml
           xcrun simctl terminate "$UDID" com.roiguri.cookbook.e2e || true
 
-      - name: Start hermetic Cookbook DTU & execute validation on iOS Simulator
+      - name: Start hermetic Cookbook DTU & execute iOS Simulator shard (${{ matrix.shard.id }})
         env:
           NO_UPDATE_NOTIFIER: '1'
         run: |
           mkdir -p factory-ios-artifacts
-          if [ "${{ steps.cfg.outputs.suite }}" = "holdout" ]; then
-            SLICE_ARG=""
-            if [ -n "${{ steps.cfg.outputs.slice }}" ]; then
-              SLICE_ARG="--slice=${{ steps.cfg.outputs.slice }}"
+          if [ "${{ needs.build-ios-sim.outputs.suite }}" = "holdout" ]; then
+            FILTER_ARGS=""
+            if [ -n "${{ needs.build-ios-sim.outputs.slice }}" ]; then
+              FILTER_ARGS="${FILTER_ARGS} --slice=${{ needs.build-ios-sim.outputs.slice }}"
+            fi
+            if [ -n "${{ matrix.shard.suites }}" ]; then
+              FILTER_ARGS="${FILTER_ARGS} --suite=${{ matrix.shard.suites }}"
             fi
             node factory/dtu/start-dtu.mjs --seed=baseline \
-              --exec="node factory/validator/run-validation.mjs --holdout-dir=.factory-holdout --platform=ios --device=\"${SIM_UDID}\" --out-dir=factory-ios-artifacts --deterministic-only --save-trajectories ${SLICE_ARG}"
+              --exec="node factory/validator/run-validation.mjs --holdout-dir=.factory-holdout --platform=ios --device=\"${SIM_UDID}\" --out-dir=factory-ios-artifacts --deterministic-only --save-trajectories ${FILTER_ARGS}"
           else
             node factory/dtu/start-dtu.mjs --seed=baseline \
               --exec="maestro --device \"${SIM_UDID}\" test --debug-output factory-ios-artifacts --flatten-debug-output apps/mobile/.maestro/smoke/boot-dtu.yml"
@@ -236,12 +318,10 @@ jobs:
         if: always()
         run: rm -rf .factory-holdout
 
-      - name: Upload iOS Simulator .app and validation artifacts
+      - name: Upload iOS shard validation artifacts (${{ matrix.shard.id }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-simulator-validation-${{ steps.cfg.outputs.suite }}-${{ github.run_number }}
-          path: |
-            apps/mobile/ios-sim-cache/CookbookE2E.app
-            factory-ios-artifacts/
+          name: ios-simulator-validation-${{ needs.build-ios-sim.outputs.suite }}-${{ matrix.shard.id }}-${{ github.run_number }}
+          path: factory-ios-artifacts/
           retention-days: 14

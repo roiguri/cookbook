@@ -2,13 +2,15 @@
  * Gated macos-15 iOS Simulator Verification Trigger & Artifact Collector.
  *
  * Triggered ONLY AFTER local Android convergence passes >= 95% + 0 P0
- * violations (or during the Phase 4 Slice 00 dry run). Uses opt-in Git tags
- * (`factory-ios-holdout-slice<XX>-*`, `factory-ios-holdout-full-*`, or
- * `factory-ios-smoke-*`) so `main` stays 100% untouched.
+ * violations (or during the Phase 4 Slice 00 dry run). Uses deterministic
+ * reusable opt-in Git tags (`factory-ios-holdout-full`,
+ * `factory-ios-holdout-slice<XX>`, or `factory-ios-smoke`) so `main` stays
+ * 100% untouched AND GitHub Actions `actions/cache@v4` shares `CookbookE2E.app`
+ * across JS-only fix commits on the same tag ref.
  *
- * Downloads the compiled `CookbookE2E.app` + `factory-ios-artifacts/` from GitHub
- * Actions and runs the local authenticated Multimodal `agy` Judge over the iOS
- * trajectories & screenshots.
+ * Downloads the compiled `CookbookE2E.app` tarball plus all parallel shard
+ * trajectory bundles, merges them into a unified `merged/trajectories.json`,
+ * and runs the local authenticated Multimodal `agy` Judge (`concurrency: 2`).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +29,57 @@ function runGh(args, cwd = ROOT) {
   return (res.stdout || '').trim();
 }
 
+function findTrajectoryFiles(rootDir) {
+  const found = [];
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isFile() && entry.name === 'trajectories.json') {
+        found.push(full);
+      } else if (entry.isDirectory() && entry.name !== 'merged') {
+        walk(full);
+      }
+    }
+  };
+  walk(rootDir);
+  return found.sort();
+}
+
+function mergeShardTrajectories(outDir, trajectoryFiles) {
+  if (trajectoryFiles.length === 0) return null;
+  if (trajectoryFiles.length === 1) {
+    return path.dirname(trajectoryFiles[0]);
+  }
+
+  const mergedDir = path.join(outDir, 'merged');
+  fs.mkdirSync(mergedDir, { recursive: true });
+
+  const mergedItems = [];
+  let platform = 'ios';
+  for (const file of trajectoryFiles) {
+    const shardDir = path.dirname(file);
+    const bundle = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (bundle.platform) platform = bundle.platform;
+    for (const entry of bundle.trajectories || []) {
+      const resolvedShots = (entry.screenshots || []).map((rel) =>
+        path.isAbsolute(rel) ? rel : path.resolve(shardDir, rel),
+      );
+      mergedItems.push({
+        ...entry,
+        screenshots: resolvedShots,
+      });
+    }
+  }
+
+  mergedItems.sort((a, b) => String(a.scenarioId || '').localeCompare(String(b.scenarioId || '')));
+  fs.writeFileSync(
+    path.join(mergedDir, 'trajectories.json'),
+    JSON.stringify({ platform, consecutivePasses: 1, trajectories: mergedItems }, null, 2),
+  );
+  return mergedDir;
+}
+
 export async function runGatedIosVerification({
   mode = 'holdout',
   slice = '',
@@ -35,33 +88,75 @@ export async function runGatedIosVerification({
   deterministicOnly = false,
   cwd = ROOT,
 } = {}) {
-  const stamp = new Date()
-    .toISOString()
-    .replace(/[-:T.Z]/g, '')
-    .slice(0, 14);
-  const tagName =
-    mode === 'smoke'
-      ? `factory-ios-smoke-${stamp}`
-      : slice
-        ? `factory-ios-holdout-slice${String(slice).padStart(2, '0')}-${stamp}`
-        : `factory-ios-holdout-full-${stamp}`;
+  const branch = (
+    spawnSync('git', ['branch', '--show-current'], { cwd, encoding: 'utf8' }).stdout || ''
+  ).trim();
+  if (!branch || branch === 'main' || branch === 'staging' || branch === 'development') {
+    throw new Error(`Refusing iOS trigger from protected/unknown branch "${branch}".`);
+  }
 
-  // Push current native-mobile HEAD and opt-in tag
-  const pushBranch = spawnSync('git', ['push', 'origin', 'native-mobile'], {
+  const headSha = (
+    spawnSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).stdout || ''
+  ).trim();
+
+  const pushBranch = spawnSync('git', ['push', 'origin', branch], {
     cwd,
     encoding: 'utf8',
   });
   if (pushBranch.status !== 0) {
-    throw new Error(`git push origin native-mobile failed: ${pushBranch.stderr}`);
+    throw new Error(`git push origin ${branch} failed: ${pushBranch.stderr}`);
   }
 
-  const tagRes = spawnSync('git', ['tag', tagName], { cwd, encoding: 'utf8' });
+  const baseTag =
+    mode === 'smoke'
+      ? 'factory-ios-smoke'
+      : slice
+        ? `factory-ios-holdout-slice${String(slice).padStart(2, '0')}`
+        : 'factory-ios-holdout-full';
+
+  // Snapshot existing workflow runs before pushing the tag
+  const beforeRaw = runGh(
+    [
+      'run',
+      'list',
+      '--workflow=factory-ios-validate.yml',
+      '--limit',
+      '15',
+      '--json',
+      'databaseId,headBranch,headSha',
+    ],
+    cwd,
+  );
+  const existingRuns = JSON.parse(beforeRaw || '[]');
+  const existingIds = new Set(existingRuns.map((r) => String(r.databaseId)));
+
+  // Reuse baseTag when HEAD has advanced (preserving actions/cache@v4 on the tag ref);
+  // fall back to a stamped tag only if baseTag already points to this exact commit SHA.
+  const remoteTagSha = (
+    spawnSync('git', ['ls-remote', '--tags', 'origin', `refs/tags/${baseTag}`], {
+      cwd,
+      encoding: 'utf8',
+    }).stdout || ''
+  )
+    .trim()
+    .split(/\s+/)[0];
+
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:T.Z]/g, '')
+    .slice(0, 14);
+  const tagName = remoteTagSha === headSha ? `${baseTag}-${stamp}` : baseTag;
+
+  const tagRes = spawnSync('git', ['tag', '-f', tagName], { cwd, encoding: 'utf8' });
   if (tagRes.status !== 0) {
-    throw new Error(`git tag ${tagName} failed: ${tagRes.stderr}`);
+    throw new Error(`git tag -f ${tagName} failed: ${tagRes.stderr}`);
   }
-  const pushTag = spawnSync('git', ['push', 'origin', tagName], { cwd, encoding: 'utf8' });
+  const pushTag = spawnSync('git', ['push', '-f', 'origin', `refs/tags/${tagName}`], {
+    cwd,
+    encoding: 'utf8',
+  });
   if (pushTag.status !== 0) {
-    throw new Error(`git push origin ${tagName} failed: ${pushTag.stderr}`);
+    throw new Error(`git push -f origin ${tagName} failed: ${pushTag.stderr}`);
   }
 
   console.log(`[ios-gate] Triggered macos-15 workflow via tag ${tagName}. Waiting for run ID...`);
@@ -75,14 +170,16 @@ export async function runGatedIosVerification({
         'list',
         '--workflow=factory-ios-validate.yml',
         '--limit',
-        '10',
+        '15',
         '--json',
-        'databaseId,headBranch,status,conclusion',
+        'databaseId,headBranch,headSha,status,conclusion',
       ],
       cwd,
     );
     const runs = JSON.parse(raw || '[]');
-    const match = runs.find((r) => r.headBranch === tagName);
+    const match = runs.find(
+      (r) => !existingIds.has(String(r.databaseId)) && r.headBranch === tagName,
+    );
     if (match) {
       runId = String(match.databaseId);
       break;
@@ -109,22 +206,10 @@ export async function runGatedIosVerification({
     console.warn(`[ios-gate] Artifact download warning: ${dlRes.stderr}`);
   }
 
-  // Locate downloaded trajectories.json if holdout mode
   let trajectoriesDir = null;
   if (mode === 'holdout') {
-    const walkFind = (dir) => {
-      if (!fs.existsSync(dir)) return null;
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isFile() && entry.name === 'trajectories.json') return dir;
-        if (entry.isDirectory()) {
-          const hit = walkFind(full);
-          if (hit) return hit;
-        }
-      }
-      return null;
-    };
-    trajectoriesDir = walkFind(outDir);
+    const trajFiles = findTrajectoryFiles(outDir);
+    trajectoriesDir = mergeShardTrajectories(outDir, trajFiles);
   }
 
   if (mode === 'holdout' && trajectoriesDir) {
@@ -170,15 +255,15 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   runGatedIosVerification({
     mode,
     slice,
-    outDir,
+    outDir: path.resolve(outDir),
     ...(model ? { judgeModel: model } : {}),
     deterministicOnly,
   })
     .then((res) => {
-      console.log(
-        `[ios-gate] tag=${res.tagName} runId=${res.runId} ciPassed=${res.ciPassed} converged=${res.report?.convergence?.converged ?? res.ciPassed}`,
-      );
       const ok = res.report ? res.report.convergence.converged : res.ciPassed;
+      console.log(
+        `[ios-gate] run=${res.runId} tag=${res.tagName} ciPassed=${res.ciPassed} converged=${ok}`,
+      );
       process.exit(ok ? 0 : 1);
     })
     .catch((err) => {

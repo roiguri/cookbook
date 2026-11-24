@@ -226,6 +226,9 @@ export async function runHoldoutValidation({
     if (finalOutcome) {
       allJudgments.push(finalOutcome.judgment);
       allTickets.push(...finalOutcome.tickets);
+      console.log(
+        `[validator] (${allJudgments.length}/${selected.length}) ${scenario.id} platform=${platform} passed=${finalOutcome.judgment.passed} score=${finalOutcome.judgment.weightedScore} p0=${finalOutcome.judgment.p0Violation}`,
+      );
     }
     if (saveTrajectories && finalTrajectory) {
       savedTrajectories.push({
