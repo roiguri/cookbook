@@ -96,7 +96,7 @@ const PALETTE_FOR: Partial<Record<AvatarPartCategory, AvatarColorGroup>> = {
   outfit: 'outfit',
 };
 
-const PREVIEW_SIZE = 180;
+const PREVIEW_SIZE = 148;
 const TILE_SIZE = 68;
 const TILE_SVG_SIZE = 60;
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -677,13 +677,8 @@ export function AvatarBuilder({ onDirtyChange, onSaved }: AvatarBuilderProps) {
         </View>
       </View>
 
-      {/* Exact 10 category tabs in order */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabsScrollContent}
-        accessibilityRole="tablist"
-      >
+      {/* Exact 10 category tabs wrapped in a clean 2-row grid so every category is immediately visible */}
+      <View style={styles.tabsGrid} accessibilityRole="tablist">
         {tabs.map((tab) => {
           const selected = tab.key === activeTabDef.key;
           return (
@@ -705,7 +700,7 @@ export function AvatarBuilder({ onDirtyChange, onSaved }: AvatarBuilderProps) {
             </PressableScale>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Active category panel: 2-row option tiles (for part tabs) + inline color swatches */}
       <View style={styles.panel}>
@@ -900,15 +895,15 @@ const styles = StyleSheet.create({
   feedbackTextErr: {
     color: statusColors.rejectedText,
   },
-  tabsScrollContent: {
+  tabsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
     paddingVertical: 2,
-    paddingHorizontal: 2,
   },
   tabPill: {
-    paddingVertical: 7,
-    paddingHorizontal: 13,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.hairlineStrong,

@@ -294,7 +294,7 @@ export function SubmissionsSection({
   }, [previewRow, getAuthorName, getRejectMode]);
 
   return (
-    <View testID="dashboard-section-submissions" collapsable={false}>
+    <View testID="dashboard-panel-submissions" collapsable={false}>
       <Card style={styles.sectionCard}>
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>

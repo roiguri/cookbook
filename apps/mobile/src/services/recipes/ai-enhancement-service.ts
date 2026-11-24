@@ -321,7 +321,7 @@ export async function replaceRecipeImageWithBackup({
       let originalContentType = inferContentTypeFromPath(originalPath);
       try {
         const meta = await getStorageMetadata(originalPath);
-        if (meta?.contentType) {
+        if (meta?.contentType && /^image\//i.test(meta.contentType)) {
           originalContentType = meta.contentType;
         }
       } catch {

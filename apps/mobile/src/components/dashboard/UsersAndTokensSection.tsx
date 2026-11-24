@@ -79,6 +79,7 @@ function formatDayTime(ms: number | null): string {
 }
 
 export interface UsersAndTokensSectionProps {
+  mode?: 'both' | 'users' | 'api-tokens';
   users: UserProfileDoc[];
   tokens: ApiTokenRecord[];
   maxTokensPerUser: number;
@@ -94,6 +95,7 @@ export interface UsersAndTokensSectionProps {
 }
 
 export function UsersAndTokensSection({
+  mode = 'both',
   users,
   tokens,
   maxTokensPerUser,
@@ -316,370 +318,377 @@ export function UsersAndTokensSection({
     }
   }, [revokeTarget, revokingId, tokens, onTokensChanged, showToast]);
 
+  const showUsers = mode === 'both' || mode === 'users';
+  const showTokens = mode === 'both' || mode === 'api-tokens';
+
   return (
     <View style={styles.wrapper}>
       {/* 1. User Role Management Section */}
-      <View testID="dashboard-section-users" collapsable={false}>
-        <Card style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <PressableScale
-              testID="dashboard-section-users-toggle"
-              variant="button"
-              onPress={() => setUsersExpanded((prev) => !prev)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: usersExpanded }}
-              style={styles.sectionToggle}
-            >
-              <View style={styles.sectionTitleGroup}>
-                <Ionicons name="people-outline" size={20} color={colors.primaryDark} />
-                <Text style={styles.sectionTitle}>ניהול משתמשים</Text>
-                <Badge label={String(users.length)} tone="neutral" />
-              </View>
-              <Ionicons
-                name={usersExpanded ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={colors.ink3}
-              />
-            </PressableScale>
+      {showUsers ? (
+        <View testID="dashboard-panel-users" collapsable={false}>
+          <Card style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <PressableScale
+                testID="dashboard-section-users-toggle"
+                variant="button"
+                onPress={() => setUsersExpanded((prev) => !prev)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: usersExpanded }}
+                style={styles.sectionToggle}
+              >
+                <View style={styles.sectionTitleGroup}>
+                  <Ionicons name="people-outline" size={20} color={colors.primaryDark} />
+                  <Text style={styles.sectionTitle}>ניהול משתמשים</Text>
+                  <Badge label={String(users.length)} tone="neutral" />
+                </View>
+                <Ionicons
+                  name={usersExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.ink3}
+                />
+              </PressableScale>
 
-            <PressableScale
-              testID="dashboard-section-users-refresh"
-              variant="icon"
-              disabled={refreshingUsers}
-              onPress={() => {
-                void onRefreshUsers();
-              }}
-              accessibilityLabel="רענן רשימת משתמשים"
-              style={styles.refreshBtn}
-            >
-              {refreshingUsers ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons name="refresh" size={18} color={colors.ink2} />
-              )}
-            </PressableScale>
-          </View>
-
-          {usersExpanded ? (
-            <View style={styles.sectionBody}>
-              {loadingUsers && users.length === 0 ? (
-                <View style={styles.loadingRow}>
+              <PressableScale
+                testID="dashboard-section-users-refresh"
+                variant="icon"
+                disabled={refreshingUsers}
+                onPress={() => {
+                  void onRefreshUsers();
+                }}
+                accessibilityLabel="רענן רשימת משתמשים"
+                style={styles.refreshBtn}
+              >
+                {refreshingUsers ? (
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.emptyText}>טוען משתמשים...</Text>
-                </View>
-              ) : users.length === 0 ? (
-                <Text style={styles.emptyText}>אין משתמשים רשומים</Text>
-              ) : (
-                <View style={styles.list}>
-                  {users.map((u) => {
-                    const persistedRole = (u.role || 'user') as ManageableRole;
-                    const draftRole = draftRoles[u.id] || persistedRole;
-                    const isSaving = savingUid === u.id;
-                    const isSelf = u.id === currentManagerUid;
-                    const userTokenCount = tokenCountByUid[u.id] || 0;
-
-                    return (
-                      <View
-                        key={u.id}
-                        testID={`user-row-${u.id}`}
-                        collapsable={false}
-                        style={styles.userRow}
-                      >
-                        <View style={styles.userTopRow}>
-                          <View style={styles.userInfo}>
-                            <View style={styles.userNameRow}>
-                              <Text style={styles.userName} numberOfLines={1}>
-                                {u.fullName || u.email || u.id}
-                              </Text>
-                              {isSelf ? <Badge label="את/ה" tone="success" /> : null}
-                            </View>
-                            {u.email && u.fullName ? (
-                              <Text style={styles.userEmail} numberOfLines={1}>
-                                {u.email}
-                              </Text>
-                            ) : null}
-                          </View>
-                          {userTokenCount > 0 ? (
-                            <Badge
-                              label={`${userTokenCount}/${effectiveMaxPerUser} טוקנים`}
-                              tone="neutral"
-                            />
-                          ) : null}
-                        </View>
-
-                        <View style={styles.roleControlsRow}>
-                          <Text style={styles.roleLabel}>תפקיד:</Text>
-                          <PressableScale
-                            testID={`user-role-select-${u.id}`}
-                            variant="button"
-                            disabled={isSaving}
-                            onPress={() => setRolePickerUser(u)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`בחירת תפקיד עבור ${u.fullName || u.email || u.id}`}
-                            style={styles.roleSelectTrigger}
-                          >
-                            <Text style={styles.roleSelectText} allowFontScaling={false}>
-                              {ROLE_LABELS[draftRole] || draftRole}
-                            </Text>
-                            <Ionicons name="chevron-down" size={16} color={colors.ink3} />
-                          </PressableScale>
-
-                          <Button
-                            testID={`user-role-save-${u.id}`}
-                            label="שמור"
-                            variant="primary"
-                            size="sm"
-                            loading={isSaving}
-                            disabled={Boolean(savingUid && !isSaving)}
-                            onPress={() => handleSaveRolePress(u)}
-                          />
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
+                ) : (
+                  <Ionicons name="refresh" size={18} color={colors.ink2} />
+                )}
+              </PressableScale>
             </View>
-          ) : null}
-        </Card>
-      </View>
 
-      {/* 2. Recipe API Tokens Section */}
-      <View testID="dashboard-section-api-tokens" collapsable={false}>
-        <Card style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <PressableScale
-              testID="dashboard-section-api-tokens-toggle"
-              variant="button"
-              onPress={() => setTokensExpanded((prev) => !prev)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: tokensExpanded }}
-              style={styles.sectionToggle}
-            >
-              <View style={styles.sectionTitleGroup}>
-                <Ionicons name="key-outline" size={20} color={colors.primaryDark} />
-                <Text style={styles.sectionTitle}>גישת API</Text>
-                <Badge label={String(tokens.length)} tone="neutral" />
-              </View>
-              <Ionicons
-                name={tokensExpanded ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={colors.ink3}
-              />
-            </PressableScale>
+            {usersExpanded ? (
+              <View style={styles.sectionBody}>
+                {loadingUsers && users.length === 0 ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.emptyText}>טוען משתמשים...</Text>
+                  </View>
+                ) : users.length === 0 ? (
+                  <Text style={styles.emptyText}>אין משתמשים רשומים</Text>
+                ) : (
+                  <View style={styles.list}>
+                    {users.map((u) => {
+                      const persistedRole = (u.role || 'user') as ManageableRole;
+                      const draftRole = draftRoles[u.id] || persistedRole;
+                      const isSaving = savingUid === u.id;
+                      const isSelf = u.id === currentManagerUid;
+                      const userTokenCount = tokenCountByUid[u.id] || 0;
 
-            <PressableScale
-              testID="dashboard-section-api-tokens-refresh"
-              variant="icon"
-              disabled={refreshingTokens}
-              onPress={() => {
-                void onRefreshTokens();
-              }}
-              accessibilityLabel="רענן טוקנים"
-              style={styles.refreshBtn}
-            >
-              {refreshingTokens ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons name="refresh" size={18} color={colors.ink2} />
-              )}
-            </PressableScale>
-          </View>
-
-          {tokensExpanded ? (
-            <View style={styles.sectionBody}>
-              {tokensLoadError ? (
-                <View style={styles.loadErrorRow}>
-                  <Text style={styles.emptyText}>לא ניתן לטעון את הטוקנים.</Text>
-                  <Button
-                    label="נסו שוב"
-                    variant="secondary"
-                    size="sm"
-                    loading={refreshingTokens}
-                    onPress={() => {
-                      void onRefreshTokens();
-                    }}
-                  />
-                </View>
-              ) : (
-                <>
-                  {/* Existing tokens list */}
-                  {sortedTokens.length === 0 ? (
-                    <Text style={styles.emptyText}>אין טוקנים פעילים.</Text>
-                  ) : (
-                    <View style={styles.list}>
-                      {sortedTokens.map((token) => {
-                        const owner = usersById[token.uid];
-                        const ownerEligible = owner ? isEligibleForTokens(owner.role) : true;
-                        const isRevoking = revokingId === token.tokenId;
-
-                        return (
-                          <View
-                            key={token.tokenId}
-                            testID={`api-token-item-${token.tokenId}`}
-                            collapsable={false}
-                            style={styles.tokenRow}
-                          >
-                            <View style={styles.tokenTopRow}>
-                              <View style={styles.tokenInfo}>
-                                <Text style={styles.tokenName} numberOfLines={2}>
-                                  {token.name}
+                      return (
+                        <View
+                          key={u.id}
+                          testID={`user-row-${u.id}`}
+                          collapsable={false}
+                          style={styles.userRow}
+                        >
+                          <View style={styles.userTopRow}>
+                            <View style={styles.userInfo}>
+                              <View style={styles.userNameRow}>
+                                <Text style={styles.userName} numberOfLines={1}>
+                                  {u.fullName || u.email || u.id}
                                 </Text>
-                                <Text style={styles.tokenMeta}>בעלים: {labelOf(token.uid)}</Text>
-                                <Text style={styles.tokenMeta}>
-                                  {`\u2066${token.prefix}…\u2069 · נוצר ${formatDay(token.createdAt)} ע״י ${labelOf(token.createdBy)} · ${formatDayTime(token.lastUsedAt)}`}
-                                </Text>
+                                {isSelf ? <Badge label="את/ה" tone="success" /> : null}
                               </View>
-
-                              <Button
-                                testID={`api-token-revoke-${token.tokenId}`}
-                                label="בטל"
-                                variant="danger"
-                                size="sm"
-                                loading={isRevoking}
-                                disabled={Boolean(revokingId && !isRevoking)}
-                                onPress={() => setRevokeTarget(token)}
-                              />
-                            </View>
-
-                            <View style={styles.tokenBadges}>
-                              <Badge
-                                label={SCOPE_LABELS[token.scope] || token.scope}
-                                tone="neutral"
-                              />
-                              {!ownerEligible ? (
-                                <Badge label="לא פעיל (תפקיד)" tone="danger" />
+                              {u.email && u.fullName ? (
+                                <Text style={styles.userEmail} numberOfLines={1}>
+                                  {u.email}
+                                </Text>
                               ) : null}
                             </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-
-                  {/* Owner selector & token creation */}
-                  {eligibleUsers.length > 0 ? (
-                    <View style={styles.tokenCreateBox}>
-                      <Text style={styles.subSectionLabel}>הנפקת טוקן אישי למשתמש מאושר:</Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.ownerChipStrip}
-                      >
-                        {eligibleUsers.map((u) => {
-                          const count = tokenCountByUid[u.id] || 0;
-                          const label = `${u.fullName || u.email || u.id} (${count}/${effectiveMaxPerUser})`;
-                          return (
-                            <Chip
-                              key={u.id}
-                              label={label}
-                              selected={selectedOwnerUid === u.id}
-                              onPress={() => {
-                                setSelectedOwnerUid(u.id);
-                                setTokenError(null);
-                              }}
-                            />
-                          );
-                        })}
-                      </ScrollView>
-
-                      {atPerUserLimit ? (
-                        <Text style={styles.limitNote}>
-                          לכל משתמש עד {effectiveMaxPerUser} טוקנים.
-                        </Text>
-                      ) : !createFormOpen ? (
-                        <Button
-                          testID="api-token-create-btn"
-                          label="+ טוקן חדש"
-                          variant="outline"
-                          size="sm"
-                          onPress={() => {
-                            setCreateFormOpen(true);
-                            setTokenScope(API_TOKEN_SCOPES.READ_WRITE);
-                            setTokenError(null);
-                          }}
-                          style={styles.openCreateBtn}
-                        />
-                      ) : (
-                        <View style={styles.createForm}>
-                          <View style={styles.inputHeaderRow}>
-                            <Text style={styles.fieldLabel}>שם הטוקן</Text>
-                            <Text style={styles.charCount}>
-                              {tokenName.length}/{API_TOKEN_MAX_NAME_LENGTH}
-                            </Text>
-                          </View>
-                          <TextInput
-                            testID="api-token-name-input"
-                            value={tokenName}
-                            onChangeText={(text) => {
-                              setTokenName(text.slice(0, API_TOKEN_MAX_NAME_LENGTH));
-                              if (tokenError) setTokenError(null);
-                            }}
-                            maxLength={API_TOKEN_MAX_NAME_LENGTH}
-                            placeholder="שם הטוקן (למשל Jarvis)"
-                            placeholderTextColor={colors.ink4}
-                            editable={!creatingToken}
-                            style={styles.textInput}
-                          />
-
-                          <Text style={styles.fieldLabel}>הרשאות</Text>
-                          <View style={styles.scopeRow}>
-                            <Chip
-                              testID="api-token-scope-read"
-                              label="קריאה"
-                              selected={tokenScope === API_TOKEN_SCOPES.READ}
-                              onPress={() => setTokenScope(API_TOKEN_SCOPES.READ)}
-                              style={styles.scopeChip}
-                            />
-                            <Chip
-                              testID="api-token-scope-read-write"
-                              label="קריאה וכתיבה"
-                              selected={tokenScope === API_TOKEN_SCOPES.READ_WRITE}
-                              onPress={() => setTokenScope(API_TOKEN_SCOPES.READ_WRITE)}
-                              style={styles.scopeChip}
-                            />
+                            {userTokenCount > 0 ? (
+                              <Badge
+                                label={`${userTokenCount}/${effectiveMaxPerUser} טוקנים`}
+                                tone="neutral"
+                              />
+                            ) : null}
                           </View>
 
-                          <View style={styles.createActions}>
+                          <View style={styles.roleControlsRow}>
+                            <Text style={styles.roleLabel}>תפקיד:</Text>
+                            <PressableScale
+                              testID={`user-role-select-${u.id}`}
+                              variant="button"
+                              disabled={isSaving}
+                              onPress={() => setRolePickerUser(u)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`בחירת תפקיד עבור ${u.fullName || u.email || u.id}`}
+                              style={styles.roleSelectTrigger}
+                            >
+                              <Text style={styles.roleSelectText} allowFontScaling={false}>
+                                {ROLE_LABELS[draftRole] || draftRole}
+                              </Text>
+                              <Ionicons name="chevron-down" size={16} color={colors.ink3} />
+                            </PressableScale>
+
                             <Button
-                              label="ביטול"
-                              variant="secondary"
-                              size="sm"
-                              disabled={creatingToken}
-                              onPress={() => {
-                                setCreateFormOpen(false);
-                                setTokenName('');
-                                setTokenScope(API_TOKEN_SCOPES.READ_WRITE);
-                                setTokenError(null);
-                              }}
-                              style={styles.createActionBtn}
-                            />
-                            <Button
-                              testID="api-token-submit-btn"
-                              label="צור"
+                              testID={`user-role-save-${u.id}`}
+                              label="שמור"
                               variant="primary"
                               size="sm"
-                              loading={creatingToken}
-                              onPress={() => {
-                                void handleCreateToken();
-                              }}
-                              style={styles.createActionBtn}
+                              loading={isSaving}
+                              disabled={Boolean(savingUid && !isSaving)}
+                              onPress={() => handleSaveRolePress(u)}
                             />
                           </View>
                         </View>
-                      )}
-                    </View>
-                  ) : (
-                    <Text style={styles.emptyText}>זמין רק למשתמשים מאושרים.</Text>
-                  )}
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            ) : null}
+          </Card>
+        </View>
+      ) : null}
 
-                  {tokenError ? <Text style={styles.errorText}>{tokenError}</Text> : null}
-                </>
-              )}
+      {/* 2. Recipe API Tokens Section */}
+      {showTokens ? (
+        <View testID="dashboard-panel-api-tokens" collapsable={false}>
+          <Card style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <PressableScale
+                testID="dashboard-section-api-tokens-toggle"
+                variant="button"
+                onPress={() => setTokensExpanded((prev) => !prev)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: tokensExpanded }}
+                style={styles.sectionToggle}
+              >
+                <View style={styles.sectionTitleGroup}>
+                  <Ionicons name="key-outline" size={20} color={colors.primaryDark} />
+                  <Text style={styles.sectionTitle}>גישת API</Text>
+                  <Badge label={String(tokens.length)} tone="neutral" />
+                </View>
+                <Ionicons
+                  name={tokensExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.ink3}
+                />
+              </PressableScale>
+
+              <PressableScale
+                testID="dashboard-section-api-tokens-refresh"
+                variant="icon"
+                disabled={refreshingTokens}
+                onPress={() => {
+                  void onRefreshTokens();
+                }}
+                accessibilityLabel="רענן טוקנים"
+                style={styles.refreshBtn}
+              >
+                {refreshingTokens ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="refresh" size={18} color={colors.ink2} />
+                )}
+              </PressableScale>
             </View>
-          ) : null}
-        </Card>
-      </View>
+
+            {tokensExpanded ? (
+              <View style={styles.sectionBody}>
+                {tokensLoadError ? (
+                  <View style={styles.loadErrorRow}>
+                    <Text style={styles.emptyText}>לא ניתן לטעון את הטוקנים.</Text>
+                    <Button
+                      label="נסו שוב"
+                      variant="secondary"
+                      size="sm"
+                      loading={refreshingTokens}
+                      onPress={() => {
+                        void onRefreshTokens();
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    {/* Existing tokens list */}
+                    {sortedTokens.length === 0 ? (
+                      <Text style={styles.emptyText}>אין טוקנים פעילים.</Text>
+                    ) : (
+                      <View style={styles.list}>
+                        {sortedTokens.map((token) => {
+                          const owner = usersById[token.uid];
+                          const ownerEligible = owner ? isEligibleForTokens(owner.role) : true;
+                          const isRevoking = revokingId === token.tokenId;
+
+                          return (
+                            <View
+                              key={token.tokenId}
+                              testID={`api-token-item-${token.tokenId}`}
+                              collapsable={false}
+                              style={styles.tokenRow}
+                            >
+                              <View style={styles.tokenTopRow}>
+                                <View style={styles.tokenInfo}>
+                                  <Text style={styles.tokenName} numberOfLines={2}>
+                                    {token.name}
+                                  </Text>
+                                  <Text style={styles.tokenMeta}>בעלים: {labelOf(token.uid)}</Text>
+                                  <Text style={styles.tokenMeta}>
+                                    {`\u2066${token.prefix}…\u2069 · נוצר ${formatDay(token.createdAt)} ע״י ${labelOf(token.createdBy)} · ${formatDayTime(token.lastUsedAt)}`}
+                                  </Text>
+                                </View>
+
+                                <Button
+                                  testID={`api-token-revoke-${token.tokenId}`}
+                                  label="בטל"
+                                  variant="danger"
+                                  size="sm"
+                                  loading={isRevoking}
+                                  disabled={Boolean(revokingId && !isRevoking)}
+                                  onPress={() => setRevokeTarget(token)}
+                                />
+                              </View>
+
+                              <View style={styles.tokenBadges}>
+                                <Badge
+                                  label={SCOPE_LABELS[token.scope] || token.scope}
+                                  tone="neutral"
+                                />
+                                {!ownerEligible ? (
+                                  <Badge label="לא פעיל (תפקיד)" tone="danger" />
+                                ) : null}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+
+                    {/* Owner selector & token creation */}
+                    {eligibleUsers.length > 0 ? (
+                      <View style={styles.tokenCreateBox}>
+                        <Text style={styles.subSectionLabel}>הנפקת טוקן אישי למשתמש מאושר:</Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.ownerChipStrip}
+                        >
+                          {eligibleUsers.map((u) => {
+                            const count = tokenCountByUid[u.id] || 0;
+                            const label = `${u.fullName || u.email || u.id} (${count}/${effectiveMaxPerUser})`;
+                            return (
+                              <Chip
+                                key={u.id}
+                                label={label}
+                                selected={selectedOwnerUid === u.id}
+                                onPress={() => {
+                                  setSelectedOwnerUid(u.id);
+                                  setTokenError(null);
+                                }}
+                              />
+                            );
+                          })}
+                        </ScrollView>
+
+                        {atPerUserLimit ? (
+                          <Text style={styles.limitNote}>
+                            לכל משתמש עד {effectiveMaxPerUser} טוקנים.
+                          </Text>
+                        ) : !createFormOpen ? (
+                          <Button
+                            testID="api-token-create-btn"
+                            label="+ טוקן חדש"
+                            variant="outline"
+                            size="sm"
+                            onPress={() => {
+                              setCreateFormOpen(true);
+                              setTokenScope(API_TOKEN_SCOPES.READ_WRITE);
+                              setTokenError(null);
+                            }}
+                            style={styles.openCreateBtn}
+                          />
+                        ) : (
+                          <View style={styles.createForm}>
+                            <View style={styles.inputHeaderRow}>
+                              <Text style={styles.fieldLabel}>שם הטוקן</Text>
+                              <Text style={styles.charCount}>
+                                {tokenName.length}/{API_TOKEN_MAX_NAME_LENGTH}
+                              </Text>
+                            </View>
+                            <TextInput
+                              testID="api-token-name-input"
+                              value={tokenName}
+                              onChangeText={(text) => {
+                                setTokenName(text.slice(0, API_TOKEN_MAX_NAME_LENGTH));
+                                if (tokenError) setTokenError(null);
+                              }}
+                              maxLength={API_TOKEN_MAX_NAME_LENGTH}
+                              placeholder="שם הטוקן (למשל Jarvis)"
+                              placeholderTextColor={colors.ink4}
+                              editable={!creatingToken}
+                              style={styles.textInput}
+                            />
+
+                            <Text style={styles.fieldLabel}>הרשאות</Text>
+                            <View style={styles.scopeRow}>
+                              <Chip
+                                testID="api-token-scope-read"
+                                label="קריאה"
+                                selected={tokenScope === API_TOKEN_SCOPES.READ}
+                                onPress={() => setTokenScope(API_TOKEN_SCOPES.READ)}
+                                style={styles.scopeChip}
+                              />
+                              <Chip
+                                testID="api-token-scope-read-write"
+                                label="קריאה וכתיבה"
+                                selected={tokenScope === API_TOKEN_SCOPES.READ_WRITE}
+                                onPress={() => setTokenScope(API_TOKEN_SCOPES.READ_WRITE)}
+                                style={styles.scopeChip}
+                              />
+                            </View>
+
+                            <View style={styles.createActions}>
+                              <Button
+                                label="ביטול"
+                                variant="secondary"
+                                size="sm"
+                                disabled={creatingToken}
+                                onPress={() => {
+                                  setCreateFormOpen(false);
+                                  setTokenName('');
+                                  setTokenScope(API_TOKEN_SCOPES.READ_WRITE);
+                                  setTokenError(null);
+                                }}
+                                style={styles.createActionBtn}
+                              />
+                              <Button
+                                testID="api-token-submit-btn"
+                                label="צור"
+                                variant="primary"
+                                size="sm"
+                                loading={creatingToken}
+                                onPress={() => {
+                                  void handleCreateToken();
+                                }}
+                                style={styles.createActionBtn}
+                              />
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    ) : (
+                      <Text style={styles.emptyText}>זמין רק למשתמשים מאושרים.</Text>
+                    )}
+
+                    {tokenError ? <Text style={styles.errorText}>{tokenError}</Text> : null}
+                  </>
+                )}
+              </View>
+            ) : null}
+          </Card>
+        </View>
+      ) : null}
 
       {/* Role Picker Sheet (Single mounted instance -> unambiguous user-role-option-<role>) */}
       <ModalSheet
@@ -881,9 +890,9 @@ const styles = StyleSheet.create({
   sectionBody: {
     borderTopWidth: 1,
     borderTopColor: colors.hairline,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -905,25 +914,29 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   list: {
-    gap: spacing.sm,
+    gap: 6,
   },
   userRow: {
     backgroundColor: colors.surface0,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.hairline,
-    padding: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 7,
+    gap: 4,
   },
   userTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
   userInfo: {
     flex: 1,
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
     minWidth: 0,
   },
   userNameRow: {
@@ -934,21 +947,21 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontFamily: fontFamilies.bodyBold,
-    fontSize: typeScale.step0,
+    fontSize: 13.5,
     color: colors.ink,
     textAlign: 'left',
     flexShrink: 1,
   },
   userEmail: {
     fontFamily: fontFamilies.body,
-    fontSize: 12,
+    fontSize: 11.5,
     color: colors.ink3,
     textAlign: 'left',
   },
   roleControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   roleLabel: {
     fontFamily: fontFamilies.bodyMedium,
@@ -964,8 +977,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.hairlineStrong,
     borderRadius: radii.sm,
-    paddingHorizontal: spacing.md,
-    minHeight: 38,
+    paddingHorizontal: spacing.sm,
+    minHeight: 32,
     gap: spacing.xs,
   },
   roleSelectText: {

@@ -197,6 +197,7 @@ export function GameHostModal({
   const handleRestart = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setErrorMsg(null);
+    setStatus('ready');
     hostRef.current?.restart();
   }, []);
 
@@ -455,8 +456,10 @@ export function GameHostModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       presentationStyle="fullScreen"
+      statusBarTranslucent
+      navigationBarTranslucent
       supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
       onRequestClose={handleRequestClose}
     >

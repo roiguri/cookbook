@@ -21,7 +21,7 @@ export interface GameCatalogEntry {
 }
 
 export type WebViewToNativeMessage =
-  | { type: 'host-booted' }
+  | { type: 'host-booted'; launchedGameKey?: GameKey | null }
   | { type: 'ready'; gameKey: GameKey; preferredOrientation: PreferredOrientation }
   | { type: 'haptic'; style: HapticStyle }
   | { type: 'complete'; elapsedMs: number }

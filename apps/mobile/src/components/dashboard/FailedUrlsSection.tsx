@@ -87,28 +87,36 @@ export function FailedUrlsSection({
     [showToast],
   );
 
+  const handleDeleteDirect = useCallback(
+    async (item: FailedUrlExtractionDoc) => {
+      if (deleting) return;
+      setDeleting(true);
+      try {
+        await FailedUrlExtractionService.delete(item.id);
+        setDeleteTarget(null);
+        showToast('הרשומה נמחקה בהצלחה', 'success');
+        await onDeleted();
+      } catch (err) {
+        captureError(err, {
+          service: 'dashboard',
+          op: 'deleteFailedUrl',
+          recordId: item.id,
+        });
+        showToast('מחיקת הרשומה נכשלה. נסו שוב.', 'error');
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [deleting, showToast, onDeleted],
+  );
+
   const handleConfirmDelete = useCallback(async () => {
-    if (!deleteTarget || deleting) return;
-    setDeleting(true);
-    try {
-      await FailedUrlExtractionService.delete(deleteTarget.id);
-      setDeleteTarget(null);
-      showToast('הרשומה נמחקה בהצלחה', 'success');
-      await onDeleted();
-    } catch (err) {
-      captureError(err, {
-        service: 'dashboard',
-        op: 'deleteFailedUrl',
-        recordId: deleteTarget.id,
-      });
-      showToast('מחיקת הרשומה נכשלה. נסו שוב.', 'error');
-    } finally {
-      setDeleting(false);
-    }
-  }, [deleteTarget, deleting, showToast, onDeleted]);
+    if (!deleteTarget) return;
+    await handleDeleteDirect(deleteTarget);
+  }, [deleteTarget, handleDeleteDirect]);
 
   return (
-    <View testID="dashboard-section-failed-urls" collapsable={false}>
+    <View testID="dashboard-panel-failed-urls" collapsable={false}>
       <Card style={styles.sectionCard}>
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>
@@ -211,7 +219,10 @@ export function FailedUrlsSection({
                           label="מחק"
                           variant="danger"
                           size="sm"
-                          onPress={() => setDeleteTarget(item)}
+                          disabled={deleting}
+                          onPress={() => {
+                            void handleDeleteDirect(item);
+                          }}
                         />
                       </View>
                     </View>

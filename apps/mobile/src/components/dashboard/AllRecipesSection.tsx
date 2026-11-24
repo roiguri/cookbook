@@ -178,7 +178,7 @@ export function AllRecipesSection({
   }, [deleteTarget, deleting, showToast, onMutated]);
 
   return (
-    <View testID="dashboard-section-all-recipes" collapsable={false}>
+    <View testID="dashboard-panel-all-recipes" collapsable={false}>
       <Card style={styles.sectionCard}>
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>

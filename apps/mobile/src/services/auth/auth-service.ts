@@ -256,12 +256,14 @@ export const AuthService = {
         await reauthWithEmailPassword(current, current.email, currentPassword);
       }
 
-      // Clean up Storage & Firestore artifacts before removing Auth credentials
-      // (while request.auth.uid == uid still satisfies Firestore/Storage rules).
-      await executeGlobalBeforeSignOutHooks(uid);
-      await UserService.deleteAvatar(uid);
-      await UserService.deleteAllDevices(uid);
-      await UserService.deleteActiveMeal(uid);
+      // Clean up Storage & Firestore artifacts in parallel before removing Auth
+      // credentials (while request.auth.uid == uid still satisfies rules).
+      await Promise.allSettled([
+        executeGlobalBeforeSignOutHooks(uid),
+        UserService.deleteAvatar(uid),
+        UserService.deleteAllDevices(uid),
+        UserService.deleteActiveMeal(uid),
+      ]);
       await UserService.delete(uid);
 
       await deleteAuthUser(current);

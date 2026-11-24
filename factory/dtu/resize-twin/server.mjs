@@ -75,6 +75,7 @@ export function resizeToWebpBuffer(inputBuffer, size) {
 export function isResizableRecipePhoto(objectPath) {
   if (typeof objectPath !== 'string') return false;
   if (/_(400x400|1080x1080)\.webp$/i.test(objectPath)) return false;
+  if (/_original\.[^./]+$/i.test(objectPath)) return false;
   const isRecipeImagePath =
     /^recipes\/[^/]+\/images\/[^/]+$/.test(objectPath) ||
     /^users\/[^/]+\/recipes\/[^/]+\/images\/[^/]+$/.test(objectPath);
@@ -118,7 +119,19 @@ export function createResizeTwinServer({
     return Buffer.from(await res.arrayBuffer());
   }
 
-  async function uploadWebp(objectPath, buffer) {
+  async function fetchObjectMetadata(objectPath) {
+    try {
+      const url = `${storageBaseUrl}/v0/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(objectPath)}`;
+      const res = await fetch(url, { headers: ownerHeaders });
+      if (!res.ok) return {};
+      const json = await res.json();
+      return json?.metadata && typeof json.metadata === 'object' ? json.metadata : {};
+    } catch {
+      return {};
+    }
+  }
+
+  async function uploadWebp(objectPath, buffer, sourceMetadata = {}) {
     const url = `${storageBaseUrl}/v0/b/${encodeURIComponent(bucket)}/o?name=${encodeURIComponent(objectPath)}`;
     const res = await fetch(url, {
       method: 'POST',
@@ -129,14 +142,30 @@ export function createResizeTwinServer({
       body: buffer,
     });
     if (!res.ok) throw new Error(`Failed to upload ${objectPath}: HTTP ${res.status}`);
+
+    const patchUrl = `${storageBaseUrl}/v0/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(objectPath)}`;
+    await fetch(patchUrl, {
+      method: 'PATCH',
+      headers: {
+        ...ownerHeaders,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contentType: 'image/webp',
+        metadata: sourceMetadata,
+      }),
+    }).catch(() => {});
   }
 
   async function resizeOne(objectPath) {
-    const original = await downloadObject(objectPath);
+    const [original, sourceMetadata] = await Promise.all([
+      downloadObject(objectPath),
+      fetchObjectMetadata(objectPath),
+    ]);
     const variants = variantPathsFor(objectPath);
     for (const v of variants) {
       const webpBuf = resizeToWebpBuffer(original, v.size);
-      await uploadWebp(v.path, webpBuf);
+      await uploadWebp(v.path, webpBuf, sourceMetadata);
     }
     processed.add(objectPath);
     return variants.map((v) => v.path);

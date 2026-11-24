@@ -1,4 +1,6 @@
+export { AppHeader } from './AppHeader';
 export { Badge, type BadgeTone } from './Badge';
+export { BottomTabBar } from './BottomTabBar';
 export { Button, type ButtonSize, type ButtonVariant } from './Button';
 export { Card } from './Card';
 export { Chip } from './Chip';

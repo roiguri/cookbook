@@ -190,8 +190,9 @@ const styles = StyleSheet.create({
     borderColor: colors.hairlineStrong,
     borderStartWidth: 4,
     borderStartColor: colors.primary,
-    padding: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 6,
     ...shadows.level1,
   },
   bannerActive: {

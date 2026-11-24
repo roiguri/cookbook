@@ -275,6 +275,7 @@ export async function runHoldoutValidation({
   if (saveTrajectories) {
     writeJsonReplace(path.join(outDir, 'trajectories.json'), {
       platform,
+      consecutivePasses,
       trajectories: savedTrajectories,
     });
   }
@@ -295,7 +296,30 @@ export async function judgeSavedTrajectories({
   const bundle = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   const items = bundle.trajectories || [];
 
+  const cacheDir = path.join(trajectoriesDir, 'judge-cache');
+  if (!deterministicOnly) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+  }
+  let completed = 0;
+
   const outcomes = await runPool(items, concurrency, async (entry) => {
+    const safeId = String(entry.scenarioId || 'unknown').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const cacheFile = path.join(cacheDir, `${safeId}.json`);
+    if (!deterministicOnly && fs.existsSync(cacheFile)) {
+      try {
+        const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        if (cached?.model === judgeModel && cached?.judgment) {
+          completed += 1;
+          console.log(
+            `[judge] (${completed}/${items.length}) ${entry.scenarioId} [cached] passed=${cached.judgment.passed} score=${cached.judgment.weightedScore} p0=${cached.judgment.p0Violation}`,
+          );
+          return cached;
+        }
+      } catch {
+        // Ignore corrupt cache entry and re-judge
+      }
+    }
+
     const resolvedShots = (entry.screenshots || [])
       .map((rel) => (path.isAbsolute(rel) ? rel : path.join(trajectoriesDir, rel)))
       .filter((p) => fs.existsSync(p));
@@ -303,11 +327,23 @@ export async function judgeSavedTrajectories({
       ...entry,
       screenshots: resolvedShots,
     };
-    return judgeTrajectory(trajectory, {
+    const outcome = await judgeTrajectory(trajectory, {
       rubricText: entry.rubricText || '',
       model: judgeModel,
       deterministicOnly,
     });
+    if (!deterministicOnly) {
+      try {
+        fs.writeFileSync(cacheFile, JSON.stringify(outcome, null, 2));
+      } catch {
+        // Non-fatal cache write failure
+      }
+    }
+    completed += 1;
+    console.log(
+      `[judge] (${completed}/${items.length}) ${entry.scenarioId} passed=${outcome.judgment.passed} score=${outcome.judgment.weightedScore} p0=${outcome.judgment.p0Violation} (${Math.round((outcome.durationMs || 0) / 1000)}s)`,
+    );
+    return outcome;
   });
 
   const allJudgments = outcomes.map((o) => o.judgment);
@@ -319,7 +355,7 @@ export async function judgeSavedTrajectories({
     generatedAt: new Date().toISOString(),
     platform: bundle.platform || items[0]?.platform || 'android',
     judgeModel: deterministicOnly ? 'deterministic-only' : judgeModel,
-    consecutivePasses: 1,
+    consecutivePasses: bundle.consecutivePasses || 1,
     convergence,
     scenarios: allJudgments.map((j) => ({
       scenarioId: j.scenarioId,

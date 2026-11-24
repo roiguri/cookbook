@@ -109,6 +109,32 @@ function runOrDie(cmd, args, cwd, env, logArgs = args) {
 }
 
 /**
+ * Idempotently ensure MainActivity.onNewIntent updates the Activity intent via
+ * setIntent(intent) so cold-start deep links delivered before Hermes boots are
+ * always available to Linking.getInitialURL().
+ */
+function ensureMainActivityOnNewIntent() {
+  const pkgPath =
+    VARIANT === 'staging' ? 'com/roiguri/cookbook/staging' : 'com/roiguri/cookbook/e2e';
+  const mainActivityPath = path.join(ANDROID_DIR, 'app/src/main/java', pkgPath, 'MainActivity.kt');
+  if (!fs.existsSync(mainActivityPath)) return;
+  let content = fs.readFileSync(mainActivityPath, 'utf8');
+  if (content.includes('override fun onNewIntent(')) return;
+
+  if (!content.includes('import android.content.Intent')) {
+    content = content.replace(
+      'import android.os.Build',
+      'import android.content.Intent\nimport android.os.Build',
+    );
+  }
+  content = content.replace(
+    /(override fun onCreate\(savedInstanceState: Bundle\?\) \{[\s\S]*?\n  \})/,
+    `$1\n\n  override fun onNewIntent(intent: Intent) {\n    setIntent(intent)\n    super.onNewIntent(intent)\n  }`,
+  );
+  fs.writeFileSync(mainActivityPath, content, 'utf8');
+}
+
+/**
  * Idempotently inject optional Gradle property-driven staging signing config
  * into android/app/build.gradle so keystore passwords never touch disk.
  */
@@ -183,6 +209,8 @@ if (fs.existsSync(gradlePropsPath)) {
   }
   fs.writeFileSync(gradlePropsPath, props, 'utf8');
 }
+
+ensureMainActivityOnNewIntent();
 
 if (VARIANT === 'staging') {
   ensureGradleStagingSigningConfig();

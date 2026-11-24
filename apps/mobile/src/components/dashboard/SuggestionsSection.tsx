@@ -261,7 +261,7 @@ export function SuggestionsSection({
     : 1;
 
   return (
-    <View testID="dashboard-section-suggestions" collapsable={false}>
+    <View testID="dashboard-panel-suggestions" collapsable={false}>
       <Card style={styles.sectionCard}>
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>

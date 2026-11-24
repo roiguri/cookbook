@@ -252,17 +252,25 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
   var ASSET_VARS = ${JSON.stringify(assetRegistry.cssVars)};
   window.__COOKBOOK_ASSETS__ = ASSETS;
 
-  // Populate :root CSS custom properties once from __COOKBOOK_ASSETS__ (zero base64 duplication)
-  var varRules = [];
-  for (var key in ASSET_VARS) {
-    if (Object.prototype.hasOwnProperty.call(ASSET_VARS, key) && ASSETS[key]) {
-      varRules.push(ASSET_VARS[key] + ':url("' + ASSETS[key] + '");');
+  // Lazily inject :root CSS custom properties ONLY when launching a sprite-backed game
+  // (burger / pizza / knife) so emoji/canvas games like memory paint instantly without
+  // stalling Chromium/WKWebView on 1.3MB of base64 CSS rules.
+  var assetVarsInjected = false;
+  window.__ensureCookbookAssetVars = function (gameKey) {
+    if (assetVarsInjected) return;
+    if (gameKey !== 'burger' && gameKey !== 'pizza' && gameKey !== 'knife') return;
+    assetVarsInjected = true;
+    var varRules = [];
+    for (var key in ASSET_VARS) {
+      if (Object.prototype.hasOwnProperty.call(ASSET_VARS, key) && ASSETS[key]) {
+        varRules.push(ASSET_VARS[key] + ':url("' + ASSETS[key] + '");');
+      }
     }
-  }
-  var assetStyleEl = document.createElement('style');
-  assetStyleEl.id = 'cookbook-asset-vars';
-  assetStyleEl.textContent = ':root{' + varRules.join('') + '}';
-  document.head.appendChild(assetStyleEl);
+    var assetStyleEl = document.createElement('style');
+    assetStyleEl.id = 'cookbook-asset-vars';
+    assetStyleEl.textContent = ':root{' + varRules.join('') + '}';
+    document.head.appendChild(assetStyleEl);
+  };
 
   // Offline resolver for new URL('./assets/...', import.meta.url)
   window.__resolveCookbookAsset = function (relPath) {
@@ -413,6 +421,7 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
 
   window.__COOKBOOK_TIMER_SHIM__ = {
     nativeSetTimeout: nativeSetTimeout,
+    nativeRAF: nativeRAF,
     isPaused: function () {
       return hostPaused;
     },
@@ -587,6 +596,10 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
       });
     }
 
+    if (typeof window.__ensureCookbookAssetVars === 'function') {
+      window.__ensureCookbookAssetVars(gameKey);
+    }
+
     currentGameKey = gameKey;
     currentWrapper = GameWrapper.create(gameKey, rootEl, safeConfig);
     currentPreferredOrientation = currentWrapper.config.preferredOrientation || null;
@@ -597,18 +610,25 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
       currentWrapper.markAsyncReady();
     }
 
-    // Trigger resize on next tick so responsive games (Pizzatron / Knife) measure settled viewport
-    if (timerShim && timerShim.nativeSetTimeout) {
-      timerShim.nativeSetTimeout(function () {
-        window.dispatchEvent(new Event('resize'));
-      }, 60);
+    // Trigger resize and wait for two real compositor frames before signaling 'ready'
+    // so native reveals the WebView only after cards/canvas are genuinely painted.
+    var emitReady = function () {
+      window.dispatchEvent(new Event('resize'));
+      postToNative({
+        type: 'ready',
+        gameKey: currentGameKey,
+        preferredOrientation: currentPreferredOrientation,
+      });
+    };
+    if (timerShim && typeof timerShim.nativeRAF === 'function') {
+      timerShim.nativeRAF(function () {
+        timerShim.nativeRAF(emitReady);
+      });
+    } else if (timerShim && timerShim.nativeSetTimeout) {
+      timerShim.nativeSetTimeout(emitReady, 60);
+    } else {
+      emitReady();
     }
-
-    postToNative({
-      type: 'ready',
-      gameKey: currentGameKey,
-      preferredOrientation: currentPreferredOrientation,
-    });
   }
 
   function pauseGame() {
@@ -652,31 +672,25 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
     if (timerShim && timerShim.isPaused()) {
       timerShim.resume();
     }
-    // Preserve session state (do NOT call resetSession) so intro overlay stays hidden on restart
-    var overlay = rootEl ? rootEl.querySelector('.game-overlay') : null;
-    var overlayVisible = overlay && overlay.style.display !== 'none';
-    if (overlayVisible) {
-      currentWrapper.restart();
-      if (timerShim && timerShim.nativeSetTimeout) {
-        timerShim.nativeSetTimeout(function () {
-          postToNative({
-            type: 'ready',
-            gameKey: currentGameKey,
-            preferredOrientation: currentPreferredOrientation,
-          });
-        }, 340);
-      }
-    } else {
-      currentWrapper.destroy();
-      currentWrapper.init();
-      if (pendingAsyncReady) {
-        currentWrapper.markAsyncReady();
-      }
+    // Always reset synchronously (even if a game-over/win overlay is open) so no stale
+    // overlay lingers behind a 300ms fade timer. Session state stays intact (no resetSession).
+    currentWrapper.destroy();
+    currentWrapper.init();
+    if (pendingAsyncReady) {
+      currentWrapper.markAsyncReady();
+    }
+    var emitReady = function () {
+      window.dispatchEvent(new Event('resize'));
       postToNative({
         type: 'ready',
         gameKey: currentGameKey,
         preferredOrientation: currentPreferredOrientation,
       });
+    };
+    if (timerShim && typeof timerShim.nativeRAF === 'function') {
+      timerShim.nativeRAF(emitReady);
+    } else {
+      emitReady();
     }
   }
 
@@ -766,7 +780,17 @@ function buildHtmlDocument(tokensCss, assetRegistry, gamesBundleJs) {
     }
   }
 
-  postToNative({ type: 'host-booted' });
+  if (
+    window.__COOKBOOK_INITIAL_GAME__ &&
+    typeof window.__COOKBOOK_INITIAL_GAME__.gameKey === 'string'
+  ) {
+    launchGame(
+      window.__COOKBOOK_INITIAL_GAME__.gameKey,
+      window.__COOKBOOK_INITIAL_GAME__.config,
+    );
+  }
+
+  postToNative({ type: 'host-booted', launchedGameKey: currentGameKey });
 })();
 `;
 
@@ -824,6 +848,21 @@ body {
 #cookbook-game-root .cake-game {
   height: calc(100vh - 76px);
   min-height: 360px;
+}
+
+#cookbook-game-root .memory-game-board {
+  width: 100%;
+  max-width: 360px;
+}
+
+#cookbook-game-root .memory-card {
+  min-height: 70px;
+}
+
+#cookbook-game-root .memory-card-front,
+#cookbook-game-root .memory-card-back {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* Native expo-screen-orientation owns screen rotation inside the mobile host */

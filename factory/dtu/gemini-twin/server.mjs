@@ -16,10 +16,9 @@ import http from 'node:http';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DTU_CONFIG, readJsonBody, sendJson } from '../config.mjs';
 
-// Deterministic valid 1x1 warm-green PNG (base64) for enhanceFoodImage twin responses.
-// Real PNG signature + IHDR + IDAT + IEND — decodes cleanly in browsers, Android, and iOS.
+// Deterministic valid 16x16 warm herb-green PNG (base64, zlib/CRC32 verified) for enhanceFoodImage twin responses.
 export const DETERMINISTIC_ENHANCED_PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAADElEQVR4nGNg+M8AAAQAAQEKtP1iAAAAAElFTkSuQmCC';
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAIElEQVR4nGP49OI8SYiBTA1ZM/0IolENoxqI0UDD1AoAydbnkEIbojoAAAAASUVORK5CYII=';
 
 const FIXTURE_RECIPES = {
   image: {

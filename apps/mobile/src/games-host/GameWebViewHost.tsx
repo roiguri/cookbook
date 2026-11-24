@@ -1,4 +1,12 @@
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { AppState, type AppStateStatus, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
@@ -83,13 +91,20 @@ export const GameWebViewHost = forwardRef<GameWebViewHostHandle, GameWebViewHost
   ) {
     const webViewRef = useRef<WebView | null>(null);
     const bootedRef = useRef(false);
+    const initialLaunchRef = useRef({ gameKey, config: config || {} });
     const launchedKeyRef = useRef<GameKey | null>(null);
+    const [isPainted, setIsPainted] = useState(false);
     const appStateRef = useRef<AppStateStatus>(AppState.currentState);
     const asyncReadyRef = useRef(asyncReady);
     asyncReadyRef.current = asyncReady;
 
     const configRef = useRef(config);
     configRef.current = config;
+
+    const injectedBeforeLoad = useMemo(
+      () => `window.__COOKBOOK_INITIAL_GAME__ = ${JSON.stringify(initialLaunchRef.current)}; true;`,
+      [],
+    );
 
     const sendToWebView = useCallback((message: NativeToWebViewMessage) => {
       const payload = JSON.stringify(message);
@@ -131,6 +146,7 @@ export const GameWebViewHost = forwardRef<GameWebViewHostHandle, GameWebViewHost
     // Re-launch if gameKey changes while the WebView is already booted
     useEffect(() => {
       if (bootedRef.current && launchedKeyRef.current !== gameKey) {
+        setIsPainted(false);
         launchCurrentGame();
       }
     }, [gameKey, launchCurrentGame]);
@@ -176,10 +192,15 @@ export const GameWebViewHost = forwardRef<GameWebViewHostHandle, GameWebViewHost
         switch (msg.type) {
           case 'host-booted':
             bootedRef.current = true;
-            launchCurrentGame();
+            if (msg.launchedGameKey === gameKey) {
+              launchedKeyRef.current = gameKey;
+            } else {
+              launchCurrentGame();
+            }
             break;
           case 'ready':
             bootedRef.current = true;
+            setIsPainted(true);
             if (asyncReadyRef.current) {
               sendToWebView({ type: 'markAsyncReady' });
             }
@@ -223,8 +244,9 @@ export const GameWebViewHost = forwardRef<GameWebViewHostHandle, GameWebViewHost
       <View style={styles.container}>
         <WebView
           ref={webViewRef}
-          testID="game-webview"
+          testID={isPainted ? 'game-webview' : 'game-webview-loading'}
           source={{ html: BUNDLED_GAMES_HTML, baseUrl: OFFLINE_BASE_URL }}
+          injectedJavaScriptBeforeContentLoaded={injectedBeforeLoad}
           originWhitelist={['*']}
           style={styles.webView}
           javaScriptEnabled

@@ -9,6 +9,7 @@ export interface RecipeStripProps {
   recipes: RecipeDoc[];
   loading?: boolean;
   compactIfNoImages?: boolean;
+  dense?: boolean;
   hideStatuses?: string[];
   favoriteIds?: Set<string>;
   showFavorite?: boolean;
@@ -29,6 +30,7 @@ export function RecipeStrip({
   recipes,
   loading = false,
   compactIfNoImages = false,
+  dense = false,
   hideStatuses,
   favoriteIds,
   showFavorite = true,
@@ -76,6 +78,7 @@ export function RecipeStrip({
       key={recipe.id}
       recipe={recipe}
       compact={allWithoutImages}
+      dense={dense}
       hideStatuses={hideStatuses}
       isFavorite={favoriteIds ? favoriteIds.has(recipe.id) : false}
       showFavorite={showFavorite}

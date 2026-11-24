@@ -134,7 +134,7 @@ export async function runGatedIosVerification({
     const { report, tickets } = await judgeSavedTrajectories({
       trajectoriesDir,
       judgeModel,
-      concurrency: 4,
+      concurrency: 2,
       deterministicOnly,
     });
     return {

@@ -21,7 +21,6 @@ export interface SaveChoiceModalProps {
 }
 
 const PRIVATE_NOTE = 'רק אתם ומנהלי הספר רואים אותו.';
-const SUBMIT_NOTE = 'וישלח לאישור מנהל. אחרי האישור הוא ייכנס לספר המשפחתי.';
 
 export function SaveChoiceModal({
   visible,
@@ -43,7 +42,6 @@ export function SaveChoiceModal({
 
   const whereText = stage === STAGE.TO_TRY ? 'יישמר ב־״לנסות״' : 'יישמר ב־״הספרייה שלי״';
   const showToTrySubmitWarning = submit && stage === STAGE.TO_TRY;
-  const confirmLabel = submit ? 'שמירה ושליחה' : 'שמירה';
 
   return (
     <Modal
@@ -108,46 +106,44 @@ export function SaveChoiceModal({
             </View>
           </View>
 
-          {/* Question 2: מי יראה אותו? */}
+          {/* Question 2: מי יראה אותו? (1-tap confirm actions) */}
           <View style={styles.questionBlock}>
             <Text style={styles.legend}>מי יראה אותו?</Text>
             <View style={styles.optionsGrid}>
               <PressableScale
                 testID="save-choice-private-btn"
-                accessibilityRole="radio"
-                accessibilityState={{ selected: !submit }}
+                accessibilityRole="button"
+                accessibilityLabel="שמירה פרטית — רק אני"
                 disabled={submitting}
-                onPress={() => setSubmit(false)}
-                style={[styles.optionCard, !submit && styles.optionCardSelected]}
+                onPress={() => {
+                  setSubmit(false);
+                  onConfirm({ stage, submit: false });
+                }}
+                style={[styles.optionCard, styles.optionCardPrimary]}
               >
                 <View style={styles.optionHeader}>
-                  <Ionicons
-                    name={!submit ? 'radio-button-on' : 'radio-button-off'}
-                    size={18}
-                    color={!submit ? colors.primaryDark : colors.ink4}
-                  />
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.primaryDark} />
                   <Text style={styles.optionTitle}>רק אני</Text>
                 </View>
-                <Text style={styles.optionSubtitle}>פרטי</Text>
+                <Text style={styles.optionSubtitle}>שמירה פרטית</Text>
               </PressableScale>
 
               <PressableScale
                 testID="save-choice-submit-btn"
-                accessibilityRole="radio"
-                accessibilityState={{ selected: submit }}
+                accessibilityRole="button"
+                accessibilityLabel="שמירה ושליחה למשפחה"
                 disabled={submitting}
-                onPress={() => setSubmit(true)}
+                onPress={() => {
+                  setSubmit(true);
+                  onConfirm({ stage, submit: true });
+                }}
                 style={[styles.optionCard, submit && styles.optionCardSelected]}
               >
                 <View style={styles.optionHeader}>
-                  <Ionicons
-                    name={submit ? 'radio-button-on' : 'radio-button-off'}
-                    size={18}
-                    color={submit ? colors.primaryDark : colors.ink4}
-                  />
+                  <Ionicons name="people-outline" size={18} color={colors.primaryDark} />
                   <Text style={styles.optionTitle}>כל המשפחה</Text>
                 </View>
-                <Text style={styles.optionSubtitle}>שליחה לפרסום</Text>
+                <Text style={styles.optionSubtitle}>שמירה ושליחה</Text>
               </PressableScale>
             </View>
           </View>
@@ -157,24 +153,18 @@ export function SaveChoiceModal({
             testID="save-choice-summary"
             style={[styles.summaryBox, showToTrySubmitWarning && styles.summaryBoxWarn]}
           >
-            {showToTrySubmitWarning ? (
+            {stage === STAGE.TO_TRY ? (
               <Text style={styles.summaryText}>
-                <Text style={styles.summaryBold}>עוד לא ניסיתם את המתכון? </Text>
-                אפשר לשלוח בכל זאת, אבל כדאי לנסות קודם – כך מה שנכנס לספר זה המתכונים הטובים ביותר.{' '}
-                {whereText} {SUBMIT_NOTE}
-              </Text>
-            ) : !submit ? (
-              <Text style={styles.summaryText}>
-                {whereText}. {PRIVATE_NOTE}
+                {whereText}. {PRIVATE_NOTE} (אם תשלחו לאישור – כדאי לנסות קודם).
               </Text>
             ) : (
               <Text style={styles.summaryText}>
-                {whereText} {SUBMIT_NOTE}
+                {whereText}. {PRIVATE_NOTE}
               </Text>
             )}
           </View>
 
-          {/* Footer actions */}
+          {/* Footer cancel action */}
           <View style={styles.actions}>
             <Button
               testID="save-choice-cancel-btn"
@@ -182,14 +172,6 @@ export function SaveChoiceModal({
               variant="secondary"
               disabled={submitting}
               onPress={onCancel}
-              style={styles.actionBtn}
-            />
-            <Button
-              testID="save-choice-confirm-btn"
-              label={confirmLabel}
-              variant="primary"
-              loading={submitting}
-              onPress={() => onConfirm({ stage, submit })}
               style={styles.actionBtn}
             />
           </View>
@@ -253,6 +235,10 @@ const styles = StyleSheet.create({
   },
   optionCardSelected: {
     borderColor: colors.primaryDark,
+    backgroundColor: statusColors.approvedBg,
+  },
+  optionCardPrimary: {
+    borderColor: colors.primary,
     backgroundColor: statusColors.approvedBg,
   },
   optionHeader: {

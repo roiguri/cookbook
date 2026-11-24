@@ -195,25 +195,49 @@ export async function judgeTrajectory(
   {
     rubricText = '',
     model = resolveJudgeModel(),
-    timeoutSec = 150,
+    timeoutSec = 240,
+    maxAttempts = 3,
     deterministicOnly = false,
   } = {},
 ) {
   const deterministic = evaluateDeterministicInvariants(trajectory);
 
   if (deterministicOnly) {
+    const maestroPassed = trajectory.maestroStatus !== 'failed';
+    const overallOk = deterministic.ok && maestroPassed;
+    const maestroFindings = maestroPassed
+      ? []
+      : [
+          {
+            severity: trajectory.isP0 ? 'P0' : 'P1',
+            domain: 'functionalIntent',
+            route: trajectory.route || '/home',
+            role: trajectory.role || 'approved',
+            symptom: `Flow execution failed during "${trajectory.userGoal || trajectory.title || 'scenario'}" on ${trajectory.platform || 'android'}.`,
+            evidence:
+              String(trajectory.runtimeLogs || '')
+                .split('\n')
+                .filter((l) => /FAILED|Assertion|Element not found|Timed out|Error/i.test(l))
+                .slice(-4)
+                .join(' | ') || 'Maestro exited non-zero',
+          },
+        ];
     const synthetic = {
       scenarioId: trajectory.scenarioId || 'unknown',
       platform: trajectory.platform || 'android',
-      passed: deterministic.ok,
-      p0Violation: !deterministic.p0Passed,
+      passed: overallOk,
+      p0Violation: !deterministic.p0Passed || (!maestroPassed && Boolean(trajectory.isP0)),
       dimensions: {
-        functionalIntent: deterministic.ok ? 100 : 50,
+        functionalIntent: overallOk ? 100 : maestroPassed ? 50 : 0,
         backendIntegrity: deterministic.p0Passed ? 100 : 0,
         rtlVisualFidelity: deterministic.allViolations.some((v) => v.domain === 'rtl-layout')
           ? 10
           : 100,
-        uxStability: deterministic.allViolations.some((v) => v.domain === 'stability') ? 0 : 100,
+        uxStability: deterministic.allViolations.some((v) => v.domain === 'stability')
+          ? 0
+          : maestroPassed
+            ? 100
+            : 50,
       },
       weightedScore: 100,
       visualAssessment: {
@@ -222,10 +246,10 @@ export async function judgeTrajectory(
         hasClippedHebrew: false,
         notes: 'Deterministic-only mode (LLM skipped).',
       },
-      findings: [],
-      rationale: deterministic.ok
-        ? 'All deterministic invariants passed.'
-        : `Deterministic invariants flagged ${deterministic.allViolations.length} issue(s).`,
+      findings: maestroFindings,
+      rationale: overallOk
+        ? 'All deterministic invariants and Maestro assertions passed.'
+        : `Failed (${maestroPassed ? 'deterministic invariant' : 'Maestro assertion'}): ${deterministic.allViolations.length} invariant violation(s).`,
     };
     const reconciled = reconcileJudgment(synthetic, deterministic, trajectory);
     const tickets = synthesizeSanitizedTickets(reconciled, {
@@ -312,52 +336,77 @@ export async function judgeTrajectory(
       'Return strictly valid JSON conforming to the provided JSON Schema.',
     ].join('\n');
 
-    const t0 = Date.now();
     const agyBin = resolveAgyBinary();
-    const proc = await new Promise((resolve, reject) => {
-      const child = spawn(
-        agyBin,
-        [
-          '--sandbox',
-          '--dangerously-skip-permissions',
-          '--disable-slash-commands',
-          '--model',
-          model,
-          '--output-format',
-          'json',
-          '--json-schema',
-          schemaCopy,
-          '--print-timeout',
-          `${timeoutSec}s`,
-          '--print',
-          prompt,
-        ],
-        {
-          cwd: workDir,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        },
-      );
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (c) => {
-        stdout += c.toString('utf8');
-      });
-      child.stderr.on('data', (c) => {
-        stderr += c.toString('utf8');
-      });
-      child.once('error', reject);
-      child.once('exit', (code) => resolve({ status: code ?? 1, stdout, stderr }));
-    });
-    const durationMs = Date.now() - t0;
+    const t0 = Date.now();
+    let envelope = null;
+    let parsed = null;
+    let lastError = null;
 
-    if (proc.status !== 0) {
-      throw new Error(
-        `agy judge exited with code ${proc.status}: ${(proc.stderr || proc.stdout || '').slice(0, 800)}`,
-      );
+    for (let attempt = 1; attempt <= Math.max(1, maxAttempts); attempt++) {
+      const proc = await new Promise((resolve, reject) => {
+        const child = spawn(
+          agyBin,
+          [
+            '--sandbox',
+            '--dangerously-skip-permissions',
+            '--disable-slash-commands',
+            '--model',
+            model,
+            '--output-format',
+            'json',
+            '--json-schema',
+            schemaCopy,
+            '--print-timeout',
+            `${timeoutSec}s`,
+            '--print',
+            prompt,
+          ],
+          {
+            cwd: workDir,
+            stdio: ['ignore', 'pipe', 'pipe'],
+          },
+        );
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (c) => {
+          stdout += c.toString('utf8');
+        });
+        child.stderr.on('data', (c) => {
+          stderr += c.toString('utf8');
+        });
+        child.once('error', reject);
+        child.once('exit', (code) => resolve({ status: code ?? 1, stdout, stderr }));
+      });
+
+      if (proc.status === 0) {
+        try {
+          envelope = JSON.parse(proc.stdout.trim());
+          parsed = envelope.structured_output || JSON.parse(envelope.response);
+          break;
+        } catch (parseErr) {
+          lastError = new Error(
+            `agy judge returned invalid JSON on attempt ${attempt}: ${parseErr.message}`,
+          );
+        }
+      } else {
+        const detail = (proc.stderr || proc.stdout || '').slice(0, 800);
+        lastError = new Error(`agy judge exited with code ${proc.status}: ${detail}`);
+      }
+
+      if (attempt < Math.max(1, maxAttempts)) {
+        const backoffMs = attempt * 3000;
+        console.warn(
+          `[judge] retry ${attempt}/${maxAttempts - 1} for ${trajectory.scenarioId || 'unknown'} in ${backoffMs}ms (${lastError.message.slice(0, 140)})`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
     }
 
-    const envelope = JSON.parse(proc.stdout.trim());
-    const parsed = envelope.structured_output || JSON.parse(envelope.response);
+    const durationMs = Date.now() - t0;
+    if (!parsed) {
+      throw lastError || new Error('agy judge failed without structured output');
+    }
+
     const reconciled = reconcileJudgment(parsed, deterministic, trajectory);
     const tickets = synthesizeSanitizedTickets(reconciled, {
       screenshotRef: trajectory.screenshots?.[0] || null,

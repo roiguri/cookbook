@@ -11,10 +11,12 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, radii, statusColors, zIndex } from '@/theme';
+import { IS_DTU_MODE } from '@/services/dtu-health-service';
 
 // Exact constants mirrored from src/lib/easter-egg/games-unlock.js
 export const TAP_TARGET = 7;
 export const TAP_WINDOW_MS = 2000;
+const EFFECTIVE_TAP_WINDOW_MS = IS_DTU_MODE ? 5000 : TAP_WINDOW_MS;
 export const UNLOCK_COOLDOWN_MS = 1500;
 const UNLOCK_NAV_DELAY_MS = 250;
 const SPARKLE_DURATION_MS = 900;
@@ -213,7 +215,7 @@ export function EasterEggProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (lastTapAtRef.current > 0 && now - lastTapAtRef.current > TAP_WINDOW_MS) {
+    if (lastTapAtRef.current > 0 && now - lastTapAtRef.current > EFFECTIVE_TAP_WINDOW_MS) {
       tapCountRef.current = 0;
     }
 
@@ -230,7 +232,7 @@ export function EasterEggProvider({ children }: { children: React.ReactNode }) {
       setTapCount(0);
       setGlowLevel(0);
       resetTimerRef.current = null;
-    }, TAP_WINDOW_MS);
+    }, EFFECTIVE_TAP_WINDOW_MS);
 
     if (nextCount < TAP_TARGET) {
       setTapCount(nextCount);

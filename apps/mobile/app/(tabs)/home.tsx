@@ -289,41 +289,7 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Featured / Newest Published Strip */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>מתכונים חדשים</Text>
-            <PressableScale
-              variant="button"
-              testID="home-featured-all-link"
-              onPress={() => router.navigate('/(tabs)/categories')}
-              style={styles.sectionLink}
-            >
-              <Text style={styles.sectionLinkText} allowFontScaling={false}>
-                כל המתכונים
-              </Text>
-              <Ionicons name="chevron-back" size={15} color={colors.primaryDark} />
-            </PressableScale>
-          </View>
-
-          <RecipeStrip
-            testID="home-featured-strip"
-            recipes={featuredRecipes}
-            loading={loadingFeatured}
-            favoriteIds={favoriteSet}
-            showFavorite
-            showAddToMeal={isAuthenticated}
-            onPressRecipe={(recipe) => router.push(`/recipe/${recipe.id}`)}
-            onToggleFavorite={(recipe) => {
-              void handleToggleFavorite(recipe);
-            }}
-            onAddToMeal={(recipe) => {
-              void handleAddToMeal(recipe);
-            }}
-          />
-        </View>
-
-        {/* Personal "Next in the Kitchen" Strip (approved & manager only) */}
+        {/* Personal "Next in the Kitchen" Strip (approved & manager only, placed above fold) */}
         {isAuthenticated && isApproved ? (
           <View testID="home-next-section" style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -387,6 +353,40 @@ export default function HomeScreen() {
             />
           </View>
         ) : null}
+
+        {/* Featured / Newest Published Strip */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>מתכונים חדשים</Text>
+            <PressableScale
+              variant="button"
+              testID="home-featured-all-link"
+              onPress={() => router.navigate('/(tabs)/categories')}
+              style={styles.sectionLink}
+            >
+              <Text style={styles.sectionLinkText} allowFontScaling={false}>
+                כל המתכונים
+              </Text>
+              <Ionicons name="chevron-back" size={15} color={colors.primaryDark} />
+            </PressableScale>
+          </View>
+
+          <RecipeStrip
+            testID="home-featured-strip"
+            recipes={featuredRecipes}
+            loading={loadingFeatured}
+            favoriteIds={favoriteSet}
+            showFavorite
+            showAddToMeal={isAuthenticated}
+            onPressRecipe={(recipe) => router.push(`/recipe/${recipe.id}`)}
+            onToggleFavorite={(recipe) => {
+              void handleToggleFavorite(recipe);
+            }}
+            onAddToMeal={(recipe) => {
+              void handleAddToMeal(recipe);
+            }}
+          />
+        </View>
 
         {/* DTU & Zero-PII Telemetry Diagnostic Bar (APP_VARIANT=e2e only) */}
         {IS_DTU_MODE ? (

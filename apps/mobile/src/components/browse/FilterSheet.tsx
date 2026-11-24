@@ -158,7 +158,6 @@ export function FilterSheet({
   const handleClear = () => {
     setDraft({ ...EMPTY_FILTERS, tags: [] });
     onClear();
-    onClose();
   };
 
   const handleApply = () => {

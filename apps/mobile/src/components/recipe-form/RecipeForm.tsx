@@ -236,8 +236,8 @@ function createEmptyState(): FormStateSnapshot {
   return {
     name: '',
     description: '',
-    category: '',
-    difficulty: '',
+    category: 'main-courses',
+    difficulty: 'קלה',
     mainIngredient: '',
     prepTime: '',
     waitTime: '',
@@ -431,10 +431,10 @@ function findBlankIngredientRows(state: FormStateSnapshot): BlankIngredientRowIn
   const checkRow = (row: IngredientRowDraft, rowKey: string) => {
     const item = row.item.trim();
     if (!item) return;
-    const fields: Array<'amount' | 'unit'> = [];
-    if (!row.amount.trim()) fields.push('amount');
-    if (!row.unit.trim()) fields.push('unit');
-    if (fields.length > 0) {
+    // Allow count-style ingredients with an explicit amount and blank unit
+    // (e.g. "3 ביצים", "4 לחם מחמצת"); prompt only when amount itself is blank.
+    if (!row.amount.trim()) {
+      const fields: Array<'amount' | 'unit'> = !row.unit.trim() ? ['amount', 'unit'] : ['amount'];
       rows.push({
         id: `${item}::${fields.join(',')}`,
         rowKey,
@@ -1594,10 +1594,6 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
         ) : (
           /* EDIT / AUTHORING FORM */
           <View style={styles.formBody}>
-            <Text style={styles.legendText}>
-              שדות עם <Text style={styles.reqStar}>*</Text> הם חובה. כל השאר אפשר להשאיר ריק.
-            </Text>
-
             {/* Grouped Problems Summary Banner */}
             {problems.length > 0 ? (
               <View testID="recipe-form-problems" style={styles.problemsBanner}>
@@ -1638,19 +1634,21 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
             ) : null}
 
             {/* 01 — פרטי המתכון */}
-            <Card style={styles.sectionCard}>
+            <Card style={styles.sectionCardCompact}>
               <View
+                style={styles.compactSectionHeader}
                 onLayout={(e) => {
                   sectionYRef.current.details = e.nativeEvent.layout.y;
                 }}
               >
                 <Text style={styles.sectionNumber}>01 — פרטי המתכון</Text>
-                <Text style={styles.sectionTitle}>הכותרת הראשית.</Text>
-                <Text style={styles.sectionSub}>שם, תיאור קצר, וקטגוריה.</Text>
+                <Text style={styles.compactLegendText}>
+                  <Text style={styles.reqStar}>*</Text> שדות חובה
+                </Text>
               </View>
 
               {/* Name */}
-              <View style={styles.fieldGroup}>
+              <View style={styles.fieldGroupCompact}>
                 <Text style={styles.label}>
                   שם המנה <Text style={styles.reqStar}>*</Text>
                 </Text>
@@ -1664,117 +1662,19 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                   }}
                   placeholder="שם המתכון..."
                   placeholderTextColor={colors.ink4}
-                  style={[styles.input, fieldErrors.name && styles.inputInvalid]}
+                  returnKeyType="done"
+                  style={[styles.inputCompact, fieldErrors.name && styles.inputInvalid]}
                 />
                 {fieldErrors.name ? (
                   <Text style={styles.fieldError}>{fieldErrors.name}</Text>
                 ) : null}
               </View>
 
-              {/* Category */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>
-                  קטגוריה <Text style={styles.reqStar}>*</Text>
-                </Text>
-                <PressableScale
-                  testID="recipe-form-category"
-                  disabled={disabled || submitting}
-                  onPress={() => setCategorySheetOpen(true)}
-                  style={[styles.selectTrigger, fieldErrors.category && styles.inputInvalid]}
-                >
-                  <Text
-                    style={[
-                      styles.selectTriggerText,
-                      !state.category && styles.selectPlaceholderText,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {state.category ? CATEGORY_MAP[state.category] : 'בחר קטגוריה'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={18} color={colors.ink3} />
-                </PressableScale>
-                {fieldErrors.category ? (
-                  <Text style={styles.fieldError}>{fieldErrors.category}</Text>
-                ) : null}
-              </View>
-
-              {/* Difficulty */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>
-                  דרגת קושי <Text style={styles.reqStar}>*</Text>
-                </Text>
-                <View
-                  testID="recipe-form-difficulty"
-                  style={[
-                    styles.difficultyRow,
-                    fieldErrors.difficulty && styles.difficultyRowInvalid,
-                  ]}
-                >
-                  {DIFFICULTIES.map((diff) => {
-                    const selected = state.difficulty === diff;
-                    return (
-                      <PressableScale
-                        key={diff}
-                        testID={`recipe-form-difficulty-${diff}`}
-                        disabled={disabled || submitting}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        onPress={() => {
-                          setState((p) => ({ ...p, difficulty: diff }));
-                          clearErrorKey('difficulty');
-                        }}
-                        style={[styles.diffPill, selected && styles.diffPillSelected]}
-                      >
-                        <Text
-                          style={[styles.diffPillText, selected && styles.diffPillTextSelected]}
-                          allowFontScaling={false}
-                        >
-                          {diff}
-                        </Text>
-                      </PressableScale>
-                    );
-                  })}
-                </View>
-                {fieldErrors.difficulty ? (
-                  <Text style={styles.fieldError}>{fieldErrors.difficulty}</Text>
-                ) : null}
-              </View>
-
-              {/* Main Ingredient */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>מרכיב עיקרי</Text>
-                <TextInput
-                  testID="recipe-form-main-ingredient"
-                  editable={!disabled && !submitting}
-                  value={state.mainIngredient}
-                  onChangeText={(text) => setState((p) => ({ ...p, mainIngredient: text }))}
-                  placeholder="עוף, בצק, גבינה..."
-                  placeholderTextColor={colors.ink4}
-                  style={styles.input}
-                />
-              </View>
-
-              {/* Description */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>תיאור קצר</Text>
-                <TextInput
-                  testID="recipe-form-description"
-                  editable={!disabled && !submitting}
-                  value={state.description}
-                  onChangeText={(text) => setState((p) => ({ ...p, description: text }))}
-                  placeholder="משפט-שניים. יוצג על כרטיס המתכון."
-                  placeholderTextColor={colors.ink4}
-                  multiline
-                  numberOfLines={3}
-                  style={[styles.input, styles.multilineInput]}
-                />
-              </View>
-
-              {/* Prep Time & Wait Time */}
-              <View style={styles.twoColRow}>
-                <View style={[styles.fieldGroup, styles.colHalf]}>
-                  <Text style={styles.label}>
-                    זמן הכנה (דקות) <Text style={styles.reqStar}>*</Text>
+              {/* Prep Time, Wait Time & Servings (compact 3-col row right below name, always above keyboard) */}
+              <View style={styles.threeColRow}>
+                <View style={[styles.fieldGroupCompact, styles.colThird]}>
+                  <Text style={styles.label} numberOfLines={1}>
+                    זמן הכנה <Text style={styles.reqStar}>*</Text>
                   </Text>
                   <TextInput
                     testID="recipe-form-preptime"
@@ -1785,17 +1685,20 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                       clearErrorKey('prepTime');
                     }}
                     keyboardType="number-pad"
-                    placeholder="למשל 45"
+                    returnKeyType="done"
+                    placeholder="דקות"
                     placeholderTextColor={colors.ink4}
-                    style={[styles.input, fieldErrors.prepTime && styles.inputInvalid]}
+                    style={[styles.inputCompact, fieldErrors.prepTime && styles.inputInvalid]}
                   />
                   {fieldErrors.prepTime ? (
                     <Text style={styles.fieldError}>{fieldErrors.prepTime}</Text>
                   ) : null}
                 </View>
 
-                <View style={[styles.fieldGroup, styles.colHalf]}>
-                  <Text style={styles.label}>זמן המתנה (דקות)</Text>
+                <View style={[styles.fieldGroupCompact, styles.colThird]}>
+                  <Text style={styles.label} numberOfLines={1}>
+                    המתנה (דק׳)
+                  </Text>
                   <TextInput
                     testID="recipe-form-waittime"
                     editable={!disabled && !submitting}
@@ -1805,21 +1708,19 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                       clearErrorKey('waitTime');
                     }}
                     keyboardType="number-pad"
-                    placeholder="למשל 30"
+                    returnKeyType="done"
+                    placeholder="0"
                     placeholderTextColor={colors.ink4}
-                    style={[styles.input, fieldErrors.waitTime && styles.inputInvalid]}
+                    style={[styles.inputCompact, fieldErrors.waitTime && styles.inputInvalid]}
                   />
                   {fieldErrors.waitTime ? (
                     <Text style={styles.fieldError}>{fieldErrors.waitTime}</Text>
                   ) : null}
                 </View>
-              </View>
 
-              {/* Servings & Servings Unit */}
-              <View style={styles.twoColRow}>
-                <View style={[styles.fieldGroup, styles.colHalf]}>
-                  <Text style={styles.label}>
-                    כמות <Text style={styles.reqStar}>*</Text>
+                <View style={[styles.fieldGroupCompact, styles.colThird]}>
+                  <Text style={styles.label} numberOfLines={1}>
+                    מנות <Text style={styles.reqStar}>*</Text>
                   </Text>
                   <TextInput
                     testID="recipe-form-servings"
@@ -1830,42 +1731,88 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                       clearErrorKey('servings');
                     }}
                     keyboardType="number-pad"
-                    placeholder="למשל 4"
+                    returnKeyType="done"
+                    placeholder="4"
                     placeholderTextColor={colors.ink4}
-                    style={[styles.input, fieldErrors.servings && styles.inputInvalid]}
+                    style={[styles.inputCompact, fieldErrors.servings && styles.inputInvalid]}
                   />
                   {fieldErrors.servings ? (
                     <Text style={styles.fieldError}>{fieldErrors.servings}</Text>
                   ) : null}
                 </View>
-
-                <View style={[styles.fieldGroup, styles.colHalf]}>
-                  <Text style={styles.label}>יחידת כמות</Text>
-                  <TextInput
-                    testID="recipe-form-servings-unit"
-                    editable={!disabled && !submitting}
-                    value={state.servingsUnit}
-                    onChangeText={(text) => setState((p) => ({ ...p, servingsUnit: text }))}
-                    placeholder="מנות, כיכרות..."
-                    placeholderTextColor={colors.ink4}
-                    style={styles.input}
-                  />
-                </View>
               </View>
 
-              {/* Tags */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>תגיות</Text>
-                <TextInput
-                  testID="recipe-form-tags"
-                  editable={!disabled && !submitting}
-                  value={state.tagsText}
-                  onChangeText={(text) => setState((p) => ({ ...p, tagsText: text }))}
-                  placeholder="פסח, שבת, טבעוני..."
-                  placeholderTextColor={colors.ink4}
-                  style={styles.input}
-                />
-                <Text style={styles.hintText}>מופרדות בפסיק.</Text>
+              {/* Category & Difficulty (side-by-side compact row so ingredients & step 1 stay above keyboard) */}
+              <View style={styles.catDiffRow}>
+                <View style={[styles.fieldGroupCompact, styles.catCol]}>
+                  <Text style={styles.label}>
+                    קטגוריה <Text style={styles.reqStar}>*</Text>
+                  </Text>
+                  <PressableScale
+                    testID="recipe-form-category"
+                    disabled={disabled || submitting}
+                    onPress={() => setCategorySheetOpen(true)}
+                    style={[
+                      styles.selectTriggerCompact,
+                      fieldErrors.category && styles.inputInvalid,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.selectTriggerText,
+                        !state.category && styles.selectPlaceholderText,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {state.category ? CATEGORY_MAP[state.category] : 'בחר קטגוריה'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={colors.ink3} />
+                  </PressableScale>
+                  {fieldErrors.category ? (
+                    <Text style={styles.fieldError}>{fieldErrors.category}</Text>
+                  ) : null}
+                </View>
+
+                <View style={[styles.fieldGroupCompact, styles.diffCol]}>
+                  <Text style={styles.label}>
+                    דרגת קושי <Text style={styles.reqStar}>*</Text>
+                  </Text>
+                  <View
+                    testID="recipe-form-difficulty"
+                    style={[
+                      styles.difficultyRow,
+                      fieldErrors.difficulty && styles.difficultyRowInvalid,
+                    ]}
+                  >
+                    {DIFFICULTIES.map((diff) => {
+                      const selected = state.difficulty === diff;
+                      return (
+                        <PressableScale
+                          key={diff}
+                          testID={`recipe-form-difficulty-${diff}`}
+                          disabled={disabled || submitting}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                          onPress={() => {
+                            setState((p) => ({ ...p, difficulty: diff }));
+                            clearErrorKey('difficulty');
+                          }}
+                          style={[styles.diffPillCompact, selected && styles.diffPillSelected]}
+                        >
+                          <Text
+                            style={[styles.diffPillText, selected && styles.diffPillTextSelected]}
+                            allowFontScaling={false}
+                          >
+                            {diff}
+                          </Text>
+                        </PressableScale>
+                      );
+                    })}
+                  </View>
+                  {fieldErrors.difficulty ? (
+                    <Text style={styles.fieldError}>{fieldErrors.difficulty}</Text>
+                  ) : null}
+                </View>
               </View>
             </Card>
 
@@ -1875,43 +1822,55 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                 sectionYRef.current.ingredients = e.nativeEvent.layout.y;
               }}
             >
-              <Card style={styles.sectionCard}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={styles.sectionHeaderCol}>
-                    <Text style={styles.sectionNumber}>02 — מצרכים</Text>
-                    <Text style={styles.sectionTitle}>המצרכים שצריך.</Text>
-                    <Text style={styles.sectionSub}>
-                      רק הפריט חובה. כמות ויחידה – כשיש, למשל ״3 ביצים״ או ״מלח לפי הטעם״.
-                    </Text>
+              <Card style={styles.sectionCardCompact}>
+                <View style={styles.compactSectionHeader}>
+                  <Text style={styles.sectionNumber}>02 — מצרכים</Text>
+                  <View style={styles.sectionHeaderPills}>
+                    {!state.isSectionedIngredients ? (
+                      <PressableScale
+                        testID="add-ingredient-btn"
+                        disabled={disabled || submitting}
+                        onPress={() =>
+                          setState((p) => ({
+                            ...p,
+                            flatIngredients: [...p.flatIngredients, emptyIngredientRow()],
+                          }))
+                        }
+                        style={styles.addInlinePill}
+                      >
+                        <Text style={styles.addInlinePillText} allowFontScaling={false}>
+                          + מרכיב
+                        </Text>
+                      </PressableScale>
+                    ) : null}
+                    <PressableScale
+                      testID="recipe-form-sectioned-toggle"
+                      disabled={disabled || submitting}
+                      onPress={toggleSectionedIngredients}
+                      style={[
+                        styles.modeTogglePill,
+                        state.isSectionedIngredients && styles.modeToggleBtnActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={state.isSectionedIngredients ? 'layers' : 'list-outline'}
+                        size={14}
+                        color={
+                          state.isSectionedIngredients ? colors.buttonColor : colors.primaryDark
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.modeTogglePillText,
+                          state.isSectionedIngredients && styles.modeToggleTextActive,
+                        ]}
+                        allowFontScaling={false}
+                      >
+                        {state.isSectionedIngredients ? 'רשימה פשוטה' : 'קבץ לקטגוריות'}
+                      </Text>
+                    </PressableScale>
                   </View>
                 </View>
-
-                <PressableScale
-                  testID="recipe-form-sectioned-toggle"
-                  disabled={disabled || submitting}
-                  onPress={toggleSectionedIngredients}
-                  style={[
-                    styles.modeToggleBtn,
-                    state.isSectionedIngredients && styles.modeToggleBtnActive,
-                  ]}
-                >
-                  <Ionicons
-                    name={state.isSectionedIngredients ? 'layers' : 'list-outline'}
-                    size={16}
-                    color={state.isSectionedIngredients ? colors.buttonColor : colors.primaryDark}
-                  />
-                  <Text
-                    style={[
-                      styles.modeToggleText,
-                      state.isSectionedIngredients && styles.modeToggleTextActive,
-                    ]}
-                    allowFontScaling={false}
-                  >
-                    {state.isSectionedIngredients
-                      ? 'מצב קטגוריות פעיל (חזרה לרשימה פשוטה)'
-                      : 'קבץ מצרכים לקטגוריות (למשל לבצק, לציפוי)'}
-                  </Text>
-                </PressableScale>
 
                 {fieldErrors.ingredients ? (
                   <Text style={styles.fieldError}>{fieldErrors.ingredients}</Text>
@@ -2035,20 +1994,6 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                         </View>
                       );
                     })}
-
-                    <Button
-                      testID="add-ingredient-btn"
-                      label="+ הוסף מרכיב"
-                      variant="secondary"
-                      size="sm"
-                      disabled={disabled || submitting}
-                      onPress={() =>
-                        setState((p) => ({
-                          ...p,
-                          flatIngredients: [...p.flatIngredients, emptyIngredientRow()],
-                        }))
-                      }
-                    />
                   </View>
                 ) : (
                   <View style={styles.sectionsList}>
@@ -2296,37 +2241,34 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                 sectionYRef.current.instructions = e.nativeEvent.layout.y;
               }}
             >
-              <Card style={styles.sectionCard}>
-                <Text style={styles.sectionNumber}>03 — הוראות הכנה</Text>
-                <Text style={styles.sectionTitle}>שלבים ושלבי עבודה.</Text>
-                <Text style={styles.sectionSub}>חלקו את השיטה לשלבים ברורים.</Text>
-
-                <PressableScale
-                  testID="recipe-form-staged-toggle"
-                  disabled={disabled || submitting}
-                  onPress={toggleStagedInstructions}
-                  style={[
-                    styles.modeToggleBtn,
-                    state.isStagedInstructions && styles.modeToggleBtnActive,
-                  ]}
-                >
-                  <Ionicons
-                    name={state.isStagedInstructions ? 'layers' : 'list-outline'}
-                    size={16}
-                    color={state.isStagedInstructions ? colors.buttonColor : colors.primaryDark}
-                  />
-                  <Text
+              <Card style={styles.sectionCardCompact}>
+                <View style={styles.compactSectionHeader}>
+                  <Text style={styles.sectionNumber}>03 — הוראות הכנה</Text>
+                  <PressableScale
+                    testID="recipe-form-staged-toggle"
+                    disabled={disabled || submitting}
+                    onPress={toggleStagedInstructions}
                     style={[
-                      styles.modeToggleText,
-                      state.isStagedInstructions && styles.modeToggleTextActive,
+                      styles.modeTogglePill,
+                      state.isStagedInstructions && styles.modeToggleBtnActive,
                     ]}
-                    allowFontScaling={false}
                   >
-                    {state.isStagedInstructions
-                      ? 'מצב שלבים פעיל (חזרה לרשימה פשוטה)'
-                      : 'חלק לשלבי עבודה (למשל הכנת בצק, אפייה)'}
-                  </Text>
-                </PressableScale>
+                    <Ionicons
+                      name={state.isStagedInstructions ? 'layers' : 'list-outline'}
+                      size={14}
+                      color={state.isStagedInstructions ? colors.buttonColor : colors.primaryDark}
+                    />
+                    <Text
+                      style={[
+                        styles.modeTogglePillText,
+                        state.isStagedInstructions && styles.modeToggleTextActive,
+                      ]}
+                      allowFontScaling={false}
+                    >
+                      {state.isStagedInstructions ? 'רשימה פשוטה' : 'חלק לשלבים'}
+                    </Text>
+                  </PressableScale>
+                </View>
 
                 {fieldErrors.instructions ? (
                   <Text style={styles.fieldError}>{fieldErrors.instructions}</Text>
@@ -2549,6 +2491,68 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
                 )}
               </Card>
             </View>
+
+            {/* Optional Metadata Details (placed after core required sections) */}
+            <Card style={styles.sectionCard}>
+              <Text style={styles.sectionNumber}>פרטים נוספים (אופציונלי)</Text>
+
+              <View style={styles.twoColRow}>
+                <View style={[styles.fieldGroup, styles.colHalf]}>
+                  <Text style={styles.label}>מרכיב עיקרי</Text>
+                  <TextInput
+                    testID="recipe-form-main-ingredient"
+                    editable={!disabled && !submitting}
+                    value={state.mainIngredient}
+                    onChangeText={(text) => setState((p) => ({ ...p, mainIngredient: text }))}
+                    placeholder="עוף, בצק, גבינה..."
+                    placeholderTextColor={colors.ink4}
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={[styles.fieldGroup, styles.colHalf]}>
+                  <Text style={styles.label}>יחידת כמות</Text>
+                  <TextInput
+                    testID="recipe-form-servings-unit"
+                    editable={!disabled && !submitting}
+                    value={state.servingsUnit}
+                    onChangeText={(text) => setState((p) => ({ ...p, servingsUnit: text }))}
+                    placeholder="מנות, כיכרות..."
+                    placeholderTextColor={colors.ink4}
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>תיאור קצר</Text>
+                <TextInput
+                  testID="recipe-form-description"
+                  editable={!disabled && !submitting}
+                  value={state.description}
+                  onChangeText={(text) => setState((p) => ({ ...p, description: text }))}
+                  placeholder="משפט-שניים. יוצג על כרטיס המתכון."
+                  placeholderTextColor={colors.ink4}
+                  multiline
+                  numberOfLines={3}
+                  style={[styles.input, styles.multilineInput]}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>תגיות</Text>
+                <TextInput
+                  testID="recipe-form-tags"
+                  editable={!disabled && !submitting}
+                  value={state.tagsText}
+                  onChangeText={(text) => setState((p) => ({ ...p, tagsText: text }))}
+                  placeholder="פסח, שבת, טבעוני..."
+                  placeholderTextColor={colors.ink4}
+                  style={styles.input}
+                />
+                <Text style={styles.hintText}>מופרדות בפסיק.</Text>
+              </View>
+            </Card>
 
             {/* 04 — תמונות ומדיה */}
             <Card style={styles.sectionCard}>
@@ -2858,30 +2862,32 @@ export const RecipeForm = forwardRef<RecipeFormHandle, RecipeFormProps>(function
             </Card>
           </View>
         )}
-
-        {/* Bottom Actions Bar */}
-        {!hideActions ? (
-          <View style={styles.bottomActions}>
-            <Button
-              testID="recipe-form-clear-btn"
-              label={clearLabel}
-              variant="secondary"
-              disabled={disabled || submitting || isPreview}
-              onPress={requestClear}
-              style={styles.clearActionBtn}
-            />
-            <Button
-              testID="recipe-form-submit-btn"
-              label={submitLabel}
-              variant="primary"
-              loading={submitting}
-              disabled={disabled || isPreview}
-              onPress={handleSubmitPress}
-              style={styles.submitActionBtn}
-            />
-          </View>
-        ) : null}
       </ScrollView>
+
+      {/* Sticky Bottom Actions Bar (always accessible without scrolling past optional sections) */}
+      {!hideActions ? (
+        <View style={styles.bottomActionsSticky}>
+          <Button
+            testID="recipe-form-clear-btn"
+            label={clearLabel}
+            variant="secondary"
+            size="sm"
+            disabled={disabled || submitting || isPreview}
+            onPress={requestClear}
+            style={styles.clearActionBtn}
+          />
+          <Button
+            testID="recipe-form-submit-btn"
+            label={submitLabel}
+            variant="primary"
+            size="sm"
+            loading={submitting}
+            disabled={disabled || isPreview}
+            onPress={handleSubmitPress}
+            style={styles.submitActionBtn}
+          />
+        </View>
+      ) : null}
 
       {/* Category Picker Sheet */}
       <ModalSheet
@@ -3097,7 +3103,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
     backgroundColor: colors.surface0,
@@ -3106,10 +3112,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: 6,
     paddingBottom: spacing['2xl'] + 24,
-    gap: spacing.md,
+    gap: 8,
   },
   importAlert: {
     flexDirection: 'row',
@@ -3133,7 +3139,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bodyBold,
   },
   formBody: {
-    gap: spacing.md,
+    gap: 8,
   },
   legendText: {
     fontSize: typeScale.stepMinus1,
@@ -3181,6 +3187,117 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     gap: spacing.md,
+  },
+  sectionCardCompact: {
+    gap: 6,
+    padding: 10,
+  },
+  compactSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  compactLegendText: {
+    fontSize: 11.5,
+    fontFamily: fontFamilies.body,
+    color: colors.ink3,
+    includeFontPadding: false,
+  },
+  fieldGroupCompact: {
+    gap: 2,
+  },
+  catDiffRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    alignItems: 'flex-start',
+  },
+  catCol: {
+    flex: 0.9,
+    minWidth: 0,
+  },
+  diffCol: {
+    flex: 1.1,
+    minWidth: 0,
+  },
+  threeColRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  colThird: {
+    flex: 1,
+    minWidth: 0,
+  },
+  inputCompact: {
+    backgroundColor: colors.surface0,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    fontSize: 14,
+    fontFamily: fontFamilies.body,
+    color: colors.ink,
+    textAlign: 'right',
+  },
+  selectTriggerCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface0,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radii.md,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    gap: 4,
+  },
+  diffPillCompact: {
+    flex: 1,
+    paddingVertical: 5,
+    paddingHorizontal: 4,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    backgroundColor: colors.surface0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface0,
+  },
+  sectionHeaderPills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addInlinePill: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    backgroundColor: colors.surface2,
+  },
+  addInlinePillText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.bodyBold,
+    color: colors.ink,
+    includeFontPadding: false,
+  },
+  modeTogglePillText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.bodyBold,
+    color: colors.primaryDark,
+    includeFontPadding: false,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -3237,9 +3354,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.hairlineStrong,
     borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 11,
-    fontSize: typeScale.step0,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    fontSize: 14,
     fontFamily: fontFamilies.body,
     color: colors.ink,
     textAlign: 'right',
@@ -3590,6 +3707,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  bottomActionsSticky: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    backgroundColor: colors.surface1,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
   },
   clearActionBtn: {
     flex: 1,

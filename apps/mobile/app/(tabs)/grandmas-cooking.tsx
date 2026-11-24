@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -225,6 +225,9 @@ export default function GrandmasCookingScreen() {
   }, [currentPage]);
 
   // Never render Grandma's Cookbook content while unauthorized or loading session
+  if (!sessionLoading && !hasAccess) {
+    return <Redirect href="/(tabs)/home" />;
+  }
   if (!hasAccess) {
     return <View style={styles.screen} />;
   }

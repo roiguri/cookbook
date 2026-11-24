@@ -33,6 +33,7 @@ export interface RecipeCardProps {
   showFavorite?: boolean;
   showAddToMeal?: boolean;
   compact?: boolean;
+  dense?: boolean;
   hideStatuses?: string[];
   onPress?: (recipe: RecipeDoc) => void;
   onToggleFavorite?: (recipe: RecipeDoc) => void;
@@ -84,6 +85,7 @@ export function RecipeCard({
   showFavorite = true,
   showAddToMeal = false,
   compact = false,
+  dense = false,
   hideStatuses,
   onPress,
   onToggleFavorite,
@@ -192,7 +194,7 @@ export function RecipeCard({
       style={[styles.card, shadows.level1, isCompactMode && styles.cardCompact, style]}
     >
       {!isCompactMode ? (
-        <View style={styles.photoBox}>
+        <View style={[styles.photoBox, dense && styles.photoBoxDense]}>
           {imageUrl ? (
             <Image
               source={{ uri: imageUrl }}
@@ -202,7 +204,10 @@ export function RecipeCard({
             />
           ) : (
             <View style={styles.placeholder}>
-              <Text style={styles.placeholderIcon} allowFontScaling={false}>
+              <Text
+                style={[styles.placeholderIcon, dense && styles.placeholderIconDense]}
+                allowFontScaling={false}
+              >
                 {categoryIcon}
               </Text>
             </View>
@@ -219,7 +224,9 @@ export function RecipeCard({
           ) : null}
 
           {showFavorite || showAddToMeal ? (
-            <View style={styles.actionsOverlay}>{renderActions()}</View>
+            <View style={[styles.actionsOverlay, dense && styles.actionsOverlayDense]}>
+              {renderActions()}
+            </View>
           ) : null}
         </View>
       ) : (
@@ -241,18 +248,18 @@ export function RecipeCard({
         </View>
       )}
 
-      <View style={[styles.body, isCompactMode && styles.bodyCompact]}>
+      <View style={[styles.body, isCompactMode && styles.bodyCompact, dense && styles.bodyDense]}>
         {categoryLabel ? (
           <Text style={styles.categoryText} numberOfLines={1} allowFontScaling={false}>
             {categoryLabel}
           </Text>
         ) : null}
 
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={[styles.title, dense && styles.titleDense]} numberOfLines={dense ? 1 : 2}>
           {recipe.name}
         </Text>
 
-        <View style={styles.divider} />
+        {!dense ? <View style={styles.divider} /> : null}
 
         <View style={styles.metaRow}>
           {timeText ? (
@@ -296,6 +303,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     position: 'relative',
   },
+  photoBoxDense: {
+    height: 62,
+  },
   photo: {
     width: '100%',
     height: '100%',
@@ -310,6 +320,9 @@ const styles = StyleSheet.create({
     fontSize: 36,
     includeFontPadding: false,
   },
+  placeholderIconDense: {
+    fontSize: 24,
+  },
   statusOverlay: {
     position: 'absolute',
     top: spacing.sm,
@@ -320,6 +333,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     end: spacing.sm,
+  },
+  actionsOverlayDense: {
+    top: 4,
+    end: 4,
   },
   actionsGroup: {
     flexDirection: 'row',
@@ -371,6 +388,11 @@ const styles = StyleSheet.create({
   bodyCompact: {
     paddingTop: spacing.xs,
   },
+  bodyDense: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 2,
+  },
   categoryText: {
     fontSize: 11.5,
     fontFamily: fontFamilies.bodyMedium,
@@ -385,6 +407,11 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     minHeight: 42,
     textAlign: 'left',
+  },
+  titleDense: {
+    fontSize: 13.5,
+    lineHeight: 18,
+    minHeight: 18,
   },
   divider: {
     height: 1,

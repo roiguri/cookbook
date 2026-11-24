@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  FlatList,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FilterUtils } from '@cookbook/core/filter-utils';
@@ -20,7 +12,6 @@ import {
   ConfirmDialog,
   EmptyState,
   PressableScale,
-  ScreenHeader,
   Skeleton,
   useToast,
 } from '@/components/ui';
@@ -84,6 +75,7 @@ export default function CategoriesScreen() {
   const searchInputRef = useRef<TextInput>(null);
   const requestSeqRef = useRef<number>(0);
   const prevAuthRef = useRef<boolean>(isAuthenticated);
+  const prevUidRef = useRef<string | null>(user?.uid || null);
   const prevParamsRef = useRef({
     category: firstParam(params.category),
     q: firstParam(params.q),
@@ -138,17 +130,25 @@ export default function CategoriesScreen() {
     }
   }, []);
 
-  // Reset favorites filter automatically on sign-out
+  // Reset search & favorites filter cleanly on sign-in, sign-out, or account switch
   useEffect(() => {
     const wasAuth = prevAuthRef.current;
+    const prevUid = prevUidRef.current;
+    const nextUid = user?.uid || null;
     prevAuthRef.current = isAuthenticated;
+    prevUidRef.current = nextUid;
 
-    if (wasAuth && !isAuthenticated) {
-      FavoritesService.clearCache();
-      setFavoriteIds([]);
+    if (prevUid !== nextUid) {
+      setSearchInput('');
+      setDebouncedQuery('');
+      prevParamsRef.current.q = '';
+      if (wasAuth && !isAuthenticated) {
+        FavoritesService.clearCache();
+        setFavoriteIds([]);
+      }
       setFilters((prev) => (prev.favoritesOnly ? { ...prev, favoritesOnly: false } : prev));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.uid]);
 
   // Debounce live typing (instant when cleared)
   useEffect(() => {
@@ -362,6 +362,7 @@ export default function CategoriesScreen() {
       <View style={styles.gridCell}>
         <RecipeCard
           recipe={item}
+          dense
           isFavorite={favoriteSet.has(item.id)}
           showFavorite
           showAddToMeal={isAuthenticated}
@@ -437,7 +438,14 @@ export default function CategoriesScreen() {
 
   return (
     <View testID="categories-screen" style={styles.screen}>
-      <ScreenHeader title={screenTitle} subtitle={screenSubtitle} />
+      <View style={styles.compactHeader}>
+        <Text style={styles.compactHeaderTitle} numberOfLines={1}>
+          {screenTitle}
+        </Text>
+        <Text style={styles.compactHeaderCount} allowFontScaling={false}>
+          {screenSubtitle}
+        </Text>
+      </View>
 
       {/* Search + Multi-Facet Filter Controls */}
       <View style={styles.controlsWrap}>
@@ -498,17 +506,14 @@ export default function CategoriesScreen() {
           </PressableScale>
         </View>
 
-        {/* Horizontal RTL Category Filter Chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryChipsRow}
-        >
+        {/* Wrapped RTL Category Filter Chips (all 10 categories immediately visible) */}
+        <View style={styles.categoryChipsWrap}>
           <Chip
             label="כל הקטגוריות"
             selected={selectedCategory === 'all'}
             onPress={() => handleSelectCategory('all')}
             testID="category-chip-all"
+            style={styles.compactCategoryChip}
           />
           {CATEGORY_IDS.map((catId) => (
             <Chip
@@ -517,9 +522,10 @@ export default function CategoriesScreen() {
               selected={selectedCategory === catId}
               onPress={() => handleSelectCategory(catId)}
               testID={`category-chip-${catId}`}
+              style={styles.compactCategoryChip}
             />
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Virtualized Recipe Grid */}
@@ -580,9 +586,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface0,
   },
-  controlsWrap: {
+  compactHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: 4,
     gap: spacing.sm,
-    paddingBottom: spacing.sm,
+  },
+  compactHeaderTitle: {
+    flex: 1,
+    fontSize: typeScale.step2,
+    fontFamily: fontFamilies.heading,
+    color: colors.ink,
+    textAlign: 'left',
+  },
+  compactHeaderCount: {
+    fontSize: 12,
+    fontFamily: fontFamilies.bodyMedium,
+    color: colors.ink3,
+    includeFontPadding: false,
+  },
+  controlsWrap: {
+    gap: 6,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
@@ -655,19 +683,26 @@ const styles = StyleSheet.create({
     color: colors.buttonColor,
     includeFontPadding: false,
   },
-  categoryChipsRow: {
+  categoryChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-    paddingVertical: 2,
+    gap: 5,
+    paddingVertical: 1,
+  },
+  compactCategoryChip: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
   },
   listContent: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
     paddingBottom: spacing['2xl'],
     flexGrow: 1,
   },
   gridRow: {
-    gap: spacing.md,
+    gap: spacing.sm,
     justifyContent: 'space-between',
   },
   gridCell: {

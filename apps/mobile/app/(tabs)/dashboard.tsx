@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontFamilies, radii, spacing, typeScale } from '@/theme';
 import { PressableScale, ScreenHeader, useToast } from '@/components/ui';
@@ -42,9 +42,20 @@ import {
 } from '@/services/recipes/recipe-submission-service';
 import { UserService, type UserProfileDoc } from '@/services/users/user-service';
 
+type DashboardSectionKey =
+  | 'submissions'
+  | 'suggestions'
+  | 'all-recipes'
+  | 'users'
+  | 'api-tokens'
+  | 'enhancer'
+  | 'failed-urls';
+
 export default function DashboardScreen() {
   const { user, isManager, loading: sessionLoading } = useSession();
   const { showToast } = useToast();
+
+  const [activeSection, setActiveSection] = useState<DashboardSectionKey>('submissions');
 
   const canAccess = !sessionLoading && isManager && Boolean(user?.uid);
   const canAccessRef = useRef(canAccess);
@@ -259,6 +270,9 @@ export default function DashboardScreen() {
   }, [loadPublishedRecipes]);
 
   // Strict P0 gate: never render dashboard content or trigger queries when unauthorized
+  if (!sessionLoading && (!isManager || !user?.uid)) {
+    return <Redirect href="/(tabs)/home" />;
+  }
   if (!canAccess || !user?.uid) {
     return <View style={styles.screen} />;
   }
@@ -266,11 +280,59 @@ export default function DashboardScreen() {
   const managerUid = user.uid;
   const isInitialLoading = !initialLoaded;
 
+  const sectionTabs: Array<{
+    key: DashboardSectionKey;
+    testID: string;
+    label: string;
+    count?: number;
+  }> = [
+    {
+      key: 'submissions',
+      testID: 'dashboard-section-submissions',
+      label: 'אישורים',
+      count: submissions.length,
+    },
+    {
+      key: 'suggestions',
+      testID: 'dashboard-section-suggestions',
+      label: 'הצעות עריכה',
+      count: suggestions.length,
+    },
+    {
+      key: 'all-recipes',
+      testID: 'dashboard-section-all-recipes',
+      label: 'כל המתכונים',
+      count: publishedRecipes.length,
+    },
+    {
+      key: 'users',
+      testID: 'dashboard-section-users',
+      label: 'משתמשים',
+      count: users.length,
+    },
+    {
+      key: 'api-tokens',
+      testID: 'dashboard-section-api-tokens',
+      label: 'גישת API',
+      count: apiTokens.length,
+    },
+    {
+      key: 'enhancer',
+      testID: 'dashboard-section-enhancer',
+      label: 'שיפור תמונות AI',
+    },
+    {
+      key: 'failed-urls',
+      testID: 'dashboard-section-failed-urls',
+      label: 'קישורים שנכשלו',
+      count: failedUrls.length,
+    },
+  ];
+
   return (
     <View testID="dashboard-screen" collapsable={false} style={styles.screen}>
       <ScreenHeader
         title="ממשק ניהול"
-        subtitle="אישורים, הצעות עריכה, משתמשים ותמונות"
         rightAction={
           <PressableScale
             testID="dashboard-refresh-btn"
@@ -313,73 +375,119 @@ export default function DashboardScreen() {
         {/* Manager Push Notification Opt-In Banner */}
         <PushBanner uid={managerUid} />
 
-        {/* 1. Submission Approval Queue (Dual-Mode Rejection) */}
-        <SubmissionsSection
-          items={submissions}
-          usersById={usersById}
-          loading={isInitialLoading && refreshingSubmissions}
-          refreshing={refreshingSubmissions}
-          managerUid={managerUid}
-          onRefresh={loadSubmissions}
-          onMutated={handleRecipesAndQueueMutated}
-        />
+        {/* Compact Wrapped 7-Section Switcher Bar (every section immediately reachable above fold) */}
+        <View style={styles.sectionTabsGrid} accessibilityRole="tablist">
+          {sectionTabs.map((tab) => {
+            const selected = activeSection === tab.key;
+            return (
+              <PressableScale
+                key={tab.key}
+                testID={tab.testID}
+                variant="button"
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                onPress={() => setActiveSection(tab.key)}
+                style={[styles.sectionTabPill, selected && styles.sectionTabPillActive]}
+              >
+                <Text
+                  style={[styles.sectionTabLabel, selected && styles.sectionTabLabelActive]}
+                  allowFontScaling={false}
+                >
+                  {tab.label}
+                </Text>
+                {typeof tab.count === 'number' ? (
+                  <View style={[styles.sectionTabCount, selected && styles.sectionTabCountActive]}>
+                    <Text
+                      style={[
+                        styles.sectionTabCountText,
+                        selected && styles.sectionTabCountTextActive,
+                      ]}
+                      allowFontScaling={false}
+                    >
+                      {tab.count}
+                    </Text>
+                  </View>
+                ) : null}
+              </PressableScale>
+            );
+          })}
+        </View>
 
-        {/* 2. Pending Edit Suggestions Diff Review */}
-        <SuggestionsSection
-          suggestions={suggestions}
-          allRecipesById={allRecipesById}
-          loading={isInitialLoading && refreshingSuggestions}
-          refreshing={refreshingSuggestions}
-          managerUid={managerUid}
-          onRefresh={loadSuggestions}
-          onApproved={handleSuggestionApproved}
-          onRejected={loadSuggestions}
-        />
+        {/* Active Section Panel */}
+        {activeSection === 'submissions' ? (
+          <SubmissionsSection
+            items={submissions}
+            usersById={usersById}
+            loading={isInitialLoading && refreshingSubmissions}
+            refreshing={refreshingSubmissions}
+            managerUid={managerUid}
+            onRefresh={loadSubmissions}
+            onMutated={handleRecipesAndQueueMutated}
+          />
+        ) : null}
 
-        {/* 3. All Published Recipes Management */}
-        <AllRecipesSection
-          recipes={publishedRecipes}
-          loading={isInitialLoading && refreshingRecipes}
-          refreshing={refreshingRecipes}
-          managerUid={managerUid}
-          onRefresh={loadPublishedRecipes}
-          onMutated={handleRecipesAndQueueMutated}
-        />
+        {activeSection === 'suggestions' ? (
+          <SuggestionsSection
+            suggestions={suggestions}
+            allRecipesById={allRecipesById}
+            loading={isInitialLoading && refreshingSuggestions}
+            refreshing={refreshingSuggestions}
+            managerUid={managerUid}
+            onRefresh={loadSuggestions}
+            onApproved={handleSuggestionApproved}
+            onRejected={loadSuggestions}
+          />
+        ) : null}
 
-        {/* 4 & 5. User Role Management + Personal Recipe API Tokens */}
-        <UsersAndTokensSection
-          users={users}
-          tokens={apiTokens}
-          maxTokensPerUser={maxTokensPerUser}
-          tokensLoadError={tokensLoadError}
-          loadingUsers={isInitialLoading && refreshingUsers}
-          refreshingUsers={refreshingUsers}
-          refreshingTokens={refreshingTokens}
-          currentManagerUid={managerUid}
-          onRefreshUsers={loadUsers}
-          onRefreshTokens={loadApiTokens}
-          onUserRoleUpdated={handleUserRoleUpdated}
-          onTokensChanged={setApiTokens}
-        />
+        {activeSection === 'all-recipes' ? (
+          <AllRecipesSection
+            recipes={publishedRecipes}
+            loading={isInitialLoading && refreshingRecipes}
+            refreshing={refreshingRecipes}
+            managerUid={managerUid}
+            onRefresh={loadPublishedRecipes}
+            onMutated={handleRecipesAndQueueMutated}
+          />
+        ) : null}
 
-        {/* 6. AI Food Image Enhancer */}
-        <AiEnhancerSection
-          recipes={publishedRecipes}
-          loading={isInitialLoading && refreshingRecipes}
-          refreshing={refreshingRecipes}
-          managerUid={managerUid}
-          onRefresh={loadPublishedRecipes}
-          onImageSaved={handleImageEnhancedSaved}
-        />
+        {activeSection === 'users' || activeSection === 'api-tokens' ? (
+          <UsersAndTokensSection
+            mode={activeSection}
+            users={users}
+            tokens={apiTokens}
+            maxTokensPerUser={maxTokensPerUser}
+            tokensLoadError={tokensLoadError}
+            loadingUsers={isInitialLoading && refreshingUsers}
+            refreshingUsers={refreshingUsers}
+            refreshingTokens={refreshingTokens}
+            currentManagerUid={managerUid}
+            onRefreshUsers={loadUsers}
+            onRefreshTokens={loadApiTokens}
+            onUserRoleUpdated={handleUserRoleUpdated}
+            onTokensChanged={setApiTokens}
+          />
+        ) : null}
 
-        {/* 7. Failed URL Extractions Queue */}
-        <FailedUrlsSection
-          items={failedUrls}
-          loading={isInitialLoading && refreshingFailedUrls}
-          refreshing={refreshingFailedUrls}
-          onRefresh={loadFailedUrls}
-          onDeleted={loadFailedUrls}
-        />
+        {activeSection === 'enhancer' ? (
+          <AiEnhancerSection
+            recipes={publishedRecipes}
+            loading={isInitialLoading && refreshingRecipes}
+            refreshing={refreshingRecipes}
+            managerUid={managerUid}
+            onRefresh={loadPublishedRecipes}
+            onImageSaved={handleImageEnhancedSaved}
+          />
+        ) : null}
+
+        {activeSection === 'failed-urls' ? (
+          <FailedUrlsSection
+            items={failedUrls}
+            loading={isInitialLoading && refreshingFailedUrls}
+            refreshing={refreshingFailedUrls}
+            onRefresh={loadFailedUrls}
+            onDeleted={loadFailedUrls}
+          />
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -411,6 +519,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing['2xl'],
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  sectionTabsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sectionTabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface1,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+  },
+  sectionTabPillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  sectionTabLabel: {
+    fontFamily: fontFamilies.bodyMedium,
+    fontSize: 12.5,
+    color: colors.ink2,
+    includeFontPadding: false,
+  },
+  sectionTabLabelActive: {
+    fontFamily: fontFamilies.bodyBold,
+    color: colors.buttonColor,
+  },
+  sectionTabCount: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: radii.pill,
+    paddingHorizontal: 5,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTabCountActive: {
+    backgroundColor: colors.primaryDark,
+  },
+  sectionTabCountText: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 11,
+    color: colors.ink2,
+    includeFontPadding: false,
+  },
+  sectionTabCountTextActive: {
+    color: colors.buttonColor,
   },
 });

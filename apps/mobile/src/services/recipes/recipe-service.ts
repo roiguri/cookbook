@@ -222,8 +222,9 @@ export const RecipeService = {
           constraints.push(where('category', '==', category));
         }
         const docs = await listDocuments<RecipeDoc>(RECIPES_COLLECTION, constraints);
-        const sorted = sortByNewest(docs);
-        recipes = opts?.limit && opts.limit > 0 ? sorted.slice(0, opts.limit) : sorted;
+        // Preserve natural Firestore document order when no explicit orderBy was
+        // requested (exact parity with Web `RecipeService.listPublished()`).
+        recipes = opts?.limit && opts.limit > 0 ? docs.slice(0, opts.limit) : docs;
       }
 
       // Defensive P0 guard: ensure only published docs ever leave listPublished

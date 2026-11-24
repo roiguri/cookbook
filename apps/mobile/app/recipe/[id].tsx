@@ -29,7 +29,16 @@ import {
 } from '@cookbook/core/recipe-utils/recipe-ingredients-utils';
 import { getRecipeStatus } from '@cookbook/core/recipe-utils/recipe-status';
 import { colors, fontFamilies, radii, shadows, spacing, statusColors, typeScale } from '@/theme';
-import { Button, Card, ConfirmDialog, PressableScale, Skeleton, useToast } from '@/components/ui';
+import {
+  AppHeader,
+  BottomTabBar,
+  Button,
+  Card,
+  ConfirmDialog,
+  PressableScale,
+  Skeleton,
+  useToast,
+} from '@/components/ui';
 import { RecipeStrip } from '@/components/browse';
 import {
   ShareFamilyModal,
@@ -918,11 +927,15 @@ export default function RecipeDetailScreen() {
     actionsSheetOpen || shareSheetOpen || shareFamilyOpen || fullscreenVisible || suggestEditOpen;
 
   return (
-    <View
-      testID="recipe-detail-screen"
-      collapsable={false}
-      style={[styles.screen, { paddingTop: insets.top }]}
-    >
+    <View testID="recipe-detail-screen" collapsable={false} style={styles.screen}>
+      {/* Shared App Header (keeps brand-logo, auth-open-btn, header-search-btn, shortcuts accessible) */}
+      <View
+        accessibilityElementsHidden={anyOverlayOpen}
+        importantForAccessibility={anyOverlayOpen ? 'no-hide-descendants' : 'auto'}
+      >
+        <AppHeader />
+      </View>
+
       {/* Top Action Header */}
       <View
         style={styles.topBar}
@@ -1114,7 +1127,9 @@ export default function RecipeDetailScreen() {
                 submission={submission}
                 onSubmitForApproval={() => setConfirmSubmitOpen(true)}
                 onCancelSubmission={() => setConfirmCancelSubOpen(true)}
-                onResubmit={() => setConfirmResubmitOpen(true)}
+                onResubmit={() => {
+                  void handleDirectResubmit();
+                }}
                 busy={
                   busyAction === 'submit' ||
                   busyAction === 'cancel-submit' ||
@@ -1176,56 +1191,59 @@ export default function RecipeDetailScreen() {
                 </View>
               ) : null}
 
-              {/* 3-Cell Editorial Metadata Strip + Attribution */}
-              <View style={[styles.metaStrip, shadows.level1]}>
-                <View style={styles.metaCellsRow}>
-                  <View style={[styles.metaCell, styles.metaCellBorderEnd]}>
-                    <Text style={styles.metaKey} allowFontScaling={false}>
-                      זמן הכנה
-                    </Text>
-                    <Text style={styles.metaVal} numberOfLines={1} allowFontScaling={false}>
-                      {formatCookingTime(recipe.prepTime || 0)}
-                    </Text>
+              {/* 3-Cell Editorial Metadata Strip + Attribution (hidden in Cook Mode to maximize step viewport) */}
+              {!cookMode ? (
+                <View style={[styles.metaStrip, shadows.level1]}>
+                  <View style={styles.metaCellsRow}>
+                    <View style={[styles.metaCell, styles.metaCellBorderEnd]}>
+                      <Text style={styles.metaKey} allowFontScaling={false}>
+                        זמן הכנה
+                      </Text>
+                      <Text style={styles.metaVal} numberOfLines={1} allowFontScaling={false}>
+                        {formatCookingTime(recipe.prepTime || 0)}
+                      </Text>
+                    </View>
+
+                    <View style={[styles.metaCell, styles.metaCellBorderEnd]}>
+                      <Text style={styles.metaKey} allowFontScaling={false}>
+                        זמן המתנה
+                      </Text>
+                      <Text style={styles.metaVal} numberOfLines={1} allowFontScaling={false}>
+                        {formatCookingTime(recipe.waitTime || 0)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaCell}>
+                      <Text style={styles.metaKey} allowFontScaling={false}>
+                        רמת קושי
+                      </Text>
+                      <Text style={styles.metaVal} numberOfLines={1} allowFontScaling={false}>
+                        {recipe.difficulty || '—'}
+                      </Text>
+                    </View>
                   </View>
 
-                  <View style={[styles.metaCell, styles.metaCellBorderEnd]}>
-                    <Text style={styles.metaKey} allowFontScaling={false}>
-                      זמן המתנה
-                    </Text>
-                    <Text style={styles.metaVal} numberOfLines={1} allowFontScaling={false}>
-                      {formatCookingTime(recipe.waitTime || 0)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.metaCell}>
-                    <Text style={styles.metaKey} allowFontScaling={false}>
-                      רמת קושי
-                    </Text>
-                    <Text style={styles.metaVal} numberOfLines={1} allowFontScaling={false}>
-                      {recipe.difficulty || '—'}
-                    </Text>
-                  </View>
+                  {recipe.attribution && recipe.attribution.trim() ? (
+                    <View style={styles.attributionRow}>
+                      <Text style={styles.attributionLabel} allowFontScaling={false}>
+                        מקור:
+                      </Text>
+                      <Text style={styles.attributionText} numberOfLines={1}>
+                        {renderAttributionSegments(recipe.attribution.trim())}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-
-                {recipe.attribution && recipe.attribution.trim() ? (
-                  <View style={styles.attributionRow}>
-                    <Text style={styles.attributionLabel} allowFontScaling={false}>
-                      מקור:
-                    </Text>
-                    <Text style={styles.attributionText} numberOfLines={2}>
-                      {renderAttributionSegments(recipe.attribution.trim())}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+              ) : null}
             </View>
 
-            {/* Hero Photo Carousel */}
-            {accessibleImages.length > 0 ? (
+            {/* Hero Photo Carousel (compact height so ingredients start above fold; hidden in Cook Mode) */}
+            {!cookMode && accessibleImages.length > 0 ? (
               <ImageCarousel
                 recipeId={recipe.id}
                 images={accessibleImages}
                 onPressImage={handleOpenFullscreen}
+                height={128}
               />
             ) : null}
 
@@ -1537,29 +1555,36 @@ export default function RecipeDetailScreen() {
 
             {/* Related Published Recipes */}
             {relatedRecipes.length > 0 ? (
-              <View
-                testID="related-recipes-section"
-                collapsable={false}
-                style={styles.sectionBlock}
-              >
+              <View style={styles.sectionBlock}>
                 <Text style={styles.blockHeading}>מתכונים קשורים</Text>
-                <RecipeStrip
-                  recipes={relatedRecipes}
-                  favoriteIds={favoriteSet}
-                  showFavorite={isAuthenticated}
-                  showAddToMeal={isAuthenticated}
-                  onPressRecipe={(rel) => router.push(`/recipe/${rel.id}`)}
-                  onToggleFavorite={(rel) => {
-                    void handleToggleFavorite(rel.id);
-                  }}
-                  onAddToMeal={(rel) => {
-                    void handleAddToMeal(rel.id, rel.servings);
-                  }}
-                />
+                <View testID="related-recipes-section" collapsable={false}>
+                  <RecipeStrip
+                    recipes={relatedRecipes}
+                    dense
+                    favoriteIds={favoriteSet}
+                    showFavorite={isAuthenticated}
+                    showAddToMeal={isAuthenticated}
+                    onPressRecipe={(rel) => router.push(`/recipe/${rel.id}`)}
+                    onToggleFavorite={(rel) => {
+                      void handleToggleFavorite(rel.id);
+                    }}
+                    onAddToMeal={(rel) => {
+                      void handleAddToMeal(rel.id, rel.servings);
+                    }}
+                  />
+                </View>
               </View>
             ) : null}
           </ScrollView>
         )}
+      </View>
+
+      {/* Persistent Role-Reactive Bottom Tab Bar */}
+      <View
+        accessibilityElementsHidden={anyOverlayOpen}
+        importantForAccessibility={anyOverlayOpen ? 'no-hide-descendants' : 'auto'}
+      >
+        <BottomTabBar />
       </View>
 
       {/* Fullscreen Image & Step Video Viewer */}
@@ -1757,8 +1782,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
     backgroundColor: colors.surface0,
@@ -1769,8 +1794,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   headerIconBtn: {
-    width: 40,
-    height: 40,
+    width: 34,
+    height: 34,
     borderRadius: radii.pill,
     backgroundColor: colors.surface1,
     borderWidth: 1,
@@ -1786,11 +1811,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.lg,
-    gap: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
   headerBlock: {
-    gap: spacing.md,
+    gap: 6,
   },
   eyebrowRow: {
     flexDirection: 'row',
@@ -1982,17 +2008,17 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   ingredientsList: {
-    gap: spacing.md,
+    gap: 6,
   },
   ingredientSectionWrap: {
-    gap: 2,
+    gap: 1,
   },
   ingredientSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: spacing.xs,
+    marginTop: 2,
+    marginBottom: 2,
   },
   ingredientSectionDot: {
     width: 7,
@@ -2011,10 +2037,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: 11,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
-    minHeight: 44,
+    minHeight: 34,
   },
   ingredientRowLast: {
     borderBottomWidth: 0,
@@ -2065,16 +2091,16 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   stagesList: {
-    gap: spacing.xl,
+    gap: 10,
   },
   stageBlock: {
-    gap: spacing.sm,
+    gap: 4,
   },
   stageHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingBottom: spacing.xs,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
@@ -2090,7 +2116,7 @@ const styles = StyleSheet.create({
   },
   stageTitle: {
     flex: 1,
-    fontSize: typeScale.step2,
+    fontSize: typeScale.step1,
     fontFamily: fontFamilies.heading,
     color: colors.ink,
     textAlign: 'left',
@@ -2101,9 +2127,9 @@ const styles = StyleSheet.create({
   stepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    gap: spacing.sm,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.hairline,
     borderRadius: radii.md,

@@ -227,10 +227,57 @@ export function resolveAppRoute(rawUrl: string): ResolvedAppRoute | null {
   return null;
 }
 
+// Module-level early URL buffer attached immediately at JS import time so
+// cold-start / font-loading `onNewIntent` deep links are NEVER dropped before
+// React mounts `AppLifecycleBridge` (`useDeepLinks`).
+let bufferedEarlyUrl: string | null = null;
+const earlyUrlSubscribers = new Set<(url: string) => void>();
+
+try {
+  Linking.addEventListener('url', ({ url }) => {
+    if (!url) return;
+    if (earlyUrlSubscribers.size > 0) {
+      for (const listener of earlyUrlSubscribers) {
+        listener(url);
+      }
+    } else {
+      bufferedEarlyUrl = url;
+    }
+  });
+} catch {
+  // Ignore outside RN runtime
+}
+
+try {
+  Linking.getInitialURL()
+    .then((initialUrl) => {
+      if (!initialUrl) return;
+      if (earlyUrlSubscribers.size > 0) {
+        for (const listener of earlyUrlSubscribers) {
+          listener(initialUrl);
+        }
+      } else if (!bufferedEarlyUrl) {
+        bufferedEarlyUrl = initialUrl;
+      }
+    })
+    .catch(() => {});
+} catch {
+  // Ignore outside RN runtime
+}
+
 /**
- * Handles both cold-start (`getInitialURL`) and warm-resume (`addEventListener('url')`)
- * deep links across custom schemes and HTTPS App Links / Universal Links.
- * Defers gated routes until SessionContext auth & profile hydration completes.
+ * Peeks any buffered cold-start deep link route so `app/index.tsx` can redirect
+ * directly to the deep link target instead of clobbering it with `/(tabs)/home`.
+ */
+export function peekBufferedInitialRoute(): ResolvedAppRoute | null {
+  if (!bufferedEarlyUrl) return null;
+  return resolveAppRoute(bufferedEarlyUrl);
+}
+
+/**
+ * Handles both cold-start (`getInitialURL` / early intent buffer) and warm-resume
+ * (`addEventListener('url')`) deep links across custom schemes and HTTPS App Links /
+ * Universal Links. Defers gated routes until SessionContext auth & profile hydration completes.
  */
 export function useDeepLinks(): void {
   const { loading: sessionLoading } = useSession();
@@ -240,6 +287,7 @@ export function useDeepLinks(): void {
   const [pendingLink, setPendingLink] = useState<PendingDeepLink | null>(null);
   const seqRef = useRef(0);
   const initialHandledRef = useRef(false);
+  const lastDispatchedRef = useRef<{ key: string; at: number }>({ key: '', at: 0 });
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
 
@@ -256,6 +304,17 @@ export function useDeepLinks(): void {
       setPendingLink({ id: seqRef.current, source, route });
     };
 
+    const onUrl = (url: string) => {
+      enqueueUrl(url, 'event');
+    };
+    earlyUrlSubscribers.add(onUrl);
+
+    if (bufferedEarlyUrl) {
+      const early = bufferedEarlyUrl;
+      bufferedEarlyUrl = null;
+      enqueueUrl(early, 'event');
+    }
+
     if (!initialHandledRef.current) {
       initialHandledRef.current = true;
       Linking.getInitialURL()
@@ -267,25 +326,24 @@ export function useDeepLinks(): void {
         });
     }
 
-    const sub = Linking.addEventListener('url', ({ url }) => {
-      enqueueUrl(url, 'event');
-    });
-
     return () => {
       active = false;
-      sub.remove();
+      earlyUrlSubscribers.delete(onUrl);
     };
   }, []);
 
   useEffect(() => {
     if (!pendingLink || !navReady) return;
+    // Wait until `app/index.tsx` completes its initial redirect off `/` so it
+    // can never clobber our deep-link navigation with `/(tabs)/home`.
+    if (pathname === '/' || pathname === '') return;
     if (pendingLink.route.requiresAuthHydration && sessionLoading) return;
 
     const { route, source } = pendingLink;
     setPendingLink(null);
 
-    // Avoid stacking a duplicate route on cold start when Expo Router already
-    // resolved the exact parameterless target screen natively.
+    const routeKey = `${route.canonicalPathname}|${JSON.stringify(route.href)}`;
+    const now = Date.now();
     if (
       source === 'initial' &&
       !route.hasParams &&
@@ -293,11 +351,20 @@ export function useDeepLinks(): void {
     ) {
       return;
     }
+    if (
+      !route.hasParams &&
+      pathnameRef.current === route.canonicalPathname &&
+      lastDispatchedRef.current.key === routeKey &&
+      now - lastDispatchedRef.current.at < 1500
+    ) {
+      return;
+    }
 
+    lastDispatchedRef.current = { key: routeKey, at: now };
     try {
       router.push(route.href);
     } catch (err) {
       captureError(err, { service: 'deep-links', op: 'navigate' });
     }
-  }, [pendingLink, navReady, sessionLoading]);
+  }, [pendingLink, navReady, pathname, sessionLoading]);
 }

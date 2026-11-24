@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'rea
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { STAGE } from '@cookbook/core/recipe-model';
 import { colors, fontFamilies, radii, shadows, spacing, statusColors, typeScale } from '@/theme';
-import { Button, ConfirmDialog, EmptyState, ScreenHeader, useToast } from '@/components/ui';
+import { Button, ConfirmDialog, EmptyState, useToast } from '@/components/ui';
 import {
   RecipeForm,
   RecipeImportModal,
@@ -221,7 +221,7 @@ export default function ProposeRecipeScreen() {
         const authorName = profile?.fullName || user.displayName || user.email || undefined;
 
         // Both approved AND manager create visibility: 'private' from /propose-recipe
-        const { mediaUploadResults } = await createRecipeAtomic({
+        const { recipeId, mediaUploadResults } = await createRecipeAtomic({
           recipeData: {
             ...contentFields,
             stage: choice.stage,
@@ -253,6 +253,14 @@ export default function ProposeRecipeScreen() {
           );
         } else {
           showToast(baseSuccessMessage, 'success');
+        }
+
+        if (!choice.submit && recipeId) {
+          allowLeaveRef.current = true;
+          router.push(`/recipe/${recipeId}`);
+          setTimeout(() => {
+            allowLeaveRef.current = false;
+          }, 300);
         }
       } catch (err) {
         captureError(err, {
@@ -396,11 +404,12 @@ export default function ProposeRecipeScreen() {
 
   return (
     <View testID="propose-screen" collapsable={false} style={styles.screen}>
-      <ScreenHeader
-        title={headerTitle}
-        subtitle={headerSubtitle}
-        rightAction={
-          isEditMode ? (
+      {isEditMode || isPreview || !isAuthenticated ? (
+        <View style={styles.compactHeader}>
+          <Text style={styles.compactHeaderTitle} numberOfLines={1}>
+            {headerTitle}
+          </Text>
+          {isEditMode ? (
             <Button
               label="ביטול"
               variant="ghost"
@@ -410,9 +419,9 @@ export default function ProposeRecipeScreen() {
                 router.replace('/(tabs)/my-recipes');
               }}
             />
-          ) : undefined
-        }
-      />
+          ) : null}
+        </View>
+      ) : null}
 
       {sessionLoading ? (
         <View style={styles.centerState}>
@@ -553,6 +562,22 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.surface0,
+  },
+  compactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: 4,
+    paddingBottom: 2,
+    gap: spacing.sm,
+  },
+  compactHeaderTitle: {
+    flex: 1,
+    fontSize: typeScale.step2,
+    fontFamily: fontFamilies.heading,
+    color: colors.ink,
+    textAlign: 'left',
   },
   centerState: {
     flex: 1,

@@ -199,7 +199,10 @@ export function createSeedServer({ config = DTU_CONFIG } = {}) {
       const patchRes = await fetch(patchUrl, {
         method: 'PATCH',
         headers: OWNER_HEADERS,
-        body: JSON.stringify({ metadata: fileSpec.metadata }),
+        body: JSON.stringify({
+          contentType: fileSpec.contentType,
+          metadata: fileSpec.metadata,
+        }),
       });
       if (!patchRes.ok) {
         const text = await patchRes.text();
@@ -342,19 +345,38 @@ export function createSeedServer({ config = DTU_CONFIG } = {}) {
         .map((k) => [k, firestoreDocs[k]]),
     );
 
-    // 3. Storage objects
+    // 3. Storage objects (list endpoint returns only {name, bucket}; fetch each object's metadata)
     const storageRes = await fetch(`${urls.storage}/v0/b/${encodeURIComponent(bucket)}/o`, {
       headers: { Authorization: 'Bearer owner' },
     });
     const storageJson = storageRes.ok ? await storageRes.json() : {};
-    const storage = (storageJson.items || [])
-      .map((item) => ({
-        name: item.name,
-        contentType: item.contentType || '',
-        size: Number(item.size || 0),
-        metadata: item.metadata || {},
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const listedItems = Array.isArray(storageJson.items) ? storageJson.items : [];
+    const storage = (
+      await Promise.all(
+        listedItems.map(async (item) => {
+          try {
+            const metaRes = await fetch(
+              `${urls.storage}/v0/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(item.name)}`,
+              { headers: { Authorization: 'Bearer owner' } },
+            );
+            const meta = metaRes.ok ? await metaRes.json() : item;
+            return {
+              name: meta.name || item.name,
+              contentType: meta.contentType || '',
+              size: Number(meta.size || 0),
+              metadata: meta.metadata || {},
+            };
+          } catch {
+            return {
+              name: item.name,
+              contentType: item.contentType || '',
+              size: Number(item.size || 0),
+              metadata: item.metadata || {},
+            };
+          }
+        }),
+      )
+    ).sort((a, b) => a.name.localeCompare(b.name));
 
     return {
       capturedAt: new Date().toISOString(),

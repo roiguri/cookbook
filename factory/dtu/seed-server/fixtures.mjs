@@ -5,9 +5,9 @@
 import { CATEGORY_IDS, buildImageEntry, buildMediaEntry } from '@cookbook/core/recipe-model';
 import { PUSH_PLATFORMS, deviceIdForToken } from '@cookbook/core/push-devices';
 
-// Valid tiny 4x4 JPEG (real SOI..EOI) and 4x4 PNG for Storage fixtures
+// Valid tiny 16x16 warm herb-green PNG (zlib/CRC32 verified) for Storage fixtures
 export const SAMPLE_PNG_BUFFER = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAADElEQVR4nGNg+M8AAAQAAQEKtP1iAAAAAElFTkSuQmCC',
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAIElEQVR4nGP49OI8SYiBTA1ZM/0IolENoxqI0UDD1AoAydbnkEIbojoAAAAASUVORK5CYII=',
   'base64',
 );
 
@@ -217,6 +217,7 @@ export function buildSeedDataset(profile = 'baseline') {
   const managerUid = 'dtu-manager-1';
   const approvedUid = 'dtu-approved-1';
   const approved2Uid = 'dtu-approved-2';
+  const plainUid = 'dtu-user-1';
 
   // 2. Registered push devices for manager across all 3 platforms (web, android, ios)
   const managerDevices = [
@@ -559,6 +560,14 @@ export function buildSeedDataset(profile = 'baseline') {
       metadata: { uploadedBy: managerUid },
     });
   }
+
+  // Seed a real Storage avatar for plain user so account-deletion cleanup verifies Storage deletion end-to-end
+  files.push({
+    path: `user-avatars/${plainUid}.png`,
+    contentType: 'image/png',
+    buffer: SAMPLE_PNG_BUFFER,
+    metadata: { uploadedBy: plainUid },
+  });
 
   // 8. Failed URL extraction log for Manager Dashboard
   docs['failed_url_extractions/dtu-failed-url-1'] = {

@@ -2,16 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image as RNImage,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system';
 import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -140,17 +136,14 @@ export function AiEnhancerSection({
   onRefresh,
   onImageSaved,
 }: AiEnhancerSectionProps) {
-  const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
   const [expanded, setExpanded] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAllRecipes, setShowAllRecipes] = useState(false);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [stripUrls, setStripUrls] = useState<Record<string, string | null>>({});
 
-  // Enhancer modal state
-  const [modalOpen, setModalOpen] = useState(false);
+  // Inline enhancer studio state
   const [activeImage, setActiveImage] = useState<RecipeImageEntry | null>(null);
   const [beforeUrl, setBeforeUrl] = useState<string | null>(null);
   const [loadingBefore, setLoadingBefore] = useState(false);
@@ -161,13 +154,14 @@ export function AiEnhancerSection({
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Sibling overlays (kept outside enhancer Modal so iOS never stacks two native Modals)
+  // Sibling overlays
   const [fillerVisible, setFillerVisible] = useState(false);
   const [fillerReady, setFillerReady] = useState(false);
   const [fullscreenVisible, setFullscreenVisible] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
 
   const enhanceSeqRef = useRef(0);
+  const fillerDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const eligibleRecipes = useMemo(() => {
     return recipes
@@ -181,21 +175,64 @@ export function AiEnhancerSection({
     return eligibleRecipes.filter((r) => (r.name || '').toLowerCase().includes(q));
   }, [eligibleRecipes, searchQuery]);
 
-  const visibleRecipes = useMemo(() => {
-    if (showAllRecipes || searchQuery.trim()) return filteredRecipes;
-    return filteredRecipes.slice(0, INITIAL_RECIPE_LIMIT);
-  }, [filteredRecipes, showAllRecipes, searchQuery]);
-
-  const selectedRecipe = useMemo(() => {
-    if (!selectedRecipeId) return null;
-    return eligibleRecipes.find((r) => r.id === selectedRecipeId) || null;
+  // Auto-select first eligible recipe so enhancer controls are immediately ready
+  useEffect(() => {
+    if (eligibleRecipes.length === 0) {
+      setSelectedRecipeId(null);
+      return;
+    }
+    if (!selectedRecipeId || !eligibleRecipes.some((r) => r.id === selectedRecipeId)) {
+      setSelectedRecipeId(eligibleRecipes[0].id);
+    }
   }, [eligibleRecipes, selectedRecipeId]);
 
-  // Resolve horizontal image strip thumbnails when selectedRecipe changes
+  const selectedRecipe = useMemo(() => {
+    if (!selectedRecipeId) return eligibleRecipes[0] || null;
+    return eligibleRecipes.find((r) => r.id === selectedRecipeId) || eligibleRecipes[0] || null;
+  }, [eligibleRecipes, selectedRecipeId]);
+
+  const selectImageForEnhance = useCallback((image: RecipeImageEntry) => {
+    enhanceSeqRef.current += 1;
+    if (fillerDelayTimerRef.current) {
+      clearTimeout(fillerDelayTimerRef.current);
+      fillerDelayTimerRef.current = null;
+    }
+    setActiveImage(image);
+    setEnhancedResult(null);
+    setAxisValues({ ...EMPTY_AXIS_SELECTION });
+    setStatusMessage('');
+    setIsEnhancing(false);
+    setIsSaving(false);
+    setFillerVisible(false);
+    setFillerReady(false);
+    setFullscreenVisible(false);
+    setBeforeUrl(null);
+    setLoadingBefore(true);
+
+    RecipeImageService.getOptimizedUrl(image, '1080x1080')
+      .then((url) => {
+        setBeforeUrl(url);
+      })
+      .catch(() => {
+        setBeforeUrl(null);
+      })
+      .finally(() => {
+        setLoadingBefore(false);
+      });
+  }, []);
+
+  // Auto-select primary (or first) photo whenever selectedRecipe changes
   useEffect(() => {
     if (!selectedRecipe?.images?.length) {
+      setActiveImage(null);
+      setBeforeUrl(null);
       setStripUrls({});
       return;
+    }
+
+    const primary = selectedRecipe.images.find((i) => i.isPrimary) || selectedRecipe.images[0];
+    if (!activeImage || !selectedRecipe.images.some((i) => i.id === activeImage.id)) {
+      selectImageForEnhance(primary);
     }
 
     let cancelled = false;
@@ -217,45 +254,15 @@ export function AiEnhancerSection({
     return () => {
       cancelled = true;
     };
-  }, [selectedRecipe]);
+  }, [selectedRecipe, activeImage, selectImageForEnhance]);
 
-  const openEnhancerForImage = useCallback((image: RecipeImageEntry) => {
-    enhanceSeqRef.current += 1;
-    setActiveImage(image);
-    setEnhancedResult(null);
-    setAxisValues({ ...EMPTY_AXIS_SELECTION });
-    setInstruction('');
-    setStatusMessage('');
-    setIsEnhancing(false);
-    setIsSaving(false);
-    setFillerVisible(false);
-    setFillerReady(false);
-    setFullscreenVisible(false);
-    setBeforeUrl(null);
-    setLoadingBefore(true);
-    setModalOpen(true);
-
-    RecipeImageService.getOptimizedUrl(image, '1080x1080')
-      .then((url) => {
-        setBeforeUrl(url);
-      })
-      .catch(() => {
-        setBeforeUrl(null);
-      })
-      .finally(() => {
-        setLoadingBefore(false);
-      });
+  useEffect(() => {
+    return () => {
+      if (fillerDelayTimerRef.current) {
+        clearTimeout(fillerDelayTimerRef.current);
+      }
+    };
   }, []);
-
-  const handleCloseModal = useCallback(() => {
-    if (isSaving) return;
-    enhanceSeqRef.current += 1;
-    setModalOpen(false);
-    setFillerVisible(false);
-    setFillerReady(false);
-    setFullscreenVisible(false);
-    setIsEnhancing(false);
-  }, [isSaving]);
 
   const handleRunEnhance = useCallback(async () => {
     if (!activeImage || isEnhancing || isSaving) return;
@@ -265,7 +272,13 @@ export function AiEnhancerSection({
     setEnhancedResult(null);
     setStatusMessage('שולח לשיפור בעזרת AI...');
     setFillerReady(false);
-    setFillerVisible(true);
+    if (fillerDelayTimerRef.current) clearTimeout(fillerDelayTimerRef.current);
+    // Launch filler mini-game only for longer live Gemini calls (> 5s)
+    fillerDelayTimerRef.current = setTimeout(() => {
+      if (seq === enhanceSeqRef.current) {
+        setFillerVisible(true);
+      }
+    }, 5000);
 
     try {
       const originalUrl = await AiEnhancementService.getOriginalImageDownloadUrl(activeImage);
@@ -288,6 +301,10 @@ export function AiEnhancerSection({
       });
 
       if (seq !== enhanceSeqRef.current) return;
+      if (fillerDelayTimerRef.current) {
+        clearTimeout(fillerDelayTimerRef.current);
+        fillerDelayTimerRef.current = null;
+      }
 
       const outMime = result.mimeType || 'image/png';
       const dataUrl = `data:${outMime};base64,${result.base64}`;
@@ -309,6 +326,10 @@ export function AiEnhancerSection({
       setFillerReady(true);
     } catch (err) {
       if (seq !== enhanceSeqRef.current) return;
+      if (fillerDelayTimerRef.current) {
+        clearTimeout(fillerDelayTimerRef.current);
+        fillerDelayTimerRef.current = null;
+      }
       setFillerVisible(false);
       setFillerReady(false);
       setStatusMessage(AiEnhancementService.formatEnhancementError(err));
@@ -334,8 +355,8 @@ export function AiEnhancerSection({
       });
 
       showToast('התמונה הוחלפה. התמונה המקורית נשמרה כגיבוי.', 'success');
-      setModalOpen(false);
       setEnhancedResult(null);
+      setStatusMessage('התמונה הוחלפה בהצלחה.');
       await onImageSaved(selectedRecipe.id);
     } catch (err) {
       setStatusMessage(AiEnhancementService.formatEnhancementError(err));
@@ -383,7 +404,7 @@ export function AiEnhancerSection({
   const formLocked = isEnhancing || isSaving || Boolean(enhancedResult);
 
   return (
-    <View testID="dashboard-section-enhancer" collapsable={false}>
+    <View testID="dashboard-panel-enhancer" collapsable={false}>
       <Card style={styles.sectionCard}>
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>
@@ -427,347 +448,285 @@ export function AiEnhancerSection({
 
         {expanded ? (
           <View style={styles.sectionBody}>
-            {/* Search Input */}
-            <View style={styles.searchWrap}>
-              <Ionicons name="search-outline" size={18} color={colors.ink3} />
-              <TextInput
-                testID="enhancer-search-input"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="חיפוש מתכון..."
-                placeholderTextColor={colors.ink4}
-                style={styles.searchInput}
-              />
-              {searchQuery.length > 0 ? (
-                <PressableScale
-                  variant="icon"
-                  onPress={() => setSearchQuery('')}
-                  accessibilityLabel="נקה חיפוש"
-                >
-                  <Ionicons name="close-circle" size={18} color={colors.ink3} />
-                </PressableScale>
-              ) : null}
-            </View>
-
-            {/* Recipe List */}
             {loading && eligibleRecipes.length === 0 ? (
               <View style={styles.loadingRow}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={styles.emptyText}>טוען מתכונים עם תמונות...</Text>
               </View>
-            ) : visibleRecipes.length === 0 ? (
+            ) : eligibleRecipes.length === 0 ? (
               <Text style={styles.emptyText}>אין מתכונים עם תמונות להצגה</Text>
             ) : (
-              <View style={styles.recipeList}>
-                {visibleRecipes.map((recipe) => {
-                  const isSelected = selectedRecipe?.id === recipe.id;
-                  const imgCount = recipe.images?.length || 0;
-                  return (
-                    <PressableScale
-                      key={recipe.id}
-                      testID={`enhancer-recipe-${recipe.id}`}
-                      variant="card"
-                      onPress={() => setSelectedRecipeId(recipe.id)}
-                      style={[styles.recipeItem, isSelected && styles.recipeItemSelected]}
-                    >
-                      <Text style={styles.recipeItemName} numberOfLines={1}>
-                        {recipe.name}
-                      </Text>
-                      <Badge
-                        label={`${imgCount} תמונות`}
-                        tone={isSelected ? 'primary' : 'neutral'}
-                      />
-                    </PressableScale>
-                  );
-                })}
-
-                {!showAllRecipes && filteredRecipes.length > visibleRecipes.length ? (
-                  <Button
-                    label={`הצג את כל המתכונים (${filteredRecipes.length})`}
-                    variant="secondary"
-                    size="sm"
-                    onPress={() => setShowAllRecipes(true)}
-                  />
-                ) : null}
-              </View>
-            )}
-
-            {/* Selected Recipe Horizontal Image Strip */}
-            {selectedRecipe && selectedRecipe.images && selectedRecipe.images.length > 0 ? (
-              <View style={styles.stripWrap}>
-                <Text style={styles.stripTitle} numberOfLines={1}>
-                  בחרו תמונה לשיפור — {selectedRecipe.name}
-                </Text>
+              <>
+                {/* Compact Horizontal Recipe Picker Chips */}
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.stripRow}
+                  contentContainerStyle={styles.axisChips}
                 >
-                  {selectedRecipe.images.map((img, idx) => {
-                    const key = img.id || String(idx);
-                    const thumbUrl = stripUrls[key];
-                    const aiEnhanced = Boolean((img as Record<string, any>).aiEnhanced);
-
+                  {filteredRecipes.slice(0, INITIAL_RECIPE_LIMIT).map((recipe) => {
+                    const isSelected = selectedRecipe?.id === recipe.id;
                     return (
-                      <PressableScale
-                        key={key}
-                        testID={`enhancer-image-${img.id || idx}`}
-                        variant="card"
-                        onPress={() => openEnhancerForImage(img)}
-                        accessibilityLabel={`שפר תמונה ${idx + 1} של ${selectedRecipe.name}`}
-                        style={styles.imageTile}
-                      >
-                        {thumbUrl ? (
-                          <Image
-                            source={{ uri: thumbUrl }}
-                            style={styles.tileImg}
-                            contentFit="cover"
-                            transition={120}
-                          />
-                        ) : (
-                          <View style={styles.tilePlaceholder}>
-                            <ActivityIndicator size="small" color={colors.primary} />
-                          </View>
-                        )}
-
-                        <View style={styles.tileBadges}>
-                          {img.isPrimary ? <Badge label="ראשית" tone="primary" /> : null}
-                          {aiEnhanced ? <Badge label="AI" tone="success" /> : null}
-                        </View>
-                      </PressableScale>
+                      <Chip
+                        key={recipe.id}
+                        testID={`enhancer-recipe-${recipe.id}`}
+                        label={recipe.name}
+                        selected={isSelected}
+                        onPress={() => {
+                          setSelectedRecipeId(recipe.id);
+                          const primary =
+                            recipe.images?.find((i) => i.isPrimary) || recipe.images?.[0];
+                          if (primary) selectImageForEnhance(primary);
+                        }}
+                      />
                     );
                   })}
                 </ScrollView>
-              </View>
-            ) : null}
+
+                {/* Inline AI Enhancer Studio */}
+                <View testID="enhancer-modal" collapsable={false} style={styles.paramsCard}>
+                  {/* Before / After Comparison */}
+                  <View
+                    testID={enhancedResult ? 'enhancer-before-after' : 'enhancer-preview-grid'}
+                    collapsable={false}
+                    style={styles.compareGrid}
+                  >
+                    <PressableScale
+                      variant="card"
+                      disabled={!beforeUrl}
+                      onPress={() => openFullscreen('before')}
+                      style={styles.comparePane}
+                    >
+                      <View style={styles.paneLabelPill}>
+                        <Text style={styles.paneLabelText} allowFontScaling={false}>
+                          לפני
+                        </Text>
+                      </View>
+                      {loadingBefore ? (
+                        <View style={styles.paneCenter}>
+                          <ActivityIndicator size="small" color={colors.primary} />
+                        </View>
+                      ) : beforeUrl ? (
+                        <Image
+                          source={{ uri: beforeUrl }}
+                          style={styles.paneImage}
+                          contentFit="contain"
+                        />
+                      ) : (
+                        <View style={styles.paneCenter}>
+                          <Ionicons name="image-outline" size={24} color={colors.ink4} />
+                        </View>
+                      )}
+                    </PressableScale>
+
+                    <PressableScale
+                      variant="card"
+                      disabled={!enhancedResult}
+                      onPress={() => openFullscreen('after')}
+                      style={styles.comparePane}
+                    >
+                      <View style={styles.paneLabelPill}>
+                        <Text style={styles.paneLabelText} allowFontScaling={false}>
+                          אחרי
+                        </Text>
+                      </View>
+                      {isEnhancing ? (
+                        <View style={styles.paneCenter}>
+                          <ActivityIndicator size="small" color={colors.primary} />
+                          <Text style={styles.paneHint}>משפר...</Text>
+                        </View>
+                      ) : enhancedResult ? (
+                        <RNImage
+                          source={{ uri: enhancedResult.dataUrl }}
+                          style={styles.paneImage}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View style={styles.paneCenter}>
+                          <Ionicons name="sparkles-outline" size={24} color={colors.ink4} />
+                          <Text style={styles.paneHint}>התוצאה תופיע כאן</Text>
+                        </View>
+                      )}
+                    </PressableScale>
+                  </View>
+
+                  {/* Free-text Instruction Input (immediately visible above fold) */}
+                  <View style={styles.instructionBlock}>
+                    <View style={styles.instructionHeader}>
+                      <Text style={styles.axisLabel}>הנחיה נוספת (אופציונלי)</Text>
+                      <Text style={styles.charCounter}>
+                        {instruction.length}/{MAX_ENHANCEMENT_INSTRUCTION_LENGTH}
+                      </Text>
+                    </View>
+                    <TextInput
+                      testID="enhancer-instruction-input"
+                      value={instruction}
+                      onChangeText={(text) =>
+                        setInstruction(text.slice(0, MAX_ENHANCEMENT_INSTRUCTION_LENGTH))
+                      }
+                      maxLength={MAX_ENHANCEMENT_INSTRUCTION_LENGTH}
+                      editable={!formLocked}
+                      placeholder="למשל: הוסף צמח תבלין טרי בצד, תאורה חמימה יותר..."
+                      placeholderTextColor={colors.ink4}
+                      returnKeyType="done"
+                      style={[
+                        styles.instructionInput,
+                        formLocked && styles.instructionInputDisabled,
+                      ]}
+                    />
+                  </View>
+
+                  {statusMessage ? <Text style={styles.statusText}>{statusMessage}</Text> : null}
+
+                  {/* Primary Action Row */}
+                  {!enhancedResult ? (
+                    <Button
+                      testID="enhancer-run-btn"
+                      label={isEnhancing ? 'מעבד...' : 'שפר תמונה'}
+                      variant="primary"
+                      loading={isEnhancing}
+                      disabled={isEnhancing || isSaving || !activeImage}
+                      onPress={() => {
+                        void handleRunEnhance();
+                      }}
+                      fullWidth
+                    />
+                  ) : (
+                    <View style={styles.resultActionsRow}>
+                      <Button
+                        testID="enhancer-discard-btn"
+                        label="בטל תוצאה"
+                        variant="secondary"
+                        disabled={isSaving}
+                        onPress={handleDiscardResult}
+                        style={styles.toolbarBtn}
+                      />
+                      <Button
+                        testID="enhancer-apply-btn"
+                        label="שמור והחלף"
+                        variant="primary"
+                        loading={isSaving}
+                        disabled={isSaving}
+                        onPress={() => {
+                          void handleApplyEnhanced();
+                        }}
+                        style={styles.toolbarBtn}
+                      />
+                    </View>
+                  )}
+
+                  {/* 4 Parameter Axis Pickers */}
+                  {ENHANCEMENT_AXES.map((axis) => {
+                    const cfg = ENHANCEMENT_PARAMETERS[axis];
+                    const selectedValue = axisValues[axis];
+                    return (
+                      <View key={axis} style={styles.axisBlock}>
+                        <Text style={styles.axisLabel}>{cfg.label}</Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.axisChips}
+                        >
+                          <Chip
+                            testID={`enhancer-param-${axis}-auto`}
+                            label="אוטומטי"
+                            selected={selectedValue === ''}
+                            onPress={() => {
+                              if (formLocked) return;
+                              setAxisValues((prev) => ({ ...prev, [axis]: '' }));
+                            }}
+                          />
+                          {cfg.options.map((opt) => (
+                            <Chip
+                              key={opt.value}
+                              testID={`enhancer-param-${axis}-${opt.value}`}
+                              label={opt.label}
+                              selected={selectedValue === opt.value}
+                              onPress={() => {
+                                if (formLocked) return;
+                                setAxisValues((prev) => ({ ...prev, [axis]: opt.value }));
+                              }}
+                            />
+                          ))}
+                        </ScrollView>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Photo Selector Strip when recipe has multiple images */}
+                {selectedRecipe && selectedRecipe.images && selectedRecipe.images.length > 1 ? (
+                  <View style={styles.stripWrap}>
+                    <Text style={styles.stripTitle} numberOfLines={1}>
+                      תמונות נוספות של {selectedRecipe.name}
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.stripRow}
+                    >
+                      {selectedRecipe.images.map((img, idx) => {
+                        const key = img.id || String(idx);
+                        const thumbUrl = stripUrls[key];
+                        const aiEnhanced = Boolean((img as Record<string, any>).aiEnhanced);
+
+                        return (
+                          <PressableScale
+                            key={key}
+                            testID={`enhancer-image-${img.id || idx}`}
+                            variant="card"
+                            onPress={() => selectImageForEnhance(img)}
+                            accessibilityLabel={`שפר תמונה ${idx + 1} של ${selectedRecipe.name}`}
+                            style={styles.imageTile}
+                          >
+                            {thumbUrl ? (
+                              <Image
+                                source={{ uri: thumbUrl }}
+                                style={styles.tileImg}
+                                contentFit="cover"
+                                transition={120}
+                              />
+                            ) : (
+                              <View style={styles.tilePlaceholder}>
+                                <ActivityIndicator size="small" color={colors.primary} />
+                              </View>
+                            )}
+                            <View style={styles.tileBadges}>
+                              {img.isPrimary ? <Badge label="ראשית" tone="primary" /> : null}
+                              {aiEnhanced ? <Badge label="AI" tone="success" /> : null}
+                            </View>
+                          </PressableScale>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                ) : null}
+
+                {/* Recipe Search Filter */}
+                <View style={styles.searchWrap}>
+                  <Ionicons name="search-outline" size={18} color={colors.ink3} />
+                  <TextInput
+                    testID="enhancer-search-input"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="חיפוש מתכון..."
+                    placeholderTextColor={colors.ink4}
+                    style={styles.searchInput}
+                  />
+                  {searchQuery.length > 0 ? (
+                    <PressableScale
+                      variant="icon"
+                      onPress={() => setSearchQuery('')}
+                      accessibilityLabel="נקה חיפוש"
+                    >
+                      <Ionicons name="close-circle" size={18} color={colors.ink3} />
+                    </PressableScale>
+                  ) : null}
+                </View>
+              </>
+            )}
           </View>
         ) : null}
       </Card>
-
-      {/* AI Image Enhancement Modal */}
-      <Modal
-        visible={modalOpen && !fillerVisible && !fullscreenVisible}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={handleCloseModal}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[
-            styles.modalRoot,
-            { paddingTop: Math.max(insets.top, 8), paddingBottom: Math.max(insets.bottom, 8) },
-          ]}
-        >
-          <View testID="enhancer-modal" collapsable={false} style={styles.modalInner}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle} numberOfLines={1}>
-                שיפור תמונה — {selectedRecipe?.name || ''}
-              </Text>
-              <PressableScale
-                variant="icon"
-                disabled={isSaving}
-                onPress={handleCloseModal}
-                accessibilityLabel="סגור"
-                style={styles.closeBtn}
-              >
-                <Ionicons name="close" size={22} color={colors.ink2} />
-              </PressableScale>
-            </View>
-
-            <ScrollView
-              contentContainerStyle={styles.modalBody}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {/* Before / After Comparison */}
-              <View testID="enhancer-before-after" collapsable={false} style={styles.compareGrid}>
-                {/* Before Pane */}
-                <PressableScale
-                  variant="card"
-                  disabled={!beforeUrl}
-                  onPress={() => openFullscreen('before')}
-                  style={styles.comparePane}
-                >
-                  <View style={styles.paneLabelPill}>
-                    <Text style={styles.paneLabelText} allowFontScaling={false}>
-                      לפני
-                    </Text>
-                  </View>
-                  {loadingBefore ? (
-                    <View style={styles.paneCenter}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  ) : beforeUrl ? (
-                    <Image
-                      source={{ uri: beforeUrl }}
-                      style={styles.paneImage}
-                      contentFit="contain"
-                    />
-                  ) : (
-                    <View style={styles.paneCenter}>
-                      <Ionicons name="image-outline" size={28} color={colors.ink4} />
-                    </View>
-                  )}
-                </PressableScale>
-
-                {/* After Pane */}
-                <PressableScale
-                  variant="card"
-                  disabled={!enhancedResult}
-                  onPress={() => openFullscreen('after')}
-                  style={styles.comparePane}
-                >
-                  <View style={styles.paneLabelPill}>
-                    <Text style={styles.paneLabelText} allowFontScaling={false}>
-                      אחרי
-                    </Text>
-                  </View>
-                  {isEnhancing ? (
-                    <View style={styles.paneCenter}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={styles.paneHint}>משפר...</Text>
-                    </View>
-                  ) : enhancedResult ? (
-                    <Image
-                      source={{ uri: enhancedResult.dataUrl }}
-                      style={styles.paneImage}
-                      contentFit="contain"
-                    />
-                  ) : (
-                    <View style={styles.paneCenter}>
-                      <Ionicons name="sparkles-outline" size={26} color={colors.ink4} />
-                      <Text style={styles.paneHint}>התוצאה תופיע כאן</Text>
-                    </View>
-                  )}
-                </PressableScale>
-              </View>
-
-              {beforeUrl || enhancedResult ? (
-                <Text style={styles.tapZoomHint}>הקישו על כל תמונה להגדלה במסך מלא</Text>
-              ) : null}
-
-              {/* 4 Parameter Axis Pickers */}
-              <View style={styles.paramsCard}>
-                <Text style={styles.paramsCardTitle}>פרמטרי צילום (אוטומטי כברירת מחדל)</Text>
-
-                {ENHANCEMENT_AXES.map((axis) => {
-                  const cfg = ENHANCEMENT_PARAMETERS[axis];
-                  const selectedValue = axisValues[axis];
-                  return (
-                    <View key={axis} style={styles.axisBlock}>
-                      <Text style={styles.axisLabel}>{cfg.label}</Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.axisChips}
-                      >
-                        <Chip
-                          testID={`enhancer-param-${axis}-auto`}
-                          label="אוטומטי"
-                          selected={selectedValue === ''}
-                          onPress={() => {
-                            if (formLocked) return;
-                            setAxisValues((prev) => ({ ...prev, [axis]: '' }));
-                          }}
-                        />
-                        {cfg.options.map((opt) => (
-                          <Chip
-                            key={opt.value}
-                            testID={`enhancer-param-${axis}-${opt.value}`}
-                            label={opt.label}
-                            selected={selectedValue === opt.value}
-                            onPress={() => {
-                              if (formLocked) return;
-                              setAxisValues((prev) => ({ ...prev, [axis]: opt.value }));
-                            }}
-                          />
-                        ))}
-                      </ScrollView>
-                    </View>
-                  );
-                })}
-
-                {/* Free-text Instruction Input */}
-                <View style={styles.instructionBlock}>
-                  <View style={styles.instructionHeader}>
-                    <Text style={styles.axisLabel}>הנחיה נוספת (אופציונלי)</Text>
-                    <Text style={styles.charCounter}>
-                      {instruction.length}/{MAX_ENHANCEMENT_INSTRUCTION_LENGTH}
-                    </Text>
-                  </View>
-                  <TextInput
-                    testID="enhancer-instruction-input"
-                    value={instruction}
-                    onChangeText={(text) =>
-                      setInstruction(text.slice(0, MAX_ENHANCEMENT_INSTRUCTION_LENGTH))
-                    }
-                    maxLength={MAX_ENHANCEMENT_INSTRUCTION_LENGTH}
-                    editable={!formLocked}
-                    multiline
-                    numberOfLines={3}
-                    placeholder="למשל: הוסף צמח תבלין טרי בצד, תאורה חמימה יותר..."
-                    placeholderTextColor={colors.ink4}
-                    textAlignVertical="top"
-                    style={[styles.instructionInput, formLocked && styles.instructionInputDisabled]}
-                  />
-                </View>
-              </View>
-
-              {statusMessage ? <Text style={styles.statusText}>{statusMessage}</Text> : null}
-            </ScrollView>
-
-            {/* Bottom Actions */}
-            <View style={styles.modalToolbar}>
-              {!enhancedResult ? (
-                <Button
-                  testID="enhancer-run-btn"
-                  label={isEnhancing ? 'מעבד...' : 'שפר תמונה'}
-                  variant="primary"
-                  loading={isEnhancing}
-                  disabled={isEnhancing || isSaving || !activeImage}
-                  onPress={() => {
-                    void handleRunEnhance();
-                  }}
-                  fullWidth
-                />
-              ) : (
-                <View style={styles.resultActionsRow}>
-                  <Button
-                    testID="enhancer-discard-btn"
-                    label="בטל תוצאה"
-                    variant="secondary"
-                    disabled={isSaving}
-                    onPress={handleDiscardResult}
-                    style={styles.toolbarBtn}
-                  />
-                  <Button
-                    testID="enhancer-apply-btn"
-                    label="שמור והחלף"
-                    variant="primary"
-                    loading={isSaving}
-                    disabled={isSaving}
-                    onPress={() => {
-                      void handleApplyEnhanced();
-                    }}
-                    style={styles.toolbarBtn}
-                  />
-                </View>
-              )}
-            </View>
-
-            {/* Saving Overlay */}
-            {isSaving ? (
-              <View style={styles.savingOverlay}>
-                <View style={styles.savingCard}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={styles.savingText}>שומר את התמונה החדשה ויוצר גיבוי...</Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
       {/* Sibling Filler Mini-Game during Gemini Enhancement */}
       <GameHostModal
@@ -989,7 +948,7 @@ const styles = StyleSheet.create({
   },
   comparePane: {
     flex: 1,
-    aspectRatio: 1,
+    height: 108,
     backgroundColor: colors.surface2,
     borderRadius: radii.md,
     borderWidth: 1,
@@ -1041,8 +1000,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.hairline,
-    padding: spacing.md,
-    gap: spacing.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
   },
   paramsCardTitle: {
     fontFamily: fontFamilies.bodyBold,
@@ -1081,8 +1040,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.hairlineStrong,
     borderRadius: radii.sm,
-    padding: spacing.md,
-    minHeight: 76,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    minHeight: 42,
     fontFamily: fontFamilies.body,
     fontSize: typeScale.stepMinus1,
     color: colors.ink,
