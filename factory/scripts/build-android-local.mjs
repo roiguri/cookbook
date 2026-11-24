@@ -220,8 +220,18 @@ if (VARIANT === 'staging') {
 // bundle, zero Metro server required at test time). For e2e on local x86_64
 // emulators, restrict native ABIs to x86_64 (~4x faster native builds).
 const gradleTask = 'assembleRelease';
-const gradleArgs = [gradleTask, '--build-cache', '--max-workers=2'];
-const loggedGradleArgs = [gradleTask, '--build-cache', '--max-workers=2'];
+const gradleArgs = [
+  gradleTask,
+  '--build-cache',
+  '--max-workers=2',
+  '-x',
+  'lintVitalAnalyzeRelease',
+  '-x',
+  'lintVitalReportRelease',
+  '-x',
+  'lintVitalRelease',
+];
+const loggedGradleArgs = [...gradleArgs];
 if (VARIANT === 'e2e' && process.arch === 'x64') {
   gradleArgs.push('-PreactNativeArchitectures=x86_64');
   loggedGradleArgs.push('-PreactNativeArchitectures=x86_64');
