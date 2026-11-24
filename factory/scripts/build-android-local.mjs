@@ -189,6 +189,16 @@ if (CLEAN || !fs.existsSync(ANDROID_DIR) || prevFp !== fp) {
   console.log(`[build-android] Native fingerprint unchanged (${fp}) — skipping expo prebuild.`);
 }
 
+// Clear Metro transform cache on non-e2e builds or variant/fingerprint switches so
+// env-inlined transforms can never bleed across E2E and staging builds.
+if (CLEAN || VARIANT !== 'e2e' || prevFp !== fp) {
+  const metroCacheDir = path.join(os.tmpdir(), 'metro-cache');
+  if (fs.existsSync(metroCacheDir)) {
+    fs.rmSync(metroCacheDir, { recursive: true, force: true });
+    console.log('[build-android] Cleared Metro transform cache for clean variant bundle.');
+  }
+}
+
 // Enable Gradle build cache and enforce strict WSL2 memory/worker caps
 const gradlePropsPath = path.join(ANDROID_DIR, 'gradle.properties');
 if (fs.existsSync(gradlePropsPath)) {

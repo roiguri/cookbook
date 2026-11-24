@@ -16,8 +16,10 @@ import { connectStorageEmulator, getStorage, type FirebaseStorage } from 'fireba
 const extra = (Constants.expoConfig?.extra || {}) as Record<string, any>;
 
 export const APP_VARIANT: 'e2e' | 'staging' | 'production' = extra.appVariant || 'e2e';
-export const IS_DTU_MODE: boolean =
-  APP_VARIANT === 'e2e' || Boolean(extra.useDtu) || process.env.EXPO_PUBLIC_USE_DTU === 'true';
+// Derive DTU mode strictly from runtime Constants.expoConfig.extra (baked per variant
+// into assets/app.config by app.config.ts) so Metro's Babel transform cache can never
+// bleed an earlier E2E EXPO_PUBLIC_USE_DTU=true inline into staging/production APKs.
+export const IS_DTU_MODE: boolean = APP_VARIANT === 'e2e' || Boolean(extra.useDtu);
 
 let resolvedDtuHost = '127.0.0.1';
 let appInstance: FirebaseApp | null = null;
