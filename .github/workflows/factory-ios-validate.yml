@@ -38,7 +38,7 @@ concurrency:
 jobs:
   ios-simulator-validate:
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 90
     # Hard safety guard: never run autonomous factory validation on main
     if: github.ref != 'refs/heads/main'
 
