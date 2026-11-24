@@ -261,8 +261,8 @@ jobs:
           xcrun simctl install "$UDID" apps/mobile/ios-sim-cache/CookbookE2E.app
 
           # Launch the app FIRST so Maestro XCTest attaches to the active window, then open
-          # the custom scheme URL and explicitly tap SpringBoard's one-time "Open" confirmation
-          # (both before and after clearState), failing fast if any SpringBoard alert remains.
+          # the custom scheme URL and explicitly tap SpringBoard's one-time "Open" confirmation,
+          # failing fast if any SpringBoard alert remains.
           xcrun simctl launch "$UDID" com.roiguri.cookbook.e2e || true
           sleep 4
           xcrun simctl openurl "$UDID" "cookbook-e2e://home" || true
@@ -280,19 +280,11 @@ jobs:
           - waitForAnimationToEnd
           - assertNotVisible:
               text: 'Open in.*'
-          - launchApp:
-              clearState: true
-          - openLink: 'cookbook-e2e://home'
-          - tapOn:
-              text: 'Open'
-              optional: true
-          - waitForAnimationToEnd
-          - assertNotVisible:
-              text: 'Open in.*'
           EOF
-          maestro --device "$UDID" test /tmp/ios-scheme-warmup.yml
+          perl -e 'alarm 120; exec @ARGV' -- maestro --device "$UDID" test /tmp/ios-scheme-warmup.yml
           rm -f /tmp/ios-scheme-warmup.yml
           xcrun simctl terminate "$UDID" com.roiguri.cookbook.e2e || true
+          sleep 1
 
       - name: Start hermetic Cookbook DTU & execute iOS Simulator shard (${{ matrix.shard.id }})
         env:

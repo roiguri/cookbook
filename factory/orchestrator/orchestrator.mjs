@@ -50,8 +50,13 @@ async function main() {
     return;
   }
 
-  // Enforce hard branch, immutable-path, zero-holdout, and circuit-breaker guards
-  const preflight = runAllPreflightGuards(ROOT, ledger.state.counters, DEFAULT_LIMITS);
+  // Enforce hard branch, immutable-path, zero-holdout, and mode-scoped circuit-breaker guards
+  const scopedCounters = {
+    ...ledger.state.counters,
+    ...(mode !== 'validate-android' ? { convergenceRounds: 0 } : {}),
+    ...(mode !== 'verify-ios' ? { iosCiRuns: 0 } : {}),
+  };
+  const preflight = runAllPreflightGuards(ROOT, scopedCounters, DEFAULT_LIMITS);
   if (!preflight.ok) {
     ledger.tripCircuitBreaker(preflight.failure.breaker || 'SAFETY_GUARD', preflight.failure);
     console.error(`[orchestrator] HALTED by guard: ${preflight.failure.reason}`);

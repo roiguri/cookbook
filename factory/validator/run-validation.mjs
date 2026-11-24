@@ -40,23 +40,51 @@ async function fetchJson(url, opts = {}) {
   return res.json();
 }
 
-function runMaestroAsync({ flowFile, device, debugDir, env }) {
+function runMaestroAsync({ flowFile, device, debugDir, env, timeoutMs = 180_000 }) {
   return new Promise((resolve) => {
     const args = [];
     if (device) args.push('--device', device);
     args.push('test', '--debug-output', debugDir, '--flatten-debug-output', flowFile);
 
     let output = '';
+    let settled = false;
     const child = spawn('maestro', args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const finish = (res) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      resolve(res);
+    };
+    const watchdog = setTimeout(() => {
+      output += `\n[validator] Maestro timed out after ${Math.round(timeoutMs / 1000)}s; killing hung process.`;
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        // Ignore
+      }
+      finish({ code: 124, output });
+    }, timeoutMs);
     const onData = (chunk) => {
       output += chunk.toString('utf8');
       if (output.length > 32000) output = output.slice(-32000);
     };
     child.stdout.on('data', onData);
     child.stderr.on('data', onData);
-    child.once('error', (err) => resolve({ code: 1, output: err.message }));
-    child.once('exit', (code) => resolve({ code: code ?? 1, output }));
+    child.once('error', (err) => finish({ code: 1, output: err.message }));
+    child.once('exit', (code) => finish({ code: code ?? 1, output }));
   });
+}
+
+function terminateIosAppIfRunning({ platform, device }) {
+  if (platform !== 'ios' || !device) return;
+  try {
+    spawnSync('xcrun', ['simctl', 'terminate', device, 'com.roiguri.cookbook.e2e'], {
+      stdio: 'ignore',
+      timeout: 15_000,
+    });
+  } catch {
+    // Non-fatal if app is not currently running
+  }
 }
 
 function captureFinalScreenshot({ platform, device, destPath }) {
@@ -176,6 +204,8 @@ export async function runHoldoutValidation({
       const scenarioDebugDir = path.join(outDir, 'debug', `${scenario.id}-pass${passIdx}`);
       fs.mkdirSync(scenarioDebugDir, { recursive: true });
 
+      terminateIosAppIfRunning({ platform, device });
+
       const maestro = await runMaestroAsync({
         flowFile,
         device,
@@ -185,6 +215,7 @@ export async function runHoldoutValidation({
 
       const finalShotPath = path.join(scenarioDebugDir, 'final-screen.png');
       captureFinalScreenshot({ platform, device, destPath: finalShotPath });
+      terminateIosAppIfRunning({ platform, device });
 
       const afterSnapshot = await fetchJson(`${dtu.seed}/snapshot`);
       const fcmInbox = await fetchJson(`${dtu.fcm}/messages`).catch(() => ({ messages: [] }));
