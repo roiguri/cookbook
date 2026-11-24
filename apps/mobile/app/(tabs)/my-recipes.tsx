@@ -19,7 +19,6 @@ import { buildLibraryViews, LIBRARY_VIEW } from '@cookbook/core/recipe-utils/lib
 import {
   calculateTotalTime,
   formatCookingTime,
-  getCategoryIcon,
   getLocalizedCategoryName,
 } from '@cookbook/core/recipe-utils/recipe-data-utils';
 import { colors, fontFamilies, radii, shadows, spacing, statusColors, typeScale } from '@/theme';
@@ -32,6 +31,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { StatusBadge } from '@/components/library';
+import { getCategoryImage } from '@/utils/category-images';
 import { useSession } from '@/context/SessionContext';
 import { captureError } from '@/services/logger';
 import { ActiveMealService } from '@/services/meals/active-meal-service';
@@ -443,11 +443,15 @@ export default function MyRecipesScreen() {
                   transition={180}
                   style={styles.photo}
                 />
+              ) : getCategoryImage(item.category) ? (
+                <Image
+                  source={getCategoryImage(item.category)!}
+                  contentFit="cover"
+                  style={styles.photo}
+                />
               ) : (
                 <View style={styles.photoPlaceholder}>
-                  <Text style={styles.photoPlaceholderIcon}>
-                    {getCategoryIcon(item.category || 'else')}
-                  </Text>
+                  <Ionicons name="restaurant-outline" size={26} color={colors.ink3} />
                 </View>
               )}
 
@@ -904,9 +908,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface2,
-  },
-  photoPlaceholderIcon: {
-    fontSize: 34,
   },
   badgeOverlay: {
     position: 'absolute',

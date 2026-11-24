@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { captureError, setTelemetryUser } from '@/services/logger';
 import {
   fetchUserProfile,
+  getAuthUserSnapshot,
   initializeBackend,
   onAuthSessionChanged,
   subscribeUserProfile,
@@ -116,6 +117,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (!user?.uid) return;
     try {
+      const fbUser = getAuthUserSnapshot();
+      if (fbUser && fbUser.uid === user.uid) {
+        setUser({
+          uid: fbUser.uid,
+          email: fbUser.email,
+          displayName: fbUser.displayName,
+          providerIds: (fbUser.providerData || []).map((p) => p.providerId),
+        });
+      }
       const fresh = await fetchUserProfile(user.uid);
       setProfile(fresh);
       setTelemetryUser(user.uid, fresh?.role || 'user');

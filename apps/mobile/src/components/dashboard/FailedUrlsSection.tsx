@@ -57,7 +57,7 @@ export function FailedUrlsSection({
 }: FailedUrlsSectionProps) {
   const { showToast } = useToast();
 
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [detailsItem, setDetailsItem] = useState<FailedUrlExtractionDoc | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FailedUrlExtractionDoc | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -121,7 +121,7 @@ export function FailedUrlsSection({
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>
           <PressableScale
-            testID="dashboard-section-failed-urls-toggle"
+            testID="dashboard-section-failed-urls"
             variant="button"
             onPress={() => setExpanded((prev) => !prev)}
             accessibilityRole="button"

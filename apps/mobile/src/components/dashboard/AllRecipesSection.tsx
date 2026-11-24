@@ -56,7 +56,7 @@ export function AllRecipesSection({
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -183,7 +183,7 @@ export function AllRecipesSection({
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>
           <PressableScale
-            testID="dashboard-section-all-recipes-toggle"
+            testID="dashboard-section-all-recipes"
             variant="button"
             onPress={() => setExpanded((prev) => !prev)}
             accessibilityRole="button"

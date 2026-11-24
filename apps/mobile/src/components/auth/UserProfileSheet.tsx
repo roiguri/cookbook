@@ -127,10 +127,14 @@ export function UserProfileSheet({ onRequestClose, onAvatarDirtyChange }: UserPr
     try {
       if (hasGoogleProvider) {
         await AuthService.unlinkGoogle();
+        await refreshProfile();
         setSecurityMsg('חשבון Google נותק בהצלחה.');
       } else {
-        await AuthService.linkWithGoogle();
-        setSecurityMsg('חיבור Google זמין בגרסת Staging.');
+        const linked = await AuthService.linkWithGoogle();
+        if (linked) {
+          await refreshProfile();
+          setSecurityMsg('חשבון Google חובר בהצלחה.');
+        }
       }
     } catch (err: any) {
       setSecurityErr(err?.message || 'פעולת Google נכשלה.');

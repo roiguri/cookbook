@@ -76,7 +76,7 @@ export function SuggestionsSection({
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState<RecipeEditSuggestionDoc | null>(null);
   const [liveRecipe, setLiveRecipe] = useState<RecipeDoc | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
@@ -266,7 +266,7 @@ export function SuggestionsSection({
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>
           <PressableScale
-            testID="dashboard-section-suggestions-toggle"
+            testID="dashboard-section-suggestions"
             variant="button"
             onPress={() => setExpanded((prev) => !prev)}
             accessibilityRole="button"

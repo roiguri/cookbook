@@ -19,7 +19,6 @@ import { STAGE, VISIBILITY } from '@cookbook/core/recipe-model';
 import {
   formatCookingTime,
   formatRecipeData,
-  getCategoryIcon,
   getLocalizedCategoryName,
 } from '@cookbook/core/recipe-utils/recipe-data-utils';
 import { getRecipeImages } from '@cookbook/core/recipe-utils/recipe-image-utils';
@@ -1143,9 +1142,6 @@ export default function RecipeDetailScreen() {
               <View style={styles.eyebrowRow}>
                 {recipe.category ? (
                   <View style={styles.categoryPill}>
-                    <Text style={styles.categoryEmoji} allowFontScaling={false}>
-                      {getCategoryIcon(recipe.category)}
-                    </Text>
                     <Text style={styles.categoryText} allowFontScaling={false}>
                       {getLocalizedCategoryName(recipe.category)}
                     </Text>
@@ -1834,10 +1830,6 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
     paddingVertical: 5,
     paddingHorizontal: 12,
-  },
-  categoryEmoji: {
-    fontSize: 13,
-    includeFontPadding: false,
   },
   categoryText: {
     fontSize: 12.5,

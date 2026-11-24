@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FilterUtils } from '@cookbook/core/filter-utils';
@@ -506,8 +514,13 @@ export default function CategoriesScreen() {
           </PressableScale>
         </View>
 
-        {/* Wrapped RTL Category Filter Chips (all 10 categories immediately visible) */}
-        <View style={styles.categoryChipsWrap}>
+        {/* Single-Line Horizontal RTL Category Filter Chips */}
+        <ScrollView
+          testID="category-chips-scroll"
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryChipsScroll}
+        >
           <Chip
             label="כל הקטגוריות"
             selected={selectedCategory === 'all'}
@@ -525,7 +538,7 @@ export default function CategoriesScreen() {
               style={styles.compactCategoryChip}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Virtualized Recipe Grid */}
@@ -683,16 +696,16 @@ const styles = StyleSheet.create({
     color: colors.buttonColor,
     includeFontPadding: false,
   },
-  categoryChipsWrap: {
+  categoryChipsScroll: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    gap: 5,
-    paddingVertical: 1,
+    gap: 6,
+    paddingVertical: 2,
   },
   compactCategoryChip: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
   },
   listContent: {
     paddingHorizontal: spacing.md,

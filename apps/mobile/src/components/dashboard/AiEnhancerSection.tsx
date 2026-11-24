@@ -138,7 +138,7 @@ export function AiEnhancerSection({
 }: AiEnhancerSectionProps) {
   const { showToast } = useToast();
 
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [stripUrls, setStripUrls] = useState<Record<string, string | null>>({});
@@ -409,7 +409,7 @@ export function AiEnhancerSection({
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>
           <PressableScale
-            testID="dashboard-section-enhancer-toggle"
+            testID="dashboard-section-enhancer"
             variant="button"
             onPress={() => setExpanded((prev) => !prev)}
             accessibilityRole="button"

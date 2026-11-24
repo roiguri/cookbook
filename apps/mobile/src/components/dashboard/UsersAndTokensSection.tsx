@@ -112,8 +112,8 @@ export function UsersAndTokensSection({
   const { showToast } = useToast();
 
   // Accordion states
-  const [usersExpanded, setUsersExpanded] = useState(true);
-  const [tokensExpanded, setTokensExpanded] = useState(true);
+  const [usersExpanded, setUsersExpanded] = useState(false);
+  const [tokensExpanded, setTokensExpanded] = useState(false);
 
   // User role management state
   const [draftRoles, setDraftRoles] = useState<Record<string, ManageableRole>>({});
@@ -329,7 +329,7 @@ export function UsersAndTokensSection({
           <Card style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <PressableScale
-                testID="dashboard-section-users-toggle"
+                testID="dashboard-section-users"
                 variant="button"
                 onPress={() => setUsersExpanded((prev) => !prev)}
                 accessibilityRole="button"
@@ -457,7 +457,7 @@ export function UsersAndTokensSection({
           <Card style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <PressableScale
-                testID="dashboard-section-api-tokens-toggle"
+                testID="dashboard-section-api-tokens"
                 variant="button"
                 onPress={() => setTokensExpanded((prev) => !prev)}
                 accessibilityRole="button"

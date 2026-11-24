@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { I18nManager, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { CATEGORY_IDS, CATEGORY_MAP, STAGE } from '@cookbook/core/recipe-model';
-import { getCategoryIcon } from '@cookbook/core/recipe-utils/recipe-data-utils';
 import { colors, fontFamilies, radii, shadows, spacing, typeScale } from '@/theme';
 import { Badge, Card, ConfirmDialog, PressableScale, useToast } from '@/components/ui';
 import { RecipeStrip } from '@/components/browse';
+import { getCategoryImage } from '@/utils/category-images';
 import { APP_VARIANT, IS_DTU_MODE, checkDtuConnection } from '@/services/dtu-health-service';
 import { getE2eTelemetrySummary, subscribeTelemetry } from '@/services/logger';
 import { RecipeService, type RecipeDoc } from '@/services/recipes/recipe-service';
@@ -261,31 +262,40 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoryScroll}
           >
-            {CATEGORY_IDS.map((catId) => (
-              <PressableScale
-                key={catId}
-                variant="card"
-                testID={`home-category-tile-${catId}`}
-                accessibilityRole="button"
-                accessibilityLabel={CATEGORY_MAP[catId] || catId}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(tabs)/categories',
-                    params: { category: catId },
-                  })
-                }
-                style={[styles.categoryTile, shadows.level1]}
-              >
-                <View style={styles.categoryIconCircle}>
-                  <Text style={styles.categoryEmoji} allowFontScaling={false}>
-                    {getCategoryIcon(catId)}
+            {CATEGORY_IDS.map((catId) => {
+              const categoryImage = getCategoryImage(catId);
+              return (
+                <PressableScale
+                  key={catId}
+                  variant="card"
+                  testID={`home-category-tile-${catId}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={CATEGORY_MAP[catId] || catId}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(tabs)/categories',
+                      params: { category: catId },
+                    })
+                  }
+                  style={[styles.categoryTile, shadows.level1]}
+                >
+                  <View style={styles.categoryImageWrap}>
+                    {categoryImage ? (
+                      <Image
+                        source={categoryImage}
+                        style={styles.categoryJarImage}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <Ionicons name="restaurant-outline" size={26} color={colors.ink3} />
+                    )}
+                  </View>
+                  <Text style={styles.categoryTileLabel} numberOfLines={2} allowFontScaling={false}>
+                    {CATEGORY_MAP[catId] || catId}
                   </Text>
-                </View>
-                <Text style={styles.categoryTileLabel} numberOfLines={2} allowFontScaling={false}>
-                  {CATEGORY_MAP[catId] || catId}
-                </Text>
-              </PressableScale>
-            ))}
+                </PressableScale>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -513,27 +523,28 @@ const styles = StyleSheet.create({
     paddingEnd: spacing.xs,
   },
   categoryTile: {
-    width: 96,
+    width: 100,
     backgroundColor: colors.surface1,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.hairline,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    padding: spacing.xs,
+    paddingBottom: spacing.sm,
     alignItems: 'center',
     gap: spacing.xs,
   },
-  categoryIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.pill,
+  categoryImageWrap: {
+    width: 84,
+    height: 84,
+    borderRadius: radii.md,
     backgroundColor: colors.surface2,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryEmoji: {
-    fontSize: 24,
-    includeFontPadding: false,
+  categoryJarImage: {
+    width: '100%',
+    height: '100%',
   },
   categoryTileLabel: {
     fontSize: 12,

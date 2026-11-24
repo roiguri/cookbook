@@ -8,9 +8,16 @@ import { isBuiltAvatarUrl } from '@cookbook/core/avatar/avatar-url';
 import { colors, fontFamilies, radii, spacing, typeScale } from '@/theme';
 import { useSession } from '@/context/SessionContext';
 import { useEasterEgg } from '@/context/EasterEggContext';
+import { APP_VARIANT } from '@/services/dtu-health-service';
 import { RecipeSearchService } from '@/services/recipes/recipe-search-service';
 import { PressableScale } from './PressableScale';
 import { useToast } from './ToastProvider';
+
+const APP_LOGO_BY_VARIANT = {
+  staging: require('../../../assets/icons/staging/wooden-spoon-512.png'),
+  production: require('../../../assets/icons/prod/wooden-spoon-512.png'),
+  e2e: require('../../../assets/icons/dev/wooden-spoon-512.png'),
+} as const;
 
 interface AppHeaderProps {
   onQuickSearch?: (query: string) => void;
@@ -87,9 +94,11 @@ export function AppHeader({ onQuickSearch }: AppHeaderProps) {
           accessibilityRole="button"
           accessibilityLabel="ספר המתכונים"
         >
-          <View style={styles.logoMark}>
-            <Ionicons name="book" size={16} color={colors.buttonColor} />
-          </View>
+          <Image
+            source={APP_LOGO_BY_VARIANT[APP_VARIANT] || APP_LOGO_BY_VARIANT.staging}
+            style={styles.logoMark}
+            contentFit="contain"
+          />
           <Text style={styles.brandTitle} numberOfLines={1}>
             ספר המתכונים
           </Text>
@@ -229,12 +238,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   logoMark: {
-    width: 30,
-    height: 30,
-    borderRadius: radii.sm,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   brandTitle: {
     fontSize: typeScale.step1,

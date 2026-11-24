@@ -13,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   calculateTotalTime,
   formatCookingTime,
-  getCategoryIcon,
   getLocalizedCategoryName,
 } from '@cookbook/core/recipe-utils/recipe-data-utils';
 import { getPrimaryImage } from '@cookbook/core/recipe-utils/recipe-image-utils';
@@ -24,6 +23,7 @@ import {
 } from '@cookbook/core/recipe-utils/recipe-status';
 import { colors, fontFamilies, radii, shadows, spacing, statusColors, typeScale } from '@/theme';
 import { Badge, PressableScale, type BadgeTone } from '@/components/ui';
+import { getCategoryImage } from '@/utils/category-images';
 import type { RecipeDoc } from '@/services/recipes/recipe-service';
 import { RecipeImageService } from '@/services/recipes/recipe-image-service';
 
@@ -125,7 +125,7 @@ export function RecipeCard({
   const totalTime = calculateTotalTime(recipe.prepTime, recipe.waitTime);
   const timeText = totalTime > 0 ? formatCookingTime(totalTime) : '';
   const categoryLabel = getLocalizedCategoryName(recipe.category);
-  const categoryIcon = getCategoryIcon(recipe.category);
+  const categoryImage = getCategoryImage(recipe.category);
   const statusDisplay = resolveStatusDisplay(recipe, hideStatuses);
   const isCompactMode = compact && !hasImages;
 
@@ -202,14 +202,11 @@ export function RecipeCard({
               contentFit="cover"
               transition={180}
             />
+          ) : categoryImage ? (
+            <Image source={categoryImage} style={styles.photo} contentFit="cover" />
           ) : (
             <View style={styles.placeholder}>
-              <Text
-                style={[styles.placeholderIcon, dense && styles.placeholderIconDense]}
-                allowFontScaling={false}
-              >
-                {categoryIcon}
-              </Text>
+              <Ionicons name="restaurant-outline" size={dense ? 20 : 28} color={colors.ink3} />
             </View>
           )}
 
@@ -238,10 +235,16 @@ export function RecipeCard({
                 tone={statusDisplay.tone}
                 testID={`recipe-status-${recipe.id}`}
               />
+            ) : categoryImage ? (
+              <Image
+                source={categoryImage}
+                style={styles.compactCategoryThumb}
+                contentFit="cover"
+              />
             ) : (
-              <Text style={styles.compactEmoji} allowFontScaling={false}>
-                {categoryIcon}
-              </Text>
+              <View style={styles.compactCategoryFallback}>
+                <Ionicons name="restaurant-outline" size={16} color={colors.ink3} />
+              </View>
             )}
           </View>
           {showFavorite || showAddToMeal ? renderActions() : null}
@@ -316,13 +319,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surface2,
   },
-  placeholderIcon: {
-    fontSize: 36,
-    includeFontPadding: false,
-  },
-  placeholderIconDense: {
-    fontSize: 24,
-  },
   statusOverlay: {
     position: 'absolute',
     top: spacing.sm,
@@ -377,9 +373,19 @@ const styles = StyleSheet.create({
   compactTopStart: {
     flexShrink: 1,
   },
-  compactEmoji: {
-    fontSize: 22,
-    includeFontPadding: false,
+  compactCategoryThumb: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface2,
+  },
+  compactCategoryFallback: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: {
     padding: spacing.md,

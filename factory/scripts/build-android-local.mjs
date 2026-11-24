@@ -264,6 +264,14 @@ if (VARIANT === 'staging') {
 
 const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
 try {
+  // Ensure RN New Architecture codegen JNI directories exist for all autolinked
+  // libraries before :app:configureCMake* runs (prevents clean-install race).
+  runOrDie(
+    gradlew,
+    ['generateCodegenArtifactsFromSchema', '--build-cache', '--max-workers=2'],
+    ANDROID_DIR,
+    env,
+  );
   runOrDie(gradlew, gradleArgs, ANDROID_DIR, env, loggedGradleArgs);
 } finally {
   // Always stop Gradle & Kotlin daemons immediately to free WSL2 RAM while preserving --build-cache

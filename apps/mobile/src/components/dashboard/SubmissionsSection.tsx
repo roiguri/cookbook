@@ -83,7 +83,7 @@ export function SubmissionsSection({
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [extraAuthors, setExtraAuthors] = useState<Record<string, UserProfileDoc | null>>({});
   const [busyRecipeId, setBusyRecipeId] = useState<string | null>(null);
 
@@ -299,7 +299,7 @@ export function SubmissionsSection({
         {/* Accordion Header */}
         <View style={styles.sectionHeader}>
           <PressableScale
-            testID="dashboard-section-submissions-toggle"
+            testID="dashboard-section-submissions"
             variant="button"
             onPress={() => setExpanded((prev) => !prev)}
             accessibilityRole="button"

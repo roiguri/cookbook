@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { STAGE } from '@cookbook/core/recipe-model';
-import { colors, fontFamilies, radii, shadows, spacing, statusColors, typeScale } from '@/theme';
+import { colors, fontFamilies, radii, shadows, spacing, typeScale } from '@/theme';
 import { Button, ConfirmDialog, EmptyState, useToast } from '@/components/ui';
 import {
   RecipeForm,
@@ -54,9 +55,6 @@ export default function ProposeRecipeScreen() {
   const allowLeaveRef = useRef(false);
   const pendingNavActionRef = useRef<any>(null);
 
-  // Guest gate modal state
-  const [loginPromptVisible, setLoginPromptVisible] = useState(false);
-
   // Edit mode state
   const [editingRecipe, setEditingRecipe] = useState<RecipeDoc | null>(null);
   const [loadingEditRecipe, setLoadingEditRecipe] = useState(false);
@@ -88,25 +86,6 @@ export default function ProposeRecipeScreen() {
     importImage: params.importImage,
     sharedText: params.sharedText,
   });
-
-  // Guest gate: show login prompt whenever unauthenticated guest focuses this screen
-  useFocusEffect(
-    useCallback(() => {
-      if (!sessionLoading && !isAuthenticated) {
-        setLoginPromptVisible(true);
-      } else {
-        setLoginPromptVisible(false);
-      }
-    }, [sessionLoading, isAuthenticated]),
-  );
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      setLoginPromptVisible(false);
-    } else if (!sessionLoading) {
-      setLoginPromptVisible(true);
-    }
-  }, [isAuthenticated, sessionLoading]);
 
   // Load existing recipe in Edit Mode (?editId=<id>&resubmit=true)
   useEffect(() => {
@@ -168,14 +147,12 @@ export default function ProposeRecipeScreen() {
   }, [navigation, isDirty, submitting, isAuthenticated]);
 
   const handleDismissGuestPrompt = useCallback(() => {
-    setLoginPromptVisible(false);
     if (!isAuthenticated) {
       router.replace('/(tabs)/home');
     }
   }, [isAuthenticated]);
 
   const handleGoToAuth = useCallback(() => {
-    setLoginPromptVisible(false);
     router.push('/auth');
   }, []);
 
@@ -203,7 +180,6 @@ export default function ProposeRecipeScreen() {
       choice: { stage: 'tested' | 'to-try'; submit: boolean },
     ) => {
       if (!user?.uid) {
-        setLoginPromptVisible(true);
         return;
       }
 
@@ -343,7 +319,6 @@ export default function ProposeRecipeScreen() {
   const handleFormSubmit = useCallback(
     async (collected: RecipeFormCollectedData) => {
       if (!isAuthenticated) {
-        setLoginPromptVisible(true);
         return;
       }
 
@@ -428,14 +403,37 @@ export default function ProposeRecipeScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : !isAuthenticated ? (
-        <EmptyState
-          icon="log-in-outline"
-          title="נדרשת התחברות"
-          subtitle="רק משתמשים מחוברים יכולים להציע מתכונים. אנא התחבר או הירשם כדי להמשיך."
-          actionLabel="התחברות / הרשמה"
-          onAction={handleGoToAuth}
-          actionTestID="propose-login-fallback-btn"
-        />
+        <View style={styles.guestGateWrap}>
+          <View
+            testID="propose-login-prompt"
+            collapsable={false}
+            style={[styles.guestGateCard, shadows.level1]}
+          >
+            <View style={styles.guestGateIconWrap}>
+              <Ionicons name="log-in-outline" size={32} color={colors.primaryDark} />
+            </View>
+            <Text style={styles.guestGateTitle}>נדרשת התחברות</Text>
+            <Text style={styles.guestGateBody}>
+              רק משתמשים מחוברים יכולים להציע מתכונים. אנא התחבר או הירשם כדי להמשיך.
+            </Text>
+            <View style={styles.guestGateActions}>
+              <Button
+                testID="propose-login-btn"
+                label="התחברות / הרשמה"
+                variant="primary"
+                fullWidth
+                onPress={handleGoToAuth}
+              />
+              <Button
+                testID="propose-login-dismiss-btn"
+                label="חזרה לדף הבית"
+                variant="secondary"
+                fullWidth
+                onPress={handleDismissGuestPrompt}
+              />
+            </View>
+          </View>
+        </View>
       ) : isEditMode && loadingEditRecipe ? (
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -470,40 +468,6 @@ export default function ProposeRecipeScreen() {
           onPreviewChange={setIsPreview}
         />
       )}
-
-      {/* Guest Gate Login Prompt Modal */}
-      <Modal
-        visible={loginPromptVisible && !isAuthenticated}
-        transparent
-        animationType="fade"
-        onRequestClose={handleDismissGuestPrompt}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={handleDismissGuestPrompt} />
-          <View testID="propose-login-prompt" style={styles.loginDialog}>
-            <Text style={styles.loginDialogTitle}>נדרשת התחברות</Text>
-            <Text style={styles.loginDialogBody}>
-              רק משתמשים מחוברים יכולים להציע מתכונים. אנא התחבר או הירשם כדי להמשיך.
-            </Text>
-            <View style={styles.loginDialogActions}>
-              <Button
-                testID="propose-login-dismiss-btn"
-                label="חזרה לדף הבית"
-                variant="secondary"
-                onPress={handleDismissGuestPrompt}
-                style={styles.dialogActionBtn}
-              />
-              <Button
-                testID="propose-login-btn"
-                label="התחברות / הרשמה"
-                variant="primary"
-                onPress={handleGoToAuth}
-                style={styles.dialogActionBtn}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* 2×2 Save Choice Modal (approved & manager) */}
       <SaveChoiceModal
@@ -590,17 +554,14 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bodyMedium,
     color: colors.ink3,
   },
-  modalOverlay: {
+  guestGateWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
   },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: statusColors.overlayBackdrop,
-  },
-  loginDialog: {
+  guestGateCard: {
     width: '100%',
     maxWidth: 420,
     backgroundColor: colors.surface1,
@@ -608,28 +569,33 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.hairline,
-    ...shadows.level3,
+    alignItems: 'center',
     gap: spacing.md,
   },
-  loginDialogTitle: {
+  guestGateIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestGateTitle: {
     fontSize: typeScale.step2,
     fontFamily: fontFamilies.heading,
     color: colors.ink,
-    textAlign: 'left',
+    textAlign: 'center',
   },
-  loginDialogBody: {
+  guestGateBody: {
     fontSize: typeScale.step0,
     fontFamily: fontFamilies.body,
     color: colors.ink2,
     lineHeight: 22,
-    textAlign: 'left',
+    textAlign: 'center',
   },
-  loginDialogActions: {
-    flexDirection: 'row',
+  guestGateActions: {
+    width: '100%',
     gap: spacing.sm,
     marginTop: spacing.xs,
-  },
-  dialogActionBtn: {
-    flex: 1,
   },
 });

@@ -1,3 +1,11 @@
+import Constants from 'expo-constants';
+import {
+  GoogleSignin,
+  isCancelledResponse,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { IS_DTU_MODE } from '../_firebase/firebase-app';
 import {
   changeAuthPassword,
@@ -20,6 +28,74 @@ import {
   registerGlobalBeforeSignOutHook,
 } from '@/context/SessionContext';
 
+let googleSignInConfigured = false;
+
+function getGoogleAuthExtra(): { webClientId?: string; iosClientId?: string } {
+  const extra = (Constants.expoConfig?.extra || {}) as Record<string, any>;
+  return (extra.googleAuth || {}) as { webClientId?: string; iosClientId?: string };
+}
+
+function ensureGoogleSignInConfigured(): { webClientId?: string; iosClientId?: string } {
+  const { webClientId, iosClientId } = getGoogleAuthExtra();
+  if (!googleSignInConfigured) {
+    GoogleSignin.configure({
+      ...(webClientId ? { webClientId } : {}),
+      ...(iosClientId ? { iosClientId } : {}),
+    });
+    googleSignInConfigured = true;
+  }
+  return { webClientId, iosClientId };
+}
+
+function isGoogleCancelError(error: any): boolean {
+  if (!error) return false;
+  if (error?.code === 'SIGN_IN_CANCELLED' || error?.code === 'ERR_REQUEST_CANCELED') {
+    return true;
+  }
+  if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
+    return true;
+  }
+  return false;
+}
+
+async function acquireNativeGoogleTokens(): Promise<{
+  idToken: string | null;
+  accessToken: string | null;
+} | null> {
+  const { webClientId } = ensureGoogleSignInConfigured();
+  if (!webClientId) {
+    throw new Error('הגדרות Google Sign-In חסרות בגרסה זו.');
+  }
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  const response = await GoogleSignin.signIn();
+  if (isCancelledResponse(response) || !isSuccessResponse(response)) {
+    return null;
+  }
+  let idToken = response.data.idToken || null;
+  let accessToken: string | null = null;
+  if (!idToken) {
+    const tokens = await GoogleSignin.getTokens().catch(() => null);
+    idToken = tokens?.idToken || null;
+    accessToken = tokens?.accessToken || null;
+  }
+  if (!idToken && !accessToken) {
+    throw new Error('לא התקבל אסימון אימות מ-Google. נסה שוב.');
+  }
+  return { idToken, accessToken };
+}
+
+async function signOutGoogleIfNeeded(): Promise<void> {
+  if (IS_DTU_MODE) return;
+  try {
+    const { webClientId, iosClientId } = getGoogleAuthExtra();
+    if (!webClientId && !iosClientId) return;
+    ensureGoogleSignInConfigured();
+    await GoogleSignin.signOut();
+  } catch {
+    // Best-effort cleanup so Google account chooser re-appears on next sign-in
+  }
+}
+
 const HEBREW_AUTH_ERRORS: Record<string, string> = {
   'auth/invalid-email': 'כתובת האימייל אינה תקינה.',
   'auth/user-disabled': 'חשבון זה הושבת. פנה למנהל המערכת.',
@@ -39,10 +115,24 @@ const HEBREW_AUTH_ERRORS: Record<string, string> = {
 export function mapAuthErrorToHebrew(error: any): string {
   const rawCode = String(error?.code || '');
   const rawMessage = String(error?.message || '');
+  if (isErrorWithCode(error)) {
+    if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      return 'שירותי Google Play אינם זמינים במכשיר זה.';
+    }
+    if (error.code === statusCodes.IN_PROGRESS) {
+      return 'התחברות עם Google כבר מתבצעת.';
+    }
+  }
   if (rawCode === 'auth/internal-error' && rawMessage.includes('INVALID_LOGIN_CREDENTIALS')) {
     return HEBREW_AUTH_ERRORS['auth/invalid-credential'];
   }
-  return HEBREW_AUTH_ERRORS[rawCode] || 'אירעה שגיאה בהתחברות. נסה שוב.';
+  if (HEBREW_AUTH_ERRORS[rawCode]) {
+    return HEBREW_AUTH_ERRORS[rawCode];
+  }
+  if (!rawCode && /[\u0590-\u05FF]/.test(rawMessage)) {
+    return rawMessage;
+  }
+  return 'אירעה שגיאה בהתחברות. נסה שוב.';
 }
 
 export const AuthService = {
@@ -120,13 +210,18 @@ export const AuthService = {
         return cred.user;
       }
 
-      if (!googleTokens?.idToken && !googleTokens?.accessToken) {
-        const cancelErr: any = new Error('Google Sign-In cancelled');
-        cancelErr.code = 'SIGN_IN_CANCELLED';
-        throw cancelErr;
+      let idToken = googleTokens?.idToken || null;
+      let accessToken = googleTokens?.accessToken || null;
+      if (!idToken && !accessToken) {
+        const nativeTokens = await acquireNativeGoogleTokens();
+        if (!nativeTokens) {
+          return null;
+        }
+        idToken = nativeTokens.idToken;
+        accessToken = nativeTokens.accessToken;
       }
 
-      const cred = await signInWithGoogleTokens(googleTokens.idToken, googleTokens.accessToken);
+      const cred = await signInWithGoogleTokens(idToken, accessToken);
       const existing = await UserService.get(cred.user.uid);
       if (!existing) {
         await UserService.create(cred.user.uid, {
@@ -138,7 +233,7 @@ export const AuthService = {
       setTelemetryUser(cred.user.uid, existing?.role || 'user');
       return cred.user;
     } catch (err: any) {
-      if (err?.code === 'SIGN_IN_CANCELLED' || err?.code === 'ERR_REQUEST_CANCELED') {
+      if (isGoogleCancelError(err)) {
         return null;
       }
       captureError(err, { service: 'auth', op: 'signInWithGoogle' });
@@ -205,13 +300,26 @@ export const AuthService = {
   async linkWithGoogle(googleTokens?: { idToken?: string | null; accessToken?: string | null }) {
     const current = getCurrentAuthUser();
     if (!current) throw new Error('נדרשת התחברות.');
-    if (!googleTokens?.idToken && !googleTokens?.accessToken) {
+    if (IS_DTU_MODE && !googleTokens?.idToken && !googleTokens?.accessToken) {
       return false;
     }
     try {
-      await linkGoogleTokens(current, googleTokens.idToken, googleTokens.accessToken);
+      let idToken = googleTokens?.idToken || null;
+      let accessToken = googleTokens?.accessToken || null;
+      if (!idToken && !accessToken) {
+        const nativeTokens = await acquireNativeGoogleTokens();
+        if (!nativeTokens) {
+          return false;
+        }
+        idToken = nativeTokens.idToken;
+        accessToken = nativeTokens.accessToken;
+      }
+      await linkGoogleTokens(current, idToken, accessToken);
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      if (isGoogleCancelError(err)) {
+        return false;
+      }
       captureError(err, { service: 'auth', op: 'linkWithGoogle', uid: current.uid });
       throw new Error(mapAuthErrorToHebrew(err));
     }
@@ -237,7 +345,7 @@ export const AuthService = {
     if (current?.uid) {
       await executeGlobalBeforeSignOutHooks(current.uid);
     }
-    await signOutAuth();
+    await Promise.allSettled([signOutAuth(), signOutGoogleIfNeeded()]);
     setTelemetryUser(null, 'guest');
   },
 
@@ -267,6 +375,7 @@ export const AuthService = {
       await UserService.delete(uid);
 
       await deleteAuthUser(current);
+      await signOutGoogleIfNeeded();
       setTelemetryUser(null, 'guest');
     } catch (err) {
       captureError(err, { service: 'auth', op: 'deleteAccount', uid });
