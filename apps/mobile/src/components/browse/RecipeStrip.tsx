@@ -48,7 +48,7 @@ export function RecipeStrip({
         <View style={styles.row}>
           {[0, 1].map((idx) => (
             <View key={idx} style={[styles.cell, styles.skeletonCard]}>
-              <Skeleton height={116} radius={radii.md} />
+              <Skeleton height={158} radius={radii.md} />
               <View style={styles.skeletonBody}>
                 <Skeleton width="45%" height={12} />
                 <Skeleton width="85%" height={16} />

@@ -370,7 +370,6 @@ export default function CategoriesScreen() {
       <View style={styles.gridCell}>
         <RecipeCard
           recipe={item}
-          dense
           isFavorite={favoriteSet.has(item.id)}
           showFavorite
           showAddToMeal={isAuthenticated}
@@ -417,7 +416,7 @@ export default function CategoriesScreen() {
             <View key={row} style={styles.skeletonRow}>
               {[0, 1].map((col) => (
                 <View key={col} style={styles.skeletonCard}>
-                  <Skeleton height={124} radius={radii.md} />
+                  <Skeleton height={158} radius={radii.md} />
                   <View style={styles.skeletonBody}>
                     <Skeleton width="45%" height={12} />
                     <Skeleton width="85%" height={16} />
@@ -465,7 +464,7 @@ export default function CategoriesScreen() {
               testID="categories-search-input"
               value={searchInput}
               onChangeText={setSearchInput}
-              placeholder="חיפוש מתכונים, קטגוריות או תגיות..."
+              placeholder="חיפוש מתכונים או תגיות..."
               placeholderTextColor={colors.ink4}
               returnKeyType="search"
               style={styles.searchInput}

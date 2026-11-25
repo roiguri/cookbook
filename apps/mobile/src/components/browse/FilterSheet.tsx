@@ -1,9 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+  type GestureResponderEvent,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FilterUtils } from '@cookbook/core/filter-utils';
 import { DIFFICULTIES } from '@cookbook/core/recipe-model';
-import { colors, fontFamilies, radii, spacing, typeScale } from '@/theme';
+import { colors, fontFamilies, radii, shadows, spacing, typeScale } from '@/theme';
 import { Button, Chip, ModalSheet, PressableScale } from '@/components/ui';
 import type { RecipeDoc } from '@/services/recipes/recipe-service';
 
@@ -53,7 +63,12 @@ export interface FilterSheetProps {
   onClose: () => void;
 }
 
-const MAX_SCROLL_HEIGHT = Math.min(440, Math.round(Dimensions.get('window').height * 0.54));
+interface CountedOption {
+  value: string;
+  count: number;
+}
+
+const MAX_SCROLL_HEIGHT = Math.min(520, Math.round(Dimensions.get('window').height * 0.62));
 
 export function FilterSheet({
   visible,
@@ -65,7 +80,11 @@ export function FilterSheet({
   onClear,
   onClose,
 }: FilterSheetProps) {
+  const scrollRef = useRef<ScrollView | null>(null);
   const [draft, setDraft] = useState<RecipeFilters>(currentFilters);
+  const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
+  const [ingredientSearch, setIngredientSearch] = useState('');
+  const [tagsDropdownOpen, setTagsDropdownOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
   const [matchingCount, setMatchingCount] = useState<number>(recipes.length);
 
@@ -80,6 +99,9 @@ export function FilterSheet({
         favoritesOnly: isAuthenticated ? currentFilters.favoritesOnly : false,
       };
       setDraft(nextDraft);
+      setIngredientDropdownOpen(false);
+      setIngredientSearch('');
+      setTagsDropdownOpen(false);
       setTagSearch('');
       const initialMatched = (FilterUtils as any).applyFilters(
         recipes,
@@ -95,10 +117,43 @@ export function FilterSheet({
       mainIngredients?: string[];
       tags?: string[];
     };
-    return {
-      mainIngredients: Array.isArray(extracted?.mainIngredients) ? extracted.mainIngredients : [],
-      tags: Array.isArray(extracted?.tags) ? extracted.tags : [],
-    };
+
+    const ingCounts = new Map<string, number>();
+    const tagCounts = new Map<string, number>();
+    for (const r of recipes) {
+      const ing = typeof r?.mainIngredient === 'string' ? r.mainIngredient.trim() : '';
+      if (ing) {
+        ingCounts.set(ing, (ingCounts.get(ing) || 0) + 1);
+      }
+      if (Array.isArray(r?.tags)) {
+        const seenInRecipe = new Set<string>();
+        for (const rawTag of r.tags) {
+          const t = typeof rawTag === 'string' ? rawTag.trim() : '';
+          if (t && !seenInRecipe.has(t)) {
+            seenInRecipe.add(t);
+            tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    const rawIngredients = Array.isArray(extracted?.mainIngredients)
+      ? extracted.mainIngredients
+      : [];
+    const rawTags = Array.isArray(extracted?.tags) ? extracted.tags : [];
+
+    const sortByPopularityThenHe = (a: CountedOption, b: CountedOption) =>
+      b.count - a.count || a.value.localeCompare(b.value, 'he');
+
+    const mainIngredients: CountedOption[] = rawIngredients
+      .map((value) => ({ value, count: ingCounts.get(value) || 0 }))
+      .sort(sortByPopularityThenHe);
+
+    const tags: CountedOption[] = rawTags
+      .map((value) => ({ value, count: tagCounts.get(value) || 0 }))
+      .sort(sortByPopularityThenHe);
+
+    return { mainIngredients, tags };
   }, [recipes]);
 
   // Debounced live match count using `@cookbook/core/filter-utils` FilterUtils.applyFilters
@@ -111,11 +166,20 @@ export function FilterSheet({
     return () => clearTimeout(timer);
   }, [visible, recipes, draft, favoriteIds]);
 
-  const filteredTags = useMemo(() => {
+  const filteredMainIngredients = useMemo(() => {
+    const q = ingredientSearch.trim().toLowerCase();
+    if (!q) return availableOptions.mainIngredients;
+    return availableOptions.mainIngredients.filter((opt) => opt.value.toLowerCase().includes(q));
+  }, [availableOptions.mainIngredients, ingredientSearch]);
+
+  const filteredUnselectedTags = useMemo(() => {
     const q = tagSearch.trim().toLowerCase();
-    if (!q) return availableOptions.tags;
-    return availableOptions.tags.filter((t) => t.toLowerCase().includes(q));
-  }, [availableOptions.tags, tagSearch]);
+    return availableOptions.tags.filter((opt) => {
+      if (draft.tags.includes(opt.value)) return false;
+      if (!q) return true;
+      return opt.value.toLowerCase().includes(q);
+    });
+  }, [availableOptions.tags, draft.tags, tagSearch]);
 
   const toggleDifficulty = (diff: string) => {
     setDraft((prev) => ({
@@ -131,21 +195,33 @@ export function FilterSheet({
     }));
   };
 
-  const toggleMainIngredient = (ingredient: string) => {
+  const handleSelectMainIngredient = (ingredient: string) => {
     setDraft((prev) => ({
       ...prev,
-      mainIngredient: prev.mainIngredient === ingredient ? '' : ingredient,
+      mainIngredient: ingredient,
     }));
+    setIngredientDropdownOpen(false);
+    setIngredientSearch('');
   };
 
-  const toggleTag = (tag: string) => {
+  const handleClearMainIngredient = (e: GestureResponderEvent) => {
+    e.stopPropagation?.();
+    setDraft((prev) => ({ ...prev, mainIngredient: '' }));
+  };
+
+  const handleAddTag = (tag: string) => {
     setDraft((prev) => {
-      const exists = prev.tags.includes(tag);
-      return {
-        ...prev,
-        tags: exists ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag],
-      };
+      if (prev.tags.includes(tag)) return prev;
+      return { ...prev, tags: [...prev.tags, tag] };
     });
+    setTagSearch('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      tags: prev.tags.filter((t) => t !== tag),
+    }));
   };
 
   const toggleFavoritesOnly = () => {
@@ -157,6 +233,10 @@ export function FilterSheet({
 
   const handleClear = () => {
     setDraft({ ...EMPTY_FILTERS, tags: [] });
+    setIngredientDropdownOpen(false);
+    setIngredientSearch('');
+    setTagsDropdownOpen(false);
+    setTagSearch('');
     onClear();
   };
 
@@ -168,6 +248,8 @@ export function FilterSheet({
     });
     onClose();
   };
+
+  const showTagsDropdown = tagsDropdownOpen || tagSearch.trim().length > 0;
 
   return (
     <ModalSheet
@@ -184,10 +266,12 @@ export function FilterSheet({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
       >
         {/* Cooking Time (exact 3 buckets) */}
         <View style={styles.section}>
@@ -221,6 +305,299 @@ export function FilterSheet({
           </View>
         </View>
 
+        {/* Main Ingredient (compact searchable dropdown picker) */}
+        {availableOptions.mainIngredients.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>מרכיב עיקרי</Text>
+
+            <PressableScale
+              variant="card"
+              testID="filter-main-ingredient-trigger"
+              accessibilityRole="button"
+              accessibilityLabel="בחירת מרכיב עיקרי"
+              accessibilityState={{ expanded: ingredientDropdownOpen }}
+              onPress={() => {
+                setIngredientDropdownOpen((open) => {
+                  const next = !open;
+                  if (next) setTagsDropdownOpen(false);
+                  return next;
+                });
+              }}
+              style={[
+                styles.pickerTrigger,
+                Boolean(draft.mainIngredient) && styles.pickerTriggerActive,
+                ingredientDropdownOpen && styles.pickerTriggerOpen,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.pickerTriggerText,
+                  Boolean(draft.mainIngredient) && styles.pickerTriggerTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {draft.mainIngredient || 'הכל'}
+              </Text>
+
+              <View style={styles.pickerTriggerActions}>
+                {draft.mainIngredient ? (
+                  <Pressable
+                    testID="filter-main-ingredient-clear"
+                    onPress={handleClearMainIngredient}
+                    accessibilityRole="button"
+                    accessibilityLabel="נקה מרכיב עיקרי"
+                    hitSlop={8}
+                    style={styles.inlineClearBtn}
+                  >
+                    <Ionicons name="close-circle" size={18} color={colors.ink3} />
+                  </Pressable>
+                ) : null}
+                <Ionicons
+                  name={ingredientDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.ink3}
+                />
+              </View>
+            </PressableScale>
+
+            {ingredientDropdownOpen ? (
+              <View style={[styles.dropdownPanel, shadows.level1]}>
+                {availableOptions.mainIngredients.length > 5 ? (
+                  <View style={styles.dropdownSearchRow}>
+                    <Ionicons name="search-outline" size={16} color={colors.ink3} />
+                    <TextInput
+                      testID="filter-main-ingredient-search"
+                      value={ingredientSearch}
+                      onChangeText={setIngredientSearch}
+                      placeholder="חיפוש מרכיב עיקרי..."
+                      placeholderTextColor={colors.ink4}
+                      autoCorrect={false}
+                      style={styles.dropdownSearchInput}
+                    />
+                    {ingredientSearch.length > 0 ? (
+                      <Pressable
+                        onPress={() => setIngredientSearch('')}
+                        hitSlop={8}
+                        accessibilityLabel="נקה חיפוש מרכיב"
+                      >
+                        <Ionicons name="close-circle" size={16} color={colors.ink3} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : null}
+
+                <ScrollView
+                  style={styles.dropdownList}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {ingredientSearch.trim().length === 0 ? (
+                    <Pressable
+                      onPress={() => handleSelectMainIngredient('')}
+                      style={[
+                        styles.dropdownOption,
+                        !draft.mainIngredient && styles.dropdownOptionSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownOptionText,
+                          !draft.mainIngredient && styles.dropdownOptionTextSelected,
+                        ]}
+                      >
+                        הכל
+                      </Text>
+                      {!draft.mainIngredient ? (
+                        <Ionicons name="checkmark" size={17} color={colors.primaryDark} />
+                      ) : null}
+                    </Pressable>
+                  ) : null}
+
+                  {filteredMainIngredients.length > 0 ? (
+                    filteredMainIngredients.map((opt) => {
+                      const isSelected = draft.mainIngredient === opt.value;
+                      return (
+                        <Pressable
+                          key={opt.value}
+                          onPress={() => handleSelectMainIngredient(opt.value)}
+                          style={[
+                            styles.dropdownOption,
+                            isSelected && styles.dropdownOptionSelected,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownOptionText,
+                              isSelected && styles.dropdownOptionTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {opt.value}
+                          </Text>
+                          <View style={styles.optionTrailing}>
+                            {opt.count > 0 ? (
+                              <View style={styles.optionCountPill}>
+                                <Text style={styles.optionCountText} allowFontScaling={false}>
+                                  {opt.count}
+                                </Text>
+                              </View>
+                            ) : null}
+                            {isSelected ? (
+                              <Ionicons name="checkmark" size={17} color={colors.primaryDark} />
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.dropdownEmptyText}>לא נמצאו מרכיבים תואמים</Text>
+                  )}
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Tags (searchable autocomplete input + removable selected tag pills) */}
+        {availableOptions.tags.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionLabel}>
+                תגיות{draft.tags.length > 0 ? ` (${draft.tags.length} נבחרו)` : ''}
+              </Text>
+              {draft.tags.length > 0 ? (
+                <Pressable onPress={() => setDraft((prev) => ({ ...prev, tags: [] }))} hitSlop={6}>
+                  <Text style={styles.clearInlineLink} allowFontScaling={false}>
+                    נקה תגיות
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            {/* Selected Removable Tag Pills */}
+            {draft.tags.length > 0 ? (
+              <View style={styles.selectedTagsWrap}>
+                {draft.tags.map((tag) => (
+                  <PressableScale
+                    key={tag}
+                    variant="button"
+                    testID={`filter-selected-tag-${tag}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`הסר תגית ${tag}`}
+                    onPress={() => handleRemoveTag(tag)}
+                    style={styles.selectedTagPill}
+                  >
+                    <Text style={styles.selectedTagText} allowFontScaling={false}>
+                      {tag}
+                    </Text>
+                    <Ionicons name="close" size={14} color={colors.buttonColor} />
+                  </PressableScale>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Searchable Autocomplete Input */}
+            <View
+              style={[styles.autocompleteInputRow, showTagsDropdown && styles.pickerTriggerOpen]}
+            >
+              <Ionicons name="search-outline" size={17} color={colors.ink3} />
+              <TextInput
+                testID="filter-tag-search-input"
+                value={tagSearch}
+                onChangeText={(text) => {
+                  setTagSearch(text);
+                  if (!tagsDropdownOpen) {
+                    setTagsDropdownOpen(true);
+                    setIngredientDropdownOpen(false);
+                  }
+                }}
+                onFocus={() => {
+                  setTagsDropdownOpen(true);
+                  setIngredientDropdownOpen(false);
+                  setTimeout(() => {
+                    scrollRef.current?.scrollToEnd({ animated: true });
+                  }, 120);
+                }}
+                placeholder="חפש והוסף תגיות..."
+                placeholderTextColor={colors.ink4}
+                autoCorrect={false}
+                style={styles.autocompleteInput}
+              />
+              {tagSearch.length > 0 ? (
+                <Pressable
+                  onPress={() => setTagSearch('')}
+                  hitSlop={8}
+                  accessibilityLabel="נקה חיפוש תגית"
+                >
+                  <Ionicons name="close-circle" size={17} color={colors.ink3} />
+                </Pressable>
+              ) : null}
+              <Pressable
+                testID="filter-tags-toggle"
+                onPress={() => {
+                  setTagsDropdownOpen((open) => {
+                    const next = !open;
+                    if (next) setIngredientDropdownOpen(false);
+                    return next;
+                  });
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={showTagsDropdown ? 'סגור רשימת תגיות' : 'פתח רשימת תגיות'}
+                style={styles.dropdownChevronBtn}
+              >
+                <Ionicons
+                  name={showTagsDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.ink3}
+                />
+              </Pressable>
+            </View>
+
+            {showTagsDropdown ? (
+              <View style={[styles.dropdownPanel, shadows.level1]}>
+                <ScrollView
+                  style={styles.dropdownList}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {filteredUnselectedTags.length > 0 ? (
+                    filteredUnselectedTags.map((opt) => (
+                      <Pressable
+                        key={opt.value}
+                        onPress={() => handleAddTag(opt.value)}
+                        style={styles.dropdownOption}
+                      >
+                        <Text style={styles.dropdownOptionText} numberOfLines={1}>
+                          {opt.value}
+                        </Text>
+                        <View style={styles.optionTrailing}>
+                          {opt.count > 0 ? (
+                            <View style={styles.optionCountPill}>
+                              <Text style={styles.optionCountText} allowFontScaling={false}>
+                                {opt.count}
+                              </Text>
+                            </View>
+                          ) : null}
+                          <Ionicons
+                            name="add-circle-outline"
+                            size={18}
+                            color={colors.primaryDark}
+                          />
+                        </View>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <Text style={styles.dropdownEmptyText}>
+                      {tagSearch.trim() ? 'לא נמצאו תגיות תואמות' : 'כל התגיות כבר נבחרו'}
+                    </Text>
+                  )}
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* Favorites Only (signed-in only) */}
         {isAuthenticated ? (
           <View style={styles.section}>
@@ -248,51 +625,6 @@ export function FilterSheet({
                 thumbColor={draft.favoritesOnly ? colors.primaryDark : colors.surface1}
               />
             </PressableScale>
-          </View>
-        ) : null}
-
-        {/* Main Ingredient (dynamic from FilterUtils.extractFilterOptions) */}
-        {availableOptions.mainIngredients.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>מרכיב עיקרי</Text>
-            <View style={styles.chipsWrap}>
-              {availableOptions.mainIngredients.map((ingredient) => (
-                <Chip
-                  key={ingredient}
-                  label={ingredient}
-                  selected={draft.mainIngredient === ingredient}
-                  onPress={() => toggleMainIngredient(ingredient)}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {/* Tags (multi-select AND semantics) */}
-        {availableOptions.tags.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>
-              תגיות{draft.tags.length > 0 ? ` (${draft.tags.length} נבחרו)` : ''}
-            </Text>
-            {availableOptions.tags.length > 8 ? (
-              <TextInput
-                value={tagSearch}
-                onChangeText={setTagSearch}
-                placeholder="סינון תגיות..."
-                placeholderTextColor={colors.ink4}
-                style={styles.tagSearchInput}
-              />
-            ) : null}
-            <View style={styles.chipsWrap}>
-              {filteredTags.map((tag) => (
-                <Chip
-                  key={tag}
-                  label={tag}
-                  selected={draft.tags.includes(tag)}
-                  onPress={() => toggleTag(tag)}
-                />
-              ))}
-            </View>
           </View>
         ) : null}
       </ScrollView>
@@ -342,6 +674,12 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.sm,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   sectionLabel: {
     fontSize: typeScale.stepMinus1,
     fontFamily: fontFamilies.bodyBold,
@@ -349,10 +687,179 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     includeFontPadding: false,
   },
+  clearInlineLink: {
+    fontSize: 12,
+    fontFamily: fontFamilies.bodyMedium,
+    color: colors.primaryDark,
+    includeFontPadding: false,
+  },
   chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  pickerTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    backgroundColor: colors.surface1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    gap: spacing.sm,
+  },
+  pickerTriggerActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surface2,
+  },
+  pickerTriggerOpen: {
+    borderColor: colors.primary,
+  },
+  pickerTriggerText: {
+    flex: 1,
+    fontSize: typeScale.step0,
+    fontFamily: fontFamilies.body,
+    color: colors.ink3,
+    textAlign: 'left',
+    includeFontPadding: false,
+  },
+  pickerTriggerTextActive: {
+    fontFamily: fontFamilies.bodyBold,
+    color: colors.primaryDark,
+  },
+  pickerTriggerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  inlineClearBtn: {
+    padding: 2,
+  },
+  autocompleteInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    gap: spacing.xs,
+  },
+  autocompleteInput: {
+    flex: 1,
+    fontSize: typeScale.step0,
+    fontFamily: fontFamilies.body,
+    color: colors.ink,
+    paddingVertical: 9,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  dropdownChevronBtn: {
+    padding: 2,
+  },
+  dropdownPanel: {
+    backgroundColor: colors.surface1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    overflow: 'hidden',
+  },
+  dropdownSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+    backgroundColor: colors.surface0,
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    fontSize: typeScale.stepMinus1,
+    fontFamily: fontFamilies.body,
+    color: colors.ink,
+    paddingVertical: 4,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  dropdownList: {
+    maxHeight: 192,
+  },
+  dropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
+  },
+  dropdownOptionSelected: {
+    backgroundColor: colors.surface2,
+  },
+  dropdownOptionText: {
+    flex: 1,
+    fontSize: typeScale.step0,
+    fontFamily: fontFamilies.body,
+    color: colors.ink,
+    textAlign: 'left',
+  },
+  dropdownOptionTextSelected: {
+    fontFamily: fontFamilies.bodyBold,
+    color: colors.primaryDark,
+  },
+  optionTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  optionCountPill: {
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionCountText: {
+    fontSize: 11,
+    fontFamily: fontFamilies.bodyMedium,
+    color: colors.ink3,
+    includeFontPadding: false,
+  },
+  dropdownEmptyText: {
+    padding: spacing.md,
+    fontSize: typeScale.stepMinus1,
+    fontFamily: fontFamilies.body,
+    color: colors.ink3,
+    textAlign: 'center',
+  },
+  selectedTagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  selectedTagPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.primary,
+    borderRadius: radii.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+  },
+  selectedTagText: {
+    fontSize: 12.5,
+    fontFamily: fontFamilies.bodyBold,
+    color: colors.buttonColor,
+    includeFontPadding: false,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -382,19 +889,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
     textAlign: 'left',
     includeFontPadding: false,
-  },
-  tagSearchInput: {
-    backgroundColor: colors.surface1,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.hairlineStrong,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    fontSize: typeScale.stepMinus1,
-    fontFamily: fontFamilies.body,
-    color: colors.ink,
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
   footer: {
     flexDirection: 'row',

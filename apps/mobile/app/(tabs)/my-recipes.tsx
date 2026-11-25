@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { FilterUtils } from '@cookbook/core/filter-utils';
 import { CATEGORY_IDS } from '@cookbook/core/recipe-model';
@@ -30,12 +29,11 @@ import {
   Skeleton,
   useToast,
 } from '@/components/ui';
+import { RecipePhoto } from '@/components/browse';
 import { StatusBadge } from '@/components/library';
-import { getCategoryImage } from '@/utils/category-images';
 import { useSession } from '@/context/SessionContext';
 import { captureError } from '@/services/logger';
 import { ActiveMealService } from '@/services/meals/active-meal-service';
-import { RecipeImageService } from '@/services/recipes/recipe-image-service';
 import { RecipeService } from '@/services/recipes/recipe-service';
 import { RecipeShareService } from '@/services/recipes/recipe-share-service';
 import { RecipeSubmissionService } from '@/services/recipes/recipe-submission-service';
@@ -156,14 +154,12 @@ export default function MyRecipesScreen() {
     shared: [],
     'to-try': [],
   });
-  const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [addingMealId, setAddingMealId] = useState<string | null>(null);
 
   const loadSeqRef = useRef(0);
-  const loadedImageIdsRef = useRef<Set<string>>(new Set());
 
   // Redirect signed-out visitors back to home
   useEffect(() => {
@@ -249,36 +245,6 @@ export default function MyRecipesScreen() {
 
         const computed = computeLibraryViews(mineResult, savedResult, sharedResult);
         setViews(computed);
-
-        // Resolve primary card thumbnails for any newly visible recipes
-        const uniqueRecipes = new Map<string, LibraryRecipe>();
-        for (const r of computed.all) {
-          if (r?.id) uniqueRecipes.set(r.id, r);
-        }
-        const toResolve = Array.from(uniqueRecipes.values()).filter(
-          (r) => !loadedImageIdsRef.current.has(r.id),
-        );
-        if (toResolve.length > 0) {
-          const pairs = await Promise.all(
-            toResolve.map(async (r) => {
-              try {
-                const url = await RecipeImageService.getPrimaryImageUrl(r, 'thumb');
-                return [r.id, url || null] as const;
-              } catch {
-                return [r.id, null] as const;
-              }
-            }),
-          );
-          if (seq !== loadSeqRef.current) return;
-          setImageUrls((prev) => {
-            const next = { ...prev };
-            for (const [id, url] of pairs) {
-              loadedImageIdsRef.current.add(id);
-              next[id] = url;
-            }
-            return next;
-          });
-        }
       } catch (err) {
         captureError(err, { service: 'myRecipes', op: 'loadLibrary', uid });
         showToast('לא הצלחנו לטעון את הספרייה. נסו שוב.', 'error');
@@ -314,7 +280,6 @@ export default function MyRecipesScreen() {
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    loadedImageIdsRef.current.clear();
     void loadLibrary({ silent: true });
   }, [loadLibrary]);
 
@@ -420,7 +385,6 @@ export default function MyRecipesScreen() {
 
   const renderRecipeCard = useCallback(
     ({ item }: { item: LibraryRecipe }) => {
-      const thumbUrl = imageUrls[item.id] ?? null;
       const totalMinutes = calculateTotalTime(item.prepTime, item.waitTime);
       const categoryLabel = item.category ? getLocalizedCategoryName(item.category) : '';
       const canMarkTested = showMarkTested && item.ownView && item.stage === 'to-try';
@@ -436,24 +400,7 @@ export default function MyRecipesScreen() {
             style={styles.card}
           >
             <View style={styles.photoWrap}>
-              {thumbUrl ? (
-                <Image
-                  source={{ uri: thumbUrl }}
-                  contentFit="cover"
-                  transition={180}
-                  style={styles.photo}
-                />
-              ) : getCategoryImage(item.category) ? (
-                <Image
-                  source={getCategoryImage(item.category)!}
-                  contentFit="cover"
-                  style={styles.photo}
-                />
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons name="restaurant-outline" size={26} color={colors.ink3} />
-                </View>
-              )}
+              <RecipePhoto recipe={item} size="thumb" fallbackIconSize={26} />
 
               <View style={styles.badgeOverlay} pointerEvents="none">
                 <StatusBadge recipe={item} recipeId={item.id} />
@@ -530,15 +477,7 @@ export default function MyRecipesScreen() {
         </View>
       );
     },
-    [
-      imageUrls,
-      showMarkTested,
-      markingId,
-      addingMealId,
-      handleOpenRecipe,
-      handleAddToMeal,
-      handleMarkTested,
-    ],
+    [showMarkTested, markingId, addingMealId, handleOpenRecipe, handleAddToMeal, handleMarkTested],
   );
 
   if (!isAuthenticated) {
@@ -698,7 +637,7 @@ export default function MyRecipesScreen() {
     <View style={styles.skeletonGrid}>
       {[0, 1, 2, 3].map((idx) => (
         <View key={idx} style={styles.skeletonCard}>
-          <Skeleton height={116} radius={radii.md} />
+          <Skeleton height={158} radius={radii.md} />
           <View style={styles.skeletonBody}>
             <Skeleton width="80%" height={15} />
             <Skeleton width="50%" height={12} />
@@ -895,19 +834,9 @@ const styles = StyleSheet.create({
   },
   photoWrap: {
     width: '100%',
-    height: 120,
+    height: 158,
     backgroundColor: colors.surface2,
     position: 'relative',
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  photoPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface2,
   },
   badgeOverlay: {
     position: 'absolute',

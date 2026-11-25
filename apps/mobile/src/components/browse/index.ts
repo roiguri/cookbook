@@ -1,4 +1,5 @@
 export { RecipeCard, type RecipeCardProps } from './RecipeCard';
+export { RecipePhoto, type RecipePhotoProps } from './RecipePhoto';
 export { RecipeStrip, type RecipeStripProps } from './RecipeStrip';
 export {
   FilterSheet,

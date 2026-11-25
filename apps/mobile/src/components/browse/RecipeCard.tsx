@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,7 +15,6 @@ import {
   formatCookingTime,
   getLocalizedCategoryName,
 } from '@cookbook/core/recipe-utils/recipe-data-utils';
-import { getPrimaryImage } from '@cookbook/core/recipe-utils/recipe-image-utils';
 import {
   getRecipeStatus,
   RECIPE_STATUS,
@@ -25,7 +24,7 @@ import { colors, fontFamilies, radii, shadows, spacing, statusColors, typeScale 
 import { Badge, PressableScale, type BadgeTone } from '@/components/ui';
 import { getCategoryImage } from '@/utils/category-images';
 import type { RecipeDoc } from '@/services/recipes/recipe-service';
-import { RecipeImageService } from '@/services/recipes/recipe-image-service';
+import { RecipePhoto } from './RecipePhoto';
 
 export interface RecipeCardProps {
   recipe: RecipeDoc;
@@ -92,36 +91,7 @@ export function RecipeCard({
   onAddToMeal,
   style,
 }: RecipeCardProps) {
-  const primaryImage = getPrimaryImage(recipe);
   const hasImages = Array.isArray(recipe.images) && recipe.images.length > 0;
-  const initialDirectUrl =
-    primaryImage?.preview ||
-    (typeof primaryImage?.url === 'string' && primaryImage.url.startsWith('http')
-      ? primaryImage.url
-      : null);
-
-  const [imageUrl, setImageUrl] = useState<string | null>(initialDirectUrl);
-
-  useEffect(() => {
-    let active = true;
-    if (!hasImages) {
-      setImageUrl(null);
-      return;
-    }
-
-    RecipeImageService.getPrimaryImageUrl(recipe, 'thumb')
-      .then((resolved) => {
-        if (active) setImageUrl(resolved);
-      })
-      .catch(() => {
-        if (active) setImageUrl(initialDirectUrl);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [recipe.id, hasImages, primaryImage?.full, primaryImage?.url, initialDirectUrl]);
-
   const totalTime = calculateTotalTime(recipe.prepTime, recipe.waitTime);
   const timeText = totalTime > 0 ? formatCookingTime(totalTime) : '';
   const categoryLabel = getLocalizedCategoryName(recipe.category);
@@ -195,20 +165,7 @@ export function RecipeCard({
     >
       {!isCompactMode ? (
         <View style={[styles.photoBox, dense && styles.photoBoxDense]}>
-          {imageUrl ? (
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.photo}
-              contentFit="cover"
-              transition={180}
-            />
-          ) : categoryImage ? (
-            <Image source={categoryImage} style={styles.photo} contentFit="cover" />
-          ) : (
-            <View style={styles.placeholder}>
-              <Ionicons name="restaurant-outline" size={dense ? 20 : 28} color={colors.ink3} />
-            </View>
-          )}
+          <RecipePhoto recipe={recipe} size="thumb" fallbackIconSize={dense ? 22 : 28} />
 
           {statusDisplay ? (
             <View style={styles.statusOverlay}>
@@ -302,22 +259,12 @@ const styles = StyleSheet.create({
   },
   photoBox: {
     width: '100%',
-    height: 132,
+    height: 158,
     backgroundColor: colors.surface2,
     position: 'relative',
   },
   photoBoxDense: {
-    height: 62,
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  placeholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface2,
+    height: 112,
   },
   statusOverlay: {
     position: 'absolute',
